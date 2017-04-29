@@ -1,0 +1,6 @@
+[package]
+name = "nihav"
+version = "0.1.0"
+authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
+
+[dependencies]
