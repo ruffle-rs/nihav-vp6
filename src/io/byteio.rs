@@ -103,7 +103,7 @@ impl<'a> ByteReader<'a> {
         read_int!(self, u64, 8, to_le)
     }
 
-    pub fn read_skip(&mut self, len: usize) -> ByteIOResult<u64> {
+    pub fn read_skip(&mut self, len: usize) -> ByteIOResult<()> {
         if self.io.is_seekable() {
             self.io.seek(SeekFrom::Current(len as i64))?;
         } else {
@@ -119,7 +119,7 @@ impl<'a> ByteReader<'a> {
                 ssize = ssize - 1;
             }
         }
-        Ok(self.tell())
+        Ok(())
     }
 
     pub fn tell(&mut self) -> u64 {
