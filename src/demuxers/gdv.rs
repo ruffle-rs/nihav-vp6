@@ -1,7 +1,6 @@
 use super::*;
 use io::byteio::*;
 use frame::*;
-use std::io::SeekFrom;
 //use std::collections::HashMap;
 
 enum GDVState {
@@ -123,9 +122,8 @@ pktdta: Vec::new(),
         let magic = src.read_u16be()?;
         if magic != 0x0513 { return Err(DemuxerError::InvalidData); }
         let size = (src.read_u16le()? as usize) + 4;
-        let tmp = src.read_u32le()?;
+        let tmp = src.peek_u32le()?;
         let flags = (tmp & 0xFF) as usize;
-        src.seek(SeekFrom::Current(-4))?;
         self.state = GDVState::NewFrame;
         self.cur_frame = self.cur_frame + 1;
         src.read_packet(str, Some((self.cur_frame - 1) as u64), None, None, if (flags & 64) != 0 { true } else { false }, size)
