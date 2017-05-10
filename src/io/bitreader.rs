@@ -1,19 +1,21 @@
 #[derive(Debug)]
 pub enum BitReaderMode {
     BE,
-    LE16,
-    LE32,
+    LE,
+    LE16MSB,
+    LE32MSB,
 }
 
 #[derive(Debug)]
 pub enum BitReaderError {
     BitstreamEnd,
     TooManyBitsRequested,
+    InvalidValue,
 }
 
 use self::BitReaderError::*;
 
-type BitReaderResult<T> = Result<T, BitReaderError>;
+pub type BitReaderResult<T> = Result<T, BitReaderError>;
 
 #[derive(Debug)]
 pub struct BitReader<'a> {
@@ -71,9 +73,10 @@ impl<'a> BitReader<'a> {
             if self.pos + 4 <= self.end {
                 let buf = &self.src[self.pos..];
                 match self.mode {
-                    BitReaderMode::BE   => self.fill32be  (buf),
-                    BitReaderMode::LE16 => self.fill32le16(buf, 32),
-                    BitReaderMode::LE32 => self.fill32le32(buf),
+                    BitReaderMode::BE      => self.fill32be  (buf),
+                    BitReaderMode::LE16MSB => self.fill32le16(buf, 32),
+                    BitReaderMode::LE      => self.fill32le32(buf),
+                    BitReaderMode::LE32MSB => self.fill32le32(buf),
                 }
                 self.pos  +=  4;
                 self.bits += 32;
@@ -89,9 +92,10 @@ impl<'a> BitReader<'a> {
                 }
                 if newbits == 0 { break; }
                 match self.mode {
-                    BitReaderMode::BE   => self.fill32be  (&buf),
-                    BitReaderMode::LE16 => self.fill32le16(&buf, newbits),
-                    BitReaderMode::LE32 => self.fill32le32(&buf),
+                    BitReaderMode::BE      => self.fill32be  (&buf),
+                    BitReaderMode::LE16MSB => self.fill32le16(&buf, newbits),
+                    BitReaderMode::LE      => self.fill32le32(&buf),
+                    BitReaderMode::LE32MSB => self.fill32le32(&buf),
                 }
                 self.bits += newbits;
             }
@@ -101,16 +105,24 @@ impl<'a> BitReader<'a> {
 
     fn read_cache(&mut self, nbits: u8) -> u32 {
         let res = match self.mode {
-            BitReaderMode::BE => (self.cache as u64) >> (64 - nbits),
-            _                 => ((1u64 << nbits) - 1) & self.cache,
+            BitReaderMode::LE => ((1u64 << nbits) - 1) & self.cache,
+            _                 => (self.cache as u64) >> (64 - nbits),
         };
         res as u32
     }
 
+    fn read_cache_s(&mut self, nbits: u8) -> i32 {
+        let res = match self.mode {
+            BitReaderMode::LE => ((self.cache as i64) << (64 - nbits)) >> (64 - nbits),
+            _                 => (self.cache as i64) >> (64 - nbits),
+        };
+        res as i32
+    }
+
     fn skip_cache(&mut self, nbits: u8) {
         match self.mode {
-            BitReaderMode::BE => self.cache <<= nbits,
-            _                 => self.cache >>= nbits,
+            BitReaderMode::LE => self.cache >>= nbits,
+            _                 => self.cache <<= nbits,
         };
         self.bits -= nbits;
     }
@@ -121,6 +133,7 @@ impl<'a> BitReader<'a> {
     }
 
     pub fn read(&mut self, nbits: u8) -> BitReaderResult<u32> {
+        if nbits == 0 { return Ok(0) }
         if nbits > 32 { return Err(TooManyBitsRequested) }
         if self.bits < nbits {
             if let Err(err) = self.refill() { return Err(err) }
@@ -128,7 +141,18 @@ impl<'a> BitReader<'a> {
         }
         let res = self.read_cache(nbits);
         self.skip_cache(nbits);
-        Ok(res as u32)
+        Ok(res)
+    }
+
+    pub fn read_s(&mut self, nbits: u8) -> BitReaderResult<i32> {
+        if nbits == 0 || nbits > 32 { return Err(TooManyBitsRequested) }
+        if self.bits < nbits {
+            if let Err(err) = self.refill() { return Err(err) }
+            if self.bits < nbits { return Err(BitstreamEnd) }
+        }
+        let res = self.read_cache_s(nbits);
+        self.skip_cache(nbits);
+        Ok(res)
     }
 
     pub fn peek(&mut self, nbits: u8) -> u32 {
@@ -169,10 +193,14 @@ mod test {
     fn br_works() {
         const DATA: [u8; 18] = [0b00011011; 18];
         let src = &DATA;
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::LE16);
+        let mut br = BitReader::new(src, src.len(), BitReaderMode::LE16MSB);
 
         for _ in 0..8 {
             assert_eq!(br.read(16).unwrap(), 0x1B1B);
         }
+        const DATA2: [u8; 1] = [ 0b00011011 ];
+        let src = &DATA2;
+        let mut br = BitReader::new(src, src.len(), BitReaderMode::LE);
+        assert_eq!(br.read_s(5).unwrap(), -5);
     }
 }
