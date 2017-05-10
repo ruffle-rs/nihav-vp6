@@ -17,7 +17,9 @@ type ByteIOResult<T> = Result<T, ByteIOError>;
 
 pub trait ByteIO {
     fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
+    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
     fn read_byte(&mut self) -> ByteIOResult<u8>;
+    fn peek_byte(&mut self) -> ByteIOResult<u8>;
     fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<usize>;
     fn tell(&mut self) -> u64;
     fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64>;
@@ -34,7 +36,6 @@ pub struct MemoryReader<'a> {
     buf:      &'a [u8],
     size:     usize,
     pos:      usize,
-    do_write: bool,
 }
 
 pub struct FileReader<'a> {
@@ -52,6 +53,16 @@ macro_rules! read_int {
     })
 }
 
+macro_rules! peek_int {
+    ($s: ident, $inttype: ty, $size: expr, $which: ident) => ({
+        let mut buf = [0; $size];
+        try!($s.peek_buf(&mut buf));
+        unsafe {
+            Ok((*(buf.as_ptr() as *const $inttype)).$which())
+        }
+    })
+}
+
 impl<'a> ByteReader<'a> {
     pub fn new(io: &'a mut ByteIO) -> ByteReader { ByteReader { io: io } }
 
@@ -59,48 +70,88 @@ impl<'a> ByteReader<'a> {
         self.io.read_buf(buf)
     }
 
+    pub fn peek_buf(&mut self, buf: &mut [u8])  -> ByteIOResult<usize> {
+        self.io.peek_buf(buf)
+    }
+
     pub fn read_byte(&mut self) -> ByteIOResult<u8> {
         self.io.read_byte()
+    }
+
+    pub fn peek_byte(&mut self) -> ByteIOResult<u8> {
+        self.io.peek_byte()
     }
 
     pub fn read_u16be(&mut self) -> ByteIOResult<u16> {
         read_int!(self, u16, 2, to_be)
     }
 
+    pub fn peek_u16be(&mut self) -> ByteIOResult<u16> {
+        peek_int!(self, u16, 2, to_be)
+    }
+
     pub fn read_u24be(&mut self) -> ByteIOResult<u32> {
-        let p16 = self.read_u16be();
-        if let Err(e) = p16 { return Err(e); }
-        let p8 = self.read_byte();
-        if let Err(e) = p8 { return Err(e); }
-        Ok(((p16.unwrap() as u32) << 8) | (p8.unwrap() as u32))
+        let p16 = self.read_u16be()?;
+        let p8 = self.read_byte()?;
+        Ok(((p16 as u32) << 8) | (p8 as u32))
+    }
+
+    pub fn peek_u24be(&mut self) -> ByteIOResult<u32> {
+        let mut src: [u8; 3] = [0; 3];
+        self.peek_buf(&mut src)?;
+        Ok(((src[0] as u32) << 16) | ((src[1] as u32) << 8) | (src[2] as u32))
     }
 
     pub fn read_u32be(&mut self) -> ByteIOResult<u32> {
         read_int!(self, u32, 4, to_be)
     }
 
+    pub fn peek_u32be(&mut self) -> ByteIOResult<u32> {
+        peek_int!(self, u32, 4, to_be)
+    }
+
     pub fn read_u64be(&mut self) -> ByteIOResult<u64> {
         read_int!(self, u64, 8, to_be)
+    }
+
+    pub fn peek_u64be(&mut self) -> ByteIOResult<u64> {
+        peek_int!(self, u64, 8, to_be)
     }
 
     pub fn read_u16le(&mut self) -> ByteIOResult<u16> {
         read_int!(self, u16, 2, to_le)
     }
 
+    pub fn peek_u16le(&mut self) -> ByteIOResult<u16> {
+        peek_int!(self, u16, 2, to_le)
+    }
+
     pub fn read_u24le(&mut self) -> ByteIOResult<u32> {
-        let p8 = self.read_byte();
-        if let Err(e) = p8 { return Err(e); }
-        let p16 = self.read_u16le();
-        if let Err(e) = p16 { return Err(e); }
-        Ok(((p16.unwrap() as u32) << 8) | (p8.unwrap() as u32))
+        let p8 = self.read_byte()?;
+        let p16 = self.read_u16le()?;
+        Ok(((p16 as u32) << 8) | (p8 as u32))
+    }
+
+    pub fn peek_u24le(&mut self) -> ByteIOResult<u32> {
+        let mut src: [u8; 3] = [0; 3];
+        self.peek_buf(&mut src)?;
+        Ok((src[0] as u32) | ((src[1] as u32) << 8) | ((src[2] as u32) << 16))
     }
 
     pub fn read_u32le(&mut self) -> ByteIOResult<u32> {
         read_int!(self, u32, 4, to_le)
     }
 
+    pub fn peek_u32le(&mut self) -> ByteIOResult<u32> {
+        peek_int!(self, u32, 4, to_le)
+    }
+
     pub fn read_u64le(&mut self) -> ByteIOResult<u64> {
         read_int!(self, u64, 8, to_le)
+    }
+
+    pub fn peek_u64le(&mut self) -> ByteIOResult<u64> {
+        peek_int!(self, u64, 8, to_le)
     }
 
     pub fn read_skip(&mut self, len: usize) -> ByteIOResult<()> {
@@ -138,7 +189,7 @@ impl<'a> ByteReader<'a> {
 impl<'a> MemoryReader<'a> {
 
     pub fn new_read(buf: &'a [u8]) -> Self {
-        MemoryReader { buf: buf, size: buf.len(), pos: 0, do_write: false }
+        MemoryReader { buf: buf, size: buf.len(), pos: 0 }
     }
 
     fn real_seek(&mut self, pos: i64) -> ByteIOResult<u64> {
@@ -148,47 +199,38 @@ impl<'a> MemoryReader<'a> {
         self.pos = pos as usize;
         Ok(pos as u64)
     }
-
-    fn check_read_perm(&self) -> ByteIOResult<()> {
-        if self.do_write {
-            Err(ByteIOError::WrongIOMode)
-        } else {
-            Ok(())
-        }
-    }
-
-    fn check_write_perm(&self) -> ByteIOResult<()> {
-        if !self.do_write {
-            Err(ByteIOError::WrongIOMode)
-        } else {
-            Ok(())
-        }
-    }
 }
 
 impl<'a> ByteIO for MemoryReader<'a> {
     fn read_byte(&mut self) -> ByteIOResult<u8> {
-        self.check_read_perm()?;
         if self.is_eof() { return Err(ByteIOError::EOF); }
         let res = self.buf[self.pos];
         self.pos = self.pos + 1;
         Ok(res)
     }
 
-    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
-        self.check_read_perm()?;
+    fn peek_byte(&mut self) -> ByteIOResult<u8> {
+        if self.is_eof() { return Err(ByteIOError::EOF); }
+        Ok(self.buf[self.pos])
+    }
+
+    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
         let copy_size = if self.size - self.pos < buf.len() { self.size } else { buf.len() };
         if copy_size == 0 { return Err(ByteIOError::EOF); }
         for i in 0..copy_size {
             buf[i] = self.buf[self.pos + i];
         }
-        self.pos += copy_size;
         Ok(copy_size)
+    }
+
+    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        let read_size = self.peek_buf(buf)?;
+        self.pos += read_size;
+        Ok(read_size)
     }
 
     #[allow(unused_variables)]
     fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<usize> {
-        self.check_write_perm()?;
         Err(ByteIOError::NotImplemented)
     }
 
@@ -232,12 +274,24 @@ impl<'a> ByteIO for FileReader<'a> {
         Ok (byte[0])
     }
 
+    fn peek_byte(&mut self) -> ByteIOResult<u8> {
+        let b = self.read_byte()?;
+        self.seek(SeekFrom::Current(-1))?;
+        Ok(b)
+    }
+
     fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
         let res = self.file.read(buf);
         if let Err(_) = res { return Err(ByteIOError::ReadError); }
         let sz = res.unwrap();
         if sz < buf.len() { self.eof = true; }
         Ok(sz)
+    }
+
+    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        let size = self.read_buf(buf)?;
+        self.seek(SeekFrom::Current(-(size as i64)))?;
+        Ok(size)
     }
 
     #[allow(unused_variables)]
