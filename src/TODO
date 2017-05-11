@@ -1,3 +1,4 @@
+make bitstream reader accept byteio too
 real demuxers
 some decoder
 frame stuff
