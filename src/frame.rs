@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[allow(dead_code)]
+#[derive(Copy,Clone)]
 pub struct NASoniton {
     bits:       u8,
     is_be:      bool,
@@ -15,6 +17,7 @@ pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, is_be: false, packed: 
 pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, is_be: false, packed: false, planar: false, float: false };
 
 #[allow(dead_code)]
+#[derive(Clone,Copy)]
 pub struct NAAudioInfo {
     sample_rate: u32,
     channels:    u8,
@@ -28,7 +31,7 @@ impl NAAudioInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone,Copy)]
 pub enum ColorModel {
     RGB,
     YUV,
@@ -38,6 +41,7 @@ pub enum ColorModel {
 }
 
 #[allow(dead_code)]
+#[derive(Clone,Copy)]
 pub struct NAPixelChromaton {
     h_ss:           u8,
     v_ss:           u8,
@@ -49,6 +53,7 @@ pub struct NAPixelChromaton {
 }
 
 #[allow(dead_code)]
+#[derive(Clone,Copy)]
 pub struct NAPixelFormaton {
     model:      ColorModel,
     components: u8,
@@ -90,6 +95,7 @@ pub const PAL8_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RG
 
 
 #[allow(dead_code)]
+#[derive(Clone,Copy)]
 pub struct NAVideoInfo {
     width:      u32,
     height:     u32,
@@ -103,6 +109,7 @@ impl NAVideoInfo {
     }
 }
 
+#[derive(Clone,Copy)]
 pub enum NACodecTypeInfo {
     None,
     Audio(NAAudioInfo),
@@ -116,14 +123,24 @@ pub struct NABuffer<'a> {
 }
 
 #[allow(dead_code)]
-pub struct NACodecInfo<'a> {
+#[derive(Clone)]
+pub struct NACodecInfo {
     properties: NACodecTypeInfo,
-    extradata:  Option<&'a[u8]>,
+    extradata:  Option<Rc<Vec<u8>>>,
 }
 
-impl<'a> NACodecInfo<'a> {
-    pub fn new(p: NACodecTypeInfo, edata: Option<&'a[u8]>) -> Self {
-        NACodecInfo { properties: p, extradata: edata }
+impl NACodecInfo {
+    pub fn new(p: NACodecTypeInfo, edata: Option<Vec<u8>>) -> Self {
+        let extradata = match edata {
+            None => None,
+            Some(vec) => Some(Rc::new(vec)),
+        };
+        NACodecInfo { properties: p, extradata: extradata }
+    }
+    pub fn get_properties(&self) -> NACodecTypeInfo { self.properties }
+    pub fn get_extradata(&self) -> Option<Rc<Vec<u8>>> {
+        if let Some(ref vec) = self.extradata { return Some(vec.clone()); }
+        None
     }
 }
 
@@ -146,11 +163,11 @@ pub struct NAFrame<'a> {
     dts:            Option<u64>,
     duration:       Option<u64>,
     buffer:         &'a mut NABuffer<'a>,
-    info:           &'a NACodecInfo<'a>,
+    info:           &'a NACodecInfo,
     options:        HashMap<String, NAValue<'a>>,
 }
 
 #[allow(dead_code)]
 pub struct NACodecContext<'a> {
-    info:           &'a NACodecInfo<'a>,
+    info:           &'a NACodecInfo,
 }

@@ -12,7 +12,7 @@ enum GDVState {
 pub struct GremlinVideoDemuxer<'a> {
     opened: bool,
     src:    &'a mut ByteReader<'a>,
-    streams: Vec<Rc<NAStream<'a>>>,
+    streams: Vec<Rc<NAStream>>,
     frames: u16,
     cur_frame: u16,
     asize: usize,
@@ -102,7 +102,7 @@ pktdta: Vec::new(),
         }
     }
 
-    fn find_stream(&mut self, id: u32) -> Rc<NAStream<'a>> {
+    fn find_stream(&mut self, id: u32) -> Rc<NAStream> {
         for i in 0..self.streams.len() {
             if self.streams[i].get_id() == id {
                 return self.streams[i].clone();

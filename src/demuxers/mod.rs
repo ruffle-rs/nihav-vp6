@@ -28,29 +28,29 @@ impl fmt::Display for StreamType {
 
 
 #[allow(dead_code)]
-pub struct NAStream<'a> {
+pub struct NAStream {
     media_type:     StreamType,
     id:             u32,
-    info:           Rc<NACodecInfo<'a>>,
+    info:           Rc<NACodecInfo>,
 }
 
-impl<'a> NAStream<'a> {
-    pub fn new(mt: StreamType, id: u32, info: NACodecInfo<'a>) -> Self {
+impl NAStream {
+    pub fn new(mt: StreamType, id: u32, info: NACodecInfo) -> Self {
         NAStream { media_type: mt, id: id, info: Rc::new(info) }
     }
     pub fn get_id(&self) -> u32 { self.id }
-    pub fn get_info(&self) -> Rc<NACodecInfo<'a>> { self.info.clone() }
+    pub fn get_info(&self) -> Rc<NACodecInfo> { self.info.clone() }
 }
 
-impl<'a> fmt::Display for NAStream<'a> {
+impl fmt::Display for NAStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}#{})", self.media_type, self.id)
     }
 }
 
 #[allow(dead_code)]
-pub struct NAPacket<'a> {
-    stream:         Rc<NAStream<'a>>,
+pub struct NAPacket {
+    stream:         Rc<NAStream>,
     pts:            Option<u64>,
     dts:            Option<u64>,
     duration:       Option<u64>,
@@ -59,18 +59,18 @@ pub struct NAPacket<'a> {
 //    options:        HashMap<String, NAValue<'a>>,
 }
 
-impl<'a> NAPacket<'a> {
-    pub fn new(str: Rc<NAStream<'a>>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, kf: bool, vec: Vec<u8>) -> Self {
+impl NAPacket {
+    pub fn new(str: Rc<NAStream>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, kf: bool, vec: Vec<u8>) -> Self {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
         NAPacket { stream: str, pts: pts, dts: dts, duration: dur, keyframe: kf, buffer: Rc::new(vec) }
     }
-    pub fn get_stream(&self) -> Rc<NAStream<'a>> { self.stream.clone() }
+    pub fn get_stream(&self) -> Rc<NAStream> { self.stream.clone() }
     pub fn get_pts(&self) -> Option<u64> { self.pts }
     pub fn get_buffer(&self) -> Rc<Vec<u8>> { self.buffer.clone() }
 }
 
-impl<'a> fmt::Display for NAPacket<'a> {
+impl fmt::Display for NAPacket {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut foo = format!("[pkt for {} size {}", self.stream, self.buffer.len());
         if let Some(pts) = self.pts { foo = format!("{} pts {}", foo, pts); }
@@ -101,13 +101,13 @@ pub trait NADemuxer<'a> {
     fn seek(&mut self, time: u64) -> DemuxerResult<()>;
 }
 
-pub trait NAPacketReader<'a> {
-    fn read_packet(&mut self, str: Rc<NAStream<'a>>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, keyframe: bool, size: usize) -> DemuxerResult<NAPacket>;
+pub trait NAPacketReader {
+    fn read_packet(&mut self, str: Rc<NAStream>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, keyframe: bool, size: usize) -> DemuxerResult<NAPacket>;
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()>;
 }
 
-impl<'a> NAPacketReader<'a> for ByteReader<'a> {
-    fn read_packet(&mut self, str: Rc<NAStream<'a>>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
+impl<'a> NAPacketReader for ByteReader<'a> {
+    fn read_packet(&mut self, str: Rc<NAStream>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
         let mut buf: Vec<u8> = Vec::with_capacity(size);
         if buf.capacity() < size { return Err(DemuxerError::MemoryError); }
         buf.resize(size, 0);
