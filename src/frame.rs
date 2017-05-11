@@ -17,6 +17,97 @@ pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, is_be: false, packed: 
 #[allow(dead_code)]
 pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, is_be: false, packed: false, planar: false, float: false, signed: true };
 
+#[derive(Debug)]
+pub enum NAChannelType {
+    C, L, R, Ls, Rs, Lss, Rss, LFE, Lc, Rc, Lh, Rh, Ch, LFE2, Lw, Rw, Ov, Lhs, Rhs, Chr, Ll, Rl, Cl, Lt, Rt, Lo, Ro
+}
+
+impl NAChannelType {
+    pub fn is_center(&self) -> bool {
+        match *self {
+            NAChannelType::C => true,   NAChannelType::Ch => true,
+            NAChannelType::Cl => true,  NAChannelType::Ov => true,
+            NAChannelType::LFE => true, NAChannelType::LFE2 => true,
+            _ => false,
+        }
+    }
+    pub fn is_left(&self) -> bool {
+        match *self {
+            NAChannelType::L   => true, NAChannelType::Ls => true,
+            NAChannelType::Lss => true, NAChannelType::Lc => true,
+            NAChannelType::Lh  => true, NAChannelType::Lw => true,
+            NAChannelType::Lhs => true, NAChannelType::Ll => true,
+            NAChannelType::Lt  => true, NAChannelType::Lo => true,
+            _ => false,
+        }
+    }
+    pub fn is_right(&self) -> bool {
+        match *self {
+            NAChannelType::R   => true, NAChannelType::Rs => true,
+            NAChannelType::Rss => true, NAChannelType::Rc => true,
+            NAChannelType::Rh  => true, NAChannelType::Rw => true,
+            NAChannelType::Rhs => true, NAChannelType::Rl => true,
+            NAChannelType::Rt  => true, NAChannelType::Ro => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum NAChannel<T: Copy> {
+    None,
+    C(T),
+    LR(T, T),
+    LsRs(T, T),
+    LssRss(T, T),
+    LFE(T),
+    LcRc(T, T),
+    LhRh(T, T),
+    Ch(T),
+    LFE2(T),
+    LwRw(T, T),
+    Ov(T),
+    LhsRhs(T, T),
+    LhrRhr(T, T),
+    Chr(T),
+    LlRl(T, T),
+    Cl(T),
+    LtRt(T, T),
+    LoRo(T, T),
+}
+
+impl<T: Copy> NAChannel<T> {
+    pub fn num_ch(&self) -> u8 {
+        match *self {
+           NAChannel::None    => 0, 
+           NAChannel::C(_)    => 1,
+           NAChannel::LFE(_)  => 1,
+           NAChannel::Ch(_)   => 1,
+           NAChannel::LFE2(_) => 1,
+           NAChannel::Ov(_)   => 1,
+           NAChannel::Chr(_)  => 1,
+           NAChannel::Cl(_)   => 1,
+           _                  => 2,
+        }
+    }
+}
+
+pub struct NAChannelMap {
+    ids: Vec<NAChannel<u8>>,
+    nch: u8,
+}
+
+impl NAChannelMap {
+    pub fn new() -> Self { NAChannelMap { ids: Vec::new(), nch: 0 } }
+    pub fn add_channels(&mut self, ct: NAChannel<u8>) {
+        self.nch += ct.num_ch();
+        self.ids.push(ct);
+    }
+    pub fn find_channel_id(&self, t: NAChannelType) -> Option<u8> {
+        None
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Clone,Copy)]
 pub struct NAAudioInfo {
