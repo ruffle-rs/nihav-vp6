@@ -9,12 +9,13 @@ pub struct NASoniton {
     packed:     bool,
     planar:     bool,
     float:      bool,
+    signed:     bool,
 }
 
 #[allow(dead_code)]
-pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, is_be: false, packed: false, planar: false, float: false };
+pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, is_be: false, packed: false, planar: false, float: false, signed: false };
 #[allow(dead_code)]
-pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, is_be: false, packed: false, planar: false, float: false };
+pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, is_be: false, packed: false, planar: false, float: false, signed: true };
 
 #[allow(dead_code)]
 #[derive(Clone,Copy)]
