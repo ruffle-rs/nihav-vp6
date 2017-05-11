@@ -17,7 +17,7 @@ pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, is_be: false, packed: 
 #[allow(dead_code)]
 pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, is_be: false, packed: false, planar: false, float: false, signed: true };
 
-#[derive(Debug)]
+#[derive(Debug,Clone,Copy)]
 pub enum NAChannelType {
     C, L, R, Ls, Rs, Lss, Rss, LFE, Lc, Rc, Lh, Rh, Ch, LFE2, Lw, Rw, Ov, Lhs, Rhs, Chr, Ll, Rl, Cl, Lt, Rt, Lo, Ro
 }
@@ -53,57 +53,25 @@ impl NAChannelType {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum NAChannel<T: Copy> {
-    None,
-    C(T),
-    LR(T, T),
-    LsRs(T, T),
-    LssRss(T, T),
-    LFE(T),
-    LcRc(T, T),
-    LhRh(T, T),
-    Ch(T),
-    LFE2(T),
-    LwRw(T, T),
-    Ov(T),
-    LhsRhs(T, T),
-    LhrRhr(T, T),
-    Chr(T),
-    LlRl(T, T),
-    Cl(T),
-    LtRt(T, T),
-    LoRo(T, T),
-}
-
-impl<T: Copy> NAChannel<T> {
-    pub fn num_ch(&self) -> u8 {
-        match *self {
-           NAChannel::None    => 0, 
-           NAChannel::C(_)    => 1,
-           NAChannel::LFE(_)  => 1,
-           NAChannel::Ch(_)   => 1,
-           NAChannel::LFE2(_) => 1,
-           NAChannel::Ov(_)   => 1,
-           NAChannel::Chr(_)  => 1,
-           NAChannel::Cl(_)   => 1,
-           _                  => 2,
-        }
-    }
-}
-
 pub struct NAChannelMap {
-    ids: Vec<NAChannel<u8>>,
-    nch: u8,
+    ids: Vec<NAChannelType>,
 }
 
 impl NAChannelMap {
-    pub fn new() -> Self { NAChannelMap { ids: Vec::new(), nch: 0 } }
-    pub fn add_channels(&mut self, ct: NAChannel<u8>) {
-        self.nch += ct.num_ch();
-        self.ids.push(ct);
+    pub fn new() -> Self { NAChannelMap { ids: Vec::new() } }
+    pub fn add_channel(&mut self, ch: NAChannelType) {
+        self.ids.push(ch);
+    }
+    pub fn num_channels(&self) -> usize {
+        self.ids.len()
+    }
+    pub fn get_channel(&self, idx: usize) -> NAChannelType {
+        self.ids[idx]
     }
     pub fn find_channel_id(&self, t: NAChannelType) -> Option<u8> {
+        for i in 0..self.ids.len() {
+            if self.ids[i] as i32 == t as i32 { return Some(i as u8); }
+        }
         None
     }
 }
