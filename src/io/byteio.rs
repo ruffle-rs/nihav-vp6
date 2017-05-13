@@ -64,7 +64,7 @@ macro_rules! peek_int {
 }
 
 impl<'a> ByteReader<'a> {
-    pub fn new(io: &'a mut ByteIO) -> ByteReader { ByteReader { io: io } }
+    pub fn new(io: &'a mut ByteIO) -> Self { ByteReader { io: io } }
 
     pub fn read_buf(&mut self, buf: &mut [u8])  -> ByteIOResult<usize> {
         self.io.read_buf(buf)
