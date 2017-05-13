@@ -6,7 +6,7 @@ use frame::*;
 //use std::collections::HashMap;
 use io::byteio::*;
 
-#[derive(Debug)]
+#[derive(Debug,Clone,Copy)]
 #[allow(dead_code)]
 pub enum StreamType {
     Video,
@@ -28,17 +28,21 @@ impl fmt::Display for StreamType {
 
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct NAStream {
     media_type:     StreamType,
     id:             u32,
+    num:            usize,
     info:           Rc<NACodecInfo>,
 }
 
 impl NAStream {
     pub fn new(mt: StreamType, id: u32, info: NACodecInfo) -> Self {
-        NAStream { media_type: mt, id: id, info: Rc::new(info) }
+        NAStream { media_type: mt, id: id, num: 0, info: Rc::new(info) }
     }
     pub fn get_id(&self) -> u32 { self.id }
+    pub fn get_num(&self) -> usize { self.num }
+    pub fn set_num(&mut self, num: usize) { self.num = num; }
     pub fn get_info(&self) -> Rc<NACodecInfo> { self.info.clone() }
 }
 
@@ -95,7 +99,7 @@ pub enum DemuxerError {
 
 type DemuxerResult<T> = Result<T, DemuxerError>;
 
-pub trait NADemuxer<'a> {
+pub trait Demux<'a> {
     fn open(&mut self) -> DemuxerResult<()>;
     fn get_frame(&mut self) -> DemuxerResult<NAPacket>;
     fn seek(&mut self, time: u64) -> DemuxerResult<()>;
@@ -127,16 +131,43 @@ impl<'a> NAPacketReader for ByteReader<'a> {
     }
 }
 
-pub struct NADemuxerBuilder {
+pub struct Demuxer {
+    streams: Vec<Rc<NAStream>>,
+}
+
+impl Demuxer {
+    pub fn new() -> Self { Demuxer { streams: Vec::new() } }
+    pub fn add_stream(&mut self, stream: NAStream) -> Option<usize> {
+        let stream_num = self.streams.len();
+        let mut str = stream.clone();
+        str.set_num(stream_num);
+        self.streams.push(Rc::new(str));
+        Some(stream_num)
+    }
+    pub fn get_stream(&self, idx: usize) -> Option<Rc<NAStream>> {
+        if idx < self.streams.len() {
+            Some(self.streams[idx].clone())
+        } else {
+            None
+        }
+    }
+    pub fn get_stream_by_id(&self, id: u32) -> Option<Rc<NAStream>> {
+        for i in 0..self.streams.len() {
+            if self.streams[i].get_id() == id {
+                return Some(self.streams[i].clone());
+            }
+        }
+        None
+    }
 }
 
 impl From<ByteIOError> for DemuxerError {
     fn from(_: ByteIOError) -> Self { DemuxerError::IOError }
 }
 
-impl NADemuxerBuilder {
-    #[allow(unused_variables)]
-    pub fn create_demuxer(name: &str, url: &str) -> DemuxerResult<Box<NADemuxer<'static>>> {
-        unimplemented!()
-    }
-}
+//impl NADemuxerBuilder {
+//    #[allow(unused_variables)]
+//    pub fn create_demuxer(name: &str, url: &str) -> DemuxerResult<Box<NADemuxer<'static>>> {
+//        unimplemented!()
+//    }
+//}

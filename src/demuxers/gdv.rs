@@ -1,6 +1,7 @@
 use super::*;
 use io::byteio::*;
 use frame::*;
+use formats::*;
 //use std::collections::HashMap;
 
 enum GDVState {
@@ -10,18 +11,20 @@ enum GDVState {
 
 #[allow(dead_code)]
 pub struct GremlinVideoDemuxer<'a> {
-    opened: bool,
-    src:    &'a mut ByteReader<'a>,
-    streams: Vec<Rc<NAStream>>,
-    frames: u16,
-    cur_frame: u16,
-    asize: usize,
-    apacked: bool,
-    state: GDVState,
-    pktdta: Vec<u8>,
+    opened:     bool,
+    src:        &'a mut ByteReader<'a>,
+    frames:     u16,
+    cur_frame:  u16,
+    asize:      usize,
+    apacked:    bool,
+    state:      GDVState,
+    pktdta:     Vec<u8>,
+    dmx:        Demuxer,
+    a_id:       Option<usize>,
+    v_id:       Option<usize>,
 }
 
-impl<'a> NADemuxer<'a> for GremlinVideoDemuxer<'a> {
+impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
     #[allow(unused_variables)]
     fn open(&mut self) -> DemuxerResult<()> {
         let src = &mut self.src;
@@ -37,25 +40,21 @@ impl<'a> NADemuxer<'a> for GremlinVideoDemuxer<'a> {
         src.read_skip(2)?;
         let width = src.read_u16le()?;
         let height = src.read_u16le()?;
-println!("id {} frames {} fps {} sound {} Hz {:X} img {} - {}x{}",id,frames,fps,rate,aflags,depth,width,height);
         if max_fs > 0 {
             let vhdr = NAVideoInfo::new(width as u32, height as u32, false, PAL8_FORMAT);
             let vci = NACodecTypeInfo::Video(vhdr);
             let vinfo = NACodecInfo::new(vci, None);
-            let vstr = NAStream::new(StreamType::Video, 0, vinfo);
-            self.streams.push(Rc::new(vstr));
+            self.v_id = self.dmx.add_stream(NAStream::new(StreamType::Video, 0, vinfo));
         }
         if (aflags & 1) != 0 {
             let channels = if (aflags & 2) != 0 { 2 } else { 1 };
             let ahdr = NAAudioInfo::new(rate as u32, channels as u8, if (aflags & 4) != 0 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
             let ainfo = NACodecInfo::new(NACodecTypeInfo::Audio(ahdr), None);
-            let astr = NAStream::new(StreamType::Audio, 1, ainfo);
-            self.streams.push(Rc::new(astr));
+            self.a_id = self.dmx.add_stream(NAStream::new(StreamType::Audio, 1, ainfo));
 
             let packed = if (aflags & 8) != 0 { 1 } else { 0 };
             self.asize = (((rate / fps) * channels * (if (aflags & 4) != 0 { 2 } else { 1 })) >> packed) as usize;
             self.apacked = (aflags & 8) != 0;
-println!("audio chunk size {}({:X})",self.asize,self.asize);
         }
         if max_fs > 0 && depth == 1 {
             src.read_skip(768)?;
@@ -98,26 +97,20 @@ impl<'a> GremlinVideoDemuxer<'a> {
             state: GDVState::NewFrame,
 pktdta: Vec::new(),
             src: io,
-            streams: Vec::new()
+            a_id: None,
+            v_id: None,
+            dmx: Demuxer::new()
         }
     }
 
-    fn find_stream(&mut self, id: u32) -> Rc<NAStream> {
-        for i in 0..self.streams.len() {
-            if self.streams[i].get_id() == id {
-                return self.streams[i].clone();
-            }
-        }
-        panic!("stream not found");
-    }
     fn read_achunk(&mut self) -> DemuxerResult<NAPacket> {
         self.state = GDVState::AudioRead;
-        let str = self.find_stream(1);
+        let str = self.dmx.get_stream(self.a_id.unwrap()).unwrap();
         self.src.read_packet(str, Some(self.cur_frame as u64), None, None, true, self.asize)
     }
 
     fn read_vchunk(&mut self) -> DemuxerResult<NAPacket> {
-        let str = self.find_stream(0);
+        let str = self.dmx.get_stream(self.v_id.unwrap()).unwrap();
         let mut src = &mut self.src;
         let magic = src.read_u16be()?;
         if magic != 0x0513 { return Err(DemuxerError::InvalidData); }
