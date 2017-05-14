@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::rc::Rc;
 use formats::*;
 
@@ -17,6 +18,12 @@ impl NAAudioInfo {
     }
 }
 
+impl fmt::Display for NAAudioInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} Hz, {} ch", self.sample_rate, self.channels)
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Clone,Copy)]
 pub struct NAVideoInfo {
@@ -32,12 +39,30 @@ impl NAVideoInfo {
     }
 }
 
+impl fmt::Display for NAVideoInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}x{}", self.width, self.height)
+    }
+}
+
 #[derive(Clone,Copy)]
 pub enum NACodecTypeInfo {
     None,
     Audio(NAAudioInfo),
     Video(NAVideoInfo),
 }
+
+impl fmt::Display for NACodecTypeInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let ret = match *self {
+            NACodecTypeInfo::None       => format!(""),
+            NACodecTypeInfo::Audio(fmt) => format!("{}", fmt),
+            NACodecTypeInfo::Video(fmt) => format!("{}", fmt),
+        };
+        write!(f, "{}", ret)
+    }
+}
+
 
 #[allow(dead_code)]
 pub struct NABuffer<'a> {

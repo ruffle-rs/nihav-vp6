@@ -13,6 +13,7 @@ pub enum StreamType {
     Audio,
     Subtitles,
     Data,
+    None,
 }
 
 impl fmt::Display for StreamType {
@@ -22,6 +23,7 @@ impl fmt::Display for StreamType {
             StreamType::Audio => write!(f, "Audio"),
             StreamType::Subtitles => write!(f, "Subtitles"),
             StreamType::Data => write!(f, "Data"),
+            StreamType::None => write!(f, "-"),
         }
     }
 }
@@ -48,7 +50,7 @@ impl NAStream {
 
 impl fmt::Display for NAStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}#{})", self.media_type, self.id)
+        write!(f, "({}#{} - {})", self.media_type, self.id, self.info.get_properties())
     }
 }
 
@@ -117,7 +119,6 @@ impl<'a> NAPacketReader for ByteReader<'a> {
         buf.resize(size, 0);
         let res = self.read_buf(buf.as_mut_slice());
         if let Err(_) = res { return Err(DemuxerError::IOError); }
-        if res.unwrap() < buf.len() { return Err(DemuxerError::IOError); }
         let pkt = NAPacket::new(str, pts, dts, dur, kf, buf);
         Ok(pkt)
     }
@@ -126,7 +127,6 @@ impl<'a> NAPacketReader for ByteReader<'a> {
         let mut buf = Rc::make_mut(&mut refbuf);
         let res = self.read_buf(buf.as_mut_slice());
         if let Err(_) = res { return Err(DemuxerError::IOError); }
-        if res.unwrap() < buf.len() { return Err(DemuxerError::IOError); }
         Ok(())
     }
 }
