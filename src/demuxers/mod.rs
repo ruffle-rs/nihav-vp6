@@ -1,4 +1,5 @@
 pub mod gdv;
+pub mod avi;
 
 use std::fmt;
 use std::rc::Rc;
