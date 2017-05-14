@@ -284,6 +284,14 @@ pub const RGB565_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::
                                             None, None],
                                         elem_size: 2, be: false, alpha: false, palette: false };
 
+pub const RGB24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+                                        comp_info: [
+                                            chromaton!(packrgb; 8, 0, 2, 3),
+                                            chromaton!(packrgb; 8, 0, 1, 3),
+                                            chromaton!(packrgb; 8, 0, 0, 3),
+                                            None, None],
+                                        elem_size: 3, be: false, alpha: false, palette: false };
+
 impl NAPixelChromaton {
     pub fn get_subsampling(&self) -> (u8, u8) { (self.h_ss, self.v_ss) }
     pub fn is_packed(&self) -> bool { self.packed }
