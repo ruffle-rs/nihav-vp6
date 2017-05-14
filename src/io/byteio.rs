@@ -17,6 +17,7 @@ type ByteIOResult<T> = Result<T, ByteIOError>;
 
 pub trait ByteIO {
     fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
+    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
     fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
     fn read_byte(&mut self) -> ByteIOResult<u8>;
     fn peek_byte(&mut self) -> ByteIOResult<u8>;
@@ -68,6 +69,10 @@ impl<'a> ByteReader<'a> {
 
     pub fn read_buf(&mut self, buf: &mut [u8])  -> ByteIOResult<usize> {
         self.io.read_buf(buf)
+    }
+
+    pub fn read_buf_some(&mut self, buf: &mut [u8])  -> ByteIOResult<usize> {
+        self.io.read_buf_some(buf)
     }
 
     pub fn peek_buf(&mut self, buf: &mut [u8])  -> ByteIOResult<usize> {
@@ -225,6 +230,13 @@ impl<'a> ByteIO for MemoryReader<'a> {
 
     fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
         let read_size = self.peek_buf(buf)?;
+        if read_size < buf.len() { return Err(ByteIOError::EOF); }
+        self.pos += read_size;
+        Ok(read_size)
+    }
+
+    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        let read_size = self.peek_buf(buf)?;
         self.pos += read_size;
         Ok(read_size)
     }
@@ -281,6 +293,14 @@ impl<'a> ByteIO for FileReader<'a> {
     }
 
     fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        let res = self.file.read(buf);
+        if let Err(_) = res { return Err(ByteIOError::ReadError); }
+        let sz = res.unwrap();
+        if sz < buf.len() { self.eof = true; return Err(ByteIOError::EOF); }
+        Ok(sz)
+    }
+
+    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
         let res = self.file.read(buf);
         if let Err(_) = res { return Err(ByteIOError::ReadError); }
         let sz = res.unwrap();
