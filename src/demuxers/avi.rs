@@ -48,7 +48,7 @@ pub struct AVIDemuxer<'a> {
     sstate:         StreamState,
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 enum RIFFTag {
     Chunk(u32),
     List(u32,u32),
@@ -122,38 +122,32 @@ impl<'a> AVIDemuxer<'a> {
         let tag  = self.src.read_u32be()?;
         let size = self.src.read_u32le()? as usize;
         if size > csize { return Err(InvalidData); }
-        if let RIFFTag::Chunk(etag) = end_tag {
-            if etag == tag { return Ok((size, true)); }
+        if RIFFTag::Chunk(tag) == end_tag {
+            return Ok((size, true));
         }
         let ltag = if is_list_tag(tag) { self.src.read_u32be()? } else { 0 };
-        if let RIFFTag::List(etag1, etag2) = end_tag {
-            if etag1 == tag && etag2 == ltag {
-                return Ok((size, true));
-            }
+        if RIFFTag::List(tag, ltag) == end_tag {
+            return Ok((size, true));
         }
-        
+
         for i in 0..CHUNKS.len() {
-            if let RIFFTag::Chunk(ctag) = CHUNKS[i].tag {
-                if ctag == tag {
-                    let psize = (CHUNKS[i].parse)(self, size)?;
-                    if psize != size { return Err(InvalidData); }
-                    return Ok((size + 8, false));
-                }
+            if RIFFTag::Chunk(tag) == CHUNKS[i].tag {
+                let psize = (CHUNKS[i].parse)(self, size)?;
+                if psize != size { return Err(InvalidData); }
+                return Ok((size + 8, false));
             }
-            if let RIFFTag::List(ctag, clst) = CHUNKS[i].tag {
-                if ctag == tag && clst == ltag {
-                    let mut rest_size = size - 4;
-                    let psize = (CHUNKS[i].parse)(self, rest_size)?;
+            if RIFFTag::List(tag, ltag) == CHUNKS[i].tag {
+                let mut rest_size = size - 4;
+                let psize = (CHUNKS[i].parse)(self, rest_size)?;
+                if psize > rest_size { return Err(InvalidData); }
+                rest_size -= psize;
+                while rest_size > 0 {
+                    let (psize, _) = self.parse_chunk(end_tag, rest_size, depth+1)?;
                     if psize > rest_size { return Err(InvalidData); }
                     rest_size -= psize;
-                    while rest_size > 0 {
-                        let (psize, _) = self.parse_chunk(end_tag, rest_size, depth+1)?;
-                        if psize > rest_size { return Err(InvalidData); }
-                        rest_size -= psize;                        
-                    }
-
-                    return Ok((size + 8, false));
                 }
+
+                return Ok((size + 8, false));
             }
         }
         self.src.read_skip(size)?;
