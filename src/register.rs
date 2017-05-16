@@ -137,6 +137,8 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
 
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
     (0x0000, "audio-pcm"),
+    (0x0001, "audio-pcm"),
+    (0x0003, "audio-pcm"),
     (0x0401, "audio-imc"),
     (0x0402, "audio-iac"),
 ];
