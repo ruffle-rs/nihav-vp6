@@ -43,13 +43,13 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
         if max_fs > 0 {
             let vhdr = NAVideoInfo::new(width as u32, height as u32, false, PAL8_FORMAT);
             let vci = NACodecTypeInfo::Video(vhdr);
-            let vinfo = NACodecInfo::new(vci, None);
+            let vinfo = NACodecInfo::new("video-gdv", vci, None);
             self.v_id = self.dmx.add_stream(NAStream::new(StreamType::Video, 0, vinfo));
         }
         if (aflags & 1) != 0 {
             let channels = if (aflags & 2) != 0 { 2 } else { 1 };
             let ahdr = NAAudioInfo::new(rate as u32, channels as u8, if (aflags & 4) != 0 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
-            let ainfo = NACodecInfo::new(NACodecTypeInfo::Audio(ahdr), None);
+            let ainfo = NACodecInfo::new("audio-gdv", NACodecTypeInfo::Audio(ahdr), None);
             self.a_id = self.dmx.add_stream(NAStream::new(StreamType::Audio, 1, ainfo));
 
             let packed = if (aflags & 8) != 0 { 1 } else { 0 };

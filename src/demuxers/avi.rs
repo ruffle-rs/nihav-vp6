@@ -1,4 +1,5 @@
 use super::*;
+use register;
 use super::DemuxerError::*;
 use io::byteio::*;
 use frame::*;
@@ -269,7 +270,8 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
     let height          = dmx.src.read_u32le()? as i32;
     let planes          = dmx.src.read_u16le()?;
     let bitcount        = dmx.src.read_u16le()?;
-    let compression     = dmx.src.read_u32be()?;
+    let mut compression: [u8; 4] = [0; 4];
+                          dmx.src.read_buf(&mut compression)?;
     let img_size        = dmx.src.read_u32le()?;
     let xdpi            = dmx.src.read_u32le()?;
     let ydpi            = dmx.src.read_u32le()?;
@@ -281,7 +283,11 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
     let vhdr = NAVideoInfo::new(width, if flip { -height as u32 } else { height as u32}, flip, PAL8_FORMAT);
     let vci = NACodecTypeInfo::Video(vhdr);
     let edata = dmx.read_extradata(size - 40)?;
-    let vinfo = NACodecInfo::new(vci, edata);
+    let cname = match register::find_codec_from_avi_fourcc(&compression) {
+                    None => "unknown",
+                    Some(name) => name,
+                };
+    let vinfo = NACodecInfo::new(cname, vci, edata);
     let res = dmx.dmx.add_stream(NAStream::new(StreamType::Video, dmx.sstate.strm_no as u32, vinfo));
     if let None = res { return Err(MemoryError); }
     dmx.sstate.reset();
@@ -301,7 +307,11 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
     let soniton = NASoniton::new(bits_per_sample as u8, SONITON_FLAG_SIGNED);
     let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
     let edata = dmx.read_extradata(size - 16)?;
-    let ainfo = NACodecInfo::new(NACodecTypeInfo::Audio(ahdr), edata);
+    let cname = match register::find_codec_from_wav_twocc(w_format_tag) {
+                    None => "unknown",
+                    Some(name) => name,
+                };
+    let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
     let res = dmx.dmx.add_stream(NAStream::new(StreamType::Audio, dmx.sstate.strm_no as u32, ainfo));
     if let None = res { return Err(MemoryError); }
     dmx.sstate.reset();
@@ -310,7 +320,7 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
 
 fn parse_strf_xxxx(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
     let edata = dmx.read_extradata(size)?;
-    let info = NACodecInfo::new(NACodecTypeInfo::None, edata);
+    let info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
     let res = dmx.dmx.add_stream(NAStream::new(StreamType::Data, dmx.sstate.strm_no as u32, info));
     if let None = res { return Err(MemoryError); }
     dmx.sstate.reset();

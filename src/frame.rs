@@ -73,17 +73,18 @@ pub struct NABuffer<'a> {
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct NACodecInfo {
+    name:       &'static str,
     properties: NACodecTypeInfo,
     extradata:  Option<Rc<Vec<u8>>>,
 }
 
 impl NACodecInfo {
-    pub fn new(p: NACodecTypeInfo, edata: Option<Vec<u8>>) -> Self {
+    pub fn new(name: &'static str, p: NACodecTypeInfo, edata: Option<Vec<u8>>) -> Self {
         let extradata = match edata {
             None => None,
             Some(vec) => Some(Rc::new(vec)),
         };
-        NACodecInfo { properties: p, extradata: extradata }
+        NACodecInfo { name: name, properties: p, extradata: extradata }
     }
     pub fn get_properties(&self) -> NACodecTypeInfo { self.properties }
     pub fn get_extradata(&self) -> Option<Rc<Vec<u8>>> {
