@@ -117,30 +117,30 @@ pub fn get_codec_description(name: &str) -> Option<&'static CodecDescription> {
 }
 
 static CODEC_REGISTER: &'static [CodecDescription] = &[
-    desc!(video-im; "video-indeo1", "Intel Raw IF09"),
-    desc!(video-im; "video-indeo2", "Intel Indeo 2"),
-    desc!(video;    "video-indeo3", "Intel Indeo 3"),
-    desc!(video;    "video-indeo4", "Intel Indeo 4", CODEC_CAP_REORDER | CODEC_CAP_SCALABLE),
-    desc!(video;    "video-indeo5", "Intel Indeo 5", CODEC_CAP_REORDER | CODEC_CAP_SCALABLE),
-    desc!(audio;    "audio-iac",    "Intel Indeo audio"),
-    desc!(audio;    "audio-imc",    "Intel Music Coder"),
+    desc!(video-im; "indeo1", "Intel Raw IF09"),
+    desc!(video-im; "indeo2", "Intel Indeo 2"),
+    desc!(video;    "indeo3", "Intel Indeo 3"),
+    desc!(video;    "indeo4", "Intel Indeo 4", CODEC_CAP_REORDER | CODEC_CAP_SCALABLE),
+    desc!(video;    "indeo5", "Intel Indeo 5", CODEC_CAP_REORDER | CODEC_CAP_SCALABLE),
+    desc!(audio;    "iac",    "Intel Indeo audio"),
+    desc!(audio;    "imc",    "Intel Music Coder"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
-    (b"IF09", "video-indeo1"),
-    (b"RT21", "video-indeo2"),
-    (b"IV31", "video-indeo3"),
-    (b"IV32", "video-indeo3"),
-    (b"IV41", "video-indeo4"),
-    (b"IV50", "video-indeo5"),
+    (b"IF09", "indeo1"),
+    (b"RT21", "indeo2"),
+    (b"IV31", "indeo3"),
+    (b"IV32", "indeo3"),
+    (b"IV41", "indeo4"),
+    (b"IV50", "indeo5"),
 ];
 
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
-    (0x0000, "audio-pcm"),
-    (0x0001, "audio-pcm"),
-    (0x0003, "audio-pcm"),
-    (0x0401, "audio-imc"),
-    (0x0402, "audio-iac"),
+    (0x0000, "pcm"),
+    (0x0001, "pcm"),
+    (0x0003, "pcm"),
+    (0x0401, "imc"),
+    (0x0402, "iac"),
 ];
 
 pub fn find_codec_from_avi_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
