@@ -1,7 +1,7 @@
 use std::string::*;
 use std::fmt;
 
-#[derive(Debug,Copy,Clone)]
+#[derive(Debug,Copy,Clone,PartialEq)]
 pub struct NASoniton {
     bits:       u8,
     be:         bool,
@@ -147,7 +147,7 @@ impl NAChannelMap {
     }
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub enum RGBSubmodel {
     RGB,
     SRGB,
@@ -163,7 +163,7 @@ impl fmt::Display for RGBSubmodel {
     }
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub enum YUVSubmodel {
     YCbCr,
     YIQ,
@@ -181,7 +181,7 @@ impl fmt::Display for YUVSubmodel {
     }
 }
 
-#[derive(Debug, Clone,Copy)]
+#[derive(Debug, Clone,Copy,PartialEq)]
 pub enum ColorModel {
     RGB(RGBSubmodel),
     YUV(YUVSubmodel),
@@ -214,7 +214,7 @@ impl fmt::Display for ColorModel {
     }
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,PartialEq)]
 pub struct NAPixelChromaton {
     h_ss:           u8,
     v_ss:           u8,
@@ -234,7 +234,7 @@ bitflags! {
 }
 
 
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,PartialEq)]
 pub struct NAPixelFormaton {
     model:      ColorModel,
     components: u8,
@@ -265,6 +265,14 @@ pub const YUV420_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::
                                             chromaton!(0, 0, false, 8, 0, 0, 1),
                                             chromaton!(yuv8; 1, 1, 1),
                                             chromaton!(yuv8; 1, 1, 2),
+                                            None, None],
+                                        elem_size: 0, be: false, alpha: false, palette: false };
+
+pub const YUV410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                                        comp_info: [
+                                            chromaton!(0, 0, false, 8, 0, 0, 1),
+                                            chromaton!(yuv8; 2, 2, 1),
+                                            chromaton!(yuv8; 2, 2, 2),
                                             None, None],
                                         elem_size: 0, be: false, alpha: false, palette: false };
 
@@ -299,6 +307,16 @@ impl NAPixelChromaton {
     pub fn get_shift(&self) -> u8   { self.shift }
     pub fn get_offset(&self) -> u8  { self.comp_offs }
     pub fn get_step(&self)  -> u8   { self.next_elem }
+
+    pub fn get_linesize(&self, width: usize) -> usize {
+        let nw = (width  + ((1 << self.h_ss) - 1)) >> self.h_ss;
+        let d = self.depth as usize;
+        (nw * d + d - 1) >> 3
+    }
+    pub fn get_data_size(&self, width: usize, height: usize) -> usize {
+        let nh = (height + ((1 << self.v_ss) - 1)) >> self.v_ss;
+        self.get_linesize(width) * nh
+    }
 }
 
 impl fmt::Display for NAPixelChromaton {
@@ -339,7 +357,7 @@ impl NAPixelFormaton {
     }
 
     pub fn get_model(&self) -> ColorModel { self.model }
-    pub fn get_num_comp(&self) -> u8 { self.components }
+    pub fn get_num_comp(&self) -> usize { self.components as usize }
     pub fn get_chromaton(&self, idx: usize) -> Option<NAPixelChromaton> {
         if idx < self.comp_info.len() { return self.comp_info[idx]; }
         None
