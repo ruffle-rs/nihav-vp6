@@ -5,3 +5,14 @@ authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
 
 [dependencies]
 bitflags = "0.5.0"
+
+[features]
+default = ["all_decoders", "all_demuxers"]
+demuxers = []
+all_demuxers = ["demuxer_avi", "demuxer_gdv"]
+demuxer_avi = ["demuxers"]
+demuxer_gdv = ["demuxers"]
+
+decoders = []
+all_decoders = ["decoder_indeo2"]
+decoder_indeo2 = ["decoders"]
