@@ -1,10 +1,12 @@
+#[cfg(feature="demuxer_gdv")]
 pub mod gdv;
+#[cfg(feature="demuxer_avi")]
 pub mod avi;
 
 use std::fmt;
 use std::rc::Rc;
 use frame::*;
-//use std::collections::HashMap;
+use std::collections::HashMap;
 use io::byteio::*;
 
 #[derive(Debug,Clone,Copy)]
@@ -74,7 +76,14 @@ impl NAPacket {
     }
     pub fn get_stream(&self) -> Rc<NAStream> { self.stream.clone() }
     pub fn get_pts(&self) -> Option<u64> { self.pts }
+    pub fn get_dts(&self) -> Option<u64> { self.dts }
+    pub fn get_duration(&self) -> Option<u64> { self.duration }
+    pub fn is_keyframe(&self) -> bool { self.keyframe }
     pub fn get_buffer(&self) -> Rc<Vec<u8>> { self.buffer.clone() }
+}
+
+impl Drop for NAPacket {
+    fn drop(&mut self) {}
 }
 
 impl fmt::Display for NAPacket {
@@ -104,6 +113,8 @@ type DemuxerResult<T> = Result<T, DemuxerError>;
 
 pub trait Demux<'a> {
     fn open(&mut self) -> DemuxerResult<()>;
+    fn get_num_streams(&self) -> usize;
+    fn get_stream(&self, idx: usize) -> Option<Rc<NAStream>>;
     fn get_frame(&mut self) -> DemuxerResult<NAPacket>;
     fn seek(&mut self, time: u64) -> DemuxerResult<()>;
 }
@@ -160,15 +171,25 @@ impl Demuxer {
         }
         None
     }
+    pub fn get_num_streams(&self) -> usize { self.streams.len() }
 }
 
 impl From<ByteIOError> for DemuxerError {
     fn from(_: ByteIOError) -> Self { DemuxerError::IOError }
 }
 
-//impl NADemuxerBuilder {
-//    #[allow(unused_variables)]
-//    pub fn create_demuxer(name: &str, url: &str) -> DemuxerResult<Box<NADemuxer<'static>>> {
-//        unimplemented!()
-//    }
-//}
+pub trait FrameFromPacket {
+    fn new_from_pkt(pkt: &NAPacket, info: Rc<NACodecInfo>) -> NAFrame;
+    fn fill_timestamps(&mut self, pkt: &NAPacket);
+}
+
+impl FrameFromPacket for NAFrame {
+    fn new_from_pkt(pkt: &NAPacket, info: Rc<NACodecInfo>) -> NAFrame {
+        NAFrame::new(pkt.pts, pkt.dts, pkt.duration, info, HashMap::new())
+    }
+    fn fill_timestamps(&mut self, pkt: &NAPacket) {
+        self.set_pts(pkt.pts);
+        self.set_dts(pkt.dts);
+        self.set_duration(pkt.duration);
+    }
+}

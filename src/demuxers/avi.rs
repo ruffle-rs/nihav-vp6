@@ -68,6 +68,9 @@ impl<'a> Demux<'a> for AVIDemuxer<'a> {
         Ok(())
     }
 
+    fn get_num_streams(&self) -> usize { self.dmx.get_num_streams() }
+    fn get_stream(&self, idx: usize) -> Option<Rc<NAStream>> { self.dmx.get_stream(idx) }
+
     fn get_frame(&mut self) -> DemuxerResult<NAPacket> {
         if !self.opened { return Err(NoSuchInput); }
         if self.movi_size == 0 { return Err(EOF); }
@@ -280,7 +283,7 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
 
     let flip = height < 0;
     let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
-    let vhdr = NAVideoInfo::new(width, if flip { -height as u32 } else { height as u32}, flip, PAL8_FORMAT);
+    let vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, PAL8_FORMAT);
     let vci = NACodecTypeInfo::Video(vhdr);
     let edata = dmx.read_extradata(size - 40)?;
     let cname = match register::find_codec_from_avi_fourcc(&compression) {

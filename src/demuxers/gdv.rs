@@ -41,7 +41,7 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
         let width = src.read_u16le()?;
         let height = src.read_u16le()?;
         if max_fs > 0 {
-            let vhdr = NAVideoInfo::new(width as u32, height as u32, false, PAL8_FORMAT);
+            let vhdr = NAVideoInfo::new(width as usize, height as usize, false, PAL8_FORMAT);
             let vci = NACodecTypeInfo::Video(vhdr);
             let vinfo = NACodecInfo::new("video-gdv", vci, None);
             self.v_id = self.dmx.add_stream(NAStream::new(StreamType::Video, 0, vinfo));
@@ -74,6 +74,9 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
             _ => { self.read_vchunk() }
         }
     }
+
+    fn get_num_streams(&self) -> usize { self.dmx.get_num_streams() }
+    fn get_stream(&self, idx: usize) -> Option<Rc<NAStream>> { self.dmx.get_stream(idx) }
 
     #[allow(unused_variables)]
     fn seek(&mut self, time: u64) -> DemuxerResult<()> {
