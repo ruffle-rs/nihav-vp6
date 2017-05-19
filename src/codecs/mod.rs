@@ -42,3 +42,22 @@ pub trait NADecoder {
     fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<Rc<NAFrame>>;
 }
 
+#[derive(Clone,Copy)]
+pub struct DemuxerInfo {
+    name: &'static str,
+    get_decoder: fn () -> Box<NADecoder>,
+}
+
+const DECODERS: &[DemuxerInfo] = &[
+#[cfg(feature="decoder_indeo2")]
+    DemuxerInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
+];
+
+pub fn find_decoder(name: &str) -> Option<fn () -> Box<NADecoder>> {
+    for &dec in DECODERS {
+        if dec.name == name {
+            return Some(dec.get_decoder);
+        }
+    }
+    None
+}

@@ -183,14 +183,14 @@ impl CodebookDescReader<u8> for IR2CodeReader {
     fn len(&mut self) -> usize { INDEO2_CODE_LENGTHS.len() }
 }
 
-pub struct Indeo2Decoder {
+struct Indeo2Decoder {
     info:    Rc<NACodecInfo>,
     cb:      Codebook<u8>,
     lastfrm: Option<Rc<NAFrame>>,
 }
 
 impl Indeo2Decoder {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let dummy_info = Rc::new(DUMMY_CODEC_INFO);
         let mut coderead = IR2CodeReader{};
         let cb = Codebook::new(&mut coderead, CodebookMode::LSB).unwrap();
@@ -357,10 +357,15 @@ impl NADecoder for Indeo2Decoder {
     }
 }
 
+pub fn get_decoder() -> Box<NADecoder> {
+    Box::new(Indeo2Decoder::new())
+}
+
 #[cfg(test)]
 mod test {
-    use super::*;
+    use codecs;
     use demuxers::*;
+    use frame::NAFrame;
     use io::byteio::*;
     use std::fs::File;
     use std::io::prelude::*;
@@ -373,7 +378,7 @@ mod test {
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = avi_dmx.new_demuxer(&mut br);
         dmx.open().unwrap();
-        let mut dec = Indeo2Decoder::new();
+        let mut dec = (codecs::find_decoder("indeo2").unwrap())();//Indeo2Decoder::new();
 
         let mut str: u32 = 42;
         for i in 0..dmx.get_num_streams() {
