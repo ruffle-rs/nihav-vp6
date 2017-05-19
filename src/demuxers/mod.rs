@@ -9,13 +9,19 @@ use frame::*;
 use std::collections::HashMap;
 use io::byteio::*;
 
+/// Possible stream types.
 #[derive(Debug,Clone,Copy)]
 #[allow(dead_code)]
 pub enum StreamType {
+    /// video stream
     Video,
+    /// audio stream
     Audio,
+    /// subtitles
     Subtitles,
+    /// any data stream (or might be an unrecognized audio/video stream)
     Data,
+    /// nonexistent stream
     None,
 }
 
@@ -194,8 +200,11 @@ impl FrameFromPacket for NAFrame {
     }
 }
 
+///The structure used to create demuxers.
 pub trait DemuxerCreator {
+    /// Create new demuxer instance that will use `ByteReader` source as an input.
     fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<Demux<'a> + 'a>;
+    /// Get the name of current demuxer creator.
     fn get_name(&self) -> &'static str;
 }
 
@@ -207,9 +216,9 @@ const DEMUXERS: &[&'static DemuxerCreator] = &[
 ];
 
 pub fn find_demuxer(name: &str) -> Option<&DemuxerCreator> {
-    for i in 0..DEMUXERS.len() {
-        if DEMUXERS[i].get_name() == name {
-            return Some(DEMUXERS[i]);
+    for &dmx in DEMUXERS {
+        if dmx.get_name() == name {
+            return Some(dmx);
         }
     }
     None
