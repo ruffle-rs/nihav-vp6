@@ -10,7 +10,7 @@ enum GDVState {
 }
 
 #[allow(dead_code)]
-pub struct GremlinVideoDemuxer<'a> {
+struct GremlinVideoDemuxer<'a> {
     opened:     bool,
     src:        &'a mut ByteReader<'a>,
     frames:     u16,
@@ -90,7 +90,7 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
     }
 }*/
 impl<'a> GremlinVideoDemuxer<'a> {
-    pub fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut ByteReader<'a>) -> Self {
         GremlinVideoDemuxer {
             cur_frame: 0,
             frames: 0,
@@ -124,6 +124,15 @@ pktdta: Vec::new(),
         self.cur_frame = self.cur_frame + 1;
         src.read_packet(str, Some((self.cur_frame - 1) as u64), None, None, if (flags & 64) != 0 { true } else { false }, size)
     }
+}
+
+pub struct GDVDemuxerCreator { }
+
+impl DemuxerCreator for GDVDemuxerCreator {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<Demux<'a> + 'a> {
+        Box::new(GremlinVideoDemuxer::new(br))
+    }
+    fn get_name(&self) -> &'static str { "gdv" }
 }
 
 #[cfg(test)]

@@ -360,17 +360,18 @@ impl NADecoder for Indeo2Decoder {
 #[cfg(test)]
 mod test {
     use super::*;
-    use demuxers::avi::*;
+    use demuxers::*;
     use io::byteio::*;
     use std::fs::File;
     use std::io::prelude::*;
 
     #[test]
     fn test_indeo2() {
+        let avi_dmx = find_demuxer("avi").unwrap();
         let mut file = File::open("assets/laser05.avi").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
-        let mut dmx = AVIDemuxer::new(&mut br);
+        let mut dmx = avi_dmx.new_demuxer(&mut br);
         dmx.open().unwrap();
         let mut dec = Indeo2Decoder::new();
 

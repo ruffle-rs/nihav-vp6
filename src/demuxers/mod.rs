@@ -193,3 +193,24 @@ impl FrameFromPacket for NAFrame {
         self.set_duration(pkt.duration);
     }
 }
+
+pub trait DemuxerCreator {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<Demux<'a> + 'a>;
+    fn get_name(&self) -> &'static str;
+}
+
+const DEMUXERS: &[&'static DemuxerCreator] = &[
+#[cfg(feature="demuxer_avi")]
+    &avi::AVIDemuxerCreator {},
+#[cfg(feature="demuxer_gdv")]
+    &gdv::GDVDemuxerCreator {},
+];
+
+pub fn find_demuxer(name: &str) -> Option<&DemuxerCreator> {
+    for i in 0..DEMUXERS.len() {
+        if DEMUXERS[i].get_name() == name {
+            return Some(DEMUXERS[i]);
+        }
+    }
+    None
+}

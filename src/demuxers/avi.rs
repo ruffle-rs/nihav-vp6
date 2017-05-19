@@ -38,7 +38,7 @@ impl StreamState {
 }
 
 #[allow(dead_code)]
-pub struct AVIDemuxer<'a> {
+struct AVIDemuxer<'a> {
     opened:         bool,
     src:            &'a mut ByteReader<'a>,
     cur_frame:      Vec<u64>,
@@ -106,7 +106,7 @@ impl<'a> Demux<'a> for AVIDemuxer<'a> {
 }
 
 impl<'a> AVIDemuxer<'a> {
-    pub fn new(io: &'a mut ByteReader<'a>) -> Self {
+    fn new(io: &'a mut ByteReader<'a>) -> Self {
         AVIDemuxer {
             cur_frame: Vec::new(),
             num_streams: 0,
@@ -356,6 +356,15 @@ fn parse_avih(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
 fn parse_junk(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
     dmx.src.read_skip(size)?;
     Ok(size)
+}
+
+pub struct AVIDemuxerCreator { }
+
+impl DemuxerCreator for AVIDemuxerCreator {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<Demux<'a> + 'a> {
+        Box::new(AVIDemuxer::new(br))
+    }
+    fn get_name(&self) -> &'static str { "avi" }
 }
 
 #[cfg(test)]
