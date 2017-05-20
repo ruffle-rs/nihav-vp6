@@ -3,7 +3,6 @@ pub mod indeo2;
 
 use std::rc::Rc;
 use frame::*;
-use demuxers::*;
 use io::byteio::ByteIOError;
 use io::bitreader::BitReaderError;
 use io::codebook::CodebookError;
