@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum CodecType {
     Video,
@@ -28,6 +28,7 @@ const CODEC_CAP_REORDER:u32     = 0x000004;
 const CODEC_CAP_HYBRID:u32      = 0x000008;
 const CODEC_CAP_SCALABLE:u32    = 0x000010;
 
+#[derive(Clone)]
 pub struct CodecDescription {
     name:  &'static str,
     fname: &'static str,
@@ -108,9 +109,9 @@ macro_rules! desc {
 }
 
 pub fn get_codec_description(name: &str) -> Option<&'static CodecDescription> {
-    for i in 0..CODEC_REGISTER.len() {
-        if CODEC_REGISTER[i].name == name {
-            return Some(&CODEC_REGISTER[i]);
+    for reg in CODEC_REGISTER {
+        if reg.name == name {
+            return Some(reg);
         }
     }
     None
