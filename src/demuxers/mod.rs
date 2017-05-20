@@ -149,7 +149,7 @@ impl<'a> NAPacketReader for ByteReader<'a> {
     }
 }
 
-pub struct Demuxer {
+struct Demuxer {
     streams: Vec<Rc<NAStream>>,
 }
 
@@ -169,6 +169,7 @@ impl Demuxer {
             None
         }
     }
+    #[allow(dead_code)]
     pub fn get_stream_by_id(&self, id: u32) -> Option<Rc<NAStream>> {
         for i in 0..self.streams.len() {
             if self.streams[i].get_id() == id {
