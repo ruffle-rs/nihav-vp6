@@ -53,10 +53,12 @@ impl HAMShuffler {
     }
     #[allow(dead_code)]
     fn clone_ref(&mut self) -> Option<NAFrameRef> {
-        match self.lastframe {
-            Some(ref frm) => Some(Rc::new(RefCell::new(NAFrame::from_copy(&frm.borrow())))),
-            None => None,
-        }
+        if let None = self.lastframe { return None; }
+        if let Some(ref mut frm) = self.lastframe {
+            let newfrm = Rc::new(RefCell::new(NAFrame::from_copy(&frm.borrow())));
+            *frm = newfrm.clone();
+            Some(newfrm)
+        } else { None }
     }
     #[allow(dead_code)]
     fn get_output_frame(&mut self) -> Option<NAFrameRef> {
