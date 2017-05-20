@@ -394,7 +394,7 @@ mod test {
         loop {
             let pktres = dmx.get_frame();
             if let Err(e) = pktres {
-                if (e as i32) == (DemuxerError::EOF as i32) { break; }
+                if e == DemuxerError::EOF { break; }
                 panic!("error");
             }
             let pkt = pktres.unwrap();

@@ -7,7 +7,7 @@ use std::rc::Rc;
 use frame::*;
 use io::byteio::*;
 
-#[derive(Debug)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum DemuxerError {
     EOF,
