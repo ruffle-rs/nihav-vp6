@@ -43,14 +43,14 @@ pub trait NADecoder {
 }
 
 #[derive(Clone,Copy)]
-pub struct DemuxerInfo {
+pub struct DecoderInfo {
     name: &'static str,
     get_decoder: fn () -> Box<NADecoder>,
 }
 
-const DECODERS: &[DemuxerInfo] = &[
+const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_indeo2")]
-    DemuxerInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
+    DecoderInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
 ];
 
 pub fn find_decoder(name: &str) -> Option<fn () -> Box<NADecoder>> {
