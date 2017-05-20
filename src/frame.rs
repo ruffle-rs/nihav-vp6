@@ -235,6 +235,8 @@ pub struct NAFrame {
     options:        HashMap<String, NAValue>,
 }
 
+pub type NAFrameRef = Rc<RefCell<NAFrame>>;
+
 fn get_plane_size(info: &NAVideoInfo, idx: usize) -> (usize, usize) {
     let chromaton = info.get_format().get_chromaton(idx);
     if let None = chromaton { return (0, 0); }
@@ -260,6 +262,13 @@ impl NAFrame {
         let mut offs: Vec<usize> = Vec::new();
         offs.clone_from(&src.offsets);
         NAFrame { pts: None, dts: None, duration: None, buffer: buf, offsets: offs, info: src.info.clone(), ftype: src.ftype, key: src.key, options: src.options.clone() }
+    }
+    pub fn from_ref(srcref: NAFrameRef) -> Self {
+        let src = srcref.borrow();
+        let buf = copy_buf(&src.get_buffer());
+        let mut offs: Vec<usize> = Vec::new();
+        offs.clone_from(&src.offsets);
+        NAFrame { pts: None, dts: None, duration: None, buffer: buf, offsets: offs, info: src.info.clone(), ftype: src.ftype, key: src.key, options: src.options.clone() }        
     }
     pub fn get_pts(&self) -> Option<u64> { self.pts }
     pub fn get_dts(&self) -> Option<u64> { self.dts }
@@ -291,7 +300,17 @@ impl NAFrame {
     }
 }
 
-pub type NAFrameRef = Rc<RefCell<NAFrame>>;
+impl fmt::Display for NAFrame {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let (w, h) = self.get_dimensions(0);
+        let mut foo = format!("frame type {} size {}x{}", self.ftype, w, h);
+        if let Some(pts) = self.pts { foo = format!("{} pts {}", foo, pts); }
+        if let Some(dts) = self.dts { foo = format!("{} dts {}", foo, dts); }
+        if let Some(dur) = self.duration { foo = format!("{} duration {}", foo, dur); }
+        if self.key { foo = format!("{} kf", foo); }
+        write!(f, "[{}]", foo)
+    }
+}
 
 /// Possible stream types.
 #[derive(Debug,Clone,Copy)]
