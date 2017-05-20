@@ -1,8 +1,9 @@
 #[cfg(feature="decoder_indeo2")]
 pub mod indeo2;
 
-use std::rc::Rc;
 use frame::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 use io::byteio::ByteIOError;
 use io::bitreader::BitReaderError;
 use io::codebook::CodebookError;
@@ -36,9 +37,39 @@ impl From<CodebookError> for DecoderError {
     fn from(_: CodebookError) -> Self { DecoderError::InvalidData }
 }
 
+#[allow(dead_code)]
+struct HAMShuffler {
+    lastframe: Option<NAFrameRef>,
+}
+
+impl HAMShuffler {
+    #[allow(dead_code)]
+    fn new() -> Self { HAMShuffler { lastframe: None } }
+    #[allow(dead_code)]
+    fn clear(&mut self) { self.lastframe = None; }
+    #[allow(dead_code)]
+    fn add_frame(&mut self, frm: NAFrame) {
+        self.lastframe = Some(Rc::new(RefCell::new(frm)));
+    }
+    #[allow(dead_code)]
+    fn clone_ref(&mut self) -> Option<NAFrameRef> {
+        match self.lastframe {
+            Some(ref frm) => Some(Rc::new(RefCell::new(NAFrame::from_copy(&frm.borrow())))),
+            None => None,
+        }
+    }
+    #[allow(dead_code)]
+    fn get_output_frame(&mut self) -> Option<NAFrameRef> {
+        match self.lastframe {
+            Some(ref frm) => Some(frm.clone()),
+            None => None,
+        }
+    }
+}
+
 pub trait NADecoder {
     fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()>;
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<Rc<NAFrame>>;
+    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef>;
 }
 
 #[derive(Clone,Copy)]

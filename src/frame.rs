@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
+use std::cell::*;
 use formats::*;
 
 #[allow(dead_code)]
@@ -71,12 +72,13 @@ impl fmt::Display for NACodecTypeInfo {
     }
 }
 
+pub type BufferRef = Rc<RefCell<Vec<u8>>>;
 
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct NABuffer {
     id:   u64,
-    data: Rc<Vec<u8>>,
+    data: BufferRef,
 }
 
 impl Drop for NABuffer {
@@ -84,9 +86,11 @@ impl Drop for NABuffer {
 }
 
 impl NABuffer {
-    pub fn get_data(&self) -> Rc<Vec<u8>> { self.data.clone() }
-    pub fn get_data_mut(&mut self) -> Option<&mut Vec<u8>> { Rc::get_mut(&mut self.data) }
+    pub fn get_data(&self) -> Ref<Vec<u8>> { self.data.borrow() }
+    pub fn get_data_mut(&mut self) -> RefMut<Vec<u8>> { self.data.borrow_mut() }
 }
+
+pub type NABufferRef = Rc<RefCell<NABuffer>>;
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -171,7 +175,7 @@ fn alloc_audio_buf(ainfo: NAAudioInfo, data: &mut Vec<u8>, offs: &mut Vec<usize>
     }
 }
 
-pub fn alloc_buf(info: &NACodecInfo) -> (Rc<NABuffer>, Vec<usize>) {
+pub fn alloc_buf(info: &NACodecInfo) -> (NABufferRef, Vec<usize>) {
     let mut data: Vec<u8> = Vec::new();
     let mut offs: Vec<usize> = Vec::new();
     match info.properties {
@@ -179,13 +183,13 @@ pub fn alloc_buf(info: &NACodecInfo) -> (Rc<NABuffer>, Vec<usize>) {
         NACodecTypeInfo::Video(vinfo) => alloc_video_buf(vinfo, &mut data, &mut offs),
         _ => (),
     }
-    (Rc::new(NABuffer { id: 0, data: Rc::new(data) }), offs)
+    (Rc::new(RefCell::new(NABuffer { id: 0, data: Rc::new(RefCell::new(data)) })), offs)
 }
 
-pub fn copy_buf(buf: &NABuffer) -> Rc<NABuffer> {
+pub fn copy_buf(buf: &NABuffer) -> NABufferRef {
     let mut data: Vec<u8> = Vec::new();
     data.clone_from(buf.get_data().as_ref());
-    Rc::new(NABuffer { id: 0, data: Rc::new(data) })
+    Rc::new(RefCell::new(NABuffer { id: 0, data: Rc::new(RefCell::new(data)) }))
 }
 
 #[derive(Debug,Clone)]
@@ -197,14 +201,36 @@ pub enum NAValue {
     Data(Rc<Vec<u8>>),
 }
 
+#[derive(Debug,Clone,Copy,PartialEq)]
+#[allow(dead_code)]
+pub enum FrameType {
+    I,
+    P,
+    B,
+    Other,
+}
+
+impl fmt::Display for FrameType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            FrameType::I => write!(f, "I"),
+            FrameType::P => write!(f, "P"),
+            FrameType::B => write!(f, "B"),
+            FrameType::Other => write!(f, "x"),
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct NAFrame {
     pts:            Option<u64>,
     dts:            Option<u64>,
     duration:       Option<u64>,
-    buffer:         Rc<NABuffer>,
+    buffer:         NABufferRef,
     info:           Rc<NACodecInfo>,
+    ftype:          FrameType,
+    key:            bool,
     offsets:        Vec<usize>,
     options:        HashMap<String, NAValue>,
 }
@@ -222,27 +248,33 @@ impl NAFrame {
     pub fn new(pts:            Option<u64>,
                dts:            Option<u64>,
                duration:       Option<u64>,
+               ftype:          FrameType,
+               keyframe:       bool,
                info:           Rc<NACodecInfo>,
                options:        HashMap<String, NAValue>) -> Self {
         let (buf, offs) = alloc_buf(&info);
-        NAFrame { pts: pts, dts: dts, duration: duration, buffer: buf, offsets: offs, info: info, options: options }
+        NAFrame { pts: pts, dts: dts, duration: duration, buffer: buf, offsets: offs, info: info, ftype: ftype, key: keyframe, options: options }
     }
     pub fn from_copy(src: &NAFrame) -> Self {
-        let buf = copy_buf(src.get_buffer().as_ref());
+        let buf = copy_buf(&src.get_buffer());
         let mut offs: Vec<usize> = Vec::new();
         offs.clone_from(&src.offsets);
-        NAFrame { pts: None, dts: None, duration: None, buffer: buf, offsets: offs, info: src.info.clone(), options: src.options.clone() }
+        NAFrame { pts: None, dts: None, duration: None, buffer: buf, offsets: offs, info: src.info.clone(), ftype: src.ftype, key: src.key, options: src.options.clone() }
     }
     pub fn get_pts(&self) -> Option<u64> { self.pts }
     pub fn get_dts(&self) -> Option<u64> { self.dts }
     pub fn get_duration(&self) -> Option<u64> { self.duration }
+    pub fn get_frame_type(&self) -> FrameType { self.ftype }
+    pub fn is_keyframe(&self) -> bool { self.key }
     pub fn set_pts(&mut self, pts: Option<u64>) { self.pts = pts; }
     pub fn set_dts(&mut self, dts: Option<u64>) { self.dts = dts; }
     pub fn set_duration(&mut self, dur: Option<u64>) { self.duration = dur; }
+    pub fn set_frame_type(&mut self, ftype: FrameType) { self.ftype = ftype; }
+    pub fn set_keyframe(&mut self, key: bool) { self.key = key; }
 
     pub fn get_offset(&self, idx: usize) -> usize { self.offsets[idx] }
-    pub fn get_buffer(&self) -> Rc<NABuffer> { self.buffer.clone() }
-    pub fn get_buffer_mut(&mut self) -> Option<&mut NABuffer> { Rc::get_mut(&mut self.buffer) }
+    pub fn get_buffer(&self) -> Ref<NABuffer> { self.buffer.borrow() }
+    pub fn get_buffer_mut(&mut self) -> RefMut<NABuffer> { self.buffer.borrow_mut() }
     pub fn get_stride(&self, idx: usize) -> usize {
         if let NACodecTypeInfo::Video(vinfo) = self.info.get_properties() {
             if idx >= vinfo.get_format().get_num_comp() { return 0; }
@@ -258,6 +290,8 @@ impl NAFrame {
         }
     }
 }
+
+pub type NAFrameRef = Rc<RefCell<NAFrame>>;
 
 /// Possible stream types.
 #[derive(Debug,Clone,Copy)]
@@ -360,7 +394,7 @@ pub trait FrameFromPacket {
 
 impl FrameFromPacket for NAFrame {
     fn new_from_pkt(pkt: &NAPacket, info: Rc<NACodecInfo>) -> NAFrame {
-        NAFrame::new(pkt.pts, pkt.dts, pkt.duration, info, HashMap::new())
+        NAFrame::new(pkt.pts, pkt.dts, pkt.duration, FrameType::Other, pkt.keyframe, info, HashMap::new())
     }
     fn fill_timestamps(&mut self, pkt: &NAPacket) {
         self.set_pts(pkt.pts);

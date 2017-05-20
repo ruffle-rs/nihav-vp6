@@ -186,7 +186,7 @@ impl CodebookDescReader<u8> for IR2CodeReader {
 struct Indeo2Decoder {
     info:    Rc<NACodecInfo>,
     cb:      Codebook<u8>,
-    lastfrm: Option<Rc<NAFrame>>,
+    frmmgr:  HAMShuffler,
 }
 
 impl Indeo2Decoder {
@@ -194,7 +194,7 @@ impl Indeo2Decoder {
         let dummy_info = Rc::new(DUMMY_CODEC_INFO);
         let mut coderead = IR2CodeReader{};
         let cb = Codebook::new(&mut coderead, CodebookMode::LSB).unwrap();
-        Indeo2Decoder { info: dummy_info, cb: cb, lastfrm: None }
+        Indeo2Decoder { info: dummy_info, cb: cb, frmmgr: HAMShuffler::new() }
     }
 
     fn decode_plane_intra(&self, br: &mut BitReader,
@@ -205,8 +205,8 @@ impl Indeo2Decoder {
         let stride = frm.get_stride(planeno);
         let cb = &self.cb;
 
-        let mut buffer = frm.get_buffer_mut().unwrap();
-        let mut data = buffer.get_data_mut().unwrap();
+        let mut buffer = frm.get_buffer_mut();
+        let mut data = buffer.get_data_mut();
         let mut framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];
@@ -269,8 +269,8 @@ impl Indeo2Decoder {
         let stride = frm.get_stride(planeno);
         let cb = &self.cb;
 
-        let mut buffer = frm.get_buffer_mut().unwrap();
-        let mut data = buffer.get_data_mut().unwrap();
+        let mut buffer = frm.get_buffer_mut();
+        let mut data = buffer.get_data_mut();
         let mut framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];
@@ -318,12 +318,13 @@ impl NADecoder for Indeo2Decoder {
             let fmt = formats::YUV410_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, f, fmt));
             self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.frmmgr.clear();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<Rc<NAFrame>> {
+    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         if src.len() <= IR2_START { return Err(DecoderError::ShortData); }
         let interframe = src[18];
@@ -333,27 +334,27 @@ impl NADecoder for Indeo2Decoder {
         let chroma_tab = (tabs >> 2) & 3;
         if interframe != 0 {
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone());
+            frm.set_keyframe(true);
+            frm.set_frame_type(FrameType::I);
             for plane in 0..3 {
                 let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;
                 self.decode_plane_intra(&mut br, &mut frm, plane, tabidx)?;
             }
-            let rcf = Rc::new(frm);
-            self.lastfrm = Some(rcf.clone());
-            Ok(rcf)
+            self.frmmgr.add_frame(frm);
         } else {
-            let lf = self.lastfrm.clone();
-            if let None = lf { return Err(DecoderError::MissingReference); }
-            let lastfr = lf.unwrap();
-            let mut frm = NAFrame::from_copy(lastfr.as_ref());
+            let frmref = self.frmmgr.clone_ref();
+            if let None = frmref { return Err(DecoderError::MissingReference); }
+            let ffrmref = frmref.unwrap();
+            let mut frm = ffrmref.borrow_mut();
+            frm.set_keyframe(false);
+            frm.set_frame_type(FrameType::P);
             frm.fill_timestamps(pkt);
             for plane in 0..3 {
                 let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;
                 self.decode_plane_inter(&mut br, &mut frm, plane, tabidx)?;
             }
-            let rcf = Rc::new(frm);
-            self.lastfrm = Some(rcf.clone());
-            Ok(rcf)
         }
+        Ok(self.frmmgr.get_output_frame().unwrap())
     }
 }
 
@@ -365,7 +366,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 mod test {
     use codecs;
     use demuxers::*;
-    use frame::NAFrame;
+    use frame::NAFrameRef;
     use io::byteio::*;
     use std::fs::File;
     use std::io::prelude::*;
@@ -400,12 +401,13 @@ mod test {
             let pkt = pktres.unwrap();
             if pkt.get_stream().get_id() == str {
                 let frm = dec.decode(&pkt).unwrap();
-                write_pgmyuv(pkt.get_pts().unwrap(), &frm);
+                write_pgmyuv(pkt.get_pts().unwrap(), frm);
             }
         }
     }
 
-    fn write_pgmyuv(num: u64, frm: &NAFrame) {
+    fn write_pgmyuv(num: u64, frmref: NAFrameRef) {
+        let frm = frmref.borrow();
         let name = format!("assets/out{:04}.pgm", num);
         let mut ofile = File::create(name).unwrap();
         let (w, h) = frm.get_dimensions(0);
