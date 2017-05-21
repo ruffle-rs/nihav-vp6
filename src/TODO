@@ -1,4 +1,5 @@
-make bitstream reader accept byteio too
-real demuxers
-some decoder
-frame stuff
+proper sound management
+demuxers skipping requested streams
+better interface for registered demuxers/codecs
+better sound handling
+GDV decoders
