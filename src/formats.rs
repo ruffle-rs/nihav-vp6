@@ -41,6 +41,14 @@ impl NASoniton {
     pub fn is_planar(&self) -> bool { self.planar }
     pub fn is_float(&self)  -> bool { self.float }
     pub fn is_signed(&self) -> bool { self.signed }
+
+    pub fn get_audio_size(&self, length: u64) -> usize {
+        if self.packed {
+            ((length * (self.bits as u64) + 7) >> 3) as usize
+        } else {
+            (length * (((self.bits + 7) >> 3) as u64)) as usize
+        }
+    }
 }
 
 impl fmt::Display for NASoniton {
@@ -124,6 +132,7 @@ impl fmt::Display for NAChannelType {
     }
 }
 
+#[derive(Clone)]
 pub struct NAChannelMap {
     ids: Vec<NAChannelType>,
 }
@@ -308,10 +317,15 @@ impl NAPixelChromaton {
     pub fn get_offset(&self) -> u8  { self.comp_offs }
     pub fn get_step(&self)  -> u8   { self.next_elem }
 
+    pub fn get_width(&self, width: usize) -> usize {
+        (width  + ((1 << self.h_ss) - 1)) >> self.h_ss
+    }
+    pub fn get_height(&self, height: usize) -> usize {
+        (height + ((1 << self.v_ss) - 1)) >> self.v_ss
+    }
     pub fn get_linesize(&self, width: usize) -> usize {
-        let nw = (width  + ((1 << self.h_ss) - 1)) >> self.h_ss;
         let d = self.depth as usize;
-        (nw * d + d - 1) >> 3
+        (self.get_width(width) * d + d - 1) >> 3
     }
     pub fn get_data_size(&self, width: usize, height: usize) -> usize {
         let nh = (height + ((1 << self.v_ss) - 1)) >> self.v_ss;
