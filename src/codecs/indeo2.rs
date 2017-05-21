@@ -198,15 +198,14 @@ impl Indeo2Decoder {
     }
 
     fn decode_plane_intra(&self, br: &mut BitReader,
-                          frm: &mut NAFrame, planeno: usize,
+                          buf: &mut NAVideoBuffer<u8>, planeno: usize,
                           tableno: usize) -> DecoderResult<()> {
-        let offs = frm.get_offset(planeno);
-        let (w, h) = frm.get_dimensions(planeno);
-        let stride = frm.get_stride(planeno);
+        let offs = buf.get_offset(planeno);
+        let (w, h) = buf.get_dimensions(planeno);
+        let stride = buf.get_stride(planeno);
         let cb = &self.cb;
 
-        let mut buffer = frm.get_buffer_mut();
-        let mut data = buffer.get_data_mut();
+        let mut data = buf.get_data_mut();
         let mut framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];
@@ -262,15 +261,14 @@ impl Indeo2Decoder {
     }
 
     fn decode_plane_inter(&self, br: &mut BitReader,
-                          frm: &mut NAFrame, planeno: usize,
+                          buf: &mut NAVideoBuffer<u8>, planeno: usize,
                           tableno: usize) -> DecoderResult<()> {
-        let offs = frm.get_offset(planeno);
-        let (w, h) = frm.get_dimensions(planeno);
-        let stride = frm.get_stride(planeno);
+        let offs = buf.get_offset(planeno);
+        let (w, h) = buf.get_dimensions(planeno);
+        let stride = buf.get_stride(planeno);
         let cb = &self.cb;
 
-        let mut buffer = frm.get_buffer_mut();
-        let mut data = buffer.get_data_mut();
+        let mut data = buf.get_data_mut();
         let mut framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];
@@ -333,28 +331,34 @@ impl NADecoder for Indeo2Decoder {
         let luma_tab = tabs & 3;
         let chroma_tab = (tabs >> 2) & 3;
         if interframe != 0 {
-            let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone());
+            let vinfo = self.info.get_properties().get_video_info().unwrap();
+            let bufret = alloc_video_buffer(vinfo, 2);
+            if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
+            let mut bufinfo = bufret.unwrap();
+            let mut buf = bufinfo.get_vbuf().unwrap();
+            for plane in 0..3 {
+                let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;
+                self.decode_plane_intra(&mut br, &mut buf, plane, tabidx)?;
+            }
+            self.frmmgr.add_frame(buf);
+            let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
             frm.set_keyframe(true);
             frm.set_frame_type(FrameType::I);
+            Ok(Rc::new(RefCell::new(frm)))
+        } else {
+            let bufret = self.frmmgr.clone_ref();
+            if let None = bufret { return Err(DecoderError::MissingReference); }
+            let mut buf = bufret.unwrap();
+
             for plane in 0..3 {
                 let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;
-                self.decode_plane_intra(&mut br, &mut frm, plane, tabidx)?;
+                self.decode_plane_inter(&mut br, &mut buf, plane, tabidx)?;
             }
-            self.frmmgr.add_frame(frm);
-        } else {
-            let frmref = self.frmmgr.clone_ref();
-            if let None = frmref { return Err(DecoderError::MissingReference); }
-            let ffrmref = frmref.unwrap();
-            let mut frm = ffrmref.borrow_mut();
+            let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::Video(buf));
             frm.set_keyframe(false);
             frm.set_frame_type(FrameType::P);
-            frm.fill_timestamps(pkt);
-            for plane in 0..3 {
-                let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;
-                self.decode_plane_inter(&mut br, &mut frm, plane, tabidx)?;
-            }
+            Ok(Rc::new(RefCell::new(frm)))
         }
-        Ok(self.frmmgr.get_output_frame().unwrap())
     }
 }
 
@@ -410,14 +414,14 @@ mod test {
         let frm = frmref.borrow();
         let name = format!("assets/out{:04}.pgm", num);
         let mut ofile = File::create(name).unwrap();
-        let (w, h) = frm.get_dimensions(0);
-        let (w2, h2) = frm.get_dimensions(1);
+        let buf = frm.get_buffer().get_vbuf().unwrap();
+        let (w, h) = buf.get_dimensions(0);
+        let (w2, h2) = buf.get_dimensions(1);
         let tot_h = h + h2;
         let hdr = format!("P5\n{} {}\n255\n", w, tot_h);
         ofile.write_all(hdr.as_bytes()).unwrap();
-        let buf = frm.get_buffer();
         let dta = buf.get_data();
-        let ls = frm.get_stride(0);
+        let ls = buf.get_stride(0);
         let mut idx = 0;
         let mut idx2 = ls;
         let mut pad: Vec<u8> = Vec::with_capacity((w - w2 * 2) / 2);
@@ -428,10 +432,10 @@ mod test {
             idx  += ls;
             idx2 += ls;
         }
-        let mut base1 = frm.get_offset(1);
-        let stride1 = frm.get_stride(1);
-        let mut base2 = frm.get_offset(2);
-        let stride2 = frm.get_stride(2);
+        let mut base1 = buf.get_offset(1);
+        let stride1 = buf.get_stride(1);
+        let mut base2 = buf.get_offset(2);
+        let stride2 = buf.get_stride(2);
         for _ in 0..h2 {
             let bend1 = base1 + w2;
             let line = &dta[base1..bend1];

@@ -39,7 +39,7 @@ impl From<CodebookError> for DecoderError {
 
 #[allow(dead_code)]
 struct HAMShuffler {
-    lastframe: Option<NAFrameRef>,
+    lastframe: Option<NAVideoBuffer<u8>>,
 }
 
 impl HAMShuffler {
@@ -48,13 +48,13 @@ impl HAMShuffler {
     #[allow(dead_code)]
     fn clear(&mut self) { self.lastframe = None; }
     #[allow(dead_code)]
-    fn add_frame(&mut self, frm: NAFrame) {
-        self.lastframe = Some(Rc::new(RefCell::new(frm)));
+    fn add_frame(&mut self, buf: NAVideoBuffer<u8>) {
+        self.lastframe = Some(buf);
     }
     #[allow(dead_code)]
-    fn clone_ref(&mut self) -> Option<NAFrameRef> {
+    fn clone_ref(&mut self) -> Option<NAVideoBuffer<u8>> {
         if let Some(ref mut frm) = self.lastframe {
-            let newfrm = Rc::new(RefCell::new(NAFrame::from_copy(&frm.borrow())));
+            let newfrm = frm.copy_buffer();
             *frm = newfrm.clone();
             Some(newfrm)
         } else {
@@ -62,7 +62,7 @@ impl HAMShuffler {
         }
     }
     #[allow(dead_code)]
-    fn get_output_frame(&mut self) -> Option<NAFrameRef> {
+    fn get_output_frame(&mut self) -> Option<NAVideoBuffer<u8>> {
         match self.lastframe {
             Some(ref frm) => Some(frm.clone()),
             None => None,
