@@ -29,18 +29,18 @@ pub trait Demux<'a> {
 }
 
 pub trait NAPacketReader {
-    fn read_packet(&mut self, str: Rc<NAStream>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, keyframe: bool, size: usize) -> DemuxerResult<NAPacket>;
+    fn read_packet(&mut self, str: Rc<NAStream>, ts: NATimeInfo, keyframe: bool, size: usize) -> DemuxerResult<NAPacket>;
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()>;
 }
 
 impl<'a> NAPacketReader for ByteReader<'a> {
-    fn read_packet(&mut self, str: Rc<NAStream>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
+    fn read_packet(&mut self, str: Rc<NAStream>, ts: NATimeInfo, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
         let mut buf: Vec<u8> = Vec::with_capacity(size);
         if buf.capacity() < size { return Err(DemuxerError::MemoryError); }
         buf.resize(size, 0);
         let res = self.read_buf(buf.as_mut_slice());
         if let Err(_) = res { return Err(DemuxerError::IOError); }
-        let pkt = NAPacket::new(str, pts, dts, dur, kf, buf);
+        let pkt = NAPacket::new(str, ts, kf, buf);
         Ok(pkt)
     }
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()> {

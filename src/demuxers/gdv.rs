@@ -44,13 +44,13 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
             let vhdr = NAVideoInfo::new(width as usize, height as usize, false, PAL8_FORMAT);
             let vci = NACodecTypeInfo::Video(vhdr);
             let vinfo = NACodecInfo::new("gdv-video", vci, None);
-            self.v_id = self.dmx.add_stream(NAStream::new(StreamType::Video, 0, vinfo));
+            self.v_id = self.dmx.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps as u32));
         }
         if (aflags & 1) != 0 {
             let channels = if (aflags & 2) != 0 { 2 } else { 1 };
             let ahdr = NAAudioInfo::new(rate as u32, channels as u8, if (aflags & 4) != 0 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
             let ainfo = NACodecInfo::new("gdv-audio", NACodecTypeInfo::Audio(ahdr), None);
-            self.a_id = self.dmx.add_stream(NAStream::new(StreamType::Audio, 1, ainfo));
+            self.a_id = self.dmx.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, rate as u32));
 
             let packed = if (aflags & 8) != 0 { 1 } else { 0 };
             self.asize = (((rate / fps) * channels * (if (aflags & 4) != 0 { 2 } else { 1 })) >> packed) as usize;
@@ -109,7 +109,9 @@ pktdta: Vec::new(),
     fn read_achunk(&mut self) -> DemuxerResult<NAPacket> {
         self.state = GDVState::AudioRead;
         let str = self.dmx.get_stream(self.a_id.unwrap()).unwrap();
-        self.src.read_packet(str, Some(self.cur_frame as u64), None, None, true, self.asize)
+        let (tb_num, tb_den) = str.get_timebase();
+        let ts = NATimeInfo::new(Some(self.cur_frame as u64), None, None, tb_num, tb_den);
+        self.src.read_packet(str, ts, true, self.asize)
     }
 
     fn read_vchunk(&mut self) -> DemuxerResult<NAPacket> {
@@ -122,7 +124,9 @@ pktdta: Vec::new(),
         let flags = (tmp & 0xFF) as usize;
         self.state = GDVState::NewFrame;
         self.cur_frame = self.cur_frame + 1;
-        src.read_packet(str, Some((self.cur_frame - 1) as u64), None, None, if (flags & 64) != 0 { true } else { false }, size)
+        let (tb_num, tb_den) = str.get_timebase();
+        let ts = NATimeInfo::new(Some((self.cur_frame - 1) as u64), None, None, tb_num, tb_den);
+        src.read_packet(str, ts, if (flags & 64) != 0 { true } else { false }, size)
     }
 }
 

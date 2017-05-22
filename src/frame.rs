@@ -90,24 +90,7 @@ impl fmt::Display for NACodecTypeInfo {
 
 pub type BufferRef = Rc<RefCell<Vec<u8>>>;
 
-#[allow(dead_code)]
-#[derive(Clone)]
-pub struct NABuffer {
-    id:   u64,
-    data: BufferRef,
-}
-
-impl Drop for NABuffer {
-    fn drop(&mut self) { }
-}
-
-impl NABuffer {
-    pub fn get_data(&self) -> Ref<Vec<u8>> { self.data.borrow() }
-    pub fn get_data_mut(&mut self) -> RefMut<Vec<u8>> { self.data.borrow_mut() }
-}
-
 pub type NABufferRefT<T> = Rc<RefCell<Vec<T>>>;
-pub type NABufferRef = Rc<RefCell<NABuffer>>;
 
 #[derive(Clone)]
 pub struct NAVideoBuffer<T> {
@@ -406,12 +389,31 @@ impl fmt::Display for FrameType {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Clone)]
-pub struct NAFrame {
+#[derive(Debug,Clone,Copy)]
+pub struct NATimeInfo {
     pts:            Option<u64>,
     dts:            Option<u64>,
     duration:       Option<u64>,
+    tb_num:         u32,
+    tb_den:         u32,
+}
+
+impl NATimeInfo {
+    pub fn new(pts: Option<u64>, dts: Option<u64>, duration: Option<u64>, tb_num: u32, tb_den: u32) -> Self {
+        NATimeInfo { pts: pts, dts: dts, duration: duration, tb_num: tb_num, tb_den: tb_den }
+    }
+    pub fn get_pts(&self) -> Option<u64> { self.pts }
+    pub fn get_dts(&self) -> Option<u64> { self.dts }
+    pub fn get_duration(&self) -> Option<u64> { self.duration }
+    pub fn set_pts(&mut self, pts: Option<u64>) { self.pts = pts; }
+    pub fn set_dts(&mut self, dts: Option<u64>) { self.dts = dts; }
+    pub fn set_duration(&mut self, dur: Option<u64>) { self.duration = dur; }
+}
+
+#[allow(dead_code)]
+#[derive(Clone)]
+pub struct NAFrame {
+    ts:             NATimeInfo,
     buffer:         NABufferType,
     info:           Rc<NACodecInfo>,
     ftype:          FrameType,
@@ -431,26 +433,25 @@ fn get_plane_size(info: &NAVideoInfo, idx: usize) -> (usize, usize) {
 }
 
 impl NAFrame {
-    pub fn new(pts:            Option<u64>,
-               dts:            Option<u64>,
-               duration:       Option<u64>,
+    pub fn new(ts:             NATimeInfo,
                ftype:          FrameType,
                keyframe:       bool,
                info:           Rc<NACodecInfo>,
                options:        HashMap<String, NAValue>,
                buffer:         NABufferType) -> Self {
-        NAFrame { pts: pts, dts: dts, duration: duration, buffer: buffer, info: info, ftype: ftype, key: keyframe, options: options }
+        NAFrame { ts: ts, buffer: buffer, info: info, ftype: ftype, key: keyframe, options: options }
     }
-    pub fn get_pts(&self) -> Option<u64> { self.pts }
-    pub fn get_dts(&self) -> Option<u64> { self.dts }
-    pub fn get_duration(&self) -> Option<u64> { self.duration }
     pub fn get_frame_type(&self) -> FrameType { self.ftype }
     pub fn is_keyframe(&self) -> bool { self.key }
-    pub fn set_pts(&mut self, pts: Option<u64>) { self.pts = pts; }
-    pub fn set_dts(&mut self, dts: Option<u64>) { self.dts = dts; }
-    pub fn set_duration(&mut self, dur: Option<u64>) { self.duration = dur; }
     pub fn set_frame_type(&mut self, ftype: FrameType) { self.ftype = ftype; }
     pub fn set_keyframe(&mut self, key: bool) { self.key = key; }
+    pub fn get_time_information(&self) -> NATimeInfo { self.ts }
+    pub fn get_pts(&self) -> Option<u64> { self.ts.get_pts() }
+    pub fn get_dts(&self) -> Option<u64> { self.ts.get_dts() }
+    pub fn get_duration(&self) -> Option<u64> { self.ts.get_duration() }
+    pub fn set_pts(&mut self, pts: Option<u64>) { self.ts.set_pts(pts); }
+    pub fn set_dts(&mut self, dts: Option<u64>) { self.ts.set_dts(dts); }
+    pub fn set_duration(&mut self, dur: Option<u64>) { self.ts.set_duration(dur); }
 
     pub fn get_buffer(&self) -> NABufferType { self.buffer.clone() }
 }
@@ -458,9 +459,9 @@ impl NAFrame {
 impl fmt::Display for NAFrame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut foo = format!("frame type {}", self.ftype);
-        if let Some(pts) = self.pts { foo = format!("{} pts {}", foo, pts); }
-        if let Some(dts) = self.dts { foo = format!("{} dts {}", foo, dts); }
-        if let Some(dur) = self.duration { foo = format!("{} duration {}", foo, dur); }
+        if let Some(pts) = self.ts.pts { foo = format!("{} pts {}", foo, pts); }
+        if let Some(dts) = self.ts.dts { foo = format!("{} dts {}", foo, dts); }
+        if let Some(dur) = self.ts.duration { foo = format!("{} duration {}", foo, dur); }
         if self.key { foo = format!("{} kf", foo); }
         write!(f, "[{}]", foo)
     }
@@ -501,45 +502,68 @@ pub struct NAStream {
     id:             u32,
     num:            usize,
     info:           Rc<NACodecInfo>,
+    tb_num:         u32,
+    tb_den:         u32,
+}
+
+pub fn reduce_timebase(tb_num: u32, tb_den: u32) -> (u32, u32) {
+    if tb_num == 0 { return (tb_num, tb_den); }
+    if (tb_den % tb_num) == 0 { return (1, tb_den / tb_num); }
+
+    let mut a = tb_num;
+    let mut b = tb_den;
+
+    while a != b {
+        if a > b { a -= b; }
+        else if b > a { b -= a; }
+    }
+
+    (tb_num / a, tb_den / a)
 }
 
 impl NAStream {
-    pub fn new(mt: StreamType, id: u32, info: NACodecInfo) -> Self {
-        NAStream { media_type: mt, id: id, num: 0, info: Rc::new(info) }
+    pub fn new(mt: StreamType, id: u32, info: NACodecInfo, tb_num: u32, tb_den: u32) -> Self {
+        let (n, d) = reduce_timebase(tb_num, tb_den);
+        NAStream { media_type: mt, id: id, num: 0, info: Rc::new(info), tb_num: n, tb_den: d }
     }
     pub fn get_id(&self) -> u32 { self.id }
     pub fn get_num(&self) -> usize { self.num }
     pub fn set_num(&mut self, num: usize) { self.num = num; }
     pub fn get_info(&self) -> Rc<NACodecInfo> { self.info.clone() }
+    pub fn get_timebase(&self) -> (u32, u32) { (self.tb_num, self.tb_den) }
+    pub fn set_timebase(&mut self, tb_num: u32, tb_den: u32) {
+        let (n, d) = reduce_timebase(tb_num, tb_den);
+        self.tb_num = n;
+        self.tb_den = d;
+    }
 }
 
 impl fmt::Display for NAStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}#{} - {})", self.media_type, self.id, self.info.get_properties())
+        write!(f, "({}#{} @ {}/{} - {})", self.media_type, self.id, self.tb_num, self.tb_den, self.info.get_properties())
     }
 }
 
 #[allow(dead_code)]
 pub struct NAPacket {
     stream:         Rc<NAStream>,
-    pts:            Option<u64>,
-    dts:            Option<u64>,
-    duration:       Option<u64>,
+    ts:             NATimeInfo,
     buffer:         Rc<Vec<u8>>,
     keyframe:       bool,
 //    options:        HashMap<String, NAValue<'a>>,
 }
 
 impl NAPacket {
-    pub fn new(str: Rc<NAStream>, pts: Option<u64>, dts: Option<u64>, dur: Option<u64>, kf: bool, vec: Vec<u8>) -> Self {
+    pub fn new(str: Rc<NAStream>, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
-        NAPacket { stream: str, pts: pts, dts: dts, duration: dur, keyframe: kf, buffer: Rc::new(vec) }
+        NAPacket { stream: str, ts: ts, keyframe: kf, buffer: Rc::new(vec) }
     }
     pub fn get_stream(&self) -> Rc<NAStream> { self.stream.clone() }
-    pub fn get_pts(&self) -> Option<u64> { self.pts }
-    pub fn get_dts(&self) -> Option<u64> { self.dts }
-    pub fn get_duration(&self) -> Option<u64> { self.duration }
+    pub fn get_time_information(&self) -> NATimeInfo { self.ts }
+    pub fn get_pts(&self) -> Option<u64> { self.ts.get_pts() }
+    pub fn get_dts(&self) -> Option<u64> { self.ts.get_dts() }
+    pub fn get_duration(&self) -> Option<u64> { self.ts.get_duration() }
     pub fn is_keyframe(&self) -> bool { self.keyframe }
     pub fn get_buffer(&self) -> Rc<Vec<u8>> { self.buffer.clone() }
 }
@@ -551,9 +575,9 @@ impl Drop for NAPacket {
 impl fmt::Display for NAPacket {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut foo = format!("[pkt for {} size {}", self.stream, self.buffer.len());
-        if let Some(pts) = self.pts { foo = format!("{} pts {}", foo, pts); }
-        if let Some(dts) = self.dts { foo = format!("{} dts {}", foo, dts); }
-        if let Some(dur) = self.duration { foo = format!("{} duration {}", foo, dur); }
+        if let Some(pts) = self.ts.pts { foo = format!("{} pts {}", foo, pts); }
+        if let Some(dts) = self.ts.dts { foo = format!("{} dts {}", foo, dts); }
+        if let Some(dur) = self.ts.duration { foo = format!("{} duration {}", foo, dur); }
         if self.keyframe { foo = format!("{} kf", foo); }
         foo = foo + "]";
         write!(f, "{}", foo)
@@ -567,12 +591,10 @@ pub trait FrameFromPacket {
 
 impl FrameFromPacket for NAFrame {
     fn new_from_pkt(pkt: &NAPacket, info: Rc<NACodecInfo>, buf: NABufferType) -> NAFrame {
-        NAFrame::new(pkt.pts, pkt.dts, pkt.duration, FrameType::Other, pkt.keyframe, info, HashMap::new(), buf)
+        NAFrame::new(pkt.ts, FrameType::Other, pkt.keyframe, info, HashMap::new(), buf)
     }
     fn fill_timestamps(&mut self, pkt: &NAPacket) {
-        self.set_pts(pkt.pts);
-        self.set_dts(pkt.dts);
-        self.set_duration(pkt.duration);
+        self.ts = pkt.get_time_information();
     }
 }
 
