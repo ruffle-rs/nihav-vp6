@@ -59,7 +59,7 @@ impl fmt::Display for NASoniton {
     }
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub enum NAChannelType {
     C, L, R, Cs, Ls, Rs, Lss, Rss, LFE, Lc, Rc, Lh, Rh, Ch, LFE2, Lw, Rw, Ov, Lhs, Rhs, Chs, Ll, Rl, Cl, Lt, Rt, Lo, Ro
 }
@@ -141,6 +141,11 @@ impl NAChannelMap {
     pub fn new() -> Self { NAChannelMap { ids: Vec::new() } }
     pub fn add_channel(&mut self, ch: NAChannelType) {
         self.ids.push(ch);
+    }
+    pub fn add_channels(&mut self, chs: &[NAChannelType]) {
+        for i in 0..chs.len() {
+            self.ids.push(chs[i]);
+        }
     }
     pub fn num_channels(&self) -> usize {
         self.ids.len()
