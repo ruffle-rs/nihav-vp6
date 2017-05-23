@@ -1,5 +1,7 @@
 #[cfg(feature="decoder_indeo2")]
 pub mod indeo2;
+#[cfg(feature="decoder_pcm")]
+pub mod pcm;
 
 use frame::*;
 use std::rc::Rc;
@@ -84,6 +86,8 @@ pub struct DecoderInfo {
 const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_indeo2")]
     DecoderInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
+#[cfg(feature="decoder_pcm")]
+    DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },
 ];
 
 pub fn find_decoder(name: &str) -> Option<fn () -> Box<NADecoder>> {
