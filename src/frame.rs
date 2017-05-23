@@ -88,8 +88,6 @@ impl fmt::Display for NACodecTypeInfo {
     }
 }
 
-pub type BufferRef = Rc<RefCell<Vec<u8>>>;
-
 pub type NABufferRefT<T> = Rc<RefCell<Vec<T>>>;
 
 #[derive(Clone)]
@@ -149,6 +147,12 @@ impl<T: Clone> NAAudioBuffer<T> {
     }
 }
 
+impl NAAudioBuffer<u8> {
+    pub fn new_from_buf(info: NAAudioInfo, data: NABufferRefT<u8>, chmap: NAChannelMap) -> Self {
+        NAAudioBuffer { info: info, data: data, chmap: chmap, offs: Vec::new() }
+    }
+}
+
 #[derive(Clone)]
 pub enum NABufferType {
     Video      (NAVideoBuffer<u8>),
@@ -156,6 +160,7 @@ pub enum NABufferType {
     VideoPacked(NAVideoBuffer<u8>),
     AudioU8    (NAAudioBuffer<u8>),
     AudioI16   (NAAudioBuffer<i16>),
+    AudioI32   (NAAudioBuffer<i32>),
     AudioF32   (NAAudioBuffer<f32>),
     AudioPacked(NAAudioBuffer<u8>),
     Data       (NABufferRefT<u8>),
@@ -178,6 +183,38 @@ impl NABufferType {
     pub fn get_vbuf(&mut self) -> Option<NAVideoBuffer<u8>> {
         match *self {
             NABufferType::Video(ref vb)       => Some(vb.clone()),
+            NABufferType::VideoPacked(ref vb) => Some(vb.clone()),
+            _ => None,
+        }
+    }
+    pub fn get_vbuf16(&mut self) -> Option<NAVideoBuffer<u16>> {
+        match *self {
+            NABufferType::Video16(ref vb)     => Some(vb.clone()),
+            _ => None,
+        }
+    }
+    pub fn get_abuf_u8(&mut self) -> Option<NAAudioBuffer<u8>> {
+        match *self {
+            NABufferType::AudioU8(ref ab) => Some(ab.clone()),
+            NABufferType::AudioPacked(ref ab) => Some(ab.clone()),
+            _ => None,
+        }
+    }
+    pub fn get_abuf_i16(&mut self) -> Option<NAAudioBuffer<i16>> {
+        match *self {
+            NABufferType::AudioI16(ref ab) => Some(ab.clone()),
+            _ => None,
+        }
+    }
+    pub fn get_abuf_i32(&mut self) -> Option<NAAudioBuffer<i32>> {
+        match *self {
+            NABufferType::AudioI32(ref ab) => Some(ab.clone()),
+            _ => None,
+        }
+    }
+    pub fn get_abuf_f32(&mut self) -> Option<NAAudioBuffer<f32>> {
+        match *self {
+            NABufferType::AudioF32(ref ab) => Some(ab.clone()),
             _ => None,
         }
     }
