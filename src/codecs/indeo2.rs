@@ -307,7 +307,6 @@ impl Indeo2Decoder {
 const IR2_START: usize = 48;
 
 impl NADecoder for Indeo2Decoder {
-    #[allow(unused_variables)]
     fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
@@ -368,11 +367,11 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use codecs;
+    use codecs::*;
     use demuxers::*;
     use frame::NAFrameRef;
     use io::byteio::*;
-    use std::fs::File;
+    use std::fs::{File, OpenOptions};
     use std::io::prelude::*;
 
     #[test]
@@ -383,16 +382,18 @@ mod test {
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = avi_dmx.new_demuxer(&mut br);
         dmx.open().unwrap();
-        let mut dec = (codecs::find_decoder("indeo2").unwrap())();//Indeo2Decoder::new();
 
-        let mut str: u32 = 42;
+        let mut decs: Vec<Option<Box<NADecoder>>> = Vec::new();
         for i in 0..dmx.get_num_streams() {
             let s = dmx.get_stream(i).unwrap();
             let info = s.get_info();
-            if info.is_video() && info.get_name() == "indeo2" {
-                str = s.get_id();
-                dec.init(s.get_info()).unwrap();
-                break;
+            let decfunc = find_decoder(info.get_name());
+            if let Some(df) = decfunc {
+                let mut dec = (df)();
+                dec.init(info).unwrap();
+                decs.push(Some(dec));
+            } else {
+                decs.push(None);
             }
         }
 
@@ -403,16 +404,21 @@ mod test {
                 panic!("error");
             }
             let pkt = pktres.unwrap();
-            if pkt.get_stream().get_id() == str {
+            let streamno = pkt.get_stream().get_id() as usize;
+            if let Some(ref mut dec) = decs[streamno] {
                 let frm = dec.decode(&pkt).unwrap();
-                write_pgmyuv(pkt.get_pts().unwrap(), frm);
+                if pkt.get_stream().get_info().is_video() {
+                    write_pgmyuv(streamno, pkt.get_pts().unwrap(), frm);
+                } else {
+                    write_sound(streamno, frm, pkt.get_pts().unwrap() == 0);
+                }
             }
         }
     }
 
-    fn write_pgmyuv(num: u64, frmref: NAFrameRef) {
+    fn write_pgmyuv(strno: usize, num: u64, frmref: NAFrameRef) {
         let frm = frmref.borrow();
-        let name = format!("assets/out{:04}.pgm", num);
+        let name = format!("assets/out{:02}_{:04}.pgm", strno, num);
         let mut ofile = File::create(name).unwrap();
         let buf = frm.get_buffer().get_vbuf().unwrap();
         let (w, h) = buf.get_dimensions(0);
@@ -450,5 +456,17 @@ mod test {
             base1 += stride1;
             base2 += stride2;
         }
+    }
+
+    fn write_sound(strno: usize, frmref: NAFrameRef, first: bool) {
+        let frm = frmref.borrow();
+        let name = format!("assets/out{:02}.raw", strno);
+        let mut file = if first { File::create(name).unwrap() } else { OpenOptions::new().write(true).append(true).open(name).unwrap() };
+        let btype = frm.get_buffer();
+        let _ = match btype {
+            NABufferType::AudioU8(ref ab)      => file.write_all(ab.get_data().as_ref()),
+            NABufferType::AudioPacked(ref ab)   => file.write_all(ab.get_data().as_ref()),
+            _ => Ok(()),
+        };
     }
 }
