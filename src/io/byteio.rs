@@ -21,11 +21,12 @@ pub trait ByteIO {
     fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
     fn read_byte(&mut self) -> ByteIOResult<u8>;
     fn peek_byte(&mut self) -> ByteIOResult<u8>;
-    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<usize>;
+    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()>;
     fn tell(&mut self) -> u64;
     fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64>;
     fn is_eof(&mut self) -> bool;
     fn is_seekable(&mut self) -> bool;
+    fn size(&mut self) -> i64;
 }
 
 #[allow(dead_code)]
@@ -242,7 +243,7 @@ impl<'a> ByteIO for MemoryReader<'a> {
     }
 
     #[allow(unused_variables)]
-    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<usize> {
+    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -266,6 +267,10 @@ impl<'a> ByteIO for MemoryReader<'a> {
 
     fn is_seekable(&mut self) -> bool {
         true
+    }
+
+    fn size(&mut self) -> i64 {
+        self.buf.len() as i64
     }
 }
 
@@ -315,7 +320,7 @@ impl<'a> ByteIO for FileReader<'a> {
     }
 
     #[allow(unused_variables)]
-    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<usize> {
+    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
         Err(ByteIOError::NotImplemented)
     }
 
@@ -337,6 +342,234 @@ impl<'a> ByteIO for FileReader<'a> {
 
     fn is_seekable(&mut self) -> bool {
         true
+    }
+
+    fn size(&mut self) -> i64 {
+        -1
+    }
+}
+
+#[allow(dead_code)]
+pub struct ByteWriter<'a> {
+    io: &'a mut ByteIO,
+}
+
+pub struct MemoryWriter<'a> {
+    buf:      &'a mut [u8],
+    size:     usize,
+    pos:      usize,
+}
+
+pub struct FileWriter<'a> {
+    file:     &'a File,
+}
+
+impl<'a> ByteWriter<'a> {
+    pub fn new(io: &'a mut ByteIO) -> Self { ByteWriter { io: io } }
+
+    pub fn write_buf(&mut self, buf: &[u8])  -> ByteIOResult<()> {
+        self.io.write_buf(buf)
+    }
+
+    pub fn write_byte(&mut self, val: u8) -> ByteIOResult<()> {
+        let buf: [u8; 1] = [val];
+        self.io.write_buf(&buf)
+    }
+
+    pub fn write_u16be(&mut self, val: u16) -> ByteIOResult<()> {
+        let buf: [u8; 2] = [((val >> 8) & 0xFF) as u8, (val & 0xFF) as u8];
+        self.io.write_buf(&buf)
+    }
+
+    pub fn write_u16le(&mut self, val: u16) -> ByteIOResult<()> {
+        let buf: [u8; 2] = [(val & 0xFF) as u8, ((val >> 8) & 0xFF) as u8];
+        self.io.write_buf(&buf)
+    }
+
+    pub fn write_u24be(&mut self, val: u32) -> ByteIOResult<()> {
+        let buf: [u8; 3] = [((val >> 16) & 0xFF) as u8, ((val >> 8) & 0xFF) as u8, (val & 0xFF) as u8];
+        self.write_buf(&buf)
+    }
+
+    pub fn write_u24le(&mut self, val: u32) -> ByteIOResult<()> {
+        let buf: [u8; 3] = [(val & 0xFF) as u8, ((val >> 8) & 0xFF) as u8, ((val >> 16) & 0xFF) as u8];
+        self.write_buf(&buf)
+    }
+
+    pub fn write_u32be(&mut self, val: u32) -> ByteIOResult<()> {
+        self.write_u16be(((val >> 16) & 0xFFFF) as u16)?;
+        self.write_u16be((val & 0xFFFF) as u16)
+    }
+
+    pub fn write_u32le(&mut self, val: u32) -> ByteIOResult<()> {
+        self.write_u16le((val & 0xFFFF) as u16)?;
+        self.write_u16le(((val >> 16) & 0xFFFF) as u16)
+    }
+
+    pub fn write_u64be(&mut self, val: u64) -> ByteIOResult<()> {
+        self.write_u32be(((val >> 32) & 0xFFFFFFFF) as u32)?;
+        self.write_u32be((val & 0xFFFFFFFF) as u32)
+    }
+
+    pub fn write_u64le(&mut self, val: u64) -> ByteIOResult<()> {
+        self.write_u32le((val & 0xFFFFFFFF) as u32)?;
+        self.write_u32le(((val >> 32) & 0xFFFFFFFF) as u32)
+    }
+
+    pub fn tell(&mut self) -> u64 {
+        self.io.tell()
+    }
+
+    pub fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {
+        self.io.seek(pos)
+    }
+
+    pub fn size_left(&mut self) -> i64 {
+        let sz = self.io.size();
+        if sz == -1 { return -1; }
+        sz - (self.tell() as i64)
+    }
+}
+
+impl<'a> MemoryWriter<'a> {
+
+    pub fn new_write(buf: &'a mut [u8]) -> Self {
+        let len = buf.len();
+        MemoryWriter { buf: buf, size: len, pos: 0 }
+    }
+
+    fn real_seek(&mut self, pos: i64) -> ByteIOResult<u64> {
+        if pos < 0 || (pos as usize) > self.size {
+            return Err(ByteIOError::WrongRange)
+        }
+        self.pos = pos as usize;
+        Ok(pos as u64)
+    }
+}
+
+impl<'a> ByteIO for MemoryWriter<'a> {
+    #[allow(unused_variables)]
+    fn read_byte(&mut self) -> ByteIOResult<u8> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn peek_byte(&mut self) -> ByteIOResult<u8> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
+        if self.pos + buf.len() > self.size { return Err(ByteIOError::WriteError); }
+        for i in 0..buf.len() {
+            self.buf[self.pos + i] = buf[i];
+        }
+        self.pos += buf.len();
+        Ok(())
+    }
+
+    fn tell(&mut self) -> u64 {
+        self.pos as u64
+    }
+
+    fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {
+        let cur_pos  = self.pos  as i64;
+        let cur_size = self.size as i64;
+        match pos {
+            SeekFrom::Start(x)   => self.real_seek(x as i64),
+            SeekFrom::Current(x) => self.real_seek(cur_pos + x),
+            SeekFrom::End(x)     => self.real_seek(cur_size + x),
+        }
+    }
+
+    fn is_eof(&mut self) -> bool {
+        self.pos >= self.size
+    }
+
+    fn is_seekable(&mut self) -> bool {
+        true
+    }
+
+    fn size(&mut self) -> i64 {
+        self.buf.len() as i64
+    }
+}
+
+impl<'a> FileWriter<'a> {
+    pub fn new_write(file: &'a mut File) -> Self {
+        FileWriter { file: file }
+    }
+}
+
+impl<'a> ByteIO for FileWriter<'a> {
+    #[allow(unused_variables)]
+    fn read_byte(&mut self) -> ByteIOResult<u8> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn peek_byte(&mut self) -> ByteIOResult<u8> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
+        match self.file.write_all(buf) {
+            Ok(()) => Ok(()),
+            Err(_) => Err(ByteIOError::WriteError),
+        }
+    }
+
+    fn tell(&mut self) -> u64 {
+        self.file.seek(SeekFrom::Current(0)).unwrap()
+    }
+
+    fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {
+        let res = self.file.seek(pos);
+        match res {
+            Ok(r) => Ok(r),
+            Err(_) => Err(ByteIOError::SeekError),
+        }
+    }
+
+    fn is_eof(&mut self) -> bool {
+        false
+    }
+
+    fn is_seekable(&mut self) -> bool {
+        true
+    }
+
+    fn size(&mut self) -> i64 {
+        -1
     }
 }
 
@@ -367,5 +600,25 @@ mod test {
     }
     #[test]
     fn test_write() {
+        let mut buf: [u8; 64] = [0; 64];
+        {
+            let mut mw = MemoryWriter::new_write(&mut buf);
+            let mut bw = ByteWriter::new(&mut mw);
+            bw.write_byte(0x00).unwrap();
+            bw.write_u16be(0x0102).unwrap();
+            bw.write_u24be(0x030405).unwrap();
+            bw.write_u32be(0x06070809).unwrap();
+            bw.write_u64be(0x0A0B0C0D0E0F1011).unwrap();
+            bw.write_byte(0x00).unwrap();
+            bw.write_u16le(0x0201).unwrap();
+            bw.write_u24le(0x050403).unwrap();
+            bw.write_u32le(0x09080706).unwrap();
+            bw.write_u64le(0x11100F0E0D0C0B0A).unwrap();
+            assert_eq!(bw.size_left(), 28);
+        }
+        for i in 0..0x12 {
+            assert_eq!(buf[(i + 0x00) as usize], i);
+            assert_eq!(buf[(i + 0x12) as usize], i);
+        }
     }
 }
