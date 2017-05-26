@@ -371,8 +371,6 @@ mod test {
     use demuxers::*;
     use frame::NAFrameRef;
     use io::byteio::*;
-    use std::fs::{File, OpenOptions};
-    use std::io::prelude::*;
 
     #[test]
     fn test_indeo2() {
@@ -404,69 +402,16 @@ mod test {
                 panic!("error");
             }
             let pkt = pktres.unwrap();
+            if pkt.get_pts().unwrap() > 10 { break; }
             let streamno = pkt.get_stream().get_id() as usize;
             if let Some(ref mut dec) = decs[streamno] {
                 let frm = dec.decode(&pkt).unwrap();
                 if pkt.get_stream().get_info().is_video() {
-                    write_pgmyuv(streamno, pkt.get_pts().unwrap(), frm);
+                    write_pgmyuv("iv2", streamno, pkt.get_pts().unwrap(), frm);
                 } else {
-                    write_sound(streamno, frm, pkt.get_pts().unwrap() == 0);
+                    write_sound("iv2", streamno, frm, pkt.get_pts().unwrap() == 0);
                 }
             }
         }
-    }
-
-    fn write_pgmyuv(strno: usize, num: u64, frmref: NAFrameRef) {
-        let frm = frmref.borrow();
-        let name = format!("assets/out{:02}_{:04}.pgm", strno, num);
-        let mut ofile = File::create(name).unwrap();
-        let buf = frm.get_buffer().get_vbuf().unwrap();
-        let (w, h) = buf.get_dimensions(0);
-        let (w2, h2) = buf.get_dimensions(1);
-        let tot_h = h + h2;
-        let hdr = format!("P5\n{} {}\n255\n", w, tot_h);
-        ofile.write_all(hdr.as_bytes()).unwrap();
-        let dta = buf.get_data();
-        let ls = buf.get_stride(0);
-        let mut idx = 0;
-        let mut idx2 = ls;
-        let mut pad: Vec<u8> = Vec::with_capacity((w - w2 * 2) / 2);
-        pad.resize((w - w2 * 2) / 2, 0xFF);
-        for _ in 0..h {
-            let line = &dta[idx..idx2];
-            ofile.write_all(line).unwrap();
-            idx  += ls;
-            idx2 += ls;
-        }
-        let mut base1 = buf.get_offset(1);
-        let stride1 = buf.get_stride(1);
-        let mut base2 = buf.get_offset(2);
-        let stride2 = buf.get_stride(2);
-        for _ in 0..h2 {
-            let bend1 = base1 + w2;
-            let line = &dta[base1..bend1];
-            ofile.write_all(line).unwrap();
-            ofile.write_all(pad.as_slice()).unwrap();
-
-            let bend2 = base2 + w2;
-            let line = &dta[base2..bend2];
-            ofile.write_all(line).unwrap();
-            ofile.write_all(pad.as_slice()).unwrap();
-
-            base1 += stride1;
-            base2 += stride2;
-        }
-    }
-
-    fn write_sound(strno: usize, frmref: NAFrameRef, first: bool) {
-        let frm = frmref.borrow();
-        let name = format!("assets/out{:02}.raw", strno);
-        let mut file = if first { File::create(name).unwrap() } else { OpenOptions::new().write(true).append(true).open(name).unwrap() };
-        let btype = frm.get_buffer();
-        let _ = match btype {
-            NABufferType::AudioU8(ref ab)      => file.write_all(ab.get_data().as_ref()),
-            NABufferType::AudioPacked(ref ab)   => file.write_all(ab.get_data().as_ref()),
-            _ => Ok(()),
-        };
     }
 }
