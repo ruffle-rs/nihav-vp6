@@ -190,6 +190,16 @@ impl<'a> ByteReader<'a> {
     pub fn is_eof(&mut self) -> bool {
         self.io.is_eof()
     }
+
+    pub fn size(&mut self) -> i64 {
+        self.io.size()
+    }
+
+    pub fn left(&mut self) -> i64 {
+        let size = self.io.size();
+        if size == -1 { return -1; }
+        return size - (self.io.tell() as i64)
+    }
 }
 
 impl<'a> MemoryReader<'a> {
