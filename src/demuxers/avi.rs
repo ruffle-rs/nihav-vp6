@@ -78,6 +78,10 @@ impl<'a> Demux<'a> for AVIDemuxer<'a> {
         if self.movi_size == 0 { return Err(EOF); }
         let mut tag: [u8; 4] = [0; 4];
         loop {
+            if (self.src.tell() & 1) == 1 {
+                self.src.read_skip(1)?;
+                self.movi_size -= 1;
+            }
             self.src.read_buf(&mut tag)?;
             let size = self.src.read_u32le()? as usize;
             if mktag!(tag) == mktag!(b"JUNK") {
