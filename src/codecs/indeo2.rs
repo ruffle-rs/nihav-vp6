@@ -369,7 +369,6 @@ pub fn get_decoder() -> Box<NADecoder> {
 mod test {
     use codecs::*;
     use demuxers::*;
-    use frame::NAFrameRef;
     use io::byteio::*;
 
     #[test]
