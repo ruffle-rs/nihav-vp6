@@ -3,3 +3,5 @@ demuxers skipping requested streams
 better interface for registered demuxers/codecs
 better sound handling
 GDV decoders
+paletted formats support
+indeo3: requantisation, better data end check
