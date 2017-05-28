@@ -250,7 +250,20 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     }
 
 //todo semi-packed like NV12
-    if !all_packed {
+    if fmt.is_paletted() {
+//todo various-sized palettes?
+        let pic_sz = width.checked_mul(height);
+        if pic_sz == None { return Err(AllocatorError::TooLargeDimensions); }
+        let pal_size = 256 * (fmt.get_elem_size() as usize);
+        let new_size = pic_sz.unwrap().checked_add(pal_size);
+        if new_size == None { return Err(AllocatorError::TooLargeDimensions); }
+        offs.push(0);
+        offs.push(width * height);
+        let mut data: Vec<u8> = Vec::with_capacity(new_size.unwrap());
+        data.resize(new_size.unwrap(), 0);
+        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs };
+        Ok(NABufferType::Video(buf))
+    } else if !all_packed {
         for i in 0..fmt.get_num_comp() {
             let chr = fmt.get_chromaton(i).unwrap();
             if !vinfo.is_flipped() {
@@ -412,6 +425,7 @@ pub enum FrameType {
     I,
     P,
     B,
+    Skip,
     Other,
 }
 
@@ -421,6 +435,7 @@ impl fmt::Display for FrameType {
             FrameType::I => write!(f, "I"),
             FrameType::P => write!(f, "P"),
             FrameType::B => write!(f, "B"),
+            FrameType::Skip => write!(f, "skip"),
             FrameType::Other => write!(f, "x"),
         }
     }
