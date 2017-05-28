@@ -13,7 +13,7 @@ pub enum ByteIOError {
     SeekError,
 }
 
-type ByteIOResult<T> = Result<T, ByteIOError>;
+pub type ByteIOResult<T> = Result<T, ByteIOError>;
 
 pub trait ByteIO {
     fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize>;
