@@ -41,23 +41,28 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
         let width = src.read_u16le()?;
         let height = src.read_u16le()?;
         if max_fs > 0 {
+            let mut edata: Vec<u8> = Vec::with_capacity(768);
+            if depth == 1 {
+                edata.resize(768, 0);
+                src.read_buf(edata.as_mut_slice())?;
+            }
             let vhdr = NAVideoInfo::new(width as usize, height as usize, false, PAL8_FORMAT);
             let vci = NACodecTypeInfo::Video(vhdr);
-            let vinfo = NACodecInfo::new("gdv-video", vci, None);
+            let vinfo = NACodecInfo::new("gdv-video", vci, if edata.len() == 0 { None } else { Some(edata) });
             self.v_id = self.dmx.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps as u32));
         }
         if (aflags & 1) != 0 {
             let channels = if (aflags & 2) != 0 { 2 } else { 1 };
-            let ahdr = NAAudioInfo::new(rate as u32, channels as u8, if (aflags & 4) != 0 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
-            let ainfo = NACodecInfo::new("gdv-audio", NACodecTypeInfo::Audio(ahdr), None);
+            let packed   = if (aflags & 8) != 0 { 1 } else { 0 };
+            let depth    = if (aflags & 4) != 0 { 16 } else { 8 };
+
+            let ahdr = NAAudioInfo::new(rate as u32, channels as u8, if depth == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
+            let ainfo = NACodecInfo::new(if packed != 0 { "gdv-audio" } else { "pcm" },
+                                         NACodecTypeInfo::Audio(ahdr), None);
             self.a_id = self.dmx.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, rate as u32));
 
-            let packed = if (aflags & 8) != 0 { 1 } else { 0 };
-            self.asize = (((rate / fps) * channels * (if (aflags & 4) != 0 { 2 } else { 1 })) >> packed) as usize;
+            self.asize = (((rate / fps) * channels * (depth / 8)) >> packed) as usize;
             self.apacked = (aflags & 8) != 0;
-        }
-        if max_fs > 0 && depth == 1 {
-            src.read_skip(768)?;
         }
         self.frames = frames;
         self.opened = true;
