@@ -8,6 +8,7 @@ use io::codebook::CodebookError;
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum DecoderError {
+    TryAgain,
     InvalidData,
     ShortData,
     MissingReference,
@@ -118,6 +119,7 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
 #[cfg(feature="decoder_indeo3")]
     DecoderInfo { name: "indeo3", get_decoder: indeo3::get_decoder },
+
 #[cfg(feature="decoder_pcm")]
     DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },
 ];
@@ -137,6 +139,7 @@ use std::fs::{File, OpenOptions};
 use std::io::prelude::*;
 
 #[cfg(test)]
+#[allow(dead_code)]
 fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     let frm = frmref.borrow();
     let name = format!("assets/{}out{:02}_{:04}.pgm", pfx, strno, num);
@@ -180,6 +183,36 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
+fn write_palppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
+    let frm = frmref.borrow();
+    let name = format!("assets/{}out{:02}_{:04}.ppm", pfx, strno, num);
+    let mut ofile = File::create(name).unwrap();
+    let buf = frm.get_buffer().get_vbuf().unwrap();
+    let (w, h) = buf.get_dimensions(0);
+    let paloff = buf.get_offset(1);
+    let hdr = format!("P6\n{} {}\n255\n", w, h);
+    ofile.write_all(hdr.as_bytes()).unwrap();
+    let dta = buf.get_data();
+    let ls = buf.get_stride(0);
+    let mut idx  = 0;
+    let mut line: Vec<u8> = Vec::with_capacity(w * 3);
+    line.resize(w * 3, 0);
+    for _ in 0..h {
+        let src = &dta[idx..(idx+w)];
+        for x in 0..w {
+            let pix = src[x] as usize;
+            line[x * 3 + 0] = dta[paloff + pix * 3 + 2];
+            line[x * 3 + 1] = dta[paloff + pix * 3 + 1];
+            line[x * 3 + 2] = dta[paloff + pix * 3 + 0];
+        }
+        ofile.write_all(line.as_slice()).unwrap();
+        idx  += ls;
+    }
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
 fn write_sound(pfx: &str, strno: usize, frmref: NAFrameRef, first: bool) {
     let frm = frmref.borrow();
     let name = format!("assets/{}out{:02}.raw", pfx, strno);
