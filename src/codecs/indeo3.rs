@@ -747,7 +747,7 @@ impl NADecoder for Indeo3Decoder {
         if (yoff < vend) && (yoff > voff) { vend = yoff; }
         if (uoff < vend) && (uoff > voff) { vend = uoff; }
 
-        let interframe = (flags & FLAG_KEYFRAME) != 0;
+        let intraframe = (flags & FLAG_KEYFRAME) != 0;
         let vinfo = self.info.get_properties().get_video_info().unwrap();
         let bufret = alloc_video_buffer(vinfo, 2);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
@@ -759,7 +759,7 @@ impl NADecoder for Indeo3Decoder {
         let yendpos = data_start + (yend as u64);
         let uendpos = data_start + (uend as u64);
         let vendpos = data_start + (vend as u64);
-        if interframe {
+        if intraframe {
             self.decode_plane_intra(&mut br, 0, ystart, yendpos)?;
             self.decode_plane_intra(&mut br, 1, ustart, uendpos)?;
             self.decode_plane_intra(&mut br, 2, vstart, vendpos)?;
@@ -771,8 +771,8 @@ impl NADecoder for Indeo3Decoder {
         self.bufs.fill_framebuf(&mut buf);
         if (flags & FLAG_NONREF) == 0 { self.bufs.flip(); }
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
-        frm.set_keyframe(interframe);
-        frm.set_frame_type(if interframe { FrameType::I } else { FrameType::P });
+        frm.set_keyframe(intraframe);
+        frm.set_frame_type(if intraframe { FrameType::I } else { FrameType::P });
         Ok(Rc::new(RefCell::new(frm)))
     }
 }
