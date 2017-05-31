@@ -16,7 +16,8 @@ demuxer_gdv = ["demuxers"]
 decoders = []
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_indeo2", "decoder_indeo3"]
+all_video_decoders = ["decoder_gdvvid", "decoder_indeo2", "decoder_indeo3"]
+decoder_gdvvid = ["decoders"]
 decoder_indeo2 = ["decoders"]
 decoder_indeo3 = ["decoders"]
 

@@ -107,6 +107,8 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
+#[cfg(feature="decoder_gdvvid")]
+mod gremlinvideo;
 #[cfg(feature="decoder_indeo2")]
 mod indeo2;
 #[cfg(feature="decoder_indeo3")]
@@ -115,6 +117,8 @@ mod indeo3;
 mod pcm;
 
 const DECODERS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_gdvvid")]
+    DecoderInfo { name: "gdv-video", get_decoder: gremlinvideo::get_decoder },
 #[cfg(feature="decoder_indeo2")]
     DecoderInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
 #[cfg(feature="decoder_indeo3")]
