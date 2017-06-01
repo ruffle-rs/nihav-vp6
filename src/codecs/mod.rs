@@ -8,6 +8,7 @@ use io::codebook::CodebookError;
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum DecoderError {
+    NoFrame,
     TryAgain,
     InvalidData,
     ShortData,
