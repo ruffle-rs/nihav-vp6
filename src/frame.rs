@@ -92,9 +92,10 @@ pub type NABufferRefT<T> = Rc<RefCell<Vec<T>>>;
 
 #[derive(Clone)]
 pub struct NAVideoBuffer<T> {
-    info:   NAVideoInfo,
-    data:   NABufferRefT<T>,
-    offs:   Vec<usize>,
+    info:    NAVideoInfo,
+    data:    NABufferRefT<T>,
+    offs:    Vec<usize>,
+    strides: Vec<usize>,
 }
 
 impl<T: Clone> NAVideoBuffer<T> {
@@ -110,11 +111,13 @@ impl<T: Clone> NAVideoBuffer<T> {
         data.clone_from(self.data.borrow().as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
         offs.clone_from(&self.offs);
-        NAVideoBuffer { info: self.info, data: Rc::new(RefCell::new(data)), offs: offs }
+        let mut strides: Vec<usize> = Vec::with_capacity(self.strides.len());
+        strides.clone_from(&self.strides);
+        NAVideoBuffer { info: self.info, data: Rc::new(RefCell::new(data)), offs: offs, strides: strides }
     }
     pub fn get_stride(&self, idx: usize) -> usize {
-        if idx >= self.info.get_format().get_num_comp() { return 0; }
-        self.info.get_format().get_chromaton(idx).unwrap().get_linesize(self.info.get_width())
+        if idx >= self.strides.len() { return 0; }
+        self.strides[idx]
     }
     pub fn get_dimensions(&self, idx: usize) -> (usize, usize) {
         get_plane_size(&self.info, idx)
@@ -229,7 +232,8 @@ pub enum AllocatorError {
 pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType, AllocatorError> {
     let fmt = &vinfo.format;
     let mut new_size: usize = 0;
-    let mut offs: Vec<usize> = Vec::new();
+    let mut offs:    Vec<usize> = Vec::new();
+    let mut strides: Vec<usize> = Vec::new();
 
     for i in 0..fmt.get_num_comp() {
         if fmt.get_chromaton(i) == None { return Err(AllocatorError::FormatError); }
@@ -241,7 +245,9 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     let mut max_depth = 0;
     let mut all_packed = true;
     for i in 0..fmt.get_num_comp() {
-        let chr = fmt.get_chromaton(i).unwrap();
+        let ochr = fmt.get_chromaton(i);
+        if let None = ochr { continue; }
+        let chr = ochr.unwrap();
         if !chr.is_packed() {
             all_packed = false;
             break;
@@ -252,26 +258,30 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
 //todo semi-packed like NV12
     if fmt.is_paletted() {
 //todo various-sized palettes?
-        let pic_sz = width.checked_mul(height);
+        let stride = vinfo.get_format().get_chromaton(0).unwrap().get_linesize(width);
+        let pic_sz = stride.checked_mul(height);
         if pic_sz == None { return Err(AllocatorError::TooLargeDimensions); }
         let pal_size = 256 * (fmt.get_elem_size() as usize);
         let new_size = pic_sz.unwrap().checked_add(pal_size);
         if new_size == None { return Err(AllocatorError::TooLargeDimensions); }
         offs.push(0);
-        offs.push(width * height);
+        offs.push(stride * height);
+        strides.push(stride);
         let mut data: Vec<u8> = Vec::with_capacity(new_size.unwrap());
         data.resize(new_size.unwrap(), 0);
-        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs };
+        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
         Ok(NABufferType::Video(buf))
     } else if !all_packed {
         for i in 0..fmt.get_num_comp() {
-            let chr = fmt.get_chromaton(i).unwrap();
+            let ochr = fmt.get_chromaton(i);
+            if let None = ochr { continue; }
+            let chr = ochr.unwrap();
             if !vinfo.is_flipped() {
                 offs.push(new_size as usize);
             }
-            let cur_w = chr.get_width(width);
+            let stride = chr.get_linesize(width);
             let cur_h = chr.get_height(height);
-            let cur_sz = cur_w.checked_mul(cur_h);
+            let cur_sz = stride.checked_mul(cur_h);
             if cur_sz == None { return Err(AllocatorError::TooLargeDimensions); }
             let new_sz = new_size.checked_add(cur_sz.unwrap());
             if new_sz == None { return Err(AllocatorError::TooLargeDimensions); }
@@ -279,16 +289,17 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
             if vinfo.is_flipped() {
                 offs.push(new_size as usize);
             }
+            strides.push(stride);
         }
         if max_depth <= 8 {
             let mut data: Vec<u8> = Vec::with_capacity(new_size);
             data.resize(new_size, 0);
-            let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs };
+            let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
             Ok(NABufferType::Video(buf))
         } else {
             let mut data: Vec<u16> = Vec::with_capacity(new_size);
             data.resize(new_size, 0);
-            let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs };
+            let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
             Ok(NABufferType::Video16(buf))
         }
     } else {
@@ -300,7 +311,8 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         new_size = new_sz.unwrap();
         let mut data: Vec<u8> = Vec::with_capacity(new_size);
         data.resize(new_size, 0);
-        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs };
+        strides.push(line_sz.unwrap());
+        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
         Ok(NABufferType::VideoPacked(buf))
     }
 }

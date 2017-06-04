@@ -330,7 +330,11 @@ impl NAPixelChromaton {
     }
     pub fn get_linesize(&self, width: usize) -> usize {
         let d = self.depth as usize;
-        (self.get_width(width) * d + d - 1) >> 3
+        if self.packed {
+            (self.get_width(width) * d + d - 1) >> 3
+        } else {
+            self.get_width(width)
+        }
     }
     pub fn get_data_size(&self, width: usize, height: usize) -> usize {
         let nh = (height + ((1 << self.v_ss) - 1)) >> self.v_ss;

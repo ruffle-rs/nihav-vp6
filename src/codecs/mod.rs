@@ -158,7 +158,7 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     let dta = buf.get_data();
     let ls = buf.get_stride(0);
     let mut idx = 0;
-    let mut idx2 = ls;
+    let mut idx2 = w;
     let mut pad: Vec<u8> = Vec::with_capacity((w - w2 * 2) / 2);
     pad.resize((w - w2 * 2) / 2, 0xFF);
     for _ in 0..h {
