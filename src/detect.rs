@@ -15,7 +15,7 @@ impl DetectionScore {
 }
 
 #[allow(dead_code)]
-enum CondArg {
+enum Arg {
     Byte(u8),
     U16BE(u16),
     U16LE(u16),
@@ -27,63 +27,63 @@ enum CondArg {
     U64LE(u64),
 }
 
-impl CondArg {
+impl Arg {
     fn val(&self) -> u64 {
         match *self {
-            CondArg::Byte(b) => { b as u64 }
-            CondArg::U16BE(v) => { v as u64 }
-            CondArg::U16LE(v) => { v as u64 }
-            CondArg::U24BE(v) => { v as u64 }
-            CondArg::U24LE(v) => { v as u64 }
-            CondArg::U32BE(v) => { v as u64 }
-            CondArg::U32LE(v) => { v as u64 }
-            CondArg::U64BE(v) => { v }
-            CondArg::U64LE(v) => { v }
+            Arg::Byte(b) => { b as u64 }
+            Arg::U16BE(v) => { v as u64 }
+            Arg::U16LE(v) => { v as u64 }
+            Arg::U24BE(v) => { v as u64 }
+            Arg::U24LE(v) => { v as u64 }
+            Arg::U32BE(v) => { v as u64 }
+            Arg::U32LE(v) => { v as u64 }
+            Arg::U64BE(v) => { v }
+            Arg::U64LE(v) => { v }
         }
     }
     fn read_val(&self, src: &mut ByteReader) -> Option<u64> {
         match *self {
-            CondArg::Byte(_) => {
+            Arg::Byte(_) => {
                 let res = src.peek_byte();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap() as u64)
             }
-            CondArg::U16BE(_) => {
+            Arg::U16BE(_) => {
                 let res = src.peek_u16be();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap() as u64)
             }
-            CondArg::U16LE(_) => {
+            Arg::U16LE(_) => {
                 let res = src.peek_u16le();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap() as u64)
             }
-            CondArg::U24BE(_) => {
+            Arg::U24BE(_) => {
                 let res = src.peek_u24be();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap() as u64)
             }
-            CondArg::U24LE(_) => {
+            Arg::U24LE(_) => {
                 let res = src.peek_u24le();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap() as u64)
             }
-            CondArg::U32BE(_) => {
+            Arg::U32BE(_) => {
                 let res = src.peek_u32be();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap() as u64)
             }
-            CondArg::U32LE(_) => {
+            Arg::U32LE(_) => {
                 let res = src.peek_u32le();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap() as u64)
             }
-            CondArg::U64BE(_) => {
+            Arg::U64BE(_) => {
                 let res = src.peek_u64be();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap())
             }
-            CondArg::U64LE(_) => {
+            Arg::U64LE(_) => {
                 let res = src.peek_u64le();
                 if let Err(_) = res { return None; }
                 Some(res.unwrap())
@@ -118,26 +118,28 @@ impl CondArg {
 }
 
 #[allow(dead_code)]
-enum Cond<'a> {
-    And(&'a Cond<'a>, &'a Cond<'a>),
-    Or(&'a Cond<'a>, &'a Cond<'a>),
-    Equals(CondArg),
-    EqualsString(&'static [u8]),
-    InRange(CondArg, CondArg),
-    LessThan(CondArg),
-    GreaterThan(CondArg),
+enum CC<'a> {
+    Or(&'a CC<'a>, &'a CC<'a>),
+    Eq(Arg),
+    Str(&'static [u8]),
+    In(Arg, Arg),
+    Lt(Arg),
+    Le(Arg),
+    Gt(Arg),
+    Ge(Arg),
 }
 
-impl<'a> Cond<'a> {
+impl<'a> CC<'a> {
     fn eval(&self, src: &mut ByteReader) -> bool {
         match *self {
-            Cond::And(ref a, ref b) => { a.eval(src) && b.eval(src) },
-            Cond::Or (ref a, ref b) => { a.eval(src) || b.eval(src) },
-            Cond::Equals(ref arg)       => { arg.eq(src) },
-            Cond::InRange(ref a, ref b) => { a.le(src) && b.ge(src) },
-            Cond::LessThan(ref arg)     => { arg.lt(src) },
-            Cond::GreaterThan(ref arg)  => { arg.gt(src) },
-            Cond::EqualsString(str) => {
+            CC::Or (ref a, ref b) => { a.eval(src) || b.eval(src) },
+            CC::Eq(ref arg)      => { arg.eq(src) },
+            CC::In(ref a, ref b) => { a.le(src) && b.ge(src) },
+            CC::Lt(ref arg)      => { arg.lt(src) },
+            CC::Le(ref arg)      => { arg.le(src) },
+            CC::Gt(ref arg)      => { arg.gt(src) },
+            CC::Ge(ref arg)      => { arg.ge(src) },
+            CC::Str(str) => {
                 let mut val: Vec<u8> = Vec::with_capacity(str.len());
                 val.resize(str.len(), 0);
                 let res = src.peek_buf(val.as_mut_slice());
@@ -150,7 +152,7 @@ impl<'a> Cond<'a> {
 
 struct CheckItem<'a> {
     offs: u32,
-    cond: &'a Cond<'a>,
+    cond: &'a CC<'a>,
 }
 
 #[allow(dead_code)]
@@ -164,16 +166,16 @@ const DETECTORS: &[DetectConditions] = &[
     DetectConditions {
         demux_name: "avi",
         extensions: ".avi",
-        conditions: &[CheckItem{offs:0, cond: &Cond::Or(
-                                                &Cond::EqualsString(b"RIFX"),
-                                                &Cond::EqualsString(b"RIFF")) },
-                      CheckItem{offs:8, cond: &Cond::EqualsString(b"AVI LIST") }
-                     ],
+        conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b"RIFF"), &CC::Str(b"ON2 ")) },
+                      CheckItem{offs: 8, cond: &CC::Or(&CC::Or(&CC::Str(b"AVI LIST"),
+                                                               &CC::Str(b"AVIXLIST")),
+                                                               &CC::Str(b"ON2fLIST")) },
+                     ]
     },
     DetectConditions {
         demux_name: "gdv",
         extensions: ".gdv",
-        conditions: &[CheckItem{offs:0, cond: &Cond::Equals(CondArg::U32LE(0x29111994))}],
+        conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U32LE(0x29111994))}],
     },
 ];
 
