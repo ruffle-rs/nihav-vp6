@@ -148,6 +148,7 @@ impl<'a> AVIDemuxer<'a> {
             if RIFFTag::Chunk(tag) == CHUNKS[i].tag {
                 let psize = (CHUNKS[i].parse)(self, size)?;
                 if psize != size { return Err(InvalidData); }
+                if (psize & 1) == 1 { self.src.read_skip(1)?; }
                 return Ok((size + 8, false));
             }
             if RIFFTag::List(tag, ltag) == CHUNKS[i].tag {
@@ -159,12 +160,18 @@ impl<'a> AVIDemuxer<'a> {
                     let (psize, _) = self.parse_chunk(end_tag, rest_size, depth+1)?;
                     if psize > rest_size { return Err(InvalidData); }
                     rest_size -= psize;
+                    if (psize & 1) == 1 {
+                        if rest_size > 0 {
+                            rest_size -= 1;
+                        }
+                    }
                 }
 
                 return Ok((size + 8, false));
             }
         }
         self.src.read_skip(size)?;
+        if (size & 1) == 1 { self.src.read_skip(1)?; }
         return Ok((size + 8, false));
     }
 
