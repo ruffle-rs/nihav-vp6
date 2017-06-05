@@ -123,6 +123,7 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "indeo3", "Intel Indeo 3"),
     desc!(video;    "indeo4", "Intel Indeo 4", CODEC_CAP_REORDER | CODEC_CAP_SCALABLE),
     desc!(video;    "indeo5", "Intel Indeo 5", CODEC_CAP_REORDER | CODEC_CAP_SCALABLE),
+    desc!(video;    "intel264", "Intel I263", CODEC_CAP_REORDER),
     desc!(audio;    "iac",    "Intel Indeo audio"),
     desc!(audio;    "imc",    "Intel Music Coder"),
 ];
@@ -134,6 +135,7 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"IV32", "indeo3"),
     (b"IV41", "indeo4"),
     (b"IV50", "indeo5"),
+    (b"I263", "intel263"),
 ];
 
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
