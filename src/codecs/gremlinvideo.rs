@@ -501,12 +501,13 @@ panic!("decoder {} not found", info.get_name());
             let pkt = pktres.unwrap();
             let streamno = pkt.get_stream().get_id() as usize;
             if let Some(ref mut dec) = decs[streamno] {
-                let frm = dec.decode(&pkt).unwrap();
-                if pkt.get_stream().get_info().is_video() {
-                    if frm.borrow().get_frame_type() != FrameType::Skip {
-                        write_palppm("gdv", streamno, pkt.get_pts().unwrap(), frm);
-                    }
-                }
+//                let frm = 
+dec.decode(&pkt).unwrap();
+//                if pkt.get_stream().get_info().is_video() {
+//                    if frm.borrow().get_frame_type() != FrameType::Skip {
+//                        write_palppm("gdv", streamno, pkt.get_pts().unwrap(), frm);
+//                    }
+//                }
             }
             if pkt.get_pts().unwrap() > 8 { break; }
         }

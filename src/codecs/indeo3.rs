@@ -816,12 +816,13 @@ panic!("decoder {} not found", info.get_name());
             let pkt = pktres.unwrap();
             let streamno = pkt.get_stream().get_id() as usize;
             if let Some(ref mut dec) = decs[streamno] {
-                let frm = dec.decode(&pkt).unwrap();
-                if pkt.get_stream().get_info().is_video() {
-                    write_pgmyuv("iv3", streamno, pkt.get_pts().unwrap(), frm);
-                } else {
-                    write_sound("iv3", streamno, frm, pkt.get_pts().unwrap() == 0);
-                }
+//                let frm = 
+dec.decode(&pkt).unwrap();
+//                if pkt.get_stream().get_info().is_video() {
+//                    write_pgmyuv("iv3", streamno, pkt.get_pts().unwrap(), frm);
+//                } else {
+//                    write_sound("iv3", streamno, frm, pkt.get_pts().unwrap() == 0);
+//                }
             }
             if pkt.get_pts().unwrap() > 10 { break; }
         }
