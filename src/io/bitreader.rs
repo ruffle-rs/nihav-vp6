@@ -155,6 +155,16 @@ impl<'a> BitReader<'a> {
         Ok(res)
     }
 
+    pub fn read_bool(&mut self) -> BitReaderResult<bool> {
+        if self.bits < 1 {
+            if let Err(err) = self.refill() { return Err(err) }
+            if self.bits < 1 { return Err(BitstreamEnd) }
+        }
+        let res = self.read_cache(1);
+        self.skip_cache(1);
+        Ok(res == 1)
+    }
+
     pub fn peek(&mut self, nbits: u8) -> u32 {
         if nbits > 32 { return 0 }
         if self.bits < nbits { let _ = self.refill(); }
