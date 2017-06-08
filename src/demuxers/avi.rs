@@ -139,7 +139,8 @@ impl<'a> AVIDemuxer<'a> {
         if RIFFTag::Chunk(tag) == end_tag {
             return Ok((size, true));
         }
-        let ltag = if is_list_tag(tag) { self.src.read_u32be()? } else { 0 };
+        let is_list = is_list_tag(tag);
+        let ltag = if is_list { self.src.read_u32be()? } else { 0 };
         if RIFFTag::List(tag, ltag) == end_tag {
             return Ok((size, true));
         }
@@ -170,7 +171,12 @@ impl<'a> AVIDemuxer<'a> {
                 return Ok((size + 8, false));
             }
         }
-        self.src.read_skip(size)?;
+        if !is_list {
+            self.src.read_skip(size)?;
+        } else {
+            if size < 4 { return Err(InvalidData); }
+            self.src.read_skip(size - 4)?;
+        }
         if (size & 1) == 1 { self.src.read_skip(1)?; }
         return Ok((size + 8, false));
     }
