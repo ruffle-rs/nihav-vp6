@@ -17,7 +17,7 @@ pub enum DecoderError {
     Bug,
 }
 
-type DecoderResult<T> = Result<T, DecoderError>;
+pub type DecoderResult<T> = Result<T, DecoderError>;
 
 impl From<ByteIOError> for DecoderError {
     fn from(_: ByteIOError) -> Self { DecoderError::ShortData }
@@ -35,6 +35,15 @@ impl From<BitReaderError> for DecoderError {
 impl From<CodebookError> for DecoderError {
     fn from(_: CodebookError) -> Self { DecoderError::InvalidData }
 }
+
+macro_rules! validate {
+    ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
+}
+
+mod blockdsp;
+mod blockdec;
+mod h263code;
+mod h263data;
 
 #[allow(dead_code)]
 struct HAMShuffler {
@@ -104,16 +113,14 @@ pub struct DecoderInfo {
     get_decoder: fn () -> Box<NADecoder>,
 }
 
-macro_rules! validate {
-    ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
-}
-
 #[cfg(feature="decoder_gdvvid")]
 mod gremlinvideo;
 #[cfg(feature="decoder_indeo2")]
 mod indeo2;
 #[cfg(feature="decoder_indeo3")]
 mod indeo3;
+
+mod intel263;
 #[cfg(feature="decoder_pcm")]
 mod pcm;
 
@@ -124,6 +131,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
 #[cfg(feature="decoder_indeo3")]
     DecoderInfo { name: "indeo3", get_decoder: indeo3::get_decoder },
+
+    DecoderInfo { name: "intel263", get_decoder: intel263::get_decoder },
 
 #[cfg(feature="decoder_pcm")]
     DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },
@@ -147,6 +156,7 @@ use std::io::prelude::*;
 #[allow(dead_code)]
 fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     let frm = frmref.borrow();
+    if let NABufferType::None = frm.get_buffer() { return; }
     let name = format!("assets/{}out{:02}_{:04}.pgm", pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
     let buf = frm.get_buffer().get_vbuf().unwrap();
