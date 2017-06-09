@@ -111,6 +111,25 @@ fn decode_mv(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<MV> {
     Ok(MV::new(xval, yval))
 }
 
+fn decode_b_info(br: &mut BitReader, is_pb: bool, is_intra: bool) -> DecoderResult<BBlockInfo> {
+    if is_pb { // as improved pb
+        let pb_mv_add = if is_intra { 1 } else { 0 };
+        if br.read_bool()?{
+            if br.read_bool()? {
+                let pb_mv_count = 1 - (br.read(1)? as usize);
+                let cbpb = br.read(6)? as u8;
+                Ok(BBlockInfo::new(true, cbpb, pb_mv_count + pb_mv_add, pb_mv_count == 1))
+            } else {
+                Ok(BBlockInfo::new(true, 0, 1 + pb_mv_add, true))
+            }
+        } else {
+            Ok(BBlockInfo::new(true, 0, pb_mv_add, false))
+        }
+    } else {
+        Ok(BBlockInfo::new(false, 0, 0, false))
+    }
+}
+
 impl<'a> BlockDecoder for Intel263BR<'a> {
 
 #[allow(unused_variables)]
@@ -162,19 +181,24 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         let quant = br.read(5)?;
         let cpm = br.read_bool()?;
         validate!(!cpm);
+
+        let pbinfo;
         if self.is_pb {
             let trb = br.read(3)?;
             let dbquant = br.read(2)?;
+            pbinfo = Some(PBInfo::new(trb as u8, dbquant as u8));
+        } else {
+            pbinfo = None;
         }
         while br.read_bool()? { // skip PEI
             br.read(8)?;
         }
-println!("frame {}x{} intra: {} q {} pb {} apm {} umv {} @{}", w, h, is_intra, quant, self.is_pb, apm, umv, br.tell());
+//println!("frame {}x{} intra: {} q {} pb {} apm {} umv {} @{}", w, h, is_intra, quant, self.is_pb, apm, umv, br.tell());
         self.gob_no = 0;
         self.mb_w = (w + 15) >> 4;
 
         let ftype = if is_intra { Type::I } else { Type::P };
-        let picinfo = PicInfo::new(w, h, ftype, quant as u8, apm, umv, self.is_pb, tr);
+        let picinfo = PicInfo::new(w, h, ftype, quant as u8, apm, umv, tr, pbinfo);
         Ok(picinfo)
     }
 
@@ -182,12 +206,11 @@ println!("frame {}x{} intra: {} q {} pb {} apm {} umv {} @{}", w, h, is_intra, q
     fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<Slice> {
         let mut br = &mut self.br;
         let gbsc = br.read(17)?;
-println!("GBSC = {}", gbsc);
         validate!(gbsc == 1);
         let gn = br.read(5)?;
         let gfid = br.read(2)?;
         let gquant = br.read(5)?;
-println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
+//println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
         let ret = Slice::new(0, self.gob_no, gquant as u8);
         self.gob_no += 1;
         Ok(ret)
@@ -207,11 +230,9 @@ println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
-//println!("got cbp {:X}", cbp);
                     Ok(BlockInfo::new(Type::I, cbp, q))
                 },
             Type::P => {
-//println!("@{}",br.tell());
                     if br.read_bool()? { return Ok(BlockInfo::new(Type::Skip, 0, info.get_quant())); }
                     let mut cbpc = br.read_cb(&self.tables.inter_mcbpc_cb)?;
                     while cbpc == 20 { cbpc = br.read_cb(&self.tables.inter_mcbpc_cb)?; }
@@ -220,22 +241,7 @@ println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
                     let is_4x4   = (cbpc & 0x10) != 0;
                     if is_intra {
                         let mut mvec: Vec<MV> = Vec::new();
-                        let cbpb;
-                        let pb_mv_count: usize;
-                        if self.is_pb && br.read_bool()? {
-                            let c = br.read_bool()?;
-                            if c {
-                                pb_mv_count = 2 - (br.read(1)? as usize);
-                                cbpb = br.read(6)? as u8;
-                            } else {
-                                pb_mv_count = 2;
-                                cbpb = 0;
-                            }
-//println!("  mvc {} cbpb {:02X}", pb_mv_count, cbpb);
-                        } else {
-                            cbpb = 0;
-                            pb_mv_count = 1;
-                        }
+                        let bbinfo = decode_b_info(br, self.is_pb, true)?;
                         let cbpy = br.read_cb(&self.tables.cbpy_cb)?;
                         let cbp = (cbpy << 2) | (cbpc & 3);
                         if dquant {
@@ -243,31 +249,17 @@ println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
                             q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                         }
                         let mut binfo = BlockInfo::new(Type::I, cbp, q);
+                        binfo.set_bpart(bbinfo);
                         if self.is_pb {
-                            for _ in 0..pb_mv_count {
+                            for _ in 0..bbinfo.get_num_mv() {
                                 mvec.push(decode_mv(br, &self.tables.mv_cb)?);
                             }
-                            binfo.set_mv2(cbpb, mvec.as_slice());
+                            binfo.set_b_mv(mvec.as_slice());
                         }
-//println!("@{}",br.tell());
                         return Ok(binfo);
                     }
 
-                    let cbpb;
-                    let pb_mv_count: usize;
-                    if self.is_pb && br.read_bool()?{
-                        let c = br.read_bool()?;
-                        if c {
-                            pb_mv_count = 1 - (br.read(1)? as usize);
-                            cbpb = br.read(6)? as u8;
-                        } else {
-                            pb_mv_count = 1;
-                            cbpb = 0;
-                        }
-                    } else {
-                        cbpb = 0;
-                        pb_mv_count = 0;
-                    }
+                    let bbinfo = decode_b_info(br, self.is_pb, false)?;
                     let mut cbpy = br.read_cb(&self.tables.cbpy_cb)?;
 //                    if /* !aiv && */(cbpc & 3) != 3 {
                         cbpy ^= 0xF;
@@ -278,9 +270,9 @@ println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
                     let mut binfo = BlockInfo::new(Type::P, cbp, q);
+                    binfo.set_bpart(bbinfo);
                     if !is_4x4 {
                         let mvec: [MV; 1] = [decode_mv(br, &self.tables.mv_cb)?];
-//println!("@{} CBPB = {:X} mv2 {}",br.tell(), cbpb, pb_mv_count);
                         binfo.set_mv(&mvec);
                     } else {
                         let mvec: [MV; 4] = [
@@ -292,14 +284,13 @@ println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
                         binfo.set_mv(&mvec);
                     }
                     if self.is_pb {
-                        let mut mvec: Vec<MV> = Vec::with_capacity(pb_mv_count);
-                        for _ in 0..pb_mv_count {
+                        let mut mvec: Vec<MV> = Vec::with_capacity(bbinfo.get_num_mv());
+                        for _ in 0..bbinfo.get_num_mv() {
                             let mv = decode_mv(br, &self.tables.mv_cb)?;
                             mvec.push(mv);
                         }
-                        binfo.set_mv2(cbpb, mvec.as_slice());
+                        binfo.set_b_mv(mvec.as_slice());
                     }
-//println!("@{}",br.tell());
                     Ok(binfo)
                 },
             _ => { Err(DecoderError::InvalidData) },
@@ -307,13 +298,13 @@ println!("GOB gn {:X} id {} q {}", gn, gfid, gquant);
     }
 
     #[allow(unused_variables)]
-    fn decode_block_intra(&mut self, info: &BlockInfo, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
-        self.decode_block(info.get_q(), true, coded, blk)
+    fn decode_block_intra(&mut self, info: &BlockInfo, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+        self.decode_block(quant, true, coded, blk)
     }
 
     #[allow(unused_variables)]
-    fn decode_block_inter(&mut self, info: &BlockInfo, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
-        self.decode_block(info.get_q(), false, coded, blk)
+    fn decode_block_inter(&mut self, info: &BlockInfo, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+        self.decode_block(quant, false, coded, blk)
     }
 
 #[allow(unused_variables)]
@@ -370,7 +361,7 @@ impl NADecoder for Intel263Decoder {
         let src = pkt.get_buffer();
 
         if src.len() == 8 {
-            let bret = self.dec.get_stored_pframe();
+            let bret = self.dec.get_bframe();
             let buftype;
             let is_skip;
             if let Ok(btype) = bret {
@@ -382,10 +373,9 @@ impl NADecoder for Intel263Decoder {
             }
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), buftype);
             frm.set_keyframe(false);
-            frm.set_frame_type(if is_skip { FrameType::Skip } else { FrameType::P });
+            frm.set_frame_type(if is_skip { FrameType::Skip } else { FrameType::B });
             return Ok(Rc::new(RefCell::new(frm)));
         }
-//println!("frame size {}", src.len());
         let mut ibr = Intel263BR::new(&src, &self.tables);
 
         let bufinfo = self.dec.parse_frame(&mut ibr)?;

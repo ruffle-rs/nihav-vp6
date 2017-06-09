@@ -267,3 +267,69 @@ fn h263_interp11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw:
 
 pub const H263_INTERP_FUNCS: &[fn(&mut [u8], usize, &[u8], usize, usize, usize)] = &[
         h263_interp00, h263_interp01, h263_interp10, h263_interp11 ];
+
+fn h263_interp00_avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw {
+            let a = dst[didx + x] as u16;
+            let b = src[sidx + x] as u16;
+            dst[didx + x] = ((a + b + 1) >> 1) as u8;
+        }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn h263_interp01_avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw {
+            let a = dst[didx + x] as u16;
+            let b = ((src[sidx + x] as u16) + (src[sidx + x + 1] as u16) + 1) >> 1;
+            dst[didx + x] = ((a + b + 1) >> 1) as u8;
+        }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn h263_interp10_avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw {
+            let a = dst[didx + x] as u16;
+            let b = ((src[sidx + x] as u16) + (src[sidx + x + sstride] as u16) + 1) >> 1;
+            dst[didx + x] = ((a + b + 1) >> 1) as u8;
+        }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn h263_interp11_avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw {
+            let a = dst[didx + x] as u16;
+            let b = ((src[sidx + x] as u16) +
+                     (src[sidx + x + 1] as u16) +
+                     (src[sidx + x + sstride] as u16) +
+                     (src[sidx + x + sstride + 1] as u16) + 2) >> 2;
+            dst[didx + x] = ((a + b + 1) >> 1) as u8;
+        }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+pub const H263_INTERP_AVG_FUNCS: &[fn(&mut [u8], usize, &[u8], usize, usize, usize)] = &[
+        h263_interp00_avg, h263_interp01_avg, h263_interp10_avg, h263_interp11_avg ];
