@@ -36,12 +36,13 @@ pub struct PicInfo {
     umv:    bool,
     pb:     Option<PBInfo>,
     ts:     u8,
+    deblock: bool,
 }
 
 #[allow(dead_code)]
 impl PicInfo {
-    pub fn new(w: usize, h: usize, mode: Type, quant: u8, apm: bool, umv: bool, ts: u8, pb: Option<PBInfo>) -> Self {
-        PicInfo{ w: w, h: h, mode: mode, quant: quant, apm: apm, umv: umv, ts: ts, pb: pb }
+    pub fn new(w: usize, h: usize, mode: Type, quant: u8, apm: bool, umv: bool, ts: u8, pb: Option<PBInfo>, deblock: bool) -> Self {
+        PicInfo{ w: w, h: h, mode: mode, quant: quant, apm: apm, umv: umv, ts: ts, pb: pb, deblock: deblock }
     }
     pub fn get_width(&self) -> usize { self.w }
     pub fn get_height(&self) -> usize { self.h }
@@ -246,8 +247,9 @@ pub trait BlockDecoder {
     fn decode_block_header(&mut self, pinfo: &PicInfo, sinfo: &Slice) -> DecoderResult<BlockInfo>;
     fn decode_block_intra(&mut self, info: &BlockInfo, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()>;
     fn decode_block_inter(&mut self, info: &BlockInfo, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()>;
-    fn calc_mv(&mut self, vec: MV);
     fn is_slice_end(&mut self) -> bool;
+
+    fn filter_row(&mut self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo);
 }
 
 #[allow(dead_code)]
@@ -339,6 +341,52 @@ impl MVInfo {
     }
 }
 
+#[allow(dead_code)]
+pub struct CBPInfo {
+    cbp:        Vec<u8>,
+    q:          Vec<u8>,
+    mb_w:       usize,
+}
+
+impl CBPInfo {
+    fn new() -> Self { CBPInfo{ cbp: Vec::new(), q: Vec::new(), mb_w: 0 } }
+    fn reset(&mut self, mb_w: usize) {
+        self.mb_w = mb_w;
+        self.cbp.truncate(0);
+        self.cbp.resize(self.mb_w * 2, 0);
+        self.q.truncate(0);
+        self.q.resize(self.mb_w * 2, 0);
+    }
+    fn update_row(&mut self) {
+        for i in 0..self.mb_w {
+            self.cbp[i] = self.cbp[self.mb_w + i];
+            self.q[i]   = self.q[self.mb_w + i];
+        }
+    }
+    fn set_cbp(&mut self, mb_x: usize, cbp: u8) {
+        self.cbp[self.mb_w + mb_x] = cbp;
+    }
+    fn set_q(&mut self, mb_x: usize, q: u8) {
+        self.q[self.mb_w + mb_x] = q;
+    }
+    pub fn get_q(&self, mb_x: usize) -> u8 { self.q[mb_x] }
+    pub fn is_coded(&self, mb_x: usize, blk_no: usize) -> bool {
+        (self.cbp[self.mb_w + mb_x] & (1 << (5 - blk_no))) != 0
+    }
+    pub fn is_coded_top(&self, mb_x: usize, blk_no: usize) -> bool {
+        let cbp     = self.cbp[self.mb_w + mb_x];
+        let cbp_top = self.cbp[mb_x];
+        match blk_no {
+            0 => { (cbp_top & 0b001000) != 0 },
+            1 => { (cbp_top & 0b000100) != 0 },
+            2 => { (cbp     & 0b100000) != 0 },
+            3 => { (cbp     & 0b010000) != 0 },
+            4 => { (cbp_top & 0b000010) != 0 },
+            _ => { (cbp_top & 0b000001) != 0 },
+        }
+    }
+}
+
 fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
     let srcx = ((mv.x >> 1) as isize) + (xpos as isize);
     let srcy = ((mv.y >> 1) as isize) + (ypos as isize);
@@ -402,6 +450,7 @@ impl DCT8x8VideoDecoder {
     pub fn parse_frame(&mut self, bd: &mut BlockDecoder) -> DecoderResult<NABufferType> {
         let pinfo = bd.decode_pichdr()?;
         let mut mvi = MVInfo::new();
+        let mut cbpi = CBPInfo::new();
 
 //todo handle res change
         self.w = pinfo.w;
@@ -417,7 +466,6 @@ impl DCT8x8VideoDecoder {
         }
 
         mem::swap(&mut self.cur_frm, &mut self.prev_frm);
-//        if self.ftype == Type::I && !pinfo.is_pb() { self.prev_frm = None; }
 
         let tsdiff = pinfo.ts.wrapping_sub(self.last_ts);
         let bsdiff = if pinfo.is_pb() { pinfo.get_pbinfo().get_trb() } else { 0 };
@@ -431,6 +479,7 @@ impl DCT8x8VideoDecoder {
 
         let mut slice = Slice::get_default_slice(&pinfo);
         mvi.reset(self.mb_w, 0, pinfo.get_umv());
+        cbpi.reset(self.mb_w);
 
         let mut blk: [[i16; 64]; 6] = [[0; 64]; 6];
         for mb_y in 0..self.mb_h {
@@ -441,11 +490,14 @@ impl DCT8x8VideoDecoder {
 //println!("new slice @{}.{}!",mb_x,mb_y);
                     slice = bd.decode_slice_header(&pinfo)?;
                     mvi.reset(self.mb_w, mb_x, pinfo.get_umv());
+                    //cbpi.reset(self.mb_w);
                 }
 
                 let binfo = bd.decode_block_header(&pinfo, &slice)?;
                 let cbp = binfo.get_cbp();
 //println!("mb {}.{} CBP {:X} type {:?}, {} mvs skip {}", mb_x,mb_y, cbp, binfo.get_mode(), binfo.get_num_mvs(),binfo.is_skipped());
+                cbpi.set_cbp(mb_x, cbp);
+                cbpi.set_q(mb_x, binfo.get_q());
                 if binfo.is_intra() {
                     for i in 0..6 {
                         bd.decode_block_intra(&binfo, binfo.get_q(), i, (cbp & (1 << (5 - i))) != 0, &mut blk[i])?;
@@ -523,8 +575,13 @@ impl DCT8x8VideoDecoder {
                     self.b_data.push(b_mb);
                 }
             }
+            if pinfo.deblock {
+                bd.filter_row(&mut buf, mb_y, self.mb_w, &cbpi);
+            }
             mvi.update_row();
+            cbpi.update_row();
         }
+        
         self.cur_frm = Some(buf);
         self.last_ts = pinfo.ts;
 //println!("unpacked all");
@@ -557,17 +614,16 @@ impl DCT8x8VideoDecoder {
 
 fn recon_b_frame(b_buf: &mut NAVideoBuffer<u8>, bck_buf: &NAVideoBuffer<u8>, fwd_buf: &NAVideoBuffer<u8>,
                  mb_w: usize, mb_h: usize, b_data: &Vec<BMB>) {
+    let mut cbpi = CBPInfo::new();
     let mut cur_mb = 0;
+    cbpi.reset(mb_w);
     for mb_y in 0..mb_h {
         for mb_x in 0..mb_w {
             let num_mv = b_data[cur_mb].num_mv;
             let is_fwd = b_data[cur_mb].fwd;
-            if num_mv == 0 {
-                copy_blocks(b_buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, ZERO_MV);
-                if !is_fwd {
-                    avg_blocks(b_buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, ZERO_MV);
-                }
-            } else if num_mv == 1 {
+            let cbp    = b_data[cur_mb].cbp;
+            cbpi.set_cbp(mb_x, cbp);
+            if num_mv == 1 {
                 copy_blocks(b_buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, b_data[cur_mb].mv_f[0]);
                 if !is_fwd {
                     avg_blocks(b_buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, b_data[cur_mb].mv_b[0]);
@@ -582,10 +638,11 @@ fn recon_b_frame(b_buf: &mut NAVideoBuffer<u8>, bck_buf: &NAVideoBuffer<u8>, fwd
                     }
                 }
             }
-            if num_mv != 0 && b_data[cur_mb].cbp != 0 {
+            if cbp != 0 {
                 blockdsp::add_blocks(b_buf, mb_x, mb_y, &b_data[cur_mb].blk);
             }
             cur_mb += 1;
         }
+        cbpi.update_row();
     }
 }
