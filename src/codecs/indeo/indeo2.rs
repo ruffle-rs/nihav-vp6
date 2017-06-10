@@ -1,7 +1,7 @@
 use io::bitreader::*;
 use io::codebook::*;
 use formats;
-use super::*;
+use super::super::*;
 
 static INDEO2_DELTA_TABLE: [[u8; 256]; 4] = [
     [

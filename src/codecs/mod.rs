@@ -40,11 +40,6 @@ macro_rules! validate {
     ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
-mod blockdsp;
-mod blockdec;
-mod h263code;
-mod h263data;
-
 #[allow(dead_code)]
 struct HAMShuffler {
     lastframe: Option<NAVideoBuffer<u8>>,
@@ -113,14 +108,16 @@ pub struct DecoderInfo {
     get_decoder: fn () -> Box<NADecoder>,
 }
 
+#[cfg(feature="h263")]
+mod blockdsp;
+
 #[cfg(feature="decoder_gdvvid")]
 mod gremlinvideo;
-#[cfg(feature="decoder_indeo2")]
-mod indeo2;
-#[cfg(feature="decoder_indeo3")]
-mod indeo3;
+#[cfg(any(feature="decoder_indeo2", feature="decoder_indeo3"))]
+mod indeo;
+#[cfg(feature="h263")]
+mod h263;
 
-mod intel263;
 #[cfg(feature="decoder_pcm")]
 mod pcm;
 
@@ -128,11 +125,11 @@ const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_gdvvid")]
     DecoderInfo { name: "gdv-video", get_decoder: gremlinvideo::get_decoder },
 #[cfg(feature="decoder_indeo2")]
-    DecoderInfo { name: "indeo2", get_decoder: indeo2::get_decoder },
+    DecoderInfo { name: "indeo2", get_decoder: indeo::indeo2::get_decoder },
 #[cfg(feature="decoder_indeo3")]
-    DecoderInfo { name: "indeo3", get_decoder: indeo3::get_decoder },
-
-    DecoderInfo { name: "intel263", get_decoder: intel263::get_decoder },
+    DecoderInfo { name: "indeo3", get_decoder: indeo::indeo3::get_decoder },
+#[cfg(feature="decoder_intel263")]
+    DecoderInfo { name: "intel263", get_decoder: h263::intel263::get_decoder },
 
 #[cfg(feature="decoder_pcm")]
     DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },

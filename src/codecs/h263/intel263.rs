@@ -1,9 +1,10 @@
 use io::bitreader::*;
 use io::codebook::*;
 use formats;
+use super::super::*;
 use super::*;
-use super::blockdec::*;
-use super::h263data::*;
+use super::decoder::*;
+use super::data::*;
 
 #[allow(dead_code)]
 struct Tables {
@@ -17,7 +18,7 @@ struct Tables {
 
 struct Intel263Decoder {
     info:    Rc<NACodecInfo>,
-    dec:     DCT8x8VideoDecoder,
+    dec:     H263BaseDecoder,
     tables:  Tables,
 }
 
@@ -466,7 +467,7 @@ impl Intel263Decoder {
 
         Intel263Decoder{
             info:           Rc::new(DUMMY_CODEC_INFO),
-            dec:            DCT8x8VideoDecoder::new(),
+            dec:            H263BaseDecoder::new(),
             tables:         tables,
         }
     }
@@ -556,7 +557,7 @@ mod test {
                 panic!("error");
             }
             let pkt = pktres.unwrap();
-            //if pkt.get_pts().unwrap() > 263 { break; }
+            //if pkt.get_pts().unwrap() > 146 { break; }
             let streamno = pkt.get_stream().get_id() as usize;
             if let Some(ref mut dec) = decs[streamno] {
                 let frm = dec.decode(&pkt).unwrap();

@@ -1,5 +1,5 @@
 use formats;
-use super::*;
+use super::super::*;
 use io::byteio::*;
 use std::io::SeekFrom;
 use std::mem;
