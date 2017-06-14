@@ -557,7 +557,7 @@ mod test {
                 panic!("error");
             }
             let pkt = pktres.unwrap();
-            //if pkt.get_pts().unwrap() > 146 { break; }
+            if pkt.get_pts().unwrap() > 16 { break; }
             let streamno = pkt.get_stream().get_id() as usize;
             if let Some(ref mut dec) = decs[streamno] {
                 let frm = dec.decode(&pkt).unwrap();
