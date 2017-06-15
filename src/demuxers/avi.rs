@@ -328,7 +328,7 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
     let samplespersec       = dmx.src.read_u32le()?;
     let avgbytespersec      = dmx.src.read_u32le()?;
     let block_align         = dmx.src.read_u16le()?;
-    let bits_per_sample     = dmx.src.read_u16le()?;
+    let bits_per_sample     = dmx.src.read_u16le()? * 8;
 
     let soniton = NASoniton::new(bits_per_sample as u8, SONITON_FLAG_SIGNED);
     let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
