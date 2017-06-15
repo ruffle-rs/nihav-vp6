@@ -23,7 +23,7 @@ bitflags! {
 
 pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, be: false, packed: false, planar: false, float: false, signed: false };
 pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, be: false, packed: false, planar: false, float: false, signed: true };
-pub const SND_F32_FORMAT: NASoniton = NASoniton { bits: 32, be: false, packed: false, planar: false, float: true, signed: true };
+pub const SND_F32P_FORMAT: NASoniton = NASoniton { bits: 32, be: false, packed: false, planar: true, float: true, signed: true };
 
 impl NASoniton {
     pub fn new(bits: u8, flags: SonitonFlags) -> Self {
@@ -414,7 +414,7 @@ mod test {
     fn test_fmt() {
         println!("{}", SND_S16_FORMAT);
         println!("{}", SND_U8_FORMAT);
-        println!("{}", SND_F32_FORMAT);
+        println!("{}", SND_F32P_FORMAT);
         println!("formaton yuv- {}", YUV420_FORMAT);
         println!("formaton pal- {}", PAL8_FORMAT);
         println!("formaton rgb565- {}", RGB565_FORMAT);
