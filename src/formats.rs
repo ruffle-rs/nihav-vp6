@@ -11,27 +11,23 @@ pub struct NASoniton {
     signed:     bool,
 }
 
-bitflags! {
-    pub flags SonitonFlags: u8 {
-        const SONITON_FLAG_BE       = 0x01,
-        const SONITON_FLAG_PACKED   = 0x02,
-        const SONITON_FLAG_PLANAR   = 0x04,
-        const SONITON_FLAG_FLOAT    = 0x08,
-        const SONITON_FLAG_SIGNED   = 0x10,
-    }
-}
+pub const SONITON_FLAG_BE     :u32 = 0x01;
+pub const SONITON_FLAG_PACKED :u32 = 0x02;
+pub const SONITON_FLAG_PLANAR :u32 = 0x04;
+pub const SONITON_FLAG_FLOAT  :u32 = 0x08;
+pub const SONITON_FLAG_SIGNED :u32 = 0x10;
 
 pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, be: false, packed: false, planar: false, float: false, signed: false };
 pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, be: false, packed: false, planar: false, float: false, signed: true };
 pub const SND_F32P_FORMAT: NASoniton = NASoniton { bits: 32, be: false, packed: false, planar: true, float: true, signed: true };
 
 impl NASoniton {
-    pub fn new(bits: u8, flags: SonitonFlags) -> Self {
-        let is_be = (flags.bits & SONITON_FLAG_BE.bits) != 0;
-        let is_pk = (flags.bits & SONITON_FLAG_PACKED.bits) != 0;
-        let is_pl = (flags.bits & SONITON_FLAG_PLANAR.bits) != 0;
-        let is_fl = (flags.bits & SONITON_FLAG_FLOAT.bits) != 0;
-        let is_sg = (flags.bits & SONITON_FLAG_SIGNED.bits) != 0;
+    pub fn new(bits: u8, flags: u32) -> Self {
+        let is_be = (flags & SONITON_FLAG_BE) != 0;
+        let is_pk = (flags & SONITON_FLAG_PACKED) != 0;
+        let is_pl = (flags & SONITON_FLAG_PLANAR) != 0;
+        let is_fl = (flags & SONITON_FLAG_FLOAT) != 0;
+        let is_sg = (flags & SONITON_FLAG_SIGNED) != 0;
         NASoniton { bits: bits, be: is_be, packed: is_pk, planar: is_pl, float: is_fl, signed: is_sg }
     }
 
@@ -239,13 +235,9 @@ pub struct NAPixelChromaton {
     next_elem:      u8,
 }
 
-bitflags! {
-    pub flags FormatonFlags: u8 {
-        const FORMATON_FLAG_BE       = 0x01,
-        const FORMATON_FLAG_ALPHA    = 0x02,
-        const FORMATON_FLAG_PALETTE  = 0x04,
-    }
-}
+pub const FORMATON_FLAG_BE      :u32 = 0x01;
+pub const FORMATON_FLAG_ALPHA   :u32 = 0x02;
+pub const FORMATON_FLAG_PALETTE :u32 = 0x04;
 
 
 #[derive(Clone,Copy,PartialEq)]
@@ -361,12 +353,12 @@ impl NAPixelFormaton {
                comp3: Option<NAPixelChromaton>,
                comp4: Option<NAPixelChromaton>,
                comp5: Option<NAPixelChromaton>,
-               flags: FormatonFlags, elem_size: u8) -> Self {
+               flags: u32, elem_size: u8) -> Self {
         let mut chromatons: [Option<NAPixelChromaton>; 5] = [None; 5];
         let mut ncomp = 0;
-        let be      = (flags.bits & FORMATON_FLAG_BE.bits)      != 0;
-        let alpha   = (flags.bits & FORMATON_FLAG_ALPHA.bits)   != 0;
-        let palette = (flags.bits & FORMATON_FLAG_PALETTE.bits) != 0;
+        let be      = (flags & FORMATON_FLAG_BE)      != 0;
+        let alpha   = (flags & FORMATON_FLAG_ALPHA)   != 0;
+        let palette = (flags & FORMATON_FLAG_PALETTE) != 0;
         if let Some(c) = comp1 { chromatons[0] = Some(c); ncomp += 1; }
         if let Some(c) = comp2 { chromatons[1] = Some(c); ncomp += 1; }
         if let Some(c) = comp3 { chromatons[2] = Some(c); ncomp += 1; }
