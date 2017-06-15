@@ -75,6 +75,18 @@ impl NACodecTypeInfo {
             _ => None,
         }
     }
+    pub fn is_video(&self) -> bool {
+        match *self {
+            NACodecTypeInfo::Video(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_audio(&self) -> bool {
+        match *self {
+            NACodecTypeInfo::Audio(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for NACodecTypeInfo {
@@ -130,6 +142,7 @@ pub struct NAAudioBuffer<T> {
     data:   NABufferRefT<T>,
     offs:   Vec<usize>,
     chmap:  NAChannelMap,
+    len:    usize,
 }
 
 impl<T: Clone> NAAudioBuffer<T> {
@@ -146,13 +159,15 @@ impl<T: Clone> NAAudioBuffer<T> {
         data.clone_from(self.data.borrow().as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
         offs.clone_from(&self.offs);
-        NAAudioBuffer { info: self.info, data: Rc::new(RefCell::new(data)), offs: offs, chmap: self.get_chmap() }
+        NAAudioBuffer { info: self.info, data: Rc::new(RefCell::new(data)), offs: offs, chmap: self.get_chmap(), len: self.len }
     }
+    pub fn get_length(&self) -> usize { self.len }
 }
 
 impl NAAudioBuffer<u8> {
     pub fn new_from_buf(info: NAAudioInfo, data: NABufferRefT<u8>, chmap: NAChannelMap) -> Self {
-        NAAudioBuffer { info: info, data: data, chmap: chmap, offs: Vec::new() }
+        let len = data.borrow().len();
+        NAAudioBuffer { info: info, data: data, chmap: chmap, offs: Vec::new(), len: len }
     }
 }
 
@@ -330,7 +345,7 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
             if ainfo.format.get_bits() == 32 {
                 let mut data: Vec<f32> = Vec::with_capacity(length);
                 data.resize(length, 0.0);
-                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap };
+                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
                 Ok(NABufferType::AudioF32(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -339,12 +354,12 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
             if ainfo.format.get_bits() == 8 && !ainfo.format.is_signed() {
                 let mut data: Vec<u8> = Vec::with_capacity(length);
                 data.resize(length, 0);
-                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap };
+                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
                 Ok(NABufferType::AudioU8(buf))
             } else if ainfo.format.get_bits() == 16 && ainfo.format.is_signed() {
                 let mut data: Vec<i16> = Vec::with_capacity(length);
                 data.resize(length, 0);
-                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap };
+                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
                 Ok(NABufferType::AudioI16(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -356,7 +371,7 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         let length = ainfo.format.get_audio_size(len.unwrap() as u64);
         let mut data: Vec<u8> = Vec::with_capacity(length);
         data.resize(length, 0);
-        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap };
+        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
         Ok(NABufferType::AudioPacked(buf))        
     }
 }
@@ -404,6 +419,12 @@ impl NACodecInfo {
     pub fn is_audio(&self) -> bool {
         if let NACodecTypeInfo::Audio(_) = self.properties { return true; }
         false
+    }
+    pub fn new_dummy() -> Rc<Self> {
+        Rc::new(DUMMY_CODEC_INFO)
+    }
+    pub fn replace_info(&self, p: NACodecTypeInfo) -> Rc<Self> {
+        Rc::new(NACodecInfo { name: self.name, properties: p, extradata: self.extradata.clone() })
     }
 }
 
@@ -505,6 +526,7 @@ impl NAFrame {
                buffer:         NABufferType) -> Self {
         NAFrame { ts: ts, buffer: buffer, info: info, ftype: ftype, key: keyframe, options: options }
     }
+    pub fn get_info(&self) -> Rc<NACodecInfo> { self.info.clone() }
     pub fn get_frame_type(&self) -> FrameType { self.ftype }
     pub fn is_keyframe(&self) -> bool { self.key }
     pub fn set_frame_type(&mut self, ftype: FrameType) { self.ftype = ftype; }
