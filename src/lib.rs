@@ -11,3 +11,6 @@ pub mod register;
 pub mod detect;
 
 pub mod dsp;
+
+#[cfg(test)]
+mod test;
