@@ -51,10 +51,10 @@ impl<'a> BitReader<'a> {
     }
 
     fn fill32le16(&mut self, src: &[u8]) {
-        let mut nw = (((src[1] as u32) << 24) |
-                      ((src[0] as u32) << 16) |
-                      ((src[3] as u32) <<  8) |
-                      ((src[2] as u32) <<  0)) as u64;
+        let nw = (((src[1] as u32) << 24) |
+                  ((src[0] as u32) << 16) |
+                  ((src[3] as u32) <<  8) |
+                  ((src[2] as u32) <<  0)) as u64;
         self.cache |= nw << (32 - self.bits);
     }
 
