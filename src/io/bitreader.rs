@@ -50,21 +50,24 @@ impl<'a> BitReader<'a> {
         self.cache |= nw << (32 - self.bits);
     }
 
-    fn fill32le16(&mut self, src: &[u8], realbits: u8) {
+    fn fill32le16(&mut self, src: &[u8]) {
         let mut nw = (((src[1] as u32) << 24) |
                       ((src[0] as u32) << 16) |
                       ((src[3] as u32) <<  8) |
                       ((src[2] as u32) <<  0)) as u64;
-        if realbits <= 16 { nw >>= 16; }
-        self.cache |= nw << self.bits;
+        self.cache |= nw << (32 - self.bits);
     }
 
-    fn fill32le32(&mut self, src: &[u8]) {
+    fn fill32le32(&mut self, src: &[u8], lsb: bool) {
         let nw = (((src[3] as u32) << 24) |
                   ((src[2] as u32) << 16) |
                   ((src[1] as u32) <<  8) |
                   ((src[0] as u32) <<  0)) as u64;
-        self.cache |= nw << self.bits;
+        if lsb {
+            self.cache |= nw << self.bits;
+        } else {
+            self.cache |= nw << (32 - self.bits);
+        }
     }
 
     fn refill(&mut self) -> BitReaderResult<()> {
@@ -74,9 +77,9 @@ impl<'a> BitReader<'a> {
                 let buf = &self.src[self.pos..];
                 match self.mode {
                     BitReaderMode::BE      => self.fill32be  (buf),
-                    BitReaderMode::LE16MSB => self.fill32le16(buf, 32),
-                    BitReaderMode::LE      => self.fill32le32(buf),
-                    BitReaderMode::LE32MSB => self.fill32le32(buf),
+                    BitReaderMode::LE16MSB => self.fill32le16(buf),
+                    BitReaderMode::LE      => self.fill32le32(buf, true),
+                    BitReaderMode::LE32MSB => self.fill32le32(buf, false),
                 }
                 self.pos  +=  4;
                 self.bits += 32;
@@ -93,9 +96,9 @@ impl<'a> BitReader<'a> {
                 if newbits == 0 { break; }
                 match self.mode {
                     BitReaderMode::BE      => self.fill32be  (&buf),
-                    BitReaderMode::LE16MSB => self.fill32le16(&buf, newbits),
-                    BitReaderMode::LE      => self.fill32le32(&buf),
-                    BitReaderMode::LE32MSB => self.fill32le32(&buf),
+                    BitReaderMode::LE16MSB => self.fill32le16(&buf),
+                    BitReaderMode::LE      => self.fill32le32(&buf, true),
+                    BitReaderMode::LE32MSB => self.fill32le32(&buf, false),
                 }
                 self.bits += newbits;
             }
