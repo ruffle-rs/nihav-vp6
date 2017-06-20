@@ -16,6 +16,11 @@ demuxer_gdv = ["demuxers"]
 decoders = []
 h263 = []
 
+dsp = []
+fft = ["dsp"]
+mdct = ["dsp"]
+dsp_window = ["dsp"]
+
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
 all_video_decoders = ["decoder_gdvvid", "decoder_indeo2", "decoder_indeo3", "decoder_intel263"]
@@ -24,5 +29,6 @@ decoder_indeo2 = ["decoders"]
 decoder_indeo3 = ["decoders"]
 decoder_intel263 = ["h263", "decoders"]
 
-all_audio_decoders = ["decoder_pcm"]
+all_audio_decoders = ["decoder_pcm", "decoder_imc"]
 decoder_pcm = ["decoders"]
+decoder_imc = ["decoders", "fft", "dsp_window"]

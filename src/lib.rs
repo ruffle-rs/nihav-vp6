@@ -10,6 +10,7 @@ pub mod io;
 pub mod register;
 pub mod detect;
 
+#[cfg(feature="dsp")]
 pub mod dsp;
 
 #[cfg(test)]

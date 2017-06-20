@@ -9,6 +9,7 @@ use io::codebook::CodebookError;
 #[allow(dead_code)]
 pub enum DecoderError {
     NoFrame,
+    AllocError,
     TryAgain,
     InvalidData,
     ShortData,
@@ -34,6 +35,10 @@ impl From<BitReaderError> for DecoderError {
 
 impl From<CodebookError> for DecoderError {
     fn from(_: CodebookError) -> Self { DecoderError::InvalidData }
+}
+
+impl From<AllocatorError> for DecoderError {
+    fn from(_: AllocatorError) -> Self { DecoderError::AllocError }
 }
 
 macro_rules! validate {
@@ -113,7 +118,7 @@ mod blockdsp;
 
 #[cfg(feature="decoder_gdvvid")]
 mod gremlinvideo;
-#[cfg(any(feature="decoder_indeo2", feature="decoder_indeo3"))]
+#[cfg(any(feature="decoder_indeo2", feature="decoder_indeo3", feature="decoder_imc"))]
 mod indeo;
 #[cfg(feature="h263")]
 mod h263;
@@ -133,6 +138,10 @@ const DECODERS: &[DecoderInfo] = &[
 
 #[cfg(feature="decoder_pcm")]
     DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },
+#[cfg(feature="decoder_imc")]
+    DecoderInfo { name: "imc", get_decoder: indeo::imc::get_decoder_imc },
+#[cfg(feature="decoder_imc")]
+    DecoderInfo { name: "iac", get_decoder: indeo::imc::get_decoder_iac },
 ];
 
 pub fn find_decoder(name: &str) -> Option<fn () -> Box<NADecoder>> {
