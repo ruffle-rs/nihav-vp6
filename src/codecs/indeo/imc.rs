@@ -160,7 +160,7 @@ impl BitAlloc {
             cur_bits = 0;
             let mut acc = 0;
             for band in start..BANDS {
-                let mut len = (ch_data.coeffs4[band] * 0.5 - pool + 0.5).trunc() as i32;
+                let mut len = (ch_data.coeffs4[band] * 0.5 - pool + 0.5) as i32;
                 if len < 0 { len = 0; }
                 if len > 6 { len = 6; }
                 self.band_bits[band] = len as u8;
@@ -328,6 +328,33 @@ if free_bits >= 0 {
     }
 }
 
+struct LUTs {
+    exp_lev:  [f32; 16],
+    exp_10:   [f32; 32],
+    sqrt_tab: [f32; 32],
+}
+
+impl LUTs {
+    fn new() -> Self {
+        let mut exp_lev: [f32; 16] = [0.0; 16];
+        for lev in 0..16 {
+            exp_lev[lev] = 10.0f32.powf(-(lev as f32) * 0.4375); // almost exp(-lev)
+        }
+
+        let mut exp_10: [f32; 32] = [0.0; 32];
+        for i in 0..32 {
+            exp_10[i] = 10.0f32.powf(((i as f32) - 16.0) * 0.25);
+        }
+
+        let mut sqrt_tab: [f32; 32] = [0.0; 32];
+        for i in 0..32 {
+            sqrt_tab[i] = (i as f32).sqrt();
+        }
+
+        LUTs { exp_lev: exp_lev, exp_10: exp_10, sqrt_tab: sqrt_tab }
+    }
+}
+
 struct IMCDecoder {
     is_imc: bool,
 
@@ -344,6 +371,8 @@ struct IMCDecoder {
     cycle2: [usize; BANDS],
     weights1: [f32; BANDS-1],
     weights2: [f32; BANDS-1],
+
+    luts:   LUTs,
 }
 
 fn calc_maxcoef(coef: f32) -> (f32, f32) {
@@ -383,6 +412,7 @@ impl IMCDecoder {
             ch_data:    [IMCChannel::new(), IMCChannel::new()],
             ba:         BitAlloc::new(),
             imdct:      IMDCTContext::new(),
+            luts:       LUTs::new(),
 
             cycle1:     cycle1,
             cycle2:     cycle2,
@@ -446,9 +476,9 @@ impl IMCDecoder {
         let (c1, c2) = calc_maxcoef(max_coef as f32);
         for i in 0..BANDS {
             if i != maxc_pos {
-                let level = br.read(4)? as f32;
-                ch_data.coeffs1[i] = c1 * 10.0f32.powf(-level * 0.4375); // almost exp(-lev)
-                ch_data.coeffs2[i] = c2 - 1.4533435415 * level;
+                let level = br.read(4)?;
+                ch_data.coeffs1[i] = c1 * self.luts.exp_lev[level as usize];
+                ch_data.coeffs2[i] = c2 - 1.4533435415 * (level as f32);
             } else {
                 ch_data.coeffs1[i] = c1;
                 ch_data.coeffs2[i] = c2;
@@ -542,14 +572,14 @@ impl IMCDecoder {
                 } else {
                     let lval;
                     if level[i] < 17 {
-                        lval = (level[i] - 7) as f32;
+                        lval = level[i] - 7;
                     } else if level[i] < 25 {
-                        lval = (level[i] - 32) as f32;
+                        lval = level[i] - 32;
                     } else {
-                        lval = (level[i] - 16) as f32;
+                        lval = level[i] - 16;
                     }
-                    c1 *= 10.0f32.powf(lval * 0.25);
-                    c2 += 0.83048 * lval;
+                    c1 *= self.luts.exp_10[(lval + 16) as usize];
+                    c2 += 0.83048 * (lval as f32);
                     ch_data.coeffs1[i] = c1;
                     ch_data.coeffs2[i] = c2;
                 }
@@ -558,9 +588,9 @@ impl IMCDecoder {
             let mut ch_data = &mut self.ch_data[ch];
             for i in 0..BANDS {
                 if level[i] < 16 {
-                    let lval = (level[i] - 7) as f32;
-                    ch_data.coeffs1[i]  = 10.0f32.powf(lval * 0.25) * ch_data.old_floor[i];
-                    ch_data.coeffs2[i] += lval * 0.83048;
+                    let lval = level[i] - 7;
+                    ch_data.coeffs1[i]  = self.luts.exp_10[(lval + 16) as usize] * ch_data.old_floor[i];
+                    ch_data.coeffs2[i] += (lval as f32) * 0.83048;
                 } else {
                     ch_data.coeffs1[i] = ch_data.old_floor[i];
                 }
@@ -662,7 +692,7 @@ impl IMCDecoder {
             let band_w = IMC_BANDS[band + 1] - IMC_BANDS[band];
             let nonskip = band_w - self.ba.skips_per_band[band];
             if self.ba.band_flag[band] && nonskip > 0 {
-                ch_data.coeffs6[band] *= (band_w as f32).sqrt() / (nonskip as f32).sqrt();
+                ch_data.coeffs6[band] *= self.luts.sqrt_tab[band_w] / self.luts.sqrt_tab[nonskip];//
             }
         }
 
