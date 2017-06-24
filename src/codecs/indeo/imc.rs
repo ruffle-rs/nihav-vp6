@@ -14,10 +14,6 @@ const BANDS:      usize =  32;
 const COEFFS:     usize = 256;
 const BLOCK_SIZE: usize =  64;
 
-fn freq2bark(freq: f32) -> f32 {
-    3.5 * ((freq / 7500.0) * (freq / 7500.0)).atan() + 13.0 * (freq * 0.00076).atan()
-}
-
 struct IMDCTContext {
     pretwiddle1: [f32; COEFFS/2],
     pretwiddle2: [f32; COEFFS/2],
@@ -258,7 +254,6 @@ impl BitAlloc {
 
     fn adjust_bit_allocation(&mut self, ch_data: &mut IMCChannel, free_bits: i32) {
         let mut tmp: [f32; BANDS] = [BITALLOC_LIMIT; BANDS];
-if free_bits >= 0 {
         for band in 0..BANDS {
             if self.band_bits[band] != 6 {
                 tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.coeffs4[band] - 0.415;
@@ -282,6 +277,7 @@ if free_bits >= 0 {
                     tmp[band] = BITALLOC_LIMIT;
                 }
                 for i in IMC_BANDS[band]..IMC_BANDS[band + 1] {
+                    if self.cw_len[i] >= 6 { continue; }
                     self.cw_len[i] += 1;
                     used_bits      += 1;
                     if used_bits >= free_bits {
@@ -290,41 +286,6 @@ if free_bits >= 0 {
                 }
             }
         }
-} else {
-        let mut used_bits: i32 = 0;
-
-            let mut tmp: [f32; BANDS] = [BITALLOC_TOP_LIMIT; BANDS];
-            for band in 0..BANDS {
-                if self.band_bits[band] != 0 {
-                    tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.coeffs4[band] - 0.415 + 2.0;
-                }
-            }
-            while free_bits < used_bits {
-                let mut low = BITALLOC_TOP_LIMIT;
-                let mut idx = 0;
-                for band in 0..BANDS {
-                    if tmp[band] < low {
-                        low = tmp[band];
-                        idx = band;
-                    }
-                }
-                tmp[idx] += 2.0;
-                self.band_bits[idx] -= 1;
-                if self.band_bits[idx] == 0 {
-                    tmp[idx] = BITALLOC_TOP_LIMIT;
-                }
-                for i in IMC_BANDS[idx]..IMC_BANDS[idx + 1] {
-                    if self.cw_len[i] > 0 {
-                        self.cw_len[i] -= 1;
-                        used_bits      -= 1;
-                        if used_bits <= free_bits {
-                            break;
-                        }
-                    }
-                }
-            }
-}
-
     }
 }
 
@@ -375,8 +336,12 @@ struct IMCDecoder {
     luts:   LUTs,
 }
 
+fn freq2bark(freq: f32) -> f32 {
+    3.5 * ((freq / 7500.0) * (freq / 7500.0)).atan() + 13.0 * (freq * 0.00076).atan()
+}
+
 fn calc_maxcoef(coef: f32) -> (f32, f32) {
-    let c1 = 20000.0 / 2.0f32.powf(coef * 0.18945);
+    let c1 = 20000.0 / 10.0f32.powf(coef * 0.057031251); //2.0f32.powf(coef * 0.18945);
     (c1, c1.log2())
 }
 
@@ -422,7 +387,7 @@ impl IMCDecoder {
     }
 
     fn generate_iac_tables(&mut self, sample_rate: f32) {
-        let scale = sample_rate / 1024.0;
+        let scale = sample_rate / 256.0 / 2.0 * 0.5;
         let nyq_freq = sample_rate / 2.0;
         let mut last_bark = 0.0;
         let mut freq_max: [f32; BANDS] = [0.0; BANDS];
@@ -434,7 +399,7 @@ impl IMCDecoder {
             if band > 0 {
                 let bark_diff = bark - last_bark;
                 self.weights1[band - 1] = 10.0f32.powf(-1.0 * bark_diff);
-                self.weights1[band - 1] = 10.0f32.powf(-2.7 * bark_diff);
+                self.weights2[band - 1] = 10.0f32.powf(-2.7 * bark_diff);
             }
             last_bark = bark;
             freq_mid[band] = freq;
@@ -495,21 +460,22 @@ impl IMCDecoder {
 
     fn calculate_channel_values(&mut self, ch: usize) {
         let mut ch_data = &mut self.ch_data[ch];
-        let mut tmp2: [f32; BANDS] = [0.0; BANDS];
+        let mut tmp2: [f32; BANDS+1] = [0.0; BANDS+1];
         let mut tmp3: [f32; BANDS] = [0.0; BANDS];
 
         for band in 0..BANDS {
             ch_data.coeffs5[band] = 0.0;
             let val;
             if self.ba.band_width[band] > 0 {
-                val = ch_data.coeffs1[band] * ch_data.coeffs1[band];
+                val = (ch_data.coeffs1[band] as f64).powi(2);
                 ch_data.coeffs3[band] = 2.0 * ch_data.coeffs2[band];
             } else {
                 val = 0.0;
                 ch_data.coeffs3[band] = -30000.0;
             }
-            tmp3[band] = val * (self.ba.band_width[band] as f32) * 0.01;
-            if tmp3[band] <= 1.0e-6 { tmp3[band] = 0.0; }
+            let tmp = val * (self.ba.band_width[band] as f64) * 0.01;
+            if val <= 1.0e-30 { tmp3[band] = 0.0; }
+            else { tmp3[band] = tmp as f32; }
         }
 
         for band in 0..BANDS {
@@ -517,13 +483,13 @@ impl IMCDecoder {
             for band2 in band..next_band {
                 ch_data.coeffs5[band2] += tmp3[band];
             }
-            tmp2[next_band - 1] += tmp3[band];
+            tmp2[next_band] += tmp3[band];
         }
 
         let mut accum = 0.0;
-        for band in 0..BANDS-1 {
-            accum = (tmp2[band] + accum) * self.weights1[band];
-            ch_data.coeffs5[band + 1] += accum;
+        for band in 1..BANDS {
+            accum = (tmp2[band] + accum) * self.weights1[band - 1];
+            ch_data.coeffs5[band] += accum;
         }
 
         let mut tmp2: [f32; BANDS] = [0.0; BANDS];
@@ -597,7 +563,8 @@ impl IMCDecoder {
             }
         }
 
-        for i in 0..BANDS {
+        self.ba.band_width[0] = IMC_BANDS[1] - IMC_BANDS[0];
+        for i in 1..BANDS {
             if level[i] != 16 {
                 self.ba.band_width[i] = IMC_BANDS[i + 1] - IMC_BANDS[i];
             } else {
@@ -678,7 +645,7 @@ impl IMCDecoder {
             if self.ba.band_flag[band] {
                 let band_w = IMC_BANDS[band + 1] - IMC_BANDS[band];
                 let bitsum = self.ba.band_bitsum[band] as usize;
-                if (bitsum > 0) && (band_w * 3 > bitsum * 2) {
+                if (bitsum > 0) && (((band_w * 3) >> 1) > bitsum) {
                     self.ba.band_skip[band] = true;
                 }
             }
@@ -692,7 +659,7 @@ impl IMCDecoder {
             let band_w = IMC_BANDS[band + 1] - IMC_BANDS[band];
             let nonskip = band_w - self.ba.skips_per_band[band];
             if self.ba.band_flag[band] && nonskip > 0 {
-                ch_data.coeffs6[band] *= self.luts.sqrt_tab[band_w] / self.luts.sqrt_tab[nonskip];//
+                ch_data.coeffs6[band] *= self.luts.sqrt_tab[band_w] / self.luts.sqrt_tab[nonskip];
             }
         }
 
@@ -708,6 +675,7 @@ impl IMCDecoder {
             bits_freed -= self.ba.skip_flag_bits[band] as i32;
         }
 
+        if bits_freed < 0 { return Err(DecoderError::Bug); }
         self.ba.adjust_bit_allocation(&mut ch_data, bits_freed);
 
         Ok(())
@@ -812,8 +780,10 @@ impl IMCDecoder {
             if self.ba.band_width[BANDS - 1] != 0 {
                 bitcount += 1;
             }
-            if !fixed_head {
-                bitcount += 16;
+            bitcount += 16;
+        } else {
+            if self.ba.band_width[BANDS - 1] != 0 {
+                bitcount += 1;
             }
         }
 
@@ -931,10 +901,21 @@ impl NADecoder for IMCDecoder {
         let mut dst = adata.get_data_mut();
 
         let mut start: usize = 0;
-        for chunk in pktbuf.chunks(BLOCK_SIZE * (self.ainfo.get_channels() as usize)) {
-            for ch in 0..self.ainfo.get_channels() {
+        let channels = self.ainfo.get_channels() as usize;
+        for chunk in pktbuf.chunks(BLOCK_SIZE * channels) {
+            for ch in 0..channels {
                 let off = abuf.get_offset(ch as usize) + start;
                 self.decode_block(chunk, ch as usize, &mut dst[off..off+COEFFS])?;
+            }
+            if (channels == 2) && ((chunk[1] & 0x20) != 0) {
+                let off1 = abuf.get_offset(0) + start;
+                let off2 = abuf.get_offset(1) + start;
+                for i in 0..COEFFS {
+                    let l = dst[off1 + i];
+                    let r = dst[off2 + i];
+                    dst[off1 + i] = l + r;
+                    dst[off2 + i] = l - r;
+                }
             }
             start += COEFFS;
         }
@@ -1136,7 +1117,11 @@ mod test {
     #[test]
     fn test_imc() {
         let avi_dmx = find_demuxer("avi").unwrap();
-        let mut file = File::open("assets/neal73_saber.avi").unwrap();
+//        let mut file = File::open("assets/neal73_saber.avi").unwrap();
+//        let mut file = File::open("assets/IMC/hvalen.avi").unwrap();
+//        let mut file = File::open("assets/IMC/8khz.avi").unwrap();
+//        let mut file = File::open("assets/STsKlassFist-1a.avi").unwrap();
+        let mut file = File::open("assets/IMC/Angel Bday.avi").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = avi_dmx.new_demuxer(&mut br);
