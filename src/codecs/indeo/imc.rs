@@ -25,40 +25,40 @@ struct IMDCTContext {
 
 struct IMCChannel {
     old_floor:  [f32; BANDS],
-    coeffs1:    [f32; BANDS], // new floor?
-    coeffs2:    [f32; BANDS], // log2 of coeffs1
-    coeffs3:    [f32; BANDS],
-    coeffs4:    [f32; BANDS],
-    coeffs5:    [f32; BANDS],
-    coeffs6:    [f32; BANDS],
+    new_floor:  [f32; BANDS],
+    log_floor:  [f32; BANDS],
+    log_floor2: [f32; BANDS],
+    bit_est:    [f32; BANDS],
+    mask_wght:  [f32; BANDS],
+    adj_floor:  [f32; BANDS],
     cw:         [f32; COEFFS],
     last_im:    [f32; COEFFS/2],
 }
 
 struct BitAlloc {
-    band_width: [usize; BANDS],
-    band_flag:  [bool; BANDS],
-    band_skip:  [bool; BANDS],
-    band_bits:  [u8; BANDS],
-    cw_len:     [u8; COEFFS],
-    band_bitsum: [usize; BANDS],
-    skip_flag:  [bool; COEFFS],
+    band_width:     [usize; BANDS],
+    band_present:   [bool; BANDS],
+    band_skip:      [bool; BANDS],
+    band_bits:      [u8; BANDS],
+    cw_len:         [u8; COEFFS],
+    band_bitsum:    [usize; BANDS],
+    skip_flag:      [bool; COEFFS],
     skip_flag_bits: [u8; BANDS],
     skips_per_band: [usize; BANDS],
-    keep_flag:  [bool; BANDS],
-    coeff:      [u8; COEFFS],
+    keep_flag:      [bool; BANDS],
+    coeff:          [u8; COEFFS],
 }
 
 impl IMCChannel {
     fn new() -> Self {
         IMCChannel {
             old_floor:  [0.0; BANDS],
-            coeffs1:    [0.0; BANDS],
-            coeffs2:    [0.0; BANDS],
-            coeffs3:    [0.0; BANDS],
-            coeffs4:    [0.0; BANDS],
-            coeffs5:    [0.0; BANDS],
-            coeffs6:    [0.0; BANDS],
+            new_floor:  [0.0; BANDS],
+            log_floor:  [0.0; BANDS],
+            log_floor2: [0.0; BANDS],
+            bit_est:    [0.0; BANDS],
+            mask_wght:  [0.0; BANDS],
+            adj_floor:  [0.0; BANDS],
             cw:         [0.0; COEFFS],
             last_im:    [0.0; COEFFS/2],
         }
@@ -74,45 +74,45 @@ const BITALLOC_TOP_LIMIT: f32 =  1.0e20;
 impl BitAlloc {
     fn new() -> Self {
         BitAlloc {
-            band_width:  [0; BANDS],
-            band_flag:   [false; BANDS],
-            band_skip:   [false; BANDS],
-            band_bits:   [0; BANDS],
-            cw_len:      [0; COEFFS],
-            band_bitsum: [0; BANDS],
-            skip_flag:   [false; COEFFS],
+            band_width:     [0; BANDS],
+            band_present:   [false; BANDS],
+            band_skip:      [false; BANDS],
+            band_bits:      [0; BANDS],
+            cw_len:         [0; COEFFS],
+            band_bitsum:    [0; BANDS],
+            skip_flag:      [false; COEFFS],
             skip_flag_bits: [0; BANDS],
             skips_per_band: [0; BANDS],
-            keep_flag:   [false; BANDS],
-            coeff:       [0; COEFFS],
+            keep_flag:      [false; BANDS],
+            coeff:          [0; COEFFS],
         }
     }
     fn reset(&mut self) {
         for i in 0..BANDS {
-            self.band_width[i]  = 0;
-            self.band_flag[i]   = false;
-            self.band_skip[i]   = false;
-            self.band_bits[i]   = 0;
-            self.keep_flag[i]   = false;
-            //self.band_bitsum[i] = 0;
-            self.skips_per_band[i] = 0;
-            self.skip_flag_bits[i] = 0;
+            self.band_width[i]      = 0;
+            self.band_present[i]    = false;
+            self.band_skip[i]       = false;
+            self.band_bits[i]       = 0;
+            self.keep_flag[i]       = false;
+            self.band_bitsum[i]     = 0;
+            self.skips_per_band[i]  = 0;
+            self.skip_flag_bits[i]  = 0;
         }
         for i in 0..COEFFS {
-            //self.cw_len[i]      = 0;
-            self.skip_flag[i]   = false;
+            self.cw_len[i]          = 0;
+            self.skip_flag[i]       = false;
         }
     }
     fn calculate_bit_allocation(&mut self, ch_data: &mut IMCChannel, bits: usize, fixed_head: bool, adj_idx: usize) -> DecoderResult<()> {
 
         let mut peak = 0.0;
-        for coef in ch_data.coeffs1.iter() { if *coef > peak { peak = *coef; } }
+        for coef in ch_data.new_floor.iter() { if *coef > peak { peak = *coef; } }
         peak *= 0.25;
 
         for band in 0..BANDS-1 {
-            ch_data.coeffs4[band] = ch_data.coeffs3[band] - ch_data.coeffs5[band].log2();
+            ch_data.bit_est[band] = ch_data.log_floor2[band] - ch_data.mask_wght[band].log2();
         }
-        ch_data.coeffs4[BANDS - 1] = BITALLOC_LIMIT;
+        ch_data.bit_est[BANDS - 1] = BITALLOC_LIMIT;
 
         for band in 0..BANDS {
             let mut idx = 42;
@@ -122,13 +122,13 @@ impl BitAlloc {
             if band_w/2 >= self.band_width[band] { idx = 2; }
             validate!(idx <= 2);
             idx *= 2;
-            if ch_data.coeffs1[band] < peak { idx += 1; }
-            ch_data.coeffs4[band] += IMC_BITALLOC_ADJ[adj_idx][idx];
+            if ch_data.new_floor[band] < peak { idx += 1; }
+            ch_data.bit_est[band] += IMC_BITALLOC_ADJ[adj_idx][idx];
         }
 
         if fixed_head {
             for i in 0..4 {
-                ch_data.coeffs4[i] = BITALLOC_LIMIT;
+                ch_data.bit_est[i] = BITALLOC_LIMIT;
             }
         }
 
@@ -138,7 +138,7 @@ impl BitAlloc {
         let mut pool = 0.0;
         for band in start..BANDS-1 {
             a_width += self.band_width[band];
-            pool    += (self.band_width[band] as f32) * ch_data.coeffs4[band];
+            pool    += (self.band_width[band] as f32) * ch_data.bit_est[band];
         }
         validate!(a_width > 0);
 
@@ -156,7 +156,7 @@ impl BitAlloc {
             cur_bits = 0;
             let mut acc = 0;
             for band in start..BANDS {
-                let mut len = (ch_data.coeffs4[band] * 0.5 - pool + 0.5) as i32;
+                let mut len = (ch_data.bit_est[band] * 0.5 - pool + 0.5) as i32;
                 if len < 0 { len = 0; }
                 if len > 6 { len = 6; }
                 self.band_bits[band] = len as u8;
@@ -186,7 +186,7 @@ impl BitAlloc {
             let mut tmp: [f32; BANDS] = [BITALLOC_LIMIT; BANDS];
             for band in 0..BANDS {
                 if self.band_bits[band] != 6 {
-                    tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.coeffs4[band] - 0.415;
+                    tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.bit_est[band] - 0.415;
                 }
             }
             let mut peak = 0.0;
@@ -220,7 +220,7 @@ impl BitAlloc {
             let mut tmp: [f32; BANDS] = [BITALLOC_TOP_LIMIT; BANDS];
             for band in start..BANDS {
                 if self.band_bits[band] != 0 {
-                    tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.coeffs4[band] - 0.415 + 2.0;
+                    tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.bit_est[band] - 0.415 + 2.0;
                 }
             }
             while free_bits < cur_bits {
@@ -256,7 +256,7 @@ impl BitAlloc {
         let mut tmp: [f32; BANDS] = [BITALLOC_LIMIT; BANDS];
         for band in 0..BANDS {
             if self.band_bits[band] != 6 {
-                tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.coeffs4[band] - 0.415;
+                tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.bit_est[band] - 0.415;
             }
         }
         let mut used_bits: i32 = 0;
@@ -299,7 +299,7 @@ impl LUTs {
     fn new() -> Self {
         let mut exp_lev: [f32; 16] = [0.0; 16];
         for lev in 0..16 {
-            exp_lev[lev] = 10.0f32.powf(-(lev as f32) * 0.4375); // almost exp(-lev)
+            exp_lev[lev] = 10.0f32.powf(-(lev as f32) * 0.4375);
         }
 
         let mut exp_10: [f32; 32] = [0.0; 32];
@@ -341,7 +341,7 @@ fn freq2bark(freq: f32) -> f32 {
 }
 
 fn calc_maxcoef(coef: f32) -> (f32, f32) {
-    let c1 = 20000.0 / 10.0f32.powf(coef * 0.057031251); //2.0f32.powf(coef * 0.18945);
+    let c1 = 20000.0 / 10.0f32.powf(coef * 0.057031251);
     (c1, c1.log2())
 }
 
@@ -442,17 +442,16 @@ impl IMCDecoder {
         for i in 0..BANDS {
             if i != maxc_pos {
                 let level = br.read(4)?;
-                ch_data.coeffs1[i] = c1 * self.luts.exp_lev[level as usize];
-                ch_data.coeffs2[i] = c2 - 1.4533435415 * (level as f32);
+                ch_data.new_floor[i] = c1 * self.luts.exp_lev[level as usize];
+                ch_data.log_floor[i] = c2 - 1.4533435415 * (level as f32);
             } else {
-                ch_data.coeffs1[i] = c1;
-                ch_data.coeffs2[i] = c2;
+                ch_data.new_floor[i] = c1;
+                ch_data.log_floor[i] = c2;
             }
             self.ba.band_width[i]  = IMC_BANDS[i + 1] - IMC_BANDS[i];
-            //self.ba.band_flag[i]   = false;
 
-            ch_data.coeffs3[i]     = ch_data.coeffs2[i] * 2.0;
-            ch_data.coeffs5[i]     = 1.0;
+            ch_data.log_floor2[i]  = ch_data.log_floor[i] * 2.0;
+            ch_data.mask_wght[i]   = 1.0;
         }
 
         Ok(())
@@ -464,14 +463,14 @@ impl IMCDecoder {
         let mut tmp3: [f32; BANDS] = [0.0; BANDS];
 
         for band in 0..BANDS {
-            ch_data.coeffs5[band] = 0.0;
+            ch_data.mask_wght[band] = 0.0;
             let val;
             if self.ba.band_width[band] > 0 {
-                val = (ch_data.coeffs1[band] as f64).powi(2);
-                ch_data.coeffs3[band] = 2.0 * ch_data.coeffs2[band];
+                val = (ch_data.new_floor[band] as f64).powi(2);
+                ch_data.log_floor2[band] = 2.0 * ch_data.log_floor[band];
             } else {
                 val = 0.0;
-                ch_data.coeffs3[band] = -30000.0;
+                ch_data.log_floor2[band] = -30000.0;
             }
             let tmp = val * (self.ba.band_width[band] as f64) * 0.01;
             if val <= 1.0e-30 { tmp3[band] = 0.0; }
@@ -481,7 +480,7 @@ impl IMCDecoder {
         for band in 0..BANDS {
             let next_band = self.cycle1[band];
             for band2 in band..next_band {
-                ch_data.coeffs5[band2] += tmp3[band];
+                ch_data.mask_wght[band2] += tmp3[band];
             }
             tmp2[next_band] += tmp3[band];
         }
@@ -489,7 +488,7 @@ impl IMCDecoder {
         let mut accum = 0.0;
         for band in 1..BANDS {
             accum = (tmp2[band] + accum) * self.weights1[band - 1];
-            ch_data.coeffs5[band] += accum;
+            ch_data.mask_wght[band] += accum;
         }
 
         let mut tmp2: [f32; BANDS] = [0.0; BANDS];
@@ -497,7 +496,7 @@ impl IMCDecoder {
         for band in 1..BANDS {
             let prev_band = self.cycle2[band];
             for band2 in prev_band+1..band {
-                ch_data.coeffs5[band2] += tmp3[band];
+                ch_data.mask_wght[band2] += tmp3[band];
             }
             tmp2[prev_band + 1] += tmp3[band];
         }
@@ -506,7 +505,7 @@ impl IMCDecoder {
         for i in 0..BANDS-1 {
             let band = BANDS - 2 - i;
             accum = (tmp2[band + 1] + accum) * self.weights2[band];
-            ch_data.coeffs5[band] += accum;
+            ch_data.mask_wght[band] += accum;
         }
     }
 
@@ -529,12 +528,12 @@ impl IMCDecoder {
         if reset {
             let mut ch_data = &mut self.ch_data[ch];
             let (mut c1, mut c2) = calc_maxcoef(level[0] as f32);
-            ch_data.coeffs1[0] = c1;
-            ch_data.coeffs2[0] = c2;
+            ch_data.new_floor[0] = c1;
+            ch_data.log_floor[0] = c2;
             for i in 1..BANDS {
                 if level[i] == 16 {
-                    ch_data.coeffs1[i] = 1.0;
-                    ch_data.coeffs2[i] = 0.0;
+                    ch_data.new_floor[i] = 1.0;
+                    ch_data.log_floor[i] = 0.0;
                 } else {
                     let lval;
                     if level[i] < 17 {
@@ -546,8 +545,8 @@ impl IMCDecoder {
                     }
                     c1 *= self.luts.exp_10[(lval + 16) as usize];
                     c2 += 0.83048 * (lval as f32);
-                    ch_data.coeffs1[i] = c1;
-                    ch_data.coeffs2[i] = c2;
+                    ch_data.new_floor[i] = c1;
+                    ch_data.log_floor[i] = c2;
                 }
             }
         } else {
@@ -555,10 +554,10 @@ impl IMCDecoder {
             for i in 0..BANDS {
                 if level[i] < 16 {
                     let lval = level[i] - 7;
-                    ch_data.coeffs1[i]  = self.luts.exp_10[(lval + 16) as usize] * ch_data.old_floor[i];
-                    ch_data.coeffs2[i] += (lval as f32) * 0.83048;
+                    ch_data.new_floor[i]  = self.luts.exp_10[(lval + 16) as usize] * ch_data.old_floor[i];
+                    ch_data.log_floor[i] += (lval as f32) * 0.83048;
                 } else {
-                    ch_data.coeffs1[i] = ch_data.old_floor[i];
+                    ch_data.new_floor[i] = ch_data.old_floor[i];
                 }
             }
         }
@@ -570,12 +569,11 @@ impl IMCDecoder {
             } else {
                 self.ba.band_width[i] = 0;
             }
-            //self.ba.band_flag[i]   = false;
         }
         
         for i in 0..BANDS-1 {
             if self.ba.band_width[i] > 0 {
-                self.ba.band_flag[i] = br.read_bool()?;
+                self.ba.band_present[i] = br.read_bool()?;
             }
         }
         self.calculate_channel_values(ch);
@@ -586,7 +584,7 @@ impl IMCDecoder {
     fn read_skip_flags(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         let mut ba = &mut self.ba;
         for band in 0..BANDS {
-            if !ba.band_flag[band] || ba.band_width[band] == 0 { continue; }
+            if !ba.band_present[band] || ba.band_width[band] == 0 { continue; }
 
             if !ba.band_skip[band] {
                 ba.skip_flag_bits[band] = (IMC_BANDS[band + 1] - IMC_BANDS[band]) as u8;
@@ -642,7 +640,7 @@ impl IMCDecoder {
             for i in IMC_BANDS[band]..IMC_BANDS[band + 1] {
                 self.ba.band_bitsum[band] += self.ba.cw_len[i] as usize;
             }
-            if self.ba.band_flag[band] {
+            if self.ba.band_present[band] {
                 let band_w = IMC_BANDS[band + 1] - IMC_BANDS[band];
                 let bitsum = self.ba.band_bitsum[band] as usize;
                 if (bitsum > 0) && (((band_w * 3) >> 1) > bitsum) {
@@ -655,17 +653,17 @@ impl IMCDecoder {
 
         let mut ch_data = &mut self.ch_data[ch];
         for band in 0..BANDS {
-            ch_data.coeffs6[band] = ch_data.coeffs1[band];
+            ch_data.adj_floor[band] = ch_data.new_floor[band];
             let band_w = IMC_BANDS[band + 1] - IMC_BANDS[band];
             let nonskip = band_w - self.ba.skips_per_band[band];
-            if self.ba.band_flag[band] && nonskip > 0 {
-                ch_data.coeffs6[band] *= self.luts.sqrt_tab[band_w] / self.luts.sqrt_tab[nonskip];
+            if self.ba.band_present[band] && nonskip > 0 {
+                ch_data.adj_floor[band] *= self.luts.sqrt_tab[band_w] / self.luts.sqrt_tab[nonskip];
             }
         }
 
         let mut bits_freed: i32 = 0;
         for band in 0..BANDS {
-            if !self.ba.band_flag[band] { continue; }
+            if !self.ba.band_present[band] { continue; }
             for i in IMC_BANDS[band]..IMC_BANDS[band + 1] {
                 if self.ba.skip_flag[i] {
                     bits_freed += self.ba.cw_len[i] as i32;
@@ -684,10 +682,10 @@ impl IMCDecoder {
     fn read_coeffs(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         for band in 0..BANDS {
             if self.ba.band_bitsum[band] == 0 { continue; }
-            if !self.ba.band_flag[band] && (self.ba.band_width[band] == 0) { continue; }
+            if !self.ba.band_present[band] && (self.ba.band_width[band] == 0) { continue; }
             for i in IMC_BANDS[band]..IMC_BANDS[band + 1] {
                 let len = self.ba.cw_len[i];
-                if len > 0 && (!self.ba.band_flag[band] || !self.ba.skip_flag[i]) {
+                if len > 0 && (!self.ba.band_present[band] || !self.ba.skip_flag[i]) {
                     self.ba.coeff[i] = br.read(len)? as u8;
                     } else {
                     self.ba.coeff[i] = 0;
@@ -712,17 +710,17 @@ impl IMCDecoder {
                 if cw_len >= 4 {
                     let quant = &IMC_QUANT_LARGE[qidx];
                     if val >= mid {
-                        ch_data.cw[i] =  quant[val - 8]       * ch_data.coeffs6[band];
+                        ch_data.cw[i] =  quant[val - 8]       * ch_data.adj_floor[band];
                     } else {
-                        ch_data.cw[i] = -quant[max - val - 8] * ch_data.coeffs6[band];
+                        ch_data.cw[i] = -quant[max - val - 8] * ch_data.adj_floor[band];
                     }
                 } else {
-                    let idx = qidx + (if self.ba.band_flag[band] { 2 } else { 0 });
+                    let idx = qidx + (if self.ba.band_present[band] { 2 } else { 0 });
                     let quant = &IMC_QUANT_SMALL[idx];
                     if val >= mid {
-                        ch_data.cw[i] =  quant[val - 1]       * ch_data.coeffs6[band];
+                        ch_data.cw[i] =  quant[val - 1]       * ch_data.adj_floor[band];
                     } else {
-                        ch_data.cw[i] = -quant[max - val - 1] * ch_data.coeffs6[band];
+                        ch_data.cw[i] = -quant[max - val - 1] * ch_data.adj_floor[band];
                     }                    
                 }
             }
@@ -752,7 +750,7 @@ impl IMCDecoder {
             self.read_level_coeffs(&mut br, reset, cb_idx, ch)?;
         }
 
-        self.ch_data[ch].old_floor.copy_from_slice(&self.ch_data[ch].coeffs1);
+        self.ch_data[ch].old_floor.copy_from_slice(&self.ch_data[ch].new_floor);
 
         let mut bitcount: usize = 0;
         if fixed_head {
