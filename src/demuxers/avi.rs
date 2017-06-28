@@ -90,6 +90,12 @@ impl<'a> Demux<'a> for AVIDemuxer<'a> {
                 self.src.read_skip(size)?;
                 continue;
             }
+            if mktag!(tag) == mktag!(b"LIST") {
+                self.movi_size -= 12;
+                self.src.read_skip(4)?;
+                if self.movi_size == 0 { return Err(EOF); }
+                continue;
+            }
             if tag[0] < b'0' || tag[0] > b'9' || tag[1] < b'0' || tag[1] > b'9' {
                 return Err(InvalidData);
             }
