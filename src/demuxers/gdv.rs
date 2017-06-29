@@ -24,6 +24,32 @@ struct GremlinVideoDemuxer<'a> {
     v_id:       Option<usize>,
 }
 
+struct GDVFixedSizes {
+    id:     u16,
+    width:  u16,
+    height: u16,
+}
+const GDV_SIZE_TABLE: &[GDVFixedSizes] = &[
+    GDVFixedSizes { id:  0, width: 320, height: 200 },
+    GDVFixedSizes { id:  1, width: 640, height: 200 },
+    GDVFixedSizes { id:  2, width: 320, height: 167 },
+    GDVFixedSizes { id:  3, width: 320, height: 180 },
+    GDVFixedSizes { id:  4, width: 320, height: 400 },
+    GDVFixedSizes { id:  5, width: 320, height: 170 },
+    GDVFixedSizes { id:  6, width: 160, height:  85 },
+    GDVFixedSizes { id:  7, width: 160, height:  83 },
+    GDVFixedSizes { id:  8, width: 160, height:  90 },
+    GDVFixedSizes { id:  9, width: 280, height: 128 },
+    GDVFixedSizes { id: 10, width: 320, height: 240 },
+    GDVFixedSizes { id: 11, width: 320, height: 201 },
+    GDVFixedSizes { id: 16, width: 640, height: 400 },
+    GDVFixedSizes { id: 17, width: 640, height: 200 },
+    GDVFixedSizes { id: 18, width: 640, height: 180 },
+    GDVFixedSizes { id: 19, width: 640, height: 167 },
+    GDVFixedSizes { id: 20, width: 640, height: 170 },
+    GDVFixedSizes { id: 21, width: 320, height: 240 },
+];
+
 impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
     #[allow(unused_variables)]
     fn open(&mut self) -> DemuxerResult<()> {
@@ -38,8 +64,18 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
         let depth = src.read_u16le()?;
         let max_fs = src.read_u16le()?;
         src.read_skip(2)?;
-        let width = src.read_u16le()?;
-        let height = src.read_u16le()?;
+        let mut width = src.read_u16le()?;
+        let mut height = src.read_u16le()?;
+        if (width == 0) && (height == 0) {
+            for el in GDV_SIZE_TABLE {
+                if el.id == id {
+                    width  = el.width;
+                    height = el.height;
+                    break;
+                }
+            }
+            if (width == 0) && (height == 0) { return Err(DemuxerError::InvalidData); }
+        }
         if max_fs > 0 {
             let mut edata: Vec<u8> = Vec::with_capacity(768);
             if depth == 1 {
