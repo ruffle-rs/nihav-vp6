@@ -10,8 +10,8 @@ struct GremlinVideoDecoder {
     scale_h:    bool,
 }
 
-struct Bits16 {
-    queue: u16,
+struct Bits8 {
+    queue: u8,
     fill:  u8,
 }
 
@@ -22,15 +22,15 @@ struct Bits32 {
 
 const PREAMBLE_SIZE: usize = 4096;
 
-impl Bits16 {
-    fn new() -> Self { Bits16 { queue: 0, fill: 0 } }
-    fn read_2bits(&mut self, br: &mut ByteReader) -> ByteIOResult<u16> {
+impl Bits8 {
+    fn new() -> Self { Bits8 { queue: 0, fill: 0 } }
+    fn read_2bits(&mut self, br: &mut ByteReader) -> ByteIOResult<u8> {
         if self.fill == 0 {
-            self.queue |= (br.read_byte()? as u16) << self.fill;
+            self.queue  = br.read_byte()?;
             self.fill  += 8;
         }
-        let res = self.queue & 0x3;
-        self.queue >>= 2;
+        let res = self.queue >> 6;
+        self.queue <<= 2;
         self.fill   -= 2;
         Ok(res)
     }
@@ -165,13 +165,15 @@ impl GremlinVideoDecoder {
     }
 
     fn decode_method2(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
-        let mut bits = Bits16::new();
+        let mut bits = Bits8::new();
 
         let mut size = self.info.get_properties().get_video_info().unwrap().get_width() *
                         self.info.get_properties().get_video_info().unwrap().get_height();
         let mut idx = PREAMBLE_SIZE;
-        for c in 0..256 {
-            for i in 0..16 { self.frame[c * 16 + i] = c as u8; }
+        if self.frame[8] != 0 {
+            for c in 0..256 {
+                for i in 0..16 { self.frame[c * 16 + i] = c as u8; }
+            }
         }
         while size > 0 {
             let tag = bits.read_2bits(br)?;
@@ -182,11 +184,11 @@ impl GremlinVideoDecoder {
             } else if tag == 1 {
                 let b = br.read_byte()?;
                 let len = ((b & 0xF) as usize) + 3;
-                let top = (b >> 4) as isize;
-                let off = (top << 8) + (br.read_byte()? as isize) - 4096;
+                let bot = (b >> 4) as isize;
+                let off = ((br.read_byte()? as isize) << 4) + bot - 4096;
                 validate!(len <= size);
                 size -= len;
-                self.lz_copy(idx, off, len)?; 
+                self.lz_copy(idx, off, len)?;
                 idx += len;
             } else if tag == 2 {
                 let len = (br.read_byte()? as usize) + 2;
@@ -201,7 +203,7 @@ impl GremlinVideoDecoder {
     }
 
     fn decode_method5(&mut self, br: &mut ByteReader, skip: usize) -> DecoderResult<()> {
-        let mut bits = Bits16::new();
+        let mut bits = Bits8::new();
 
         let mut size = self.info.get_properties().get_video_info().unwrap().get_width() *
                         self.info.get_properties().get_video_info().unwrap().get_height();
@@ -218,16 +220,16 @@ impl GremlinVideoDecoder {
             } else if tag == 1 {
                 let b = br.read_byte()?;
                 let len = ((b & 0xF) as usize) + 3;
-                let top = (b >> 4) as isize;
-                let off = (top << 8) + (br.read_byte()? as isize) - 4096;
+                let bot = (b >> 4) as isize;
+                let off = ((br.read_byte()? as isize) << 4) + bot - 4096;
                 validate!(len <= size);
                 size -= len;
-                self.lz_copy(idx, off, len)?; 
+                self.lz_copy(idx, off, len)?;
                 idx += len;
             } else if tag == 2 {
                 let b = br.read_byte()?;
                 if b == 0 { break; }
-                let len: usize = if b != 0xFF { b as usize } else { br.read_u16le()? as usize };
+                let len: usize = (if b != 0xFF { b as usize } else { br.read_u16le()? as usize }) + 1;
                 validate!(len <= size);
                 size -= len;
                 idx += len;
