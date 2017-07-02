@@ -777,59 +777,17 @@ impl NADecoder for Indeo3Decoder {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use codecs::*;
-    use demuxers::*;
-    use io::byteio::*;
-    use std::fs::File;
-
-    #[test]
-    fn test_indeo3() {
-        let avi_dmx = find_demuxer("avi").unwrap();
-        let mut file = File::open("assets/iv32_example.avi").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
-        let mut dmx = avi_dmx.new_demuxer(&mut br);
-        dmx.open().unwrap();
-
-        let mut decs: Vec<Option<Box<NADecoder>>> = Vec::new();
-        for i in 0..dmx.get_num_streams() {
-            let s = dmx.get_stream(i).unwrap();
-            let info = s.get_info();
-            let decfunc = find_decoder(info.get_name());
-            if let Some(df) = decfunc {
-                let mut dec = (df)();
-                dec.init(info).unwrap();
-                decs.push(Some(dec));
-            } else {
-                decs.push(None);
-panic!("decoder {} not found", info.get_name());
-            }
-        }
-
-        loop {
-            let pktres = dmx.get_frame();
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-            }
-            let pkt = pktres.unwrap();
-            let streamno = pkt.get_stream().get_id() as usize;
-            if let Some(ref mut dec) = decs[streamno] {
-//                let frm = 
-dec.decode(&pkt).unwrap();
-//                if pkt.get_stream().get_info().is_video() {
-//                    write_pgmyuv("iv3", streamno, pkt.get_pts().unwrap(), frm);
-//                } else {
-//                    write_sound("iv3", streamno, frm, pkt.get_pts().unwrap() == 0);
-//                }
-            }
-            if pkt.get_pts().unwrap() > 10 { break; }
-        }
-    }
-}
 pub fn get_decoder() -> Box<NADecoder> {
     Box::new(Indeo3Decoder::new())
+}
+
+#[cfg(test)]
+mod test {
+    use test::dec_video::test_file_decoding;
+    #[test]
+    fn test_indeo3() {
+         test_file_decoding("avi", "assets/iv32_example.avi", Some(10), true, false, None);
+    }
 }
 
 const DT_1_1: IviDeltaCB = IviDeltaCB{ quad_radix: 7, data: &[

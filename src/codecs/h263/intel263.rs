@@ -523,49 +523,9 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use codecs::*;
-    use demuxers::*;
-    use io::byteio::*;
-
+    use test::dec_video::test_file_decoding;
     #[test]
     fn test_intel263() {
-        let avi_dmx = find_demuxer("avi").unwrap();
-        let mut file = File::open("assets/neal73_saber.avi").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
-        let mut dmx = avi_dmx.new_demuxer(&mut br);
-        dmx.open().unwrap();
-
-        let mut decs: Vec<Option<Box<NADecoder>>> = Vec::new();
-        for i in 0..dmx.get_num_streams() {
-            let s = dmx.get_stream(i).unwrap();
-            let info = s.get_info();
-            let decfunc = find_decoder(info.get_name());
-            if let Some(df) = decfunc {
-                let mut dec = (df)();
-                dec.init(info).unwrap();
-                decs.push(Some(dec));
-            } else {
-                decs.push(None);
-            }
-        }
-
-        loop {
-            let pktres = dmx.get_frame();
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            if pkt.get_pts().unwrap() > 16 { break; }
-            let streamno = pkt.get_stream().get_id() as usize;
-            if let Some(ref mut dec) = decs[streamno] {
-                let frm = dec.decode(&pkt).unwrap();
-                if pkt.get_stream().get_info().is_video() {
-                    write_pgmyuv("ih263_", streamno, pkt.get_pts().unwrap(), frm);
-                }
-            }
-        }
-//panic!("THE END");
+         test_file_decoding("avi", "assets/neal73_saber.avi", Some(16), true, false, None);
     }
 }

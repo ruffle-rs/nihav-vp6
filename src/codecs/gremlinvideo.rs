@@ -465,54 +465,9 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use codecs::*;
-    use demuxers::*;
-    use io::byteio::*;
-    use std::fs::File;
-
+    use test::dec_video::test_file_decoding;
     #[test]
     fn test_gdv() {
-        let gdv_dmx = find_demuxer("gdv").unwrap();
-        let mut file = File::open("assets/intro1.gdv").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
-        let mut dmx = gdv_dmx.new_demuxer(&mut br);
-        dmx.open().unwrap();
-
-        let mut decs: Vec<Option<Box<NADecoder>>> = Vec::new();
-        for i in 0..dmx.get_num_streams() {
-            let s = dmx.get_stream(i).unwrap();
-            let info = s.get_info();
-            let decfunc = find_decoder(info.get_name());
-            if !info.is_video() {
-                decs.push(None);
-            } else if let Some(df) = decfunc {
-                let mut dec = (df)();
-                dec.init(info).unwrap();
-                decs.push(Some(dec));
-            } else {
-panic!("decoder {} not found", info.get_name());
-            }
-        }
-
-        loop {
-            let pktres = dmx.get_frame();
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-            }
-            let pkt = pktres.unwrap();
-            let streamno = pkt.get_stream().get_id() as usize;
-            if let Some(ref mut dec) = decs[streamno] {
-//                let frm = 
-dec.decode(&pkt).unwrap();
-//                if pkt.get_stream().get_info().is_video() {
-//                    if frm.borrow().get_frame_type() != FrameType::Skip {
-//                        write_palppm("gdv", streamno, pkt.get_pts().unwrap(), frm);
-//                    }
-//                }
-            }
-            if pkt.get_pts().unwrap() > 8 { break; }
-        }
-//panic!("end");
+         test_file_decoding("gdv", "assets/intro1.gdv", Some(10), true, false, None);
     }
 }

@@ -1107,69 +1107,15 @@ const IMC_CB_SELECTOR: [[usize; BANDS]; 4] = [
 
 #[cfg(test)]
 mod test {
-    use codecs::*;
-    use demuxers::*;
-    use io::byteio::*;
-    use test::wavwriter::WavWriter;
-
+    use test::dec_video::*;
     #[test]
     fn test_imc() {
-        let avi_dmx = find_demuxer("avi").unwrap();
-//        let mut file = File::open("assets/neal73_saber.avi").unwrap();
-//        let mut file = File::open("assets/IMC/hvalen.avi").unwrap();
-//        let mut file = File::open("assets/IMC/8khz.avi").unwrap();
-//        let mut file = File::open("assets/STsKlassFist-1a.avi").unwrap();
-        let mut file = File::open("assets/IMC/Angel Bday.avi").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
-        let mut dmx = avi_dmx.new_demuxer(&mut br);
-        dmx.open().unwrap();
-
-        let mut file = File::create("assets/imc-out.wav").unwrap();
-        let mut fw = FileWriter::new_write(&mut file);
-        let mut wr = ByteWriter::new(&mut fw);
-        let mut wwr = WavWriter::new(&mut wr);
-        let mut wrote_header = false;
-
-        let mut decs: Vec<Option<Box<NADecoder>>> = Vec::new();
-        for i in 0..dmx.get_num_streams() {
-            let s = dmx.get_stream(i).unwrap();
-            let info = s.get_info();
-            let decfunc = find_decoder(info.get_name());
-            if let Some(df) = decfunc {
-                if info.is_audio() {
-                    let mut dec = (df)();
-                    dec.init(info).unwrap();
-                    decs.push(Some(dec));
-                } else {
-                    decs.push(None);
-                }
-            } else {
-                decs.push(None);
-            }
-        }
-
-        loop {
-            let pktres = dmx.get_frame();
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            //if pkt.get_pts().unwrap() > 10 { break; }
-            let streamno = pkt.get_stream().get_id() as usize;
-            if let Some(ref mut dec) = decs[streamno] {
-                let frm_ = dec.decode(&pkt).unwrap();
-                let frm = frm_.borrow();
-                if frm.get_info().is_audio() {
-                    if !wrote_header {
-                        wwr.write_header(frm.get_info().as_ref().get_properties().get_audio_info().unwrap()).unwrap();
-                        wrote_header = true;
-                    }
-                    wwr.write_frame(frm.get_buffer()).unwrap();
-                }
-            }
-        }
-panic!("the end");
+//        let file = "assets/neal73_saber.avi";
+//        let file = "assets/IMC/hvalen.avi";
+        let file = "assets/IMC/8khz.avi";
+//        let file = "assets/STsKlassFist-1a.avi";
+//        let file = "assets/IMC/Angel Bday.avi";
+        test_decode_audio("avi", file, None, "imc");
+        //test_file_decoding("avi", file, None, false, true, None);
     }
 }
