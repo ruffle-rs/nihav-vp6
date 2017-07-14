@@ -14,7 +14,13 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     let buf = frm.get_buffer().get_vbuf().unwrap();
     let (w, h) = buf.get_dimensions(0);
     let (w2, h2) = buf.get_dimensions(1);
-    let tot_h = h + h2;
+    let has_alpha = buf.get_info().get_format().has_alpha();
+    let tot_h;
+    if has_alpha {
+        tot_h = h * 2 + h2;
+    } else {
+        tot_h = h + h2;
+    }
     let hdr = format!("P5\n{} {}\n255\n", w, tot_h);
     ofile.write_all(hdr.as_bytes()).unwrap();
     let dta = buf.get_data();
@@ -46,6 +52,17 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
 
         base1 += stride1;
         base2 += stride2;
+    }
+    if has_alpha {
+        let ls = buf.get_stride(3);
+        let mut idx = buf.get_offset(3);
+        let mut idx2 = idx + w;
+        for _ in 0..h {
+            let line = &dta[idx..idx2];
+            ofile.write_all(line).unwrap();
+            idx  += ls;
+            idx2 += ls;
+        }
     }
 }
 
