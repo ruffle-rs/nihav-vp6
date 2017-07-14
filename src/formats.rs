@@ -281,6 +281,14 @@ pub const YUV410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::
                                             chromaton!(yuv8; 2, 2, 2),
                                             None, None],
                                         elem_size: 0, be: false, alpha: false, palette: false };
+pub const YUVA410_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 4,
+                                        comp_info: [
+                                            chromaton!(0, 0, false, 8, 0, 0, 1),
+                                            chromaton!(yuv8; 2, 2, 1),
+                                            chromaton!(yuv8; 2, 2, 2),
+                                            chromaton!(0, 0, false, 8, 0, 3, 1),
+                                            None],
+                                        elem_size: 0, be: false, alpha: true, palette: false };
 
 pub const PAL8_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
                                         comp_info: [
