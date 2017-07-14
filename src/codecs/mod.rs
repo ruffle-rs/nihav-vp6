@@ -118,7 +118,7 @@ mod blockdsp;
 
 #[cfg(feature="decoder_gdvvid")]
 mod gremlinvideo;
-#[cfg(any(feature="decoder_indeo2", feature="decoder_indeo3", feature="decoder_imc"))]
+#[cfg(any(feature="decoder_indeo2", feature="decoder_indeo3", feature="decoder_indeo4", feature="decoder_indeo5", feature="decoder_imc"))]
 mod indeo;
 #[cfg(feature="h263")]
 mod h263;
@@ -133,6 +133,10 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "indeo2", get_decoder: indeo::indeo2::get_decoder },
 #[cfg(feature="decoder_indeo3")]
     DecoderInfo { name: "indeo3", get_decoder: indeo::indeo3::get_decoder },
+#[cfg(feature="decoder_indeo4")]
+    DecoderInfo { name: "indeo4", get_decoder: indeo::indeo4::get_decoder },
+#[cfg(feature="decoder_indeo5")]
+    DecoderInfo { name: "indeo5", get_decoder: indeo::indeo5::get_decoder },
 #[cfg(feature="decoder_intel263")]
     DecoderInfo { name: "intel263", get_decoder: h263::intel263::get_decoder },
 
