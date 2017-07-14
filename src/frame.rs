@@ -47,6 +47,8 @@ impl NAVideoInfo {
     pub fn get_height(&self) -> usize { self.height as usize }
     pub fn is_flipped(&self) -> bool { self.flipped }
     pub fn get_format(&self) -> NAPixelFormaton { self.format }
+    pub fn set_width(&mut self, w: usize)  { self.width  = w; }
+    pub fn set_height(&mut self, h: usize) { self.height = h; }
 }
 
 impl fmt::Display for NAVideoInfo {
