@@ -46,21 +46,6 @@ pub trait CodebookReader<S> {
     fn read_cb(&mut self, cb: &Codebook<S>) -> CodebookResult<S>;
 }
 
-pub fn reverse_bits(inval: u32) -> u32 {
-    const REV_TAB: [u8; 16] = [
-        0b0000, 0b1000, 0b0100, 0b1100, 0b0010, 0b1010, 0b0110, 0b1110,
-        0b0001, 0b1001, 0b0101, 0b1101, 0b0011, 0b1011, 0b0111, 0b1111,
-    ];
-
-    let mut ret = 0;
-    let mut val = inval;
-    for _ in 0..8 {
-        ret = (ret << 4) | (REV_TAB[(val & 0xF) as usize] as u32);
-        val = val >> 4;
-    }
-    ret
-}
-
 const TABLE_FILL_VALUE: u32 = 0x7F;
 const MAX_LUT_BITS: u8 = 10;
 
@@ -376,7 +361,7 @@ mod test {
         assert_eq!(br2.read_cb(&cb).unwrap(), 5);
         assert_eq!(br2.read_cb(&cb).unwrap(), 8);
 
-        assert_eq!(reverse_bits(0b0000_0101_1011_1011_1101_1111_0111_1111),
+        assert_eq!(reverse_bits(0b0000_0101_1011_1011_1101_1111_0111_1111, 32),
                                 0b1111_1110_1111_1011_1101_1101_1010_0000);
 
         const BITS_LE: [u8; 3] = [0b11101111, 0b01110010, 0b01];

@@ -196,6 +196,29 @@ impl<'a> BitReader<'a> {
         self.pos = ((nbits / 32) * 4) as usize;
         self.skip(nbits & 0x1F)
     }
+
+    pub fn align(&mut self) {
+        let pos = self.bits & 7;
+        if pos != 0 {
+            self.skip_cache(pos);
+        }
+    }
+}
+
+pub fn reverse_bits(inval: u32, len: u8) -> u32 {
+    if len == 0 { return 0; }
+    const REV_TAB: [u8; 16] = [
+        0b0000, 0b1000, 0b0100, 0b1100, 0b0010, 0b1010, 0b0110, 0b1110,
+        0b0001, 0b1001, 0b0101, 0b1101, 0b0011, 0b1011, 0b0111, 0b1111,
+    ];
+
+    let mut ret = 0;
+    let mut val = inval;
+    for _ in 0..8 {
+        ret = (ret << 4) | (REV_TAB[(val & 0xF) as usize] as u32);
+        val = val >> 4;
+    }
+    ret >> (32 - len)
 }
 
 #[cfg(test)]
