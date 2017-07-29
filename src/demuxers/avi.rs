@@ -88,6 +88,7 @@ impl<'a> Demux<'a> for AVIDemuxer<'a> {
             if mktag!(tag) == mktag!(b"JUNK") {
                 self.movi_size -= size + 8;
                 self.src.read_skip(size)?;
+                if self.movi_size == 0 { return Err(EOF); }
                 continue;
             }
             if mktag!(tag) == mktag!(b"LIST") {
