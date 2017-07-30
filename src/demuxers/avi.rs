@@ -104,6 +104,11 @@ impl<'a> Demux<'a> for AVIDemuxer<'a> {
             let str = self.dmx.get_stream(stream_no as usize);
             if let None = str { return Err(InvalidData); }
             let stream = str.unwrap();
+            if size == 0 {
+                self.movi_size -= 8;
+                if self.movi_size == 0 { return Err(EOF); }
+                continue;
+            }
             let (tb_num, tb_den) = stream.get_timebase();
             let ts = NATimeInfo::new(Some(self.cur_frame[stream_no as usize]), None, None, tb_num, tb_den);
             let pkt = self.src.read_packet(stream, ts, false, size)?;
