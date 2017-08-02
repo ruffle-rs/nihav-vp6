@@ -289,10 +289,8 @@ impl IndeoXParser for Indeo4Parser {
                             mb.mv_x = mv_x;
                             mb.mv_y = mv_y;
                             if mb.mtype == MBType::Backward {
-                                mb.mv2_x = -mb.mv_x;
-                                mb.mv2_y = -mb.mv_y;
-                                mb.mv_x  = 0;
-                                mb.mv_y  = 0;
+                                mb.mv_x = -mb.mv_x;
+                                mb.mv_y = -mb.mv_y;
                             } else if mb.mtype == MBType::Bidir {
                                 mv_y += br.read_ivi_cb_s(&self.mb_cb)?;
                                 mv_x += br.read_ivi_cb_s(&self.mb_cb)?;
