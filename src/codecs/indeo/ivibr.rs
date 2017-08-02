@@ -261,7 +261,7 @@ fn decode_block4x4(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
             run = (br.read_ivi_cb(blk_cb)? as isize) + 1;
             let lo = br.read_ivi_cb(blk_cb)?;
             let hi = br.read_ivi_cb(blk_cb)?;
-            let v = (hi << 5) + lo;
+            let v = (hi << 6) + lo;
             if v == 0 {
                 val = 0; // should not happen but still...
             } else {
