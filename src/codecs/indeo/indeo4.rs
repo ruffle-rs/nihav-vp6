@@ -401,7 +401,7 @@ impl NADecoder for Indeo4Decoder {
 }
 
 const INDEO4_PICTURE_SIZE_TAB: [[usize; 2]; 7] = [
-    [640, 480], [320, 240], [160, 120], [704, 480], [352, 240], [252, 288], [176, 144]
+    [640, 480], [320, 240], [160, 120], [704, 480], [352, 240], [352, 288], [176, 144]
 ];
 
 const INDEO4_SLICE_SIZE_TAB: [usize; 15] = [
