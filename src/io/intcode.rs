@@ -96,6 +96,7 @@ fn uval_to_sval0pm(uval: u32) -> i32 {
 }
 
 impl<'a> IntCodeReader for BitReader<'a> {
+    #[inline(always)]
     fn read_code(&mut self, t: UintCodeType) -> BitReaderResult<u32> {
         match t {
             UintCodeType::UnaryOnes               => read_unary(self, 0),

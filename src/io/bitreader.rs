@@ -70,6 +70,7 @@ impl<'a> BitReader<'a> {
         }
     }
 
+    #[inline(always)]
     fn refill(&mut self) -> BitReaderResult<()> {
         if self.pos >= self.end { return Err(BitstreamEnd) }
         while self.bits <= 32 {
@@ -106,6 +107,7 @@ impl<'a> BitReader<'a> {
         Ok(())
     }
 
+    #[inline(always)]
     fn read_cache(&mut self, nbits: u8) -> u32 {
         let res = match self.mode {
             BitReaderMode::LE => ((1u64 << nbits) - 1) & self.cache,
@@ -122,6 +124,7 @@ impl<'a> BitReader<'a> {
         res as i32
     }
 
+    #[inline(always)]
     fn skip_cache(&mut self, nbits: u8) {
         match self.mode {
             BitReaderMode::LE => self.cache >>= nbits,
@@ -130,11 +133,13 @@ impl<'a> BitReader<'a> {
         self.bits -= nbits;
     }
 
+    #[inline(always)]
     fn reset_cache(&mut self) {
         self.bits = 0;
         self.cache = 0;
     }
 
+    #[inline(always)]
     pub fn read(&mut self, nbits: u8) -> BitReaderResult<u32> {
         if nbits == 0 { return Ok(0) }
         if nbits > 32 { return Err(TooManyBitsRequested) }
@@ -158,6 +163,7 @@ impl<'a> BitReader<'a> {
         Ok(res)
     }
 
+    #[inline(always)]
     pub fn read_bool(&mut self) -> BitReaderResult<bool> {
         if self.bits < 1 {
             if let Err(err) = self.refill() { return Err(err) }
@@ -168,12 +174,14 @@ impl<'a> BitReader<'a> {
         Ok(res == 1)
     }
 
+    #[inline(always)]
     pub fn peek(&mut self, nbits: u8) -> u32 {
         if nbits > 32 { return 0 }
         if self.bits < nbits { let _ = self.refill(); }
         self.read_cache(nbits)
     }
 
+    #[inline(always)]
     pub fn skip(&mut self, nbits: u32) -> BitReaderResult<()> {
         if self.bits as u32 >= nbits {
             self.skip_cache(nbits as u8);
