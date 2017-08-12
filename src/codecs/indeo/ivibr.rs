@@ -16,12 +16,12 @@ pub fn scale_mv(val: i32, scale: u8) -> i32 {
 pub struct IVICodebook {
     len:    usize,
     bits:   [u8; 16],
-//    offs:   [u32; 16],
+    offs:   [u32; 16],
 }
 
-/*impl IVICodebook {
+impl IVICodebook {
     pub fn init(&self) -> Self {
-        let mut cb = self;
+        let mut cb = *self;
         let mut base: u32 = 0;
         for i in 0..cb.len {
             cb.offs[i] = base;
@@ -29,9 +29,21 @@ pub struct IVICodebook {
         }
         cb
     }
-}*/
+}
 
-pub const IVI_CB_ZERO: IVICodebook = IVICodebook { len: 0, bits: [0; 16] };
+pub const IVI_CB_ZERO: IVICodebook = IVICodebook { len: 0, bits: [0; 16], offs: [0; 16] };
+
+const IVI_REV0: [u32; 1] = [0];
+const IVI_REV1: [u32; 2] = [0, 1];
+const IVI_REV2: [u32; 4] = [0, 2, 1, 3];
+const IVI_REV3: [u32; 8] = [0, 4, 2, 6, 1, 5, 3, 7];
+const IVI_REV4: [u32; 16] = [ 0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15];
+const IVI_REV5: [u32; 32] = [ 0, 16, 8, 24, 4, 20, 12, 28, 2, 18, 10, 26, 6, 22, 14, 30, 1, 17, 9, 25, 5, 21, 13, 29, 3, 19, 11, 27, 7, 23, 15, 31];
+const IVI_REV6: [u32; 64] = [ 0, 32, 16, 48, 8, 40, 24, 56, 4, 36, 20, 52, 12, 44, 28, 60, 2, 34, 18, 50, 10, 42, 26, 58, 6, 38, 22, 54, 14, 46, 30, 62, 1, 33, 17, 49, 9, 41, 25, 57, 5, 37, 21, 53, 13, 45, 29, 61, 3, 35, 19, 51, 11, 43, 27, 59, 7, 39, 23, 55, 15, 47, 31, 63];
+const IVI_REV7: [u32; 128] = [ 0, 64, 32, 96, 16, 80, 48, 112, 8, 72, 40, 104, 24, 88, 56, 120, 4, 68, 36, 100, 20, 84, 52, 116, 12, 76, 44, 108, 28, 92, 60, 124, 2, 66, 34, 98, 18, 82, 50, 114, 10, 74, 42, 106, 26, 90, 58, 122, 6, 70, 38, 102, 22, 86, 54, 118, 14, 78, 46, 110, 30, 94, 62, 126, 1, 65, 33, 97, 17, 81, 49, 113, 9, 73, 41, 105, 25, 89, 57, 121, 5, 69, 37, 101, 21, 85, 53, 117, 13, 77, 45, 109, 29, 93, 61, 125, 3, 67, 35, 99, 19, 83, 51, 115, 11, 75, 43, 107, 27, 91, 59, 123, 7, 71, 39, 103, 23, 87, 55, 119, 15, 79, 47, 111, 31, 95, 63, 127];
+const IVI_REV8: [u32; 256] = [ 0, 128, 64, 192, 32, 160, 96, 224, 16, 144, 80, 208, 48, 176, 112, 240, 8, 136, 72, 200, 40, 168, 104, 232, 24, 152, 88, 216, 56, 184, 120, 248, 4, 132, 68, 196, 36, 164, 100, 228, 20, 148, 84, 212, 52, 180, 116, 244, 12, 140, 76, 204, 44, 172, 108, 236, 28, 156, 92, 220, 60, 188, 124, 252, 2, 130, 66, 194, 34, 162, 98, 226, 18, 146, 82, 210, 50, 178, 114, 242, 10, 138, 74, 202, 42, 170, 106, 234, 26, 154, 90, 218, 58, 186, 122, 250, 6, 134, 70, 198, 38, 166, 102, 230, 22, 150, 86, 214, 54, 182, 118, 246, 14, 142, 78, 206, 46, 174, 110, 238, 30, 158, 94, 222, 62, 190, 126, 254, 1, 129, 65, 193, 33, 161, 97, 225, 17, 145, 81, 209, 49, 177, 113, 241, 9, 137, 73, 201, 41, 169, 105, 233, 25, 153, 89, 217, 57, 185, 121, 249, 5, 133, 69, 197, 37, 165, 101, 229, 21, 149, 85, 213, 53, 181, 117, 245, 13, 141, 77, 205, 45, 173, 109, 237, 29, 157, 93, 221, 61, 189, 125, 253, 3, 131, 67, 195, 35, 163, 99, 227, 19, 147, 83, 211, 51, 179, 115, 243, 11, 139, 75, 203, 43, 171, 107, 235, 27, 155, 91, 219, 59, 187, 123, 251, 7, 135, 71, 199, 39, 167, 103, 231, 23, 151, 87, 215, 55, 183, 119, 247, 15, 143, 79, 207, 47, 175, 111, 239, 31, 159, 95, 223, 63, 191, 127, 255];
+
+const IVI_REVS: [&[u32]; 9] = [ &IVI_REV0, &IVI_REV1, &IVI_REV2, &IVI_REV3, &IVI_REV4, &IVI_REV5, &IVI_REV6, &IVI_REV7, &IVI_REV8];
 
 pub trait IVICodebookReader {
     fn read_ivi_codebook_desc(&mut self, mb_cb: bool, try_default: bool) -> DecoderResult<IVICodebook>;
@@ -43,17 +55,17 @@ impl<'a> IVICodebookReader for BitReader<'a> {
     fn read_ivi_codebook_desc(&mut self, mb_cb: bool, desc_coded: bool) -> DecoderResult<IVICodebook> {
         if !desc_coded {
             if mb_cb {
-                Ok(IVI_MB_CB[7])
+                Ok(IVI_MB_CB[7].init())
             } else {
-                Ok(IVI_BLK_CB[7])
+                Ok(IVI_BLK_CB[7].init())
             }
         } else {
             let idx = self.read(3)? as usize;
             if idx != 7 {
                 if mb_cb {
-                    Ok(IVI_MB_CB[idx])
+                    Ok(IVI_MB_CB[idx].init())
                 } else {
-                    Ok(IVI_BLK_CB[idx])
+                    Ok(IVI_BLK_CB[idx].init())
                 }
             } else {
                 let mut cb = IVI_CB_ZERO;
@@ -62,20 +74,40 @@ impl<'a> IVICodebookReader for BitReader<'a> {
                 for i in 0..cb.len {
                     cb.bits[i] = self.read(4)? as u8;
                 }
-                Ok(cb)
+                Ok(cb.init())
             }
         }
     }
+    #[inline(always)]
     fn read_ivi_cb(&mut self, cb: &IVICodebook) -> BitReaderResult<u32> {
-        let pfx = if cb.len == 1 { 0 } else {self.read_code(UintCodeType::LimitedUnary((cb.len - 1) as u32, 0))? as usize };
+/*        let pfx = if cb.len == 1 { 0 } else { self.read_code(UintCodeType::LimitedUnary((cb.len - 1) as u32, 0))? as usize };
         let nbits = cb.bits[pfx];
-//todo: cache offsets or maybe convert to proper codebook
         let mut base: u32 = 0;
         for i in 0..pfx { base += 1 << cb.bits[i]; }
         let rval = self.read(nbits)?;
         let add = reverse_bits(rval, nbits);
-        Ok(base + add)
+        Ok(base + add)*/
+        if cb.len > 1 {
+            let len = (!self.peek(16)).trailing_zeros() as usize;
+            let pfx;
+            if len >= cb.len - 1 {
+                pfx = cb.len - 1;
+                self.skip((cb.len - 1) as u32)?;
+            } else {
+                pfx = len;
+                self.skip((len + 1) as u32)?;
+            }
+            let nbits = cb.bits[pfx];
+            let base = cb.offs[pfx];
+            let rval = self.read(nbits)?;
+            let add = IVI_REVS[nbits as usize][rval as usize];
+            Ok(base + add)
+        } else {
+            let nbits = cb.bits[0];
+            return Ok(IVI_REVS[nbits as usize][self.read(nbits)? as usize]);
+        }
     }
+    #[inline(always)]
     fn read_ivi_cb_s(&mut self, cb: &IVICodebook) -> BitReaderResult<i32> {
         let v = self.read_ivi_cb(cb)?;
         if v == 0 {
@@ -93,25 +125,25 @@ impl<'a> IVICodebookReader for BitReader<'a> {
 }
 
 pub const IVI_MB_CB: &[IVICodebook; 8] = &[
-    IVICodebook { len:  8, bits: [ 0, 4, 5, 4, 4, 4, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0 ] },
-    IVICodebook { len: 12, bits: [ 0, 2, 2, 3, 3, 3, 3, 5, 3, 2, 2, 2, 0, 0, 0, 0 ] },
-    IVICodebook { len: 12, bits: [ 0, 2, 3, 4, 3, 3, 3, 3, 4, 3, 2, 2, 0, 0, 0, 0 ] },
-    IVICodebook { len: 12, bits: [ 0, 3, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 0, 0, 0, 0 ] },
-    IVICodebook { len: 13, bits: [ 0, 4, 4, 3, 3, 3, 3, 2, 3, 3, 2, 1, 1, 0, 0, 0 ] },
-    IVICodebook { len:  9, bits: [ 0, 4, 4, 4, 4, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0 ] },
-    IVICodebook { len: 10, bits: [ 0, 4, 4, 4, 4, 3, 3, 2, 2, 2, 0, 0, 0, 0, 0, 0 ] },
-    IVICodebook { len: 12, bits: [ 0, 4, 4, 4, 3, 3, 2, 3, 2, 2, 2, 2, 0, 0, 0, 0 ] }
+    IVICodebook { len:  8, bits: [ 0, 4, 5, 4, 4, 4, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 12, bits: [ 0, 2, 2, 3, 3, 3, 3, 5, 3, 2, 2, 2, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 12, bits: [ 0, 2, 3, 4, 3, 3, 3, 3, 4, 3, 2, 2, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 12, bits: [ 0, 3, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 13, bits: [ 0, 4, 4, 3, 3, 3, 3, 2, 3, 3, 2, 1, 1, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len:  9, bits: [ 0, 4, 4, 4, 4, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 10, bits: [ 0, 4, 4, 4, 4, 3, 3, 2, 2, 2, 0, 0, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 12, bits: [ 0, 4, 4, 4, 3, 3, 2, 3, 2, 2, 2, 2, 0, 0, 0, 0 ], offs: [0; 16] }
 ];
 
 pub const IVI_BLK_CB: &[IVICodebook; 8] = &[
-    IVICodebook { len: 10, bits: [ 1, 2, 3, 4, 4, 7, 5, 5, 4, 1, 0, 0, 0, 0, 0, 0 ] },
-    IVICodebook { len: 11, bits: [ 2, 3, 4, 4, 4, 7, 5, 4, 3, 3, 2, 0, 0, 0, 0, 0 ] },
-    IVICodebook { len: 12, bits: [ 2, 4, 5, 5, 5, 5, 6, 4, 4, 3, 1, 1, 0, 0, 0, 0 ] },
-    IVICodebook { len: 13, bits: [ 3, 3, 4, 4, 5, 6, 6, 4, 4, 3, 2, 1, 1, 0, 0, 0 ] },
-    IVICodebook { len: 11, bits: [ 3, 4, 4, 5, 5, 5, 6, 5, 4, 2, 2, 0, 0, 0, 0, 0 ] },
-    IVICodebook { len: 13, bits: [ 3, 4, 5, 5, 5, 5, 6, 4, 3, 3, 2, 1, 1, 0, 0, 0 ] },
-    IVICodebook { len: 13, bits: [ 3, 4, 5, 5, 5, 6, 5, 4, 3, 3, 2, 1, 1, 0, 0, 0 ] },
-    IVICodebook { len:  9, bits: [ 3, 4, 4, 5, 5, 5, 6, 5, 5, 0, 0, 0, 0, 0, 0, 0 ] }
+    IVICodebook { len: 10, bits: [ 1, 2, 3, 4, 4, 7, 5, 5, 4, 1, 0, 0, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 11, bits: [ 2, 3, 4, 4, 4, 7, 5, 4, 3, 3, 2, 0, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 12, bits: [ 2, 4, 5, 5, 5, 5, 6, 4, 4, 3, 1, 1, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 13, bits: [ 3, 3, 4, 4, 5, 6, 6, 4, 4, 3, 2, 1, 1, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 11, bits: [ 3, 4, 4, 5, 5, 5, 6, 5, 4, 2, 2, 0, 0, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 13, bits: [ 3, 4, 5, 5, 5, 5, 6, 4, 3, 3, 2, 1, 1, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len: 13, bits: [ 3, 4, 5, 5, 5, 6, 5, 4, 3, 3, 2, 1, 1, 0, 0, 0 ], offs: [0; 16] },
+    IVICodebook { len:  9, bits: [ 3, 4, 4, 5, 5, 5, 6, 5, 5, 0, 0, 0, 0, 0, 0, 0 ], offs: [0; 16] }
 ];
 
 #[allow(unused_variables)]
@@ -216,10 +248,11 @@ fn decode_block8x8(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
             if v == 0 {
                 val = 0; // should not happen but still...
             } else {
+                let vv = (v >> 1) as i32;
                 if (v & 1) != 0 {
-                    val = ((v >> 1) as i32) + 1;
+                    val = vv + 1;
                 } else {
-                    val = -((v >> 1) as i32);
+                    val = -vv;
                 }
             }
         }
@@ -295,31 +328,27 @@ fn decode_block4x4(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
     Ok(())
 }
 
-fn put_block(frame: &mut [i16], mut offs: usize, stride: usize, blk: &[i32], blk_size: usize) {
-    let mut idx = 0;
-    for _ in 0..blk_size {
-        for i in 0..blk_size {
-            let mut v = blk[idx + i];
-            if v < -32768 { v = -32768; }
-            if v > 32768 { v = 32767; }
-            frame[offs + i] = v as i16;
+fn put_block(frame: &mut [i16], offs: usize, stride: usize, blk: &[i32], blk_size: usize) {
+    unsafe {
+        let mut dptr = frame.as_mut_ptr().offset(offs as isize);
+        for y in 0..blk_size {
+            for x in 0..blk_size {
+                *dptr.offset(x as isize) = blk[x + y * blk_size] as i16;
+            }
+            dptr = dptr.offset(stride as isize);
         }
-        idx += blk_size;
-        offs += stride;
     }
 }
 
-fn add_block(frame: &mut [i16], mut offs: usize, stride: usize, blk: &[i32], blk_size: usize) {
-    let mut idx = 0;
-    for _ in 0..blk_size {
-        for i in 0..blk_size {
-            let mut v = blk[idx + i];
-            if v < -32768 { v = -32768; }
-            if v > 32768 { v = 32767; }
-            frame[offs + i] += v as i16;
+fn add_block(frame: &mut [i16], offs: usize, stride: usize, blk: &[i32], blk_size: usize) {
+    unsafe {
+        let mut dptr = frame.as_mut_ptr().offset(offs as isize);
+        for y in 0..blk_size {
+            for x in 0..blk_size {
+                *dptr.offset(x as isize) = (*dptr.offset(x as isize)).wrapping_add(blk[x + y * blk_size] as i16);
+            }
+            dptr = dptr.offset(stride as isize);
         }
-        idx += blk_size;
-        offs += stride;
     }
 }
 
@@ -392,7 +421,11 @@ fn do_mc(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, x: usize,
         return;
     }
     let sidx = (xpos as usize) + (ypos as usize) * sstride;
-    ivi_mc_put(dst, dstride, &src[sidx..], sstride, mv_mode, blk_size, blk_size);
+    if blk_size == 8 {
+        ivi_mc_put(dst, dstride, &src[sidx..], sstride, mv_mode, 8, 8);
+    } else {
+        ivi_mc_put(dst, dstride, &src[sidx..], sstride, mv_mode, 4, 4);
+    }
 }
 
 fn do_mc_b(dst: &mut [i16], dstride: usize, src1: &[i16], sstride1: usize, src2: &[i16], sstride2: usize, x: usize, y: usize, l: usize, r: usize, t: usize, b: usize, mv_x: i32, mv_y: i32, mv2_x: i32, mv2_y: i32, is_hpel: bool, blk_size: usize) {
@@ -739,14 +772,26 @@ br.skip(skip_part as u32)?;
                             decode_block4x4(br, &band.blk_cb, &band.rvmap, params, is_intra, band.tr.is_2d(), &mut prev_dc, mb.q, &mut blk, tr)?;
                         }
                         if is_intra {
-                            put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, band.blk_size);
+                            if band.blk_size == 8 {
+                                put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
+                            } else {
+                                put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
+                            }
                         } else {
-                            add_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, band.blk_size);
+                            if band.blk_size == 8 {
+                                add_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
+                            } else {
+                                add_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
+                            }
                         }
                     } else {
                         if is_intra {
                             (transform_dc)(&mut blk, prev_dc);
-                            put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, band.blk_size);
+                            if band.blk_size == 8 {
+                                put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 8);
+                            } else {
+                                put_block(&mut dst, dstidx + mb_x * band.blk_size, stride, &blk, 4);
+                            }
                         }
                     }
                 }

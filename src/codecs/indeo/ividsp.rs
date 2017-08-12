@@ -1,11 +1,14 @@
 use super::ivi::{IVITransformType,TDir,TrFunc,TrFuncDC};
 
+#[inline(always)]
 fn hbutterfly(a: i32, b: i32) -> (i32, i32) {
     ((a + b) >> 1, (a - b) >> 1)
 }
+#[inline(always)]
 fn butterfly(a: i32, b: i32) -> (i32, i32) {
     (a + b, a - b)
 }
+#[inline(always)]
 fn ireflect(a: i32, b: i32) -> (i32, i32) {
     (((b * 2 - a + 2) >> 2) - a, ((b + 2 * a + 2) >> 2) + b)
 }
@@ -309,35 +312,63 @@ pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, 
     match mode {
         0 => {
             for _ in 0..h {
-                for x in 0..w {
-                    dst[didx + x] = src[sidx + x];
-                }
+                let mut dest = &mut dst[didx..didx+w];
+                dest.copy_from_slice(&src[sidx..sidx+w]);
                 sidx += sstride;
                 didx += dstride;
             }
         },
         1 => {
-            for _ in 0..h {
+            /*for _ in 0..h {
                 for x in 0..w {
                     let val = (src[sidx + x] + src[sidx + x + 1]) >> 1;
                     dst[didx + x] = val;
                 }
                 sidx += sstride;
                 didx += dstride;
+            }*/
+            unsafe {
+                let mut sptr = src.as_ptr();
+                let mut dptr = dst.as_mut_ptr();
+                for _ in 0..h {
+                    let mut last = *sptr;
+                    for x in 0..w {
+                        let nv = *sptr.offset((x + 1) as isize);
+                        *dptr.offset(x as isize) = nv.wrapping_add(last) >> 1;
+                        last = nv;
+                    }
+                    sptr = sptr.offset(sstride as isize);
+                    dptr = dptr.offset(dstride as isize);
+                }
             }
         },
         2 => {
-            for _ in 0..h {
+            /*for _ in 0..h {
                 for x in 0..w {
                     let val = (src[sidx + x] + src[sidx + x + sstride]) >> 1;
                     dst[didx + x] = val;
                 }
                 sidx += sstride;
                 didx += dstride;
+            }*/
+            unsafe {
+                let mut sptr0 = src.as_ptr();
+                let mut sptr1 = sptr0.offset(sstride as isize);
+                let mut dptr = dst.as_mut_ptr();
+                for _ in 0..h {
+                    for x in 0..w {
+                        let a = *sptr0.offset(x as isize);
+                        let b = *sptr1.offset(x as isize);
+                        *dptr.offset(x as isize) = a.wrapping_add(b) >> 1;
+                    }
+                    sptr0 = sptr0.offset(sstride as isize);
+                    sptr1 = sptr1.offset(sstride as isize);
+                    dptr = dptr.offset(sstride as isize);
+                }
             }
         },
         3 => {
-            for _ in 0..h {
+            /*for _ in 0..h {
                 for x in 0..w {
                     let val = (src[sidx + x + 0] + src[sidx + x + sstride + 0] +
                                src[sidx + x + 1] + src[sidx + x + sstride + 1]) >> 2;
@@ -345,6 +376,27 @@ pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, 
                 }
                 sidx += sstride;
                 didx += dstride;
+            }*/
+            unsafe {
+                let mut sptr0 = src.as_ptr();
+                let mut sptr1 = sptr0.offset(sstride as isize);
+                let mut dptr = dst.as_mut_ptr();
+                let mut la = *sptr0;
+                let mut lb = *sptr1;
+                for _ in 0..h {
+                    for x in 0..w {
+                        let a = *sptr0.offset((x + 1) as isize);
+                        let b = *sptr1.offset((x + 1) as isize);
+                        let aas = a.wrapping_add(la);
+                        let bbs = b.wrapping_add(lb);
+                        *dptr.offset(x as isize) = aas.wrapping_add(bbs) >> 2;
+                        la = a;
+                        lb = b;
+                    }
+                    sptr0 = sptr0.offset(sstride as isize);
+                    sptr1 = sptr1.offset(sstride as isize);
+                    dptr = dptr.offset(dstride as isize);
+                }
             }
         },
         _ => {},
