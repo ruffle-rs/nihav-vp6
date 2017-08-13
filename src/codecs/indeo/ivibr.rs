@@ -2,7 +2,7 @@ use std::mem;
 use std::rc::Rc;
 use std::cell::{Ref,RefCell};
 use io::bitreader::*;
-use io::intcode::*;
+//use io::intcode::*;
 use super::super::*;
 use formats::*;
 use super::ivi::*;
