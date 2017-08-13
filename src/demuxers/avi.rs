@@ -43,7 +43,6 @@ struct AVIDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
     cur_frame:      Vec<u64>,
     num_streams:    u8,
-    dmx:            Demuxer,
     size:           usize,
     movi_size:      usize,
     sstate:         StreamState,
@@ -59,21 +58,18 @@ enum RIFFTag {
 
 struct RIFFParser {
     tag:   RIFFTag,
-    parse: fn(&mut AVIDemuxer, size: usize) -> DemuxerResult<usize>,
+    parse: fn(&mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize>,
 }
 
-impl<'a> Demux<'a> for AVIDemuxer<'a> {
+impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self) -> DemuxerResult<()> {
-        self.read_header()?;
+    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+        self.read_header(strmgr)?;
         self.opened = true;
         Ok(())
     }
 
-    fn get_num_streams(&self) -> usize { self.dmx.get_num_streams() }
-    fn get_stream(&self, idx: usize) -> Option<Rc<NAStream>> { self.dmx.get_stream(idx) }
-
-    fn get_frame(&mut self) -> DemuxerResult<NAPacket> {
+    fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if !self.opened { return Err(NoSuchInput); }
         if self.movi_size == 0 { return Err(EOF); }
         let mut tag: [u8; 4] = [0; 4];
@@ -101,7 +97,7 @@ impl<'a> Demux<'a> for AVIDemuxer<'a> {
                 return Err(InvalidData);
             }
             let stream_no = (tag[0] - b'0') * 10 + (tag[1] - b'0');
-            let str = self.dmx.get_stream(stream_no as usize);
+            let str = strmgr.get_stream(stream_no as usize);
             if let None = str { return Err(InvalidData); }
             let stream = str.unwrap();
             if size == 0 {
@@ -138,11 +134,10 @@ impl<'a> AVIDemuxer<'a> {
             sstate: StreamState::new(),
             tb_num: 0,
             tb_den: 0,
-            dmx: Demuxer::new()
         }
     }
 
-    fn parse_chunk(&mut self, end_tag: RIFFTag, csize: usize, depth: u16) -> DemuxerResult<(usize, bool)> {
+    fn parse_chunk(&mut self, strmgr: &mut StreamManager, end_tag: RIFFTag, csize: usize, depth: u16) -> DemuxerResult<(usize, bool)> {
         if csize < 8 { return Err(InvalidData); }
         if depth > 42 { return Err(InvalidData); }
 
@@ -160,18 +155,18 @@ impl<'a> AVIDemuxer<'a> {
 
         for i in 0..CHUNKS.len() {
             if RIFFTag::Chunk(tag) == CHUNKS[i].tag {
-                let psize = (CHUNKS[i].parse)(self, size)?;
+                let psize = (CHUNKS[i].parse)(self, strmgr, size)?;
                 if psize != size { return Err(InvalidData); }
                 if (psize & 1) == 1 { self.src.read_skip(1)?; }
                 return Ok((size + 8, false));
             }
             if RIFFTag::List(tag, ltag) == CHUNKS[i].tag {
                 let mut rest_size = size - 4;
-                let psize = (CHUNKS[i].parse)(self, rest_size)?;
+                let psize = (CHUNKS[i].parse)(self, strmgr, rest_size)?;
                 if psize > rest_size { return Err(InvalidData); }
                 rest_size -= psize;
                 while rest_size > 0 {
-                    let (psize, _) = self.parse_chunk(end_tag, rest_size, depth+1)?;
+                    let (psize, _) = self.parse_chunk(strmgr, end_tag, rest_size, depth+1)?;
                     if psize > rest_size { return Err(InvalidData); }
                     rest_size -= psize;
                     if (psize & 1) == 1 {
@@ -194,7 +189,7 @@ impl<'a> AVIDemuxer<'a> {
         return Ok((size + 8, false));
     }
 
-    fn read_header(&mut self) -> DemuxerResult<()> {
+    fn read_header(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
         let riff_tag = self.src.read_u32be()?;
         let size     = self.src.read_u32le()? as usize;
         let avi_tag  = self.src.read_u32be()?;
@@ -204,7 +199,7 @@ impl<'a> AVIDemuxer<'a> {
         self.size = size;
         let mut rest_size = size;
         loop {
-            let (csz, end) = self.parse_chunk(RIFFTag::List(mktag!(b"LIST"), mktag!(b"movi")), rest_size,0)?;
+            let (csz, end) = self.parse_chunk(strmgr, RIFFTag::List(mktag!(b"LIST"), mktag!(b"movi")), rest_size,0)?;
             if end { self.movi_size = csz - 4; break; }
             rest_size -= csz;
         }
@@ -244,17 +239,17 @@ fn is_list_tag(tag: u32) -> bool {
 }
 
 #[allow(unused_variables)]
-fn parse_hdrl(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+fn parse_hdrl(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     Ok(0)
 }
 
 #[allow(unused_variables)]
-fn parse_strl(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+fn parse_strl(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     Ok(0)
 }
 
 #[allow(unused_variables)]
-fn parse_strh(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+fn parse_strh(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 0x38 { return Err(InvalidData); }
     let tag = dmx.src.read_u32be()?; //stream type
     let fcc = dmx.src.read_u32be()?; //handler(fourcc)
@@ -291,17 +286,17 @@ fn parse_strh(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
     Ok(size)
 }
 
-fn parse_strf(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+fn parse_strf(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if let None = dmx.sstate.strm_type { return Err(InvalidData); }
     match dmx.sstate.strm_type.unwrap() {
-        StreamType::Video    => parse_strf_vids(dmx, size),
-        StreamType::Audio    => parse_strf_auds(dmx, size),
-        _                    => parse_strf_xxxx(dmx, size),
+        StreamType::Video    => parse_strf_vids(dmx, strmgr, size),
+        StreamType::Audio    => parse_strf_auds(dmx, strmgr, size),
+        _                    => parse_strf_xxxx(dmx, strmgr, size),
     }
 }
 
 #[allow(unused_variables)]
-fn parse_strf_vids(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 40 { return Err(InvalidData); }
     let bi_size         = dmx.src.read_u32le()?;
     if (bi_size as usize) > size { return Err(InvalidData); }
@@ -327,14 +322,14 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
                     Some(name) => name,
                 };
     let vinfo = NACodecInfo::new(cname, vci, edata);
-    let res = dmx.dmx.add_stream(NAStream::new(StreamType::Video, dmx.sstate.strm_no as u32, vinfo, dmx.tb_num, dmx.tb_den));
+    let res = strmgr.add_stream(NAStream::new(StreamType::Video, dmx.sstate.strm_no as u32, vinfo, dmx.tb_num, dmx.tb_den));
     if let None = res { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)
 }
 
 #[allow(unused_variables)]
-fn parse_strf_auds(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 16 { return Err(InvalidData); }
     let w_format_tag        = dmx.src.read_u16le()?;
     let channels            = dmx.src.read_u16le()?;
@@ -351,23 +346,23 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
                     Some(name) => name,
                 };
     let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-    let res = dmx.dmx.add_stream(NAStream::new(StreamType::Audio, dmx.sstate.strm_no as u32, ainfo, dmx.tb_num, dmx.tb_den));
+    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, dmx.sstate.strm_no as u32, ainfo, dmx.tb_num, dmx.tb_den));
     if let None = res { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)
 }
 
-fn parse_strf_xxxx(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+fn parse_strf_xxxx(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     let edata = dmx.read_extradata(size)?;
     let info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
-    let res = dmx.dmx.add_stream(NAStream::new(StreamType::Data, dmx.sstate.strm_no as u32, info, dmx.tb_num, dmx.tb_den));
+    let res = strmgr.add_stream(NAStream::new(StreamType::Data, dmx.sstate.strm_no as u32, info, dmx.tb_num, dmx.tb_den));
     if let None = res { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)
 }
 
 #[allow(unused_variables)]
-fn parse_avih(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+fn parse_avih(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 0x38 { return Err(InvalidData); }
     let timebase = dmx.src.read_u32le()?; //microsec per frame
     dmx.src.read_skip(4)?; //max frame size
@@ -389,7 +384,8 @@ fn parse_avih(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
     Ok(size)
 }
 
-fn parse_junk(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
+#[allow(unused_variables)]
+fn parse_junk(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     dmx.src.read_skip(size)?;
     Ok(size)
 }
@@ -397,7 +393,7 @@ fn parse_junk(dmx: &mut AVIDemuxer, size: usize) -> DemuxerResult<usize> {
 pub struct AVIDemuxerCreator { }
 
 impl DemuxerCreator for AVIDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<Demux<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
         Box::new(AVIDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "avi" }
@@ -414,10 +410,11 @@ mod test {
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = AVIDemuxer::new(&mut br);
-        dmx.open().unwrap();
+        let mut sm = StreamManager::new();
+        dmx.open(&mut sm).unwrap();
 
         loop {
-            let pktres = dmx.get_frame();
+            let pktres = dmx.get_frame(&mut sm);
             if let Err(e) = pktres {
                 if e == DemuxerError::EOF { break; }
                 panic!("error");

@@ -19,7 +19,6 @@ struct GremlinVideoDemuxer<'a> {
     apacked:    bool,
     state:      GDVState,
     pktdta:     Vec<u8>,
-    dmx:        Demuxer,
     a_id:       Option<usize>,
     v_id:       Option<usize>,
 }
@@ -50,9 +49,9 @@ const GDV_SIZE_TABLE: &[GDVFixedSizes] = &[
     GDVFixedSizes { id: 21, width: 320, height: 240 },
 ];
 
-impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
+impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
         let src = &mut self.src;
         let magic = src.read_u32le()?;
         if magic != 0x29111994 { return Err(DemuxerError::InvalidData); }
@@ -85,7 +84,7 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
             let vhdr = NAVideoInfo::new(width as usize, height as usize, false, PAL8_FORMAT);
             let vci = NACodecTypeInfo::Video(vhdr);
             let vinfo = NACodecInfo::new("gdv-video", vci, if edata.len() == 0 { None } else { Some(edata) });
-            self.v_id = self.dmx.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps as u32));
+            self.v_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps as u32));
         }
         if (aflags & 1) != 0 {
             let channels = if (aflags & 2) != 0 { 2 } else { 1 };
@@ -95,7 +94,7 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
             let ahdr = NAAudioInfo::new(rate as u32, channels as u8, if depth == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
             let ainfo = NACodecInfo::new(if packed != 0 { "gdv-audio" } else { "pcm" },
                                          NACodecTypeInfo::Audio(ahdr), None);
-            self.a_id = self.dmx.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, rate as u32));
+            self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, rate as u32));
 
             self.asize = (((rate / fps) * channels * (depth / 8)) >> packed) as usize;
             self.apacked = (aflags & 8) != 0;
@@ -107,17 +106,14 @@ impl<'a> Demux<'a> for GremlinVideoDemuxer<'a> {
     }
 
     #[allow(unused_variables)]
-    fn get_frame(&mut self) -> DemuxerResult<NAPacket> {
+    fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if !self.opened { return Err(DemuxerError::NoSuchInput); }
         if self.cur_frame >= self.frames { return Err(DemuxerError::EOF); }
         match self.state {
-            GDVState::NewFrame if self.asize > 0 => { self.read_achunk() }
-            _ => { self.read_vchunk() }
+            GDVState::NewFrame if self.asize > 0 => { self.read_achunk(strmgr) }
+            _ => { self.read_vchunk(strmgr) }
         }
     }
-
-    fn get_num_streams(&self) -> usize { self.dmx.get_num_streams() }
-    fn get_stream(&self, idx: usize) -> Option<Rc<NAStream>> { self.dmx.get_stream(idx) }
 
     #[allow(unused_variables)]
     fn seek(&mut self, time: u64) -> DemuxerResult<()> {
@@ -143,20 +139,19 @@ pktdta: Vec::new(),
             src: io,
             a_id: None,
             v_id: None,
-            dmx: Demuxer::new()
         }
     }
 
-    fn read_achunk(&mut self) -> DemuxerResult<NAPacket> {
+    fn read_achunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         self.state = GDVState::AudioRead;
-        let str = self.dmx.get_stream(self.a_id.unwrap()).unwrap();
+        let str = strmgr.get_stream(self.a_id.unwrap()).unwrap();
         let (tb_num, tb_den) = str.get_timebase();
         let ts = NATimeInfo::new(Some(self.cur_frame as u64), None, None, tb_num, tb_den);
         self.src.read_packet(str, ts, true, self.asize)
     }
 
-    fn read_vchunk(&mut self) -> DemuxerResult<NAPacket> {
-        let str = self.dmx.get_stream(self.v_id.unwrap()).unwrap();
+    fn read_vchunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
+        let str = strmgr.get_stream(self.v_id.unwrap()).unwrap();
         let mut src = &mut self.src;
         let magic = src.read_u16be()?;
         if magic != 0x0513 { return Err(DemuxerError::InvalidData); }
@@ -174,7 +169,7 @@ pktdta: Vec::new(),
 pub struct GDVDemuxerCreator { }
 
 impl DemuxerCreator for GDVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<Demux<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
         Box::new(GremlinVideoDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "gdv" }
@@ -191,9 +186,10 @@ mod test {
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = GremlinVideoDemuxer::new(&mut br);
-        dmx.open().unwrap();
+        let mut sm = StreamManager::new();
+        dmx.open(&mut sm).unwrap();
         loop {
-            let pktres = dmx.get_frame();
+            let pktres = dmx.get_frame(&mut sm);
             if let Err(e) = pktres {
                 if (e as i32) == (DemuxerError::EOF as i32) { break; }
                 panic!("error");
