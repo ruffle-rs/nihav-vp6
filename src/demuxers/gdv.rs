@@ -11,7 +11,6 @@ enum GDVState {
 
 #[allow(dead_code)]
 struct GremlinVideoDemuxer<'a> {
-    opened:     bool,
     src:        &'a mut ByteReader<'a>,
     frames:     u16,
     cur_frame:  u16,
@@ -100,14 +99,12 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
             self.apacked = (aflags & 8) != 0;
         }
         self.frames = frames;
-        self.opened = true;
         self.state = GDVState::NewFrame;
         Ok(())
     }
 
     #[allow(unused_variables)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if !self.opened { return Err(DemuxerError::NoSuchInput); }
         if self.cur_frame >= self.frames { return Err(DemuxerError::EOF); }
         match self.state {
             GDVState::NewFrame if self.asize > 0 => { self.read_achunk(strmgr) }
@@ -117,7 +114,6 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
 
     #[allow(unused_variables)]
     fn seek(&mut self, time: u64) -> DemuxerResult<()> {
-        if !self.opened { return Err(DemuxerError::NoSuchInput); }
         Err(DemuxerError::NotImplemented)
     }
 }
@@ -131,7 +127,6 @@ impl<'a> GremlinVideoDemuxer<'a> {
         GremlinVideoDemuxer {
             cur_frame: 0,
             frames: 0,
-            opened: false,
             asize: 0,
             apacked: false,
             state: GDVState::NewFrame,

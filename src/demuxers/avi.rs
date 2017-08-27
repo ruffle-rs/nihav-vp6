@@ -39,7 +39,6 @@ impl StreamState {
 
 #[allow(dead_code)]
 struct AVIDemuxer<'a> {
-    opened:         bool,
     src:            &'a mut ByteReader<'a>,
     cur_frame:      Vec<u64>,
     num_streams:    u8,
@@ -65,12 +64,10 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
     #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
         self.read_header(strmgr)?;
-        self.opened = true;
         Ok(())
     }
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if !self.opened { return Err(NoSuchInput); }
         if self.movi_size == 0 { return Err(EOF); }
         let mut tag: [u8; 4] = [0; 4];
         loop {
@@ -117,7 +114,6 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
 
     #[allow(unused_variables)]
     fn seek(&mut self, time: u64) -> DemuxerResult<()> {
-        if !self.opened { return Err(NoSuchInput); }
         Err(NotImplemented)
     }
 }
@@ -127,7 +123,6 @@ impl<'a> AVIDemuxer<'a> {
         AVIDemuxer {
             cur_frame: Vec::new(),
             num_streams: 0,
-            opened: false,
             src: io,
             size: 0,
             movi_size: 0,
