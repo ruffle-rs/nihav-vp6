@@ -126,6 +126,20 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "intel263", "Intel I263", CODEC_CAP_REORDER),
     desc!(audio;    "iac",    "Intel Indeo audio"),
     desc!(audio;    "imc",    "Intel Music Coder"),
+
+    desc!(video;    "realvideo1", "Real Video 1"),
+    desc!(video;    "realvideo2", "Real Video 2"),
+    desc!(video;    "realvideo3", "Real Video 3", CODEC_CAP_REORDER),
+    desc!(video;    "realvideo4", "Real Video 4", CODEC_CAP_REORDER),
+    desc!(video;    "clearvideo", "ClearVideo"),
+    desc!(audio;    "ra14.4",     "RealAudio 14.4"),
+    desc!(audio;    "ra28.8",     "RealAudio 28.8"),
+    desc!(audio;    "cook",       "RealAudio Cooker"),
+    desc!(audio;    "ralf",       "RealAudio Lossless"),
+    desc!(audio;    "aac",        "AAC"),
+    desc!(audio;    "ac3",        "AC-3"),
+    desc!(audio;    "atrac3",     "Sony Atrac3"),
+    desc!(audio;    "sipro",      "Sipro Labs ADPCM"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
@@ -136,6 +150,8 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"IV41", "indeo4"),
     (b"IV50", "indeo5"),
     (b"I263", "intel263"),
+
+    (b"CLV1", "clearvideo"),
 ];
 
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[

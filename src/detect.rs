@@ -177,6 +177,22 @@ const DETECTORS: &[DetectConditions] = &[
         extensions: ".gdv",
         conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U32LE(0x29111994))}],
     },
+    DetectConditions {
+        demux_name: "realaudio",
+        extensions: ".ra,.ram",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b".ra\xFD")}],
+    },
+    DetectConditions {
+        demux_name: "realmedia",
+        extensions: ".rm,.rmvb,.rma,.ra,.ram",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b".RMF")},
+                      CheckItem{offs: 4, cond: &CC::Ge(Arg::U32BE(10))}],
+    },
+    DetectConditions {
+        demux_name: "real_ivr",
+        extensions: ".ivr",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b".R1M"), &CC::Str(b".REC"))}],
+    },
 ];
 
 pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, DetectionScore)> {

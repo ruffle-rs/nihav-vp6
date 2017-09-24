@@ -1,8 +1,3 @@
-#[cfg(feature="demuxer_gdv")]
-mod gdv;
-#[cfg(feature="demuxer_avi")]
-mod avi;
-
 use std::rc::Rc;
 use frame::*;
 use io::byteio::*;
@@ -98,6 +93,14 @@ impl StreamManager {
         } else {
             false
         }
+    }
+    pub fn is_ignored_id(&self, id: u32) -> bool {
+        for i in 0..self.streams.len() {
+            if self.streams[i].get_id() == id {
+                return self.ignored[i];
+            }
+        }
+        false
     }
     pub fn set_ignored(&mut self, idx: usize) {
         if idx < self.ignored.len() {
@@ -196,11 +199,29 @@ pub trait DemuxerCreator {
     fn get_name(&self) -> &'static str;
 }
 
+macro_rules! validate {
+    ($a:expr) => { if !$a { return Err(DemuxerError::InvalidData); } };
+}
+
+#[cfg(feature="demuxer_gdv")]
+mod gdv;
+#[cfg(feature="demuxer_avi")]
+mod avi;
+#[cfg(feature="demuxer_real")]
+mod realmedia;
+
+
 const DEMUXERS: &[&'static DemuxerCreator] = &[
 #[cfg(feature="demuxer_avi")]
     &avi::AVIDemuxerCreator {},
 #[cfg(feature="demuxer_gdv")]
     &gdv::GDVDemuxerCreator {},
+#[cfg(feature="demuxer_real")]
+    &realmedia::RealMediaDemuxerCreator {},
+//#[cfg(feature="demuxer_real")]
+//    &realmedia::RealAudioDemuxerCreator {},
+//#[cfg(feature="demuxer_real")]
+//    &realmedia::RealIVRDemuxerCreator {},
 ];
 
 pub fn find_demuxer(name: &str) -> Option<&DemuxerCreator> {
