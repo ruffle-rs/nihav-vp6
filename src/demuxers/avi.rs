@@ -1,8 +1,8 @@
 use super::*;
 use register;
 use super::DemuxerError::*;
-use io::byteio::*;
-use frame::*;
+//use io::byteio::*;
+//use frame::*;
 use formats::*;
 
 macro_rules! mktag {
