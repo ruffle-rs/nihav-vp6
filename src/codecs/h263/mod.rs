@@ -9,6 +9,8 @@ pub mod decoder;
 
 #[cfg(feature="decoder_intel263")]
 pub mod intel263;
+#[cfg(feature="decoder_realvideo1")]
+pub mod rv10;
 
 pub trait BlockDecoder {
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo>;
@@ -49,7 +51,7 @@ pub struct PicInfo {
     mode:   Type,
     quant:  u8,
     apm:    bool,
-    umv:    bool,
+    mvmode: MVMode,
     pb:     Option<PBInfo>,
     ts:     u8,
     deblock: bool,
@@ -57,15 +59,15 @@ pub struct PicInfo {
 
 #[allow(dead_code)]
 impl PicInfo {
-    pub fn new(w: usize, h: usize, mode: Type, quant: u8, apm: bool, umv: bool, ts: u8, pb: Option<PBInfo>, deblock: bool) -> Self {
-        PicInfo{ w: w, h: h, mode: mode, quant: quant, apm: apm, umv: umv, ts: ts, pb: pb, deblock: deblock }
+    pub fn new(w: usize, h: usize, mode: Type, quant: u8, apm: bool, mvmode: MVMode, ts: u8, pb: Option<PBInfo>, deblock: bool) -> Self {
+        PicInfo{ w: w, h: h, mode: mode, quant: quant, apm: apm, mvmode: mvmode, ts: ts, pb: pb, deblock: deblock }
     }
     pub fn get_width(&self) -> usize { self.w }
     pub fn get_height(&self) -> usize { self.h }
     pub fn get_mode(&self) -> Type { self.mode }
     pub fn get_quant(&self) -> u8 { self.quant }
     pub fn get_apm(&self) -> bool { self.apm }
-    pub fn get_umv(&self) -> bool { self.umv }
+    pub fn get_mvmode(&self) -> MVMode { self.mvmode }
     pub fn is_pb(&self) -> bool { self.pb.is_some() }
     pub fn get_ts(&self) -> u8 { self.ts }
     pub fn get_pbinfo(&self) -> PBInfo { self.pb.unwrap() }
@@ -177,6 +179,13 @@ impl BBlockInfo {
 }
 
 #[derive(Debug,Clone,Copy)]
+pub enum MVMode {
+    Old,
+    Long,
+    UMV,
+}
+
+#[derive(Debug,Clone,Copy)]
 pub struct MV {
     x: i16,
     y: i16,
@@ -215,19 +224,28 @@ impl MV {
         }
         MV { x: x, y: y }
     }
-    fn add_umv(pred_mv: MV, add: MV, umv: bool) -> Self {
+    fn add_umv(pred_mv: MV, add: MV, mvmode: MVMode) -> Self {
         let mut new_mv = pred_mv + add;
-        if umv {
-            if pred_mv.x >  32 && new_mv.x >  63 { new_mv.x -= 64; }
-            if pred_mv.x < -31 && new_mv.x < -63 { new_mv.x += 64; }
-            if pred_mv.y >  32 && new_mv.y >  63 { new_mv.y -= 64; }
-            if pred_mv.y < -31 && new_mv.y < -63 { new_mv.y += 64; }
-        } else {
-            if      new_mv.x >  31 { new_mv.x -= 64; }
-            else if new_mv.x < -32 { new_mv.x += 64; }
-            if      new_mv.y >  31 { new_mv.y -= 64; }
-            else if new_mv.y < -32 { new_mv.y += 64; }
-        }
+        match mvmode {
+            MVMode::Old => {
+                    if      new_mv.x >=  64 { new_mv.x -= 64; }
+                    else if new_mv.x <= -64 { new_mv.x += 64; }
+                    if      new_mv.y >=  64 { new_mv.y -= 64; }
+                    else if new_mv.y <= -64 { new_mv.y += 64; }
+                },
+            MVMode::Long => {
+                    if      new_mv.x >  31 { new_mv.x -= 64; }
+                    else if new_mv.x < -32 { new_mv.x += 64; }
+                    if      new_mv.y >  31 { new_mv.y -= 64; }
+                    else if new_mv.y < -32 { new_mv.y += 64; }
+                },
+            MVMode::UMV => {
+                    if pred_mv.x >  32 && new_mv.x >  63 { new_mv.x -= 64; }
+                    if pred_mv.x < -31 && new_mv.x < -63 { new_mv.x += 64; }
+                    if pred_mv.y >  32 && new_mv.y >  63 { new_mv.y -= 64; }
+                    if pred_mv.y < -31 && new_mv.y < -63 { new_mv.y += 64; }
+                },
+        };
         new_mv
     }
     fn scale(&self, trb: u8, trd: u8) -> Self {

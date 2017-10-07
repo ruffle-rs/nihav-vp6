@@ -13,18 +13,18 @@ struct MVInfo {
     mb_stride:  usize,
     mb_start:   usize,
     top:        bool,
-    umv:        bool,
+    mvmode:     MVMode,
 }
 
 impl MVInfo {
-    fn new() -> Self { MVInfo{ mv: Vec::new(), mb_w: 0, mb_stride: 0, mb_start: 0, top: true, umv: false } }
-    fn reset(&mut self, mb_w: usize, mb_start: usize, umv: bool) {
+    fn new() -> Self { MVInfo{ mv: Vec::new(), mb_w: 0, mb_stride: 0, mb_start: 0, top: true, mvmode: MVMode::Old } }
+    fn reset(&mut self, mb_w: usize, mb_start: usize, mvmode: MVMode) {
         self.mb_start  = mb_start;
         self.mb_w      = mb_w;
         self.mb_stride = mb_w * 2;
         self.top       = true;
         self.mv.resize(self.mb_stride * 3, ZERO_MV);
-        self.umv       = umv;
+        self.mvmode    = mvmode;
     }
     fn update_row(&mut self) {
         self.mb_start = self.mb_w + 1;
@@ -67,7 +67,7 @@ impl MVInfo {
             _ => { return ZERO_MV; }
         }
         let pred_mv = MV::pred(A, B, C);
-        let new_mv = MV::add_umv(pred_mv, diff, self.umv);
+        let new_mv = MV::add_umv(pred_mv, diff, self.mvmode);
         if !use4 {
             self.mv[self.mb_stride * 1 + mb_x * 2 + 0] = new_mv;
             self.mv[self.mb_stride * 1 + mb_x * 2 + 1] = new_mv;
@@ -184,7 +184,7 @@ impl H263BaseDecoder {
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         let mut slice = Slice::get_default_slice(&pinfo);
-        mvi.reset(self.mb_w, 0, pinfo.get_umv());
+        mvi.reset(self.mb_w, 0, pinfo.get_mvmode());
         cbpi.reset(self.mb_w);
 
         let mut blk: [[i16; 64]; 6] = [[0; 64]; 6];
@@ -194,7 +194,7 @@ impl H263BaseDecoder {
 
                 if  ((mb_x != 0) || (mb_y != 0)) && bd.is_slice_end() {
                     slice = bd.decode_slice_header(&pinfo)?;
-                    mvi.reset(self.mb_w, mb_x, pinfo.get_umv());
+                    //mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
                     //cbpi.reset(self.mb_w);
                 }
 
@@ -260,14 +260,14 @@ impl H263BaseDecoder {
                         b_mb.mv_b[0] = binfo.get_mv2(0);
                     } else if binfo.get_num_mvs() == 1 {
                         let src_mv = binfo.get_mv(0).scale(bsdiff, tsdiff);
-                        let mv_f = MV::add_umv(src_mv, binfo.get_mv2(0), pinfo.get_umv());
+                        let mv_f = MV::add_umv(src_mv, binfo.get_mv2(0), pinfo.get_mvmode());
                         let mv_b = MV::b_sub(binfo.get_mv(0), mv_f, binfo.get_mv2(0), bsdiff, tsdiff);
                         b_mb.mv_f[0] = mv_f;
                         b_mb.mv_b[0] = mv_b;
                     } else {
                         for blk_no in 0..4 {
                             let src_mv = binfo.get_mv(blk_no).scale(bsdiff, tsdiff);
-                            let mv_f = MV::add_umv(src_mv, binfo.get_mv2(0), pinfo.get_umv());
+                            let mv_f = MV::add_umv(src_mv, binfo.get_mv2(0), pinfo.get_mvmode());
                             let mv_b = MV::b_sub(binfo.get_mv(blk_no), mv_f, binfo.get_mv2(0), bsdiff, tsdiff);
                             b_mb.mv_f[blk_no] = mv_f;
                             b_mb.mv_b[blk_no] = mv_b;

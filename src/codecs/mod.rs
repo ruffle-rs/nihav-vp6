@@ -42,7 +42,7 @@ impl From<AllocatorError> for DecoderError {
 }
 
 macro_rules! validate {
-    ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
+    ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DecoderError::InvalidData); } };
 }
 
 #[allow(dead_code)]
@@ -139,6 +139,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "indeo5", get_decoder: indeo::indeo5::get_decoder },
 #[cfg(feature="decoder_intel263")]
     DecoderInfo { name: "intel263", get_decoder: h263::intel263::get_decoder },
+#[cfg(feature="decoder_realvideo1")]
+    DecoderInfo { name: "realvideo1", get_decoder: h263::rv10::get_decoder },
 
 #[cfg(feature="decoder_pcm")]
     DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },

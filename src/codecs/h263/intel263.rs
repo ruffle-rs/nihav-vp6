@@ -202,7 +202,8 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         self.mb_w = (w + 15) >> 4;
 
         let ftype = if is_intra { Type::I } else { Type::P };
-        let picinfo = PicInfo::new(w, h, ftype, quant as u8, apm, umv, tr, pbinfo, deblock);
+        let mvmode = if umv { MVMode::UMV } else { MVMode::Long };
+        let picinfo = PicInfo::new(w, h, ftype, quant as u8, apm, mvmode, tr, pbinfo, deblock);
         Ok(picinfo)
     }
 
