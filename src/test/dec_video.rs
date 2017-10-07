@@ -9,7 +9,7 @@ use super::wavwriter::WavWriter;
 fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     let frm = frmref.borrow();
     if let NABufferType::None = frm.get_buffer() { return; }
-    let name = format!("assets/{}out{:02}_{:04}.pgm", pfx, strno, num);
+    let name = format!("assets/{}out{:02}_{:06}.pgm", pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
     let buf = frm.get_buffer().get_vbuf().unwrap();
     let (w, h) = buf.get_dimensions(0);
@@ -68,7 +68,7 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
 
 fn write_palppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     let frm = frmref.borrow();
-    let name = format!("assets/{}out{:02}_{:04}.ppm", pfx, strno, num);
+    let name = format!("assets/{}out{:02}_{:06}.ppm", pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
     let buf = frm.get_buffer().get_vbuf().unwrap();
     let (w, h) = buf.get_dimensions(0);
