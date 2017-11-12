@@ -11,6 +11,8 @@ pub mod decoder;
 pub mod intel263;
 #[cfg(feature="decoder_realvideo1")]
 pub mod rv10;
+#[cfg(feature="decoder_realvideo2")]
+pub mod rv20;
 
 pub trait BlockDecoder {
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo>;
