@@ -629,6 +629,6 @@ mod test {
             let pkt = pktres.unwrap();
             println!("Got {}", pkt);
         }
-panic!("the end");
+//panic!("the end");
     }
 }
