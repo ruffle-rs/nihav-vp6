@@ -768,7 +768,7 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_indeo4() {
-         test_file_decoding("avi", "assets/IV4/volcano.avi", /*None*/Some(16), true, false, Some("iv4"));
+         test_file_decoding("avi", "assets/IV4/volcano.avi", /*None*/Some(16), true, false, None/*Some("iv4")*/);
 //panic!("the end");
     }
 }
