@@ -93,22 +93,6 @@ impl MVInfo {
     }
 }
 
-fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
-    let srcx = ((mv.x >> 1) as isize) + (xpos as isize);
-    let srcy = ((mv.y >> 1) as isize) + (ypos as isize);
-    let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
-
-    blockdsp::copy_blocks(dst, src, xpos, ypos, srcx, srcy, w, h, 0, 1, mode, H263_INTERP_FUNCS);
-}
-
-fn avg_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
-    let srcx = ((mv.x >> 1) as isize) + (xpos as isize);
-    let srcy = ((mv.y >> 1) as isize) + (ypos as isize);
-    let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
-
-    blockdsp::copy_blocks(dst, src, xpos, ypos, srcx, srcy, w, h, 0, 1, mode, H263_INTERP_AVG_FUNCS);
-}
-
 #[allow(dead_code)]
 #[derive(Clone,Copy)]
 struct BMB {
@@ -153,7 +137,7 @@ impl H263BaseDecoder {
     pub fn is_intra(&self) -> bool { self.ftype == Type::I }
     pub fn get_dimensions(&self) -> (usize, usize) { (self.w, self.h) }
 
-    pub fn parse_frame(&mut self, bd: &mut BlockDecoder) -> DecoderResult<NABufferType> {
+    pub fn parse_frame(&mut self, bd: &mut BlockDecoder, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
         let pinfo = bd.decode_pichdr()?;
         let mut mvi = MVInfo::new();
         let mut cbpi = CBPInfo::new();
@@ -183,28 +167,34 @@ impl H263BaseDecoder {
         let mut bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
 
-        let mut slice = Slice::get_default_slice(&pinfo);
+        let mut slice = if bd.is_gob() {
+                SliceInfo::get_default_slice(&pinfo)
+            } else {
+                bd.decode_slice_header(&pinfo)?
+            };
         mvi.reset(self.mb_w, 0, pinfo.get_mvmode());
         cbpi.reset(self.mb_w);
 
         let mut blk: [[i16; 64]; 6] = [[0; 64]; 6];
+        let mut sstate = SliceState::new(pinfo.mode == Type::I);
+        let mut mb_pos = 0;
         for mb_y in 0..self.mb_h {
             for mb_x in 0..self.mb_w {
                 for i in 0..6 { for j in 0..64 { blk[i][j] = 0; } }
 
-                if  ((mb_x != 0) || (mb_y != 0)) && bd.is_slice_end() {
+                if slice.is_at_end(mb_pos) || (slice.needs_check() && mb_pos > 0 && bd.is_slice_end()) {
                     slice = bd.decode_slice_header(&pinfo)?;
                     //mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
                     //cbpi.reset(self.mb_w);
                 }
 
-                let binfo = bd.decode_block_header(&pinfo, &slice)?;
+                let binfo = bd.decode_block_header(&pinfo, &slice, &sstate)?;
                 let cbp = binfo.get_cbp();
                 cbpi.set_cbp(mb_x, cbp);
                 cbpi.set_q(mb_x, binfo.get_q());
                 if binfo.is_intra() {
                     for i in 0..6 {
-                        bd.decode_block_intra(&binfo, binfo.get_q(), i, (cbp & (1 << (5 - i))) != 0, &mut blk[i])?;
+                        bd.decode_block_intra(&binfo, &sstate, binfo.get_q(), i, (cbp & (1 << (5 - i))) != 0, &mut blk[i])?;
                         h263_idct(&mut blk[i]);
                     }
                     blockdsp::put_blocks(&mut buf, mb_x, mb_y, &blk);
@@ -213,27 +203,27 @@ impl H263BaseDecoder {
                     if binfo.get_num_mvs() == 1 {
                         let mv = mvi.predict(mb_x, 0, false, binfo.get_mv(0));
                         if let Some(ref srcbuf) = self.prev_frm {
-                            copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, mv);
+                            bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, mv);
                         }
                     } else {
                         for blk_no in 0..4 {
                             let mv = mvi.predict(mb_x, blk_no, true, binfo.get_mv(blk_no));
                             if let Some(ref srcbuf) = self.prev_frm {
-                                copy_blocks(&mut buf, srcbuf,
-                                            mb_x * 16 + (blk_no & 1) * 8,
-                                            mb_y * 16 + (blk_no & 2) * 4, 8, 8, mv);
+                                bdsp.copy_blocks(&mut buf, srcbuf,
+                                                 mb_x * 16 + (blk_no & 1) * 8,
+                                                 mb_y * 16 + (blk_no & 2) * 4, 8, 8, mv);
                             }
                         }
                     }
                     for i in 0..6 {
-                        bd.decode_block_inter(&binfo, binfo.get_q(), i, ((cbp >> (5 - i)) & 1) != 0, &mut blk[i])?;
+                        bd.decode_block_inter(&binfo, &sstate, binfo.get_q(), i, ((cbp >> (5 - i)) & 1) != 0, &mut blk[i])?;
                         h263_idct(&mut blk[i]);
                     }
                     blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
                 } else {
                     mvi.set_zero_mv(mb_x);
                     if let Some(ref srcbuf) = self.prev_frm {
-                        copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, ZERO_MV);
+                        bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, ZERO_MV);
                     }
                 }
                 if pinfo.is_pb() {
@@ -247,7 +237,7 @@ impl H263BaseDecoder {
 
                     b_mb.cbp = cbp;
                     for i in 0..6 {
-                        bd.decode_block_inter(&binfo, bquant, i, (cbp & (1 << (5 - i))) != 0, &mut b_mb.blk[i])?;
+                        bd.decode_block_inter(&binfo, &sstate, bquant, i, (cbp & (1 << (5 - i))) != 0, &mut b_mb.blk[i])?;
                         h263_idct(&mut b_mb.blk[i]);
                     }
 
@@ -275,12 +265,17 @@ impl H263BaseDecoder {
                     }
                     self.b_data.push(b_mb);
                 }
+                sstate.next_mb();
+                mb_pos += 1;
             }
-            if pinfo.deblock {
-                bd.filter_row(&mut buf, mb_y, self.mb_w, &cbpi);
+            if let Some(plusinfo) = pinfo.plusinfo {
+                if plusinfo.deblock {
+                    bdsp.filter_row(&mut buf, mb_y, self.mb_w, &cbpi);
+                }
             }
             mvi.update_row();
             cbpi.update_row();
+            sstate.new_row();
         }
         
         self.cur_frm = Some(buf);
@@ -288,7 +283,7 @@ impl H263BaseDecoder {
         Ok(bufinfo)
     }
 
-    pub fn get_bframe(&mut self) -> DecoderResult<NABufferType> {
+    pub fn get_bframe(&mut self, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
         if !self.has_b || !self.cur_frm.is_some() || !self.prev_frm.is_some() {
             return Err(DecoderError::MissingReference);
         }
@@ -303,7 +298,7 @@ impl H263BaseDecoder {
 
         if let Some(ref bck_buf) = self.prev_frm {
             if let Some(ref fwd_buf) = self.cur_frm {
-                recon_b_frame(&mut b_buf, bck_buf, fwd_buf, self.mb_w, self.mb_h, &self.b_data);
+                recon_b_frame(&mut b_buf, bck_buf, fwd_buf, self.mb_w, self.mb_h, &self.b_data, bdsp);
             }
         }
 
@@ -313,7 +308,7 @@ impl H263BaseDecoder {
 }
 
 fn recon_b_frame(b_buf: &mut NAVideoBuffer<u8>, bck_buf: &NAVideoBuffer<u8>, fwd_buf: &NAVideoBuffer<u8>,
-                 mb_w: usize, mb_h: usize, b_data: &Vec<BMB>) {
+                 mb_w: usize, mb_h: usize, b_data: &Vec<BMB>, bdsp: &BlockDSP) {
     let mut cbpi = CBPInfo::new();
     let mut cur_mb = 0;
     cbpi.reset(mb_w);
@@ -324,17 +319,17 @@ fn recon_b_frame(b_buf: &mut NAVideoBuffer<u8>, bck_buf: &NAVideoBuffer<u8>, fwd
             let cbp    = b_data[cur_mb].cbp;
             cbpi.set_cbp(mb_x, cbp);
             if num_mv == 1 {
-                copy_blocks(b_buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, b_data[cur_mb].mv_b[0]);
+                bdsp.copy_blocks(b_buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, b_data[cur_mb].mv_b[0]);
                 if !is_fwd {
-                    avg_blocks(b_buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, b_data[cur_mb].mv_f[0]);
+                    bdsp.avg_blocks(b_buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, b_data[cur_mb].mv_f[0]);
                 }
             } else {
                 for blk_no in 0..4 {
                     let xpos = mb_x * 16 + (blk_no & 1) * 8;
                     let ypos = mb_y * 16 + (blk_no & 2) * 4;
-                    copy_blocks(b_buf, fwd_buf, xpos, ypos, 8, 8, b_data[cur_mb].mv_b[blk_no]);
+                    bdsp.copy_blocks(b_buf, fwd_buf, xpos, ypos, 8, 8, b_data[cur_mb].mv_b[blk_no]);
                     if !is_fwd {
-                        avg_blocks(b_buf, bck_buf, xpos, ypos, 8, 8, b_data[cur_mb].mv_f[blk_no]);
+                        bdsp.avg_blocks(b_buf, bck_buf, xpos, ypos, 8, 8, b_data[cur_mb].mv_f[blk_no]);
                     }
                 }
             }

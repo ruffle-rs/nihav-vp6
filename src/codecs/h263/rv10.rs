@@ -3,6 +3,7 @@ use io::codebook::*;
 use formats;
 use super::super::*;
 use super::*;
+use super::code::H263BlockDSP;
 use super::decoder::*;
 use super::data::*;
 
@@ -25,6 +26,7 @@ struct RealVideo10Decoder {
     w:       usize,
     h:       usize,
     new_ver: bool,
+    bdsp:    H263BlockDSP,
 }
 
 struct RealVideo10BR<'a> {
@@ -37,14 +39,9 @@ struct RealVideo10BR<'a> {
     h:          usize,
     mb_w:       usize,
     mb_h:       usize,
-    mb_x:       usize,
-    mb_y:       usize,
-    mb_count:   usize,
-    mb_end:     usize,
     new_ver:    bool,
     dc_coded:   [bool; 3],
     last_dc:    [i16; 3],
-    is_intra:   bool,
 }
 
 struct RV10SliceInfo {
@@ -85,24 +82,20 @@ impl<'a> RealVideo10BR<'a> {
             h:          height,
             mb_w:       (width  + 15) >> 4,
             mb_h:       (height + 15) >> 4,
-            mb_x:       0,
-            mb_y:       0,
-            mb_count:   0,
-            mb_end:     0,
             new_ver:    new_ver,
             dc_coded:   [false; 3],
             last_dc:    [0; 3],
-            is_intra:   false,
         }
     }
 
-    fn decode_block(&mut self, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize) -> DecoderResult<()> {
+#[allow(unused_variables)]
+    fn decode_block(&mut self, sstate: &SliceState, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize) -> DecoderResult<()> {
         let mut br = &mut self.br;
         let mut idx = 0;
         if intra {
             let mut dc;
-//println!("dc prev {} @ {} of {},{} / {}x{}", self.last_dc[plane_no], br.tell() - (self.slice_off[self.slice_no - 1] as usize) * 8, self.mb_x, self.mb_y, self.mb_w, self.mb_h);
-            if !self.new_ver || !self.is_intra {
+//println!("dc prev {} @ {} of {},{} / {}x{}", self.last_dc[plane_no], br.tell() - (self.slice_off[self.slice_no - 1] as usize) * 8, sstate.mb_x, sstate.mb_y, self.mb_w, self.mb_h);
+            if !self.new_ver || !sstate.is_iframe {
                 dc = br.read(8)? as i16;
                 if dc == 255 { dc = 128; }
             } else {
@@ -225,39 +218,28 @@ impl<'a> BlockDecoder for RealVideo10BR<'a> {
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         self.slice_no = 0;
 println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_off[1] } else { ((self.br.tell() as u32) + (self.br.left() as u32))/8 });
-        self.mb_x = 0;
-        self.mb_y = 0;
-        self.mb_count = self.mb_w * self.mb_h;
         let shdr = self.read_slice_header()?;
-        self.slice_no += 1;
         validate!((shdr.mb_x == 0) && (shdr.mb_y == 0));
 
-        self.mb_x = shdr.mb_x;
-        self.mb_y = shdr.mb_y;
-        self.mb_count = shdr.mb_c;
-        self.mb_end = self.mb_x + self.mb_y * self.mb_w + self.mb_count;
-        self.is_intra = !shdr.is_p;
+        let mb_end = shdr.mb_x + shdr.mb_y * self.mb_w + shdr.mb_c;
 
         let ftype = if !shdr.is_p { Type::I } else { Type::P };
-        let picinfo = PicInfo::new(self.w, self.h, ftype, shdr.qscale, false, MVMode::Old, 0, None, true);
+        let picinfo = PicInfo::new(self.w, self.h, ftype, false, false, shdr.qscale, 0, None, None);
         Ok(picinfo)
     }
 
     #[allow(unused_variables)]
-    fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<Slice> {
+    fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
 //println!("read slice {} header", self.slice_no);
         let shdr = self.read_slice_header()?;
-        let ret = Slice::new(shdr.mb_x, shdr.mb_y, shdr.qscale);
         self.slice_no += 1;
-        self.mb_x = shdr.mb_x;
-        self.mb_y = shdr.mb_y;
-        self.mb_count = shdr.mb_c;
-        self.mb_end = self.mb_x + self.mb_y * self.mb_w + self.mb_count;
+        let mb_end = shdr.mb_x + shdr.mb_y * self.mb_w + shdr.mb_c;
+        let ret = SliceInfo::new(shdr.mb_x, shdr.mb_y, mb_end, shdr.qscale);
 
         Ok(ret)
     }
 
-    fn decode_block_header(&mut self, info: &PicInfo, slice: &Slice) -> DecoderResult<BlockInfo> {
+    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
         let mut br = &mut self.br;
         let mut q = slice.get_quant();
         match info.get_mode() {
@@ -271,20 +253,10 @@ println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
-            self.mb_x += 1;
-            if self.mb_x == self.mb_w {
-                self.mb_x = 0;
-                self.mb_y += 1;
-            }
                     Ok(BlockInfo::new(Type::I, cbp, q))
                 },
             Type::P => {
                     if br.read_bool()? {
-self.mb_x += 1;
-if self.mb_x == self.mb_w {
-    self.mb_x = 0;
-    self.mb_y += 1;
-}
                         return Ok(BlockInfo::new(Type::Skip, 0, info.get_quant()));
                     }
                     let mut cbpc = br.read_cb(&self.tables.inter_mcbpc_cb)?;
@@ -300,11 +272,6 @@ if self.mb_x == self.mb_w {
                             q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                         }
                         let binfo = BlockInfo::new(Type::I, cbp, q);
-            self.mb_x += 1;
-            if self.mb_x == self.mb_w {
-                self.mb_x = 0;
-                self.mb_y += 1;
-            }
                         return Ok(binfo);
                     }
 
@@ -317,7 +284,7 @@ if self.mb_x == self.mb_w {
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
-println!(" MB {}.{} cbp = {:X}", self.mb_x, self.mb_y, cbp);
+println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
                     let mut binfo = BlockInfo::new(Type::P, cbp, q);
                     if !is_4x4 {
                         let mvec: [MV; 1] = [decode_mv(br, &self.tables.mv_cb)?];
@@ -331,11 +298,6 @@ println!(" MB {}.{} cbp = {:X}", self.mb_x, self.mb_y, cbp);
                             ];
                         binfo.set_mv(&mvec);
                     }
-            self.mb_x += 1;
-            if self.mb_x == self.mb_w {
-                self.mb_x = 0;
-                self.mb_y += 1;
-            }
                     Ok(binfo)
                 },
             _ => { println!("wrong info mode"); Err(DecoderError::InvalidData) },
@@ -343,114 +305,18 @@ println!(" MB {}.{} cbp = {:X}", self.mb_x, self.mb_y, cbp);
     }
 
     #[allow(unused_variables)]
-    fn decode_block_intra(&mut self, info: &BlockInfo, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
-        self.decode_block(quant, true, coded, blk, if no < 4 { 0 } else { no - 3 })
+    fn decode_block_intra(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+        self.decode_block(sstate, quant, true, coded, blk, if no < 4 { 0 } else { no - 3 })
     }
 
     #[allow(unused_variables)]
-    fn decode_block_inter(&mut self, info: &BlockInfo, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
-        self.decode_block(quant, false, coded, blk, if no < 4 { 0 } else { no - 3 })
+    fn decode_block_inter(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
+        self.decode_block(sstate, quant, false, coded, blk, if no < 4 { 0 } else { no - 3 })
     }
 
-    fn is_slice_end(&mut self) -> bool { self.mb_x + self.mb_y * self.mb_w >= self.mb_end }
+    fn is_slice_end(&mut self) -> bool { false }
 
-    fn filter_row(&mut self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo) {
-        let stride  = buf.get_stride(0);
-        let mut off = buf.get_offset(0) + mb_y * 16 * stride;
-        for mb_x in 0..mb_w {
-            let coff = off;
-            let coded0 = cbpi.is_coded(mb_x, 0);
-            let coded1 = cbpi.is_coded(mb_x, 1);
-            let q = cbpi.get_q(mb_w + mb_x);
-            if mb_y != 0 {
-                if coded0 && cbpi.is_coded_top(mb_x, 0) { deblock_hor(buf, 0, q, coff); }
-                if coded1 && cbpi.is_coded_top(mb_x, 1) { deblock_hor(buf, 0, q, coff + 8); }
-            }
-            let coff = off + 8 * stride;
-            if cbpi.is_coded(mb_x, 2) && coded0 { deblock_hor(buf, 0, q, coff); }
-            if cbpi.is_coded(mb_x, 3) && coded1 { deblock_hor(buf, 0, q, coff + 8); }
-            off += 16;
-        }
-        let mut leftt = false;
-        let mut leftc = false;
-        let mut off = buf.get_offset(0) + mb_y * 16 * stride;
-        for mb_x in 0..mb_w {
-            let ctop0 = cbpi.is_coded_top(mb_x, 0);
-            let ctop1 = cbpi.is_coded_top(mb_x, 0);
-            let ccur0 = cbpi.is_coded(mb_x, 0);
-            let ccur1 = cbpi.is_coded(mb_x, 1);
-            let q = cbpi.get_q(mb_w + mb_x);
-            if mb_y != 0 {
-                let coff = off - 8 * stride;
-                let qtop = cbpi.get_q(mb_x);
-                if leftt && ctop0 { deblock_ver(buf, 0, qtop, coff); }
-                if ctop0 && ctop1 { deblock_ver(buf, 0, qtop, coff + 8); }
-            }
-            if leftc && ccur0 { deblock_ver(buf, 0, q, off); }
-            if ccur0 && ccur1 { deblock_ver(buf, 0, q, off + 8); }
-            leftt = ctop1;
-            leftc = ccur1;
-            off += 16;
-        }
-        let strideu  = buf.get_stride(1);
-        let stridev  = buf.get_stride(2);
-        let offu = buf.get_offset(1) + mb_y * 8 * strideu;
-        let offv = buf.get_offset(2) + mb_y * 8 * stridev;
-        if mb_y != 0 {
-            for mb_x in 0..mb_w {
-                let ctu = cbpi.is_coded_top(mb_x, 4);
-                let ccu = cbpi.is_coded(mb_x, 4);
-                let ctv = cbpi.is_coded_top(mb_x, 5);
-                let ccv = cbpi.is_coded(mb_x, 5);
-                let q = cbpi.get_q(mb_w + mb_x);
-                if ctu && ccu { deblock_hor(buf, 1, q, offu + mb_x * 8); }
-                if ctv && ccv { deblock_hor(buf, 2, q, offv + mb_x * 8); }
-            }
-            let mut leftu = false;
-            let mut leftv = false;
-            let offu = buf.get_offset(1) + (mb_y - 1) * 8 * strideu;
-            let offv = buf.get_offset(2) + (mb_y - 1) * 8 * stridev;
-            for mb_x in 0..mb_w {
-                let ctu = cbpi.is_coded_top(mb_x, 4);
-                let ctv = cbpi.is_coded_top(mb_x, 5);
-                let qt = cbpi.get_q(mb_x);
-                if leftu && ctu { deblock_ver(buf, 1, qt, offu + mb_x * 8); }
-                if leftv && ctv { deblock_ver(buf, 2, qt, offv + mb_x * 8); }
-                leftu = ctu;
-                leftv = ctv;
-            }
-        }
-    }
-}
-
-fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
-    let stride = buf.get_stride(comp);
-    let mut dptr = buf.get_data_mut();
-    let mut buf = dptr.as_mut_slice();
-    for x in 0..8 {
-        let a = buf[off - 2 * stride + x] as i16;
-        let b = buf[off - 1 * stride + x] as i16;
-        let c = buf[off + 0 * stride + x] as i16;
-        let d = buf[off + 1 * stride + x] as i16;
-        let diff = ((a - d) * 3 + (c - b) * 8) >> 4;
-        if (diff != 0) && (diff >= -32) && (diff < 32) {
-            let d0 = diff.abs() * 2 - (q as i16);
-            let d1 = if d0 < 0 { 0 } else { d0 };
-            let d2 = diff.abs() - d1;
-            let d3 = if d2 < 0 { 0 } else { d2 };
-
-            let delta = if diff < 0 { -d3 } else { d3 };
-
-            let b1 = b + delta;
-            if      b1 < 0   { buf[off - 1 * stride + x] = 0; }
-            else if b1 > 255 { buf[off - 1 * stride + x] = 0xFF; }
-            else             { buf[off - 1 * stride + x] = b1 as u8; }
-            let c1 = c - delta;
-            if      c1 < 0   { buf[off + x] = 0; }
-            else if c1 > 255 { buf[off + x] = 0xFF; }
-            else             { buf[off + x] = c1 as u8; }
-        }
-    }
+    fn is_gob(&mut self) -> bool { false }
 }
 
 impl<'a> RealVideo10BR<'a> {
@@ -459,7 +325,6 @@ impl<'a> RealVideo10BR<'a> {
 
         let mut br = &mut self.br;
         br.seek(self.slice_off[self.slice_no] * 8)?;
-//println!(" slice at off {}", br.tell());
 
         let marker      = br.read(1)?;
         validate!(marker == 1);
@@ -485,51 +350,20 @@ impl<'a> RealVideo10BR<'a> {
         let mb_x;
         let mb_y;
         let mb_count;
-        let mb_pos = self.mb_x + self.mb_y * self.mb_w;
-        if (br.peek(12) == 0) || (mb_pos > 0) {
+        if (br.peek(12) == 0) || (self.slice_no > 0) {
             mb_x        = br.read(6)? as usize;
             mb_y        = br.read(6)? as usize;
             mb_count    = br.read(12)? as usize;
         } else {
-            mb_x        = self.mb_x;
-            mb_y        = self.mb_y;
-            mb_count    = self.mb_count;
+            mb_x        = 0;
+            mb_y        = 0;
+            mb_count    = self.mb_w * self.mb_h;
         }
         br.skip(3)?;
 println!("slice q {} mb {},{} {}", qscale, mb_x, mb_y, mb_count);
         validate!(mb_x + mb_y * self.mb_w + mb_count <= self.mb_w * self.mb_h);
 
         Ok(RV10SliceInfo::new(is_p, qscale, mb_x, mb_y, mb_count))
-    }
-}
-
-fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
-    let stride = buf.get_stride(comp);
-    let mut dptr = buf.get_data_mut();
-    let mut buf = dptr.as_mut_slice();
-    for y in 0..8 {
-        let a = buf[off - 2 + y * stride] as i16;
-        let b = buf[off - 1 + y * stride] as i16;
-        let c = buf[off + 0 + y * stride] as i16;
-        let d = buf[off + 1 + y * stride] as i16;
-        let diff = ((a - d) * 3 + (c - b) * 8) >> 4;
-        if (diff != 0) && (diff >= -32) && (diff < 32) {
-            let d0 = diff.abs() * 2 - (q as i16);
-            let d1 = if d0 < 0 { 0 } else { d0 };
-            let d2 = diff.abs() - d1;
-            let d3 = if d2 < 0 { 0 } else { d2 };
-
-            let delta = if diff < 0 { -d3 } else { d3 };
-
-            let b1 = b + delta;
-            if      b1 < 0   { buf[off - 1 + y * stride] = 0; }
-            else if b1 > 255 { buf[off - 1 + y * stride] = 0xFF; }
-            else             { buf[off - 1 + y * stride] = b1 as u8; }
-            let c1 = c - delta;
-            if      c1 < 0   { buf[off + y * stride] = 0; }
-            else if c1 > 255 { buf[off + y * stride] = 0xFF; }
-            else             { buf[off + y * stride] = c1 as u8; }
-        }
     }
 }
 
@@ -570,6 +404,7 @@ impl RealVideo10Decoder {
             w:              0,
             h:              0,
             new_ver:        false,
+            bdsp:           H263BlockDSP::new(),
         }
     }
 }
@@ -611,7 +446,7 @@ println!("???");
 println!(" decode frame size {}, {} slices", src.len(), src[0]+1);
         let mut ibr = RealVideo10BR::new(&src, &self.tables, self.w, self.h, self.new_ver);
 
-        let bufinfo = self.dec.parse_frame(&mut ibr)?;
+        let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp)?;
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(self.dec.is_intra());

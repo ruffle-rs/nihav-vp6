@@ -16,18 +16,25 @@ pub mod rv20;
 
 pub trait BlockDecoder {
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo>;
-    fn decode_slice_header(&mut self, pinfo: &PicInfo) -> DecoderResult<Slice>;
-    fn decode_block_header(&mut self, pinfo: &PicInfo, sinfo: &Slice) -> DecoderResult<BlockInfo>;
-    fn decode_block_intra(&mut self, info: &BlockInfo, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()>;
-    fn decode_block_inter(&mut self, info: &BlockInfo, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()>;
+    fn decode_slice_header(&mut self, pinfo: &PicInfo) -> DecoderResult<SliceInfo>;
+    fn decode_block_header(&mut self, pinfo: &PicInfo, sinfo: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo>;
+    fn decode_block_intra(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()>;
+    fn decode_block_inter(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()>;
     fn is_slice_end(&mut self) -> bool;
-
-    fn filter_row(&mut self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo);
+    fn is_gob(&mut self) -> bool;
 }
 
+pub trait BlockDSP {
+    fn idct(&self, blk: &mut [i16; 64]);
+    fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV);
+    fn avg_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV);
+    fn filter_row(&self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo);
+}
+
+#[allow(dead_code)]
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum Type {
-    I, P, Skip, Special
+    I, P, PB, Skip, B, Special
 }
 
 #[allow(dead_code)]
@@ -48,48 +55,97 @@ impl PBInfo {
 #[allow(dead_code)]
 #[derive(Debug,Clone,Copy)]
 pub struct PicInfo {
-    w:      usize,
-    h:      usize,
-    mode:   Type,
-    quant:  u8,
-    apm:    bool,
-    mvmode: MVMode,
-    pb:     Option<PBInfo>,
-    ts:     u8,
-    deblock: bool,
+    pub w:          usize,
+    pub h:          usize,
+    pub mode:       Type,
+    pub umv:        bool,
+    pub apm:        bool,
+    pub quant:      u8,
+    pub pb:         Option<PBInfo>,
+    pub ts:         u8,
+    pub plusinfo:   Option<PlusInfo>,
 }
 
 #[allow(dead_code)]
 impl PicInfo {
-    pub fn new(w: usize, h: usize, mode: Type, quant: u8, apm: bool, mvmode: MVMode, ts: u8, pb: Option<PBInfo>, deblock: bool) -> Self {
-        PicInfo{ w: w, h: h, mode: mode, quant: quant, apm: apm, mvmode: mvmode, ts: ts, pb: pb, deblock: deblock }
+    pub fn new(w: usize, h: usize, mode: Type, umv: bool, apm: bool, quant: u8, ts: u8, pb: Option<PBInfo>, plusinfo: Option<PlusInfo>) -> Self {
+        PicInfo {
+            w: w, h: h, mode: mode,
+            umv: umv, apm: apm, quant: quant,
+            pb: pb, ts: ts, plusinfo: plusinfo
+        }
     }
     pub fn get_width(&self) -> usize { self.w }
     pub fn get_height(&self) -> usize { self.h }
     pub fn get_mode(&self) -> Type { self.mode }
     pub fn get_quant(&self) -> u8 { self.quant }
     pub fn get_apm(&self) -> bool { self.apm }
-    pub fn get_mvmode(&self) -> MVMode { self.mvmode }
     pub fn is_pb(&self) -> bool { self.pb.is_some() }
     pub fn get_ts(&self) -> u8 { self.ts }
     pub fn get_pbinfo(&self) -> PBInfo { self.pb.unwrap() }
+    pub fn get_plusifo(&self) -> Option<PlusInfo> { self.plusinfo }
+    pub fn get_mvmode(&self) -> MVMode {
+            if self.umv      { MVMode::UMV }
+            else if self.apm { MVMode::Long }
+            else             { MVMode::Old }
+        }
 }
 
+#[allow(dead_code)]
 #[derive(Debug,Clone,Copy)]
-pub struct Slice {
-    mb_x:   usize,
-    mb_y:   usize,
-    quant:  u8,
+pub struct PlusInfo {
+    pub aic:        bool,
+    pub deblock:    bool,
+    pub aiv_mode:   bool,
+    pub mq_mode:    bool,
 }
 
-impl Slice {
-    pub fn new(mb_x: usize, mb_y: usize, quant: u8) -> Self {
-        Slice{ mb_x: mb_x, mb_y: mb_y, quant: quant }
+impl PlusInfo {
+    pub fn new(aic: bool, deblock: bool, aiv_mode: bool, mq_mode: bool) -> Self {
+        PlusInfo { aic: aic, deblock: deblock, aiv_mode: aiv_mode, mq_mode: mq_mode }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug,Clone,Copy)]
+pub struct SliceInfo {
+    pub mb_x:   usize,
+    pub mb_y:   usize,
+    pub mb_end: usize,
+    pub quant:  u8,
+}
+
+#[allow(dead_code)]
+#[derive(Debug,Clone,Copy)]
+pub struct SliceState {
+    pub is_iframe:  bool,
+    pub mb_x:       usize,
+    pub mb_y:       usize,
+}
+
+const SLICE_NO_END: usize = 99999999;
+
+impl SliceInfo {
+    pub fn new(mb_x: usize, mb_y: usize, mb_end: usize, quant: u8) -> Self {
+        SliceInfo{ mb_x: mb_x, mb_y: mb_y, mb_end: mb_end, quant: quant }
+    }
+    pub fn new_gob(mb_x: usize, mb_y: usize, quant: u8) -> Self {
+        SliceInfo{ mb_x: mb_x, mb_y: mb_y, mb_end: SLICE_NO_END, quant: quant }
     }
     pub fn get_default_slice(pinfo: &PicInfo) -> Self {
-        Slice{ mb_x: 0, mb_y: 0, quant: pinfo.get_quant() }
+        SliceInfo{ mb_x: 0, mb_y: 0, mb_end: SLICE_NO_END, quant: pinfo.get_quant() }
     }
     pub fn get_quant(&self) -> u8 { self.quant }
+    pub fn is_at_end(&self, mb_pos: usize) -> bool { self.mb_end == mb_pos }
+    pub fn needs_check(&self) -> bool { self.mb_end == SLICE_NO_END }
+}
+
+impl SliceState {
+    pub fn new(is_iframe: bool) -> Self {
+        SliceState { is_iframe: is_iframe, mb_x: 0, mb_y: 0 }
+    }
+    pub fn next_mb(&mut self) { self.mb_x += 1; }
+    pub fn new_row(&mut self) { self.mb_x = 0; self.mb_y += 1; }
 }
 
 #[derive(Debug,Clone,Copy)]
