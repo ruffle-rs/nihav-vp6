@@ -68,6 +68,7 @@ impl RMVideoStream {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone,Copy,PartialEq)]
 enum Deinterleaver {
     None,
@@ -76,6 +77,7 @@ enum Deinterleaver {
     VBR,
 }
 
+#[allow(dead_code)]
 struct RMAudioStream {
     deint:      Deinterleaver,
 }
@@ -574,6 +576,7 @@ static RM_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"CLV1", "clearvideo"),
 ];
 
+#[allow(dead_code)]
 static RM_AUDIO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"lpcJ", "ra14.4"),
     (b"28_8", "ra28.8"),
