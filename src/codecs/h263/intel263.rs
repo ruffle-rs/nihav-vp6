@@ -405,6 +405,6 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_intel263() {
-         test_file_decoding("avi", "assets/neal73_saber.avi", Some(16), true, false, Some("i263"));
+         test_file_decoding("avi", "assets/neal73_saber.avi", Some(16), true, false, None/*Some("i263")*/);
     }
 }
