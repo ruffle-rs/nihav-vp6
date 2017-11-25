@@ -108,6 +108,14 @@ impl BMB {
     fn new() -> Self { BMB {blk: [[0; 64]; 6], cbp: 0, fwd: false, mv_f: [ZERO_MV; 4], mv_b: [ZERO_MV; 4], num_mv: 0} }
 }
 
+#[derive(Clone,Copy)]
+struct PredCoeffs {
+    hor: [[i16; 8]; 6],
+    ver: [[i16; 8]; 6],
+}
+
+const ZERO_PRED_COEFFS: PredCoeffs = PredCoeffs { hor: [[0; 8]; 6], ver: [[0; 8]; 6] };
+
 pub struct H263BaseDecoder {
     w:          usize,
     h:          usize,
@@ -120,6 +128,21 @@ pub struct H263BaseDecoder {
     last_ts:    u8,
     has_b:      bool,
     b_data:     Vec<BMB>,
+    pred_coeffs: Vec<PredCoeffs>,
+}
+
+#[inline]
+fn clip_dc(dc: i16) -> i16 {
+    if dc < 0 { 0 }
+    else if dc > 2046 { 2046 }
+    else { (dc + 1) & !1 }
+}
+
+#[inline]
+fn clip_ac(ac: i16) -> i16 {
+    if ac < -2048 { -2048 }
+    else if ac > 2047 { 2047 }
+    else { ac }
 }
 
 #[allow(dead_code)]
@@ -131,6 +154,7 @@ impl H263BaseDecoder {
             prev_frm: None, cur_frm: None,
             last_ts: 0,
             has_b: false, b_data: Vec::new(),
+            pred_coeffs: Vec::new(),
         }
     }
 
@@ -178,6 +202,11 @@ impl H263BaseDecoder {
         let mut blk: [[i16; 64]; 6] = [[0; 64]; 6];
         let mut sstate = SliceState::new(pinfo.mode == Type::I);
         let mut mb_pos = 0;
+        let apply_acpred = (pinfo.mode == Type::I) && pinfo.plusinfo.is_some() && pinfo.plusinfo.unwrap().aic;
+        if apply_acpred {
+            self.pred_coeffs.truncate(0);
+            self.pred_coeffs.resize(self.mb_w * self.mb_h, ZERO_PRED_COEFFS);
+        }
         for mb_y in 0..self.mb_h {
             for mb_x in 0..self.mb_w {
                 for i in 0..6 { for j in 0..64 { blk[i][j] = 0; } }
@@ -195,6 +224,72 @@ impl H263BaseDecoder {
                 if binfo.is_intra() {
                     for i in 0..6 {
                         bd.decode_block_intra(&binfo, &sstate, binfo.get_q(), i, (cbp & (1 << (5 - i))) != 0, &mut blk[i])?;
+                        if apply_acpred && (binfo.acpred != ACPredMode::None) {
+                            let has_b = (i == 1) || (i == 3) || (mb_x > 0);
+                            let has_a = (i == 2) || (i == 3) || (mb_y > 0);
+                            let (b_mb, b_blk) = if has_b {
+                                    if (i == 1) || (i == 3) {
+                                        (mb_pos, i - 1)
+                                    } else if i < 4 {
+                                        (mb_pos - 1, i + 1)
+                                    } else {
+                                        (mb_pos - 1, i)
+                                    }
+                                } else { (0, 0) };
+                            let (a_mb, a_blk) = if has_a {
+                                    if (i == 2) || (i == 3) {
+                                        (mb_pos, i - 2)
+                                    } else if i < 4 {
+                                        (mb_pos - self.mb_w, i + 2)
+                                    } else {
+                                        (mb_pos - self.mb_w, i)
+                                    }
+                                } else { (0, 0) };
+                            match binfo.acpred {
+                                ACPredMode::DC   => {
+                                            let dc;
+                                            if has_a && has_b {
+                                                dc = (self.pred_coeffs[b_mb].hor[b_blk][0] + self.pred_coeffs[a_mb].ver[a_blk][0]) / 2;
+                                            } else if has_a {
+                                                dc = self.pred_coeffs[a_mb].ver[a_blk][0];
+                                            } else if has_b {
+                                                dc = self.pred_coeffs[b_mb].hor[b_blk][0];
+                                            } else {
+                                                dc = 1024;
+                                            }
+                                            blk[i][0] = clip_dc(blk[i][0] + dc);
+                                        },
+                                ACPredMode::Hor  => {
+                                        if has_b {
+                                            for k in 0..8 {
+                                                blk[i][k * 8] += self.pred_coeffs[b_mb].hor[b_blk][k];
+                                            }
+                                            for k in 1..8 {
+                                                blk[i][k * 8] = clip_ac(blk[i][k * 8]);
+                                            }
+                                        } else {
+                                            blk[i][0] += 1024;
+                                        }
+                                        blk[i][0] = clip_dc(blk[i][0]);
+                                    },
+                                ACPredMode::Ver  => {
+                                        if has_a {
+                                            for k in 0..8 {
+                                                blk[i][k] += self.pred_coeffs[a_mb].ver[a_blk][k];
+                                            }
+                                            for k in 1..8 {
+                                                blk[i][k] = clip_ac(blk[i][k]);
+                                            }
+                                        } else {
+                                            blk[i][0] += 1024;
+                                        }
+                                        blk[i][0] = clip_dc(blk[i][0]);
+                                    },
+                                ACPredMode::None => {},
+                            };
+                            for t in 0..8 { self.pred_coeffs[mb_pos].hor[i][t] = blk[i][t * 8]; }
+                            for t in 0..8 { self.pred_coeffs[mb_pos].ver[i][t] = blk[i][t]; }
+                        }
                         h263_idct(&mut blk[i]);
                     }
                     blockdsp::put_blocks(&mut buf, mb_x, mb_y, &blk);

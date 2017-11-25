@@ -150,18 +150,19 @@ impl SliceState {
 
 #[derive(Debug,Clone,Copy)]
 pub struct BlockInfo {
-    intra:   bool,
-    skip:    bool,
-    mode:    Type,
-    cbp:     u8,
-    q:       u8,
-    mv:      [MV; 4],
-    num_mv:  usize,
-    bpart:   bool,
-    b_cbp:   u8,
-    mv2:     [MV; 2],
-    num_mv2: usize,
-    fwd:     bool,
+    pub intra:   bool,
+    pub skip:    bool,
+    pub mode:    Type,
+    pub cbp:     u8,
+    pub q:       u8,
+    pub mv:      [MV; 4],
+    pub num_mv:  usize,
+    pub bpart:   bool,
+    pub b_cbp:   u8,
+    pub mv2:     [MV; 2],
+    pub num_mv2: usize,
+    pub fwd:     bool,
+    pub acpred:  ACPredMode,
 }
 
 #[allow(dead_code)]
@@ -171,6 +172,15 @@ pub struct BBlockInfo {
     cbp:     u8,
     num_mv:  usize,
     fwd:     bool,
+}
+
+#[allow(dead_code)]
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub enum ACPredMode {
+    None,
+    DC,
+    Ver,
+    Hor,
 }
 
 #[allow(dead_code)]
@@ -189,6 +199,7 @@ impl BlockInfo {
             mv2:     [ZERO_MV, ZERO_MV],
             num_mv2: 0,
             fwd:     false,
+            acpred:  ACPredMode::None,
         }
     }
     pub fn is_intra(&self) -> bool { self.intra }
@@ -222,6 +233,8 @@ impl BlockInfo {
         self.mv2    = mv_arr;
     }
     pub fn is_b_fwd(&self) -> bool { self.fwd }
+    pub fn set_acpred(&mut self, acpred: ACPredMode) { self.acpred = acpred }
+    pub fn get_acpred(&self) -> ACPredMode { self.acpred }
 }
 
 impl BBlockInfo {
