@@ -108,7 +108,7 @@ impl<'a> RealVideo20BR<'a> {
     }
 
 #[allow(unused_variables)]
-    fn decode_block(&mut self, sstate: &SliceState, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize) -> DecoderResult<()> {
+    fn decode_block(&mut self, sstate: &SliceState, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize, acpred: ACPredMode) -> DecoderResult<()> {
         let mut br = &mut self.br;
         let mut idx = 0;
         if !sstate.is_iframe && intra {
@@ -118,6 +118,11 @@ impl<'a> RealVideo20BR<'a> {
             idx = 1;
         }
         if !coded { return Ok(()); }
+        let scan = match acpred {
+                    ACPredMode::Hor => H263_SCAN_V,
+                    ACPredMode::Ver => H263_SCAN_H,
+                    _               => H263_ZIGZAG,
+                };
 
         let rl_cb = if sstate.is_iframe { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
         let q_add = if quant == 0 { 0i16 } else { ((quant - 1) | 1) as i16 };
@@ -148,7 +153,7 @@ impl<'a> RealVideo20BR<'a> {
             }
             idx += run;
             validate!(idx < 64);
-            let oidx = H263_ZIGZAG[idx as usize];
+            let oidx = scan[idx as usize];
             blk[oidx] = level;
             idx += 1;
             if last { break; }
@@ -194,7 +199,8 @@ println!("slice ends @ {}\n", self.br.tell());
             mb_count = self.mb_w * self.mb_h;
         }*/
 
-        let picinfo = PicInfo::new(shdr.w, shdr.h, shdr.ftype, false, false, shdr.qscale, 0, None, None);
+        let plusinfo = Some(PlusInfo::new(shdr.ftype == Type::I, false, false, false));
+        let picinfo = PicInfo::new(shdr.w, shdr.h, shdr.ftype, false, false, shdr.qscale, 0, None, plusinfo);
         Ok(picinfo)
     }
 
@@ -205,8 +211,10 @@ println!("slice ends @ {}\n", self.br.tell());
         self.slice_no += 1;
         let mb_count;
         if self.slice_no < self.num_slices {
+            let pos = self.br.tell();
             let shdr2 = self.read_slice_header().unwrap();
             mb_count = shdr2.mb_pos - shdr.mb_pos;
+            self.br.seek(pos as u32)?;
         } else {
             mb_count = self.mb_w * self.mb_h - shdr.mb_pos;
         }
@@ -222,13 +230,18 @@ println!("slice ends @ {}\n", self.br.tell());
             Type::I => {
                     let mut cbpc = br.read_cb(&self.tables.intra_mcbpc_cb).unwrap();
                     while cbpc == 8 { cbpc = br.read_cb(&self.tables.intra_mcbpc_cb).unwrap(); }
-if sstate.is_iframe {
-let acpred = br.read_bool()?;
-println!("   acp {} @ {}", acpred, br.tell());
-if acpred {
-    br.skip(1)?;//pred direction
-}
-}
+                    let mut acpred = ACPredMode::None;
+                    if let Some(ref pi) = info.plusinfo {
+                        if pi.aic {
+                            let acpp = br.read_bool()?;
+                            acpred = ACPredMode::DC;
+                            println!("   acp {} @ {}", acpp as u8, br.tell());
+                            if acpp {
+                                acpred = if br.read_bool()? { ACPredMode::Hor } else { ACPredMode::Ver };
+                            }
+                        }
+println!("   @ {}", br.tell());
+                    }
                     let cbpy = br.read_cb(&self.tables.cbpy_cb).unwrap();
                     let cbp = (cbpy << 2) | (cbpc & 3);
                     let dquant = (cbpc & 4) != 0;
@@ -237,7 +250,9 @@ if acpred {
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
 println!(" MB {},{} CBP {:X} @ {}", sstate.mb_x, sstate.mb_y, cbp, br.tell());
-                    Ok(BlockInfo::new(Type::I, cbp, q))
+                    let mut binfo = BlockInfo::new(Type::I, cbp, q);
+                    binfo.set_acpred(acpred);
+                    Ok(binfo)
                 },
             Type::P => {
                     if br.read_bool().unwrap() {
@@ -288,14 +303,13 @@ println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
         }
     }
 
-    #[allow(unused_variables)]
     fn decode_block_intra(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
-        self.decode_block(sstate, quant, true, coded, blk, if no < 4 { 0 } else { no - 3 })
+        self.decode_block(sstate, quant, true, coded, blk, if no < 4 { 0 } else { no - 3 }, info.get_acpred())
     }
 
     #[allow(unused_variables)]
     fn decode_block_inter(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
-        self.decode_block(sstate, quant, false, coded, blk, if no < 4 { 0 } else { no - 3 })
+        self.decode_block(sstate, quant, false, coded, blk, if no < 4 { 0 } else { no - 3 }, ACPredMode::None)
     }
 
     fn is_slice_end(&mut self) -> bool { false }
@@ -473,6 +487,6 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_rv20() {
-         test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(160), true, false, Some("rv20"));
+         test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(1000), true, false, Some("rv20"));
     }
 }
