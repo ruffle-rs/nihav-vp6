@@ -112,7 +112,7 @@ impl<'a> RealVideo20BR<'a> {
         let mut br = &mut self.br;
         let mut idx = 0;
         if !sstate.is_iframe && intra {
-            let mut dc = br.read(8).unwrap() as i16;
+            let mut dc = br.read(8)? as i16;
             if dc == 255 { dc = 128; }
             blk[0] = dc << 3;
             idx = 1;
@@ -128,7 +128,7 @@ impl<'a> RealVideo20BR<'a> {
         let q_add = if quant == 0 { 0i16 } else { ((quant - 1) | 1) as i16 };
         let q = (quant * 2) as i16;
         while idx < 64 {
-            let code = br.read_cb(rl_cb).unwrap();
+            let code = br.read_cb(rl_cb)?;
             let run;
             let mut level;
             let last;
@@ -136,19 +136,19 @@ impl<'a> RealVideo20BR<'a> {
                 run   = code.get_run();
                 level = code.get_level();
                 last  = code.is_last();
-                if br.read_bool().unwrap() { level = -level; }
+                if br.read_bool()? { level = -level; }
                 if (idx != 0) || !sstate.is_iframe {
                     level = (level * q) + q_add;
                 } else {
                     level = level * (H263_DC_SCALES[quant as usize] as i16);
                 }
             } else {
-                last  = br.read_bool().unwrap();
-                run   = br.read(6).unwrap() as u8;
-                level = br.read_s(8).unwrap() as i16;
+                last  = br.read_bool()?;
+                run   = br.read(6)? as u8;
+                level = br.read_s(8)? as i16;
                 if level == -128 {
-                    let low = br.read(5).unwrap() as i16;
-                    let top = br.read_s(6).unwrap() as i16;
+                    let low = br.read(5)? as i16;
+                    let top = br.read_s(6)? as i16;
                     level = (top << 5) | low;
                 }
                 if (idx != 0) || !sstate.is_iframe {
@@ -171,9 +171,9 @@ impl<'a> RealVideo20BR<'a> {
 }
 
 fn decode_mv_component(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<i16> {
-    let code = br.read_cb(mv_cb).unwrap() as i16;
+    let code = br.read_cb(mv_cb)? as i16;
     if code == 0 { return Ok(0) }
-    if !br.read_bool().unwrap() {
+    if !br.read_bool()? {
         Ok(code)
     } else {
         Ok(-code)
@@ -181,8 +181,8 @@ fn decode_mv_component(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResul
 }
 
 fn decode_mv(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<MV> {
-    let xval = decode_mv_component(br, mv_cb).unwrap();
-    let yval = decode_mv_component(br, mv_cb).unwrap();
+    let xval = decode_mv_component(br, mv_cb)?;
+    let yval = decode_mv_component(br, mv_cb)?;
 //println!("  MV {},{} @ {}", xval, yval, br.tell());
     Ok(MV::new(xval, yval))
 }
@@ -193,14 +193,14 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         self.slice_no = 0;
 println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_off[1] } else { ((self.br.tell() as u32) + (self.br.left() as u32))/8 });
-        let shdr = self.read_slice_header().unwrap();
+        let shdr = self.read_slice_header()?;
 println!("slice ends @ {}\n", self.br.tell());
 //        self.slice_no += 1;
         validate!((shdr.mb_x == 0) && (shdr.mb_y == 0));
 /*        let mb_count;
         if self.slice_no < self.num_slices {
             let pos = self.br.tell();
-            let shdr2 = self.read_slice_header().unwrap();
+            let shdr2 = self.read_slice_header()?;
             self.br.seek(pos as u32)?;
             mb_count = shdr2.mb_pos - shdr.mb_pos;
         } else {
@@ -215,12 +215,12 @@ println!("slice ends @ {}\n", self.br.tell());
     #[allow(unused_variables)]
     fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
 //println!("read slice {} header", self.slice_no);
-        let shdr = self.read_slice_header().unwrap();
+        let shdr = self.read_slice_header()?;
         self.slice_no += 1;
         let mb_count;
         if self.slice_no < self.num_slices {
             let pos = self.br.tell();
-            let shdr2 = self.read_slice_header().unwrap();
+            let shdr2 = self.read_slice_header()?;
             mb_count = shdr2.mb_pos - shdr.mb_pos;
             self.br.seek(pos as u32)?;
         } else {
@@ -236,8 +236,8 @@ println!("slice ends @ {}\n", self.br.tell());
         let mut q = slice.get_quant();
         match info.get_mode() {
             Type::I => {
-                    let mut cbpc = br.read_cb(&self.tables.intra_mcbpc_cb).unwrap();
-                    while cbpc == 8 { cbpc = br.read_cb(&self.tables.intra_mcbpc_cb).unwrap(); }
+                    let mut cbpc = br.read_cb(&self.tables.intra_mcbpc_cb)?;
+                    while cbpc == 8 { cbpc = br.read_cb(&self.tables.intra_mcbpc_cb)?; }
                     let mut acpred = ACPredMode::None;
                     if let Some(ref pi) = info.plusinfo {
                         if pi.aic {
@@ -250,11 +250,11 @@ println!("slice ends @ {}\n", self.br.tell());
                         }
 println!("   @ {}", br.tell());
                     }
-                    let cbpy = br.read_cb(&self.tables.cbpy_cb).unwrap();
+                    let cbpy = br.read_cb(&self.tables.cbpy_cb)?;
                     let cbp = (cbpy << 2) | (cbpc & 3);
                     let dquant = (cbpc & 4) != 0;
                     if dquant {
-                        let idx = br.read(2).unwrap() as usize;
+                        let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
 println!(" MB {},{} CBP {:X} @ {}", sstate.mb_x, sstate.mb_y, cbp, br.tell());
@@ -263,45 +263,45 @@ println!(" MB {},{} CBP {:X} @ {}", sstate.mb_x, sstate.mb_y, cbp, br.tell());
                     Ok(binfo)
                 },
             Type::P => {
-                    if br.read_bool().unwrap() {
+                    if br.read_bool()? {
                         return Ok(BlockInfo::new(Type::Skip, 0, info.get_quant()));
                     }
-                    let mut cbpc = br.read_cb(&self.tables.inter_mcbpc_cb).unwrap();
-                    while cbpc == 20 { cbpc = br.read_cb(&self.tables.inter_mcbpc_cb).unwrap(); }
+                    let mut cbpc = br.read_cb(&self.tables.inter_mcbpc_cb)?;
+                    while cbpc == 20 { cbpc = br.read_cb(&self.tables.inter_mcbpc_cb)?; }
                     let is_intra = (cbpc & 0x04) != 0;
                     let dquant   = (cbpc & 0x08) != 0;
                     let is_4x4   = (cbpc & 0x10) != 0;
                     if is_intra {
-                        let cbpy = br.read_cb(&self.tables.cbpy_cb).unwrap();
+                        let cbpy = br.read_cb(&self.tables.cbpy_cb)?;
                         let cbp = (cbpy << 2) | (cbpc & 3);
                         if dquant {
-                            let idx = br.read(2).unwrap() as usize;
+                            let idx = br.read(2)? as usize;
                             q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                         }
                         let binfo = BlockInfo::new(Type::I, cbp, q);
                         return Ok(binfo);
                     }
 
-                    let mut cbpy = br.read_cb(&self.tables.cbpy_cb).unwrap();
+                    let mut cbpy = br.read_cb(&self.tables.cbpy_cb)?;
 //                    if /* !aiv && */(cbpc & 3) != 3 {
                         cbpy ^= 0xF;
 //                    }
                     let cbp = (cbpy << 2) | (cbpc & 3);
                     if dquant {
-                        let idx = br.read(2).unwrap() as usize;
+                        let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
 println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
                     let mut binfo = BlockInfo::new(Type::P, cbp, q);
                     if !is_4x4 {
-                        let mvec: [MV; 1] = [decode_mv(br, &self.tables.mv_cb).unwrap()];
+                        let mvec: [MV; 1] = [decode_mv(br, &self.tables.mv_cb)?];
                         binfo.set_mv(&mvec);
                     } else {
                         let mvec: [MV; 4] = [
-                                decode_mv(br, &self.tables.mv_cb).unwrap(),
-                                decode_mv(br, &self.tables.mv_cb).unwrap(),
-                                decode_mv(br, &self.tables.mv_cb).unwrap(),
-                                decode_mv(br, &self.tables.mv_cb).unwrap()
+                                decode_mv(br, &self.tables.mv_cb)?,
+                                decode_mv(br, &self.tables.mv_cb)?,
+                                decode_mv(br, &self.tables.mv_cb)?,
+                                decode_mv(br, &self.tables.mv_cb)?
                             ];
                         binfo.set_mv(&mvec);
                     }
@@ -331,32 +331,32 @@ impl<'a> RealVideo20BR<'a> {
         validate!(self.slice_no < self.num_slices);
 
         let mut br = &mut self.br;
-        br.seek(self.slice_off[self.slice_no] * 8).unwrap();
+        br.seek(self.slice_off[self.slice_no] * 8)?;
 //println!(" slice at off {}", br.tell());
 
-        let frm_type    = br.read(2).unwrap();
+        let frm_type    = br.read(2)?;
         let ftype = match frm_type {
                 0 | 1 => { Type::I },
                 2     => { Type::P },
                 _     => { Type::Skip },
             };
 
-        let marker      = br.read(1).unwrap();
+        let marker      = br.read(1)?;
         validate!(marker == 0);
-        let qscale      = br.read(5).unwrap() as u8;
+        let qscale      = br.read(5)? as u8;
         validate!(qscale > 0);
         if self.minor_ver >= 2 {
-            br.skip(1).unwrap(); // loop filter
+            br.skip(1)?; // loop filter
         }
         let seq = if self.minor_ver <= 1 {
-                br.read(8).unwrap()  << 7
+                br.read(8)?  << 7
             } else {
-                br.read(13).unwrap() << 2
+                br.read(13)? << 2
             };
         let w;
         let h;
         if self.rpr.present {
-            let rpr = br.read(self.rpr.bits).unwrap() as usize;
+            let rpr = br.read(self.rpr.bits)? as usize;
             if rpr == 0 {
                 w = self.w;
                 h = self.h;
@@ -370,14 +370,14 @@ impl<'a> RealVideo20BR<'a> {
             h = self.h;
         }
 
-        let mb_pos = br.read(self.mb_pos_bits).unwrap() as usize;
+        let mb_pos = br.read(self.mb_pos_bits)? as usize;
         let mb_x = mb_pos % self.mb_w;
         let mb_y = mb_pos / self.mb_w;
 
-        br.skip(1).unwrap(); // no rounding
+        br.skip(1)?; // no rounding
 
         if (self.minor_ver <= 1) && (frm_type == 3) {
-            br.skip(5).unwrap();
+            br.skip(5)?;
         }
 println!("slice q {} mb {},{}", qscale, mb_x, mb_y);
 
@@ -465,7 +465,7 @@ println!("ver {:06X}", ver);
 println!(" decode frame size {}, {} slices", src.len(), src[0]+1);
         let mut ibr = RealVideo20BR::new(&src, &self.tables, self.w, self.h, self.minor_ver, self.rpr);
 
-        let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp).unwrap();
+        let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp)?;
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(self.dec.is_intra());
