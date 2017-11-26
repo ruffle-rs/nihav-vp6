@@ -137,7 +137,11 @@ impl<'a> RealVideo20BR<'a> {
                 level = code.get_level();
                 last  = code.is_last();
                 if br.read_bool().unwrap() { level = -level; }
-                level = (level * q) + q_add;
+                if (idx != 0) || !sstate.is_iframe {
+                    level = (level * q) + q_add;
+                } else {
+                    level = level * (H263_DC_SCALES[quant as usize] as i16);
+                }
             } else {
                 last  = br.read_bool().unwrap();
                 run   = br.read(6).unwrap() as u8;
@@ -147,7 +151,11 @@ impl<'a> RealVideo20BR<'a> {
                     let top = br.read_s(6).unwrap() as i16;
                     level = (top << 5) | low;
                 }
-                level = (level * q) + q_add;
+                if (idx != 0) || !sstate.is_iframe {
+                    level = (level * q) + q_add;
+                } else {
+                    level = level * (H263_DC_SCALES[quant as usize] as i16);
+                }
                 if level < -2048 { level = -2048; }
                 if level >  2047 { level =  2047; }
             }
@@ -487,6 +495,6 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_rv20() {
-         test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(1000), true, false, Some("rv20"));
+        test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(1000), true, false, Some("rv20"));
     }
 }
