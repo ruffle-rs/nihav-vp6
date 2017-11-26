@@ -361,8 +361,8 @@ impl<'a> RealVideo20BR<'a> {
                 w = self.w;
                 h = self.h;
             } else {
-                w = self.rpr.widths[rpr];
-                h = self.rpr.heights[rpr];
+                w = self.rpr.widths[rpr - 1];
+                h = self.rpr.heights[rpr - 1];
                 validate!((w != 0) && (h != 0));
             }
         } else {
@@ -448,7 +448,7 @@ println!("ver {:06X}", ver);
                 self.rpr.present = false;
             } else {
                 self.rpr.present = true;
-                self.rpr.bits    = rprb as u8;
+                self.rpr.bits    = ((rprb >> 1) + 1) as u8;
                 for i in 4..(src.len()/2) {
                     self.rpr.widths [i - 4] = (src[i * 2]     as usize) * 4;
                     self.rpr.heights[i - 4] = (src[i * 2 + 1] as usize) * 4;
@@ -456,7 +456,6 @@ println!("ver {:06X}", ver);
             }
             Ok(())
         } else {
-println!(".unwrap().unwrap().unwrap()");
             Err(DecoderError::InvalidData)
         }
     }
@@ -495,6 +494,7 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_rv20() {
-        test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(1000), true, false, Some("rv20"));
+        test_file_decoding("realmedia", "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm", None, true, false, Some("rv20"));
+//        test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(1000), true, false, Some("rv20"));
     }
 }
