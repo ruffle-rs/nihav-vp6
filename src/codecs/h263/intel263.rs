@@ -316,8 +316,6 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
     }
 
     fn is_slice_end(&mut self) -> bool { self.br.peek(16) == 0 }
-
-    fn is_gob(&mut self) -> bool { true }
 }
 
 impl Intel263Decoder {
@@ -345,7 +343,7 @@ impl Intel263Decoder {
 
         Intel263Decoder{
             info:           Rc::new(DUMMY_CODEC_INFO),
-            dec:            H263BaseDecoder::new(),
+            dec:            H263BaseDecoder::new(true),
             tables:         tables,
             bdsp:           H263BlockDSP::new(),
         }

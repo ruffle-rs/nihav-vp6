@@ -321,8 +321,6 @@ println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
     }
 
     fn is_slice_end(&mut self) -> bool { false }
-
-    fn is_gob(&mut self) -> bool { false }
 }
 
 impl<'a> RealVideo20BR<'a> {
@@ -411,7 +409,7 @@ impl RealVideo20Decoder {
 
         RealVideo20Decoder{
             info:           Rc::new(DUMMY_CODEC_INFO),
-            dec:            H263BaseDecoder::new(),
+            dec:            H263BaseDecoder::new(false),
             tables:         tables,
             w:              0,
             h:              0,

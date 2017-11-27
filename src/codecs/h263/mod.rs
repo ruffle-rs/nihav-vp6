@@ -21,7 +21,6 @@ pub trait BlockDecoder {
     fn decode_block_intra(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()>;
     fn decode_block_inter(&mut self, info: &BlockInfo, sstate: &SliceState, quant: u8, no: usize, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()>;
     fn is_slice_end(&mut self) -> bool;
-    fn is_gob(&mut self) -> bool;
 }
 
 pub trait BlockDSP {

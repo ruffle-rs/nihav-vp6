@@ -315,8 +315,6 @@ println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
     }
 
     fn is_slice_end(&mut self) -> bool { false }
-
-    fn is_gob(&mut self) -> bool { false }
 }
 
 impl<'a> RealVideo10BR<'a> {
@@ -399,7 +397,7 @@ impl RealVideo10Decoder {
 
         RealVideo10Decoder{
             info:           Rc::new(DUMMY_CODEC_INFO),
-            dec:            H263BaseDecoder::new(),
+            dec:            H263BaseDecoder::new(false),
             tables:         tables,
             w:              0,
             h:              0,
@@ -465,7 +463,7 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_rv10() {
-         test_file_decoding("realmedia", "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm", Some(1000), true, false, Some("rv10"));
+         test_file_decoding("realmedia", "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm", Some(1000), true, false, None/*Some("rv10")*/);
     }
 }
 

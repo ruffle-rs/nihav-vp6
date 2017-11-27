@@ -129,6 +129,7 @@ pub struct H263BaseDecoder {
     has_b:      bool,
     b_data:     Vec<BMB>,
     pred_coeffs: Vec<PredCoeffs>,
+    is_gob:     bool,
 }
 
 #[inline]
@@ -147,7 +148,7 @@ fn clip_ac(ac: i16) -> i16 {
 
 #[allow(dead_code)]
 impl H263BaseDecoder {
-    pub fn new() -> Self {
+    pub fn new(is_gob: bool) -> Self {
         H263BaseDecoder{
             w: 0, h: 0, mb_w: 0, mb_h: 0, num_mb: 0,
             ftype: Type::Special,
@@ -155,6 +156,7 @@ impl H263BaseDecoder {
             last_ts: 0,
             has_b: false, b_data: Vec::new(),
             pred_coeffs: Vec::new(),
+            is_gob: is_gob,
         }
     }
 
@@ -191,7 +193,7 @@ impl H263BaseDecoder {
         let mut bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
 
-        let mut slice = if bd.is_gob() {
+        let mut slice = if self.is_gob {
                 SliceInfo::get_default_slice(&pinfo)
             } else {
                 bd.decode_slice_header(&pinfo)?
