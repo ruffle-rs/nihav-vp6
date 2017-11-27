@@ -215,8 +215,11 @@ impl H263BaseDecoder {
 
                 if slice.is_at_end(mb_pos) || (slice.needs_check() && mb_pos > 0 && bd.is_slice_end()) {
                     slice = bd.decode_slice_header(&pinfo)?;
-                    //mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
-                    //cbpi.reset(self.mb_w);
+                    if !self.is_gob {
+                        mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
+                        cbpi.reset(self.mb_w);
+                        sstate.first_line = true;
+                    }
                 }
 
                 let binfo = bd.decode_block_header(&pinfo, &slice, &sstate)?;
@@ -228,7 +231,7 @@ impl H263BaseDecoder {
                         bd.decode_block_intra(&binfo, &sstate, binfo.get_q(), i, (cbp & (1 << (5 - i))) != 0, &mut blk[i])?;
                         if apply_acpred && (binfo.acpred != ACPredMode::None) {
                             let has_b = (i == 1) || (i == 3) || (mb_x > 0);
-                            let has_a = (i == 2) || (i == 3) || (mb_y > 0);
+                            let has_a = (i == 2) || (i == 3) || !sstate.first_line;
                             let (b_mb, b_blk) = if has_b {
                                     if (i == 1) || (i == 3) {
                                         (mb_pos, i - 1)
