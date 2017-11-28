@@ -69,6 +69,31 @@ pub const H263_MV: &[(u8, u8)] = &[
     ( 2, 12)
 ];
 
+pub const H263_MBTYPE_B: &[(u8, u8)] = &[
+    (1,  1), (3,  3), (1,  5), (4,  4), (5,  4), (6,  6), (2,  4), (3,  4),
+    (7,  6), (4,  6), (5,  6), (1,  6), (1,  7), (1,  8), (1, 10)
+];
+
+// 0x1 - direct, 0x2 - has quant, 0x4 - has CBP, 0x8 - has dquant, 0x10 - has fwd, 0x20 - has bwd, 0x40 - intra
+
+pub const H263_MBB_CAP_CODED:    u8 = 0x2;
+pub const H263_MBB_CAP_DQUANT:   u8 = 0x4;
+pub const H263_MBB_CAP_FORWARD:  u8 = 0x10;
+pub const H263_MBB_CAP_BACKWARD: u8 = 0x20;
+pub const H263_MBB_CAP_INTRA:    u8 = 0x80;
+
+pub const H263_MBTYPE_B_CAPS: &[u8] = &[
+    0x00, 0x02, 0x06, // skipped, direct, direct+dq
+    0x10, 0x12, 0x16, // forward, coded forward, forward+dq
+    0x20, 0x22, 0x26, // backward, coded backward, backward+dq
+    0x30, 0x32, 0x36, // bidir, coded bidir, bidir+dq
+          0x82, 0x86  // intra, intra+dq
+];
+
+pub const H263_CBPC_B: &[(u8, u8)] = &[
+    (0, 1), (2, 2), (7, 3), (6, 3)
+];
+
 pub const H263_DQUANT_TAB: &[i8] = &[-1, -2, 1, 2];
 
 pub struct H263ShortCodeReader { tab: &'static [(u8, u8)] }
