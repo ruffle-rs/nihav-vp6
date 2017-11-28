@@ -11,7 +11,9 @@ use super::data::*;
 struct Tables {
     intra_mcbpc_cb: Codebook<u8>,
     inter_mcbpc_cb: Codebook<u8>,
+    mbtype_b_cb:    Codebook<u8>,
     cbpy_cb:        Codebook<u8>,
+    cbpc_b_cb:      Codebook<u8>,
     rl_cb:          Codebook<H263RLSym>,
     aic_rl_cb:      Codebook<H263RLSym>,
     mv_cb:          Codebook<u8>,
@@ -307,7 +309,45 @@ println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
                     }
                     Ok(binfo)
                 },
-            _ => { println!("wrong info mode"); Err(DecoderError::InvalidData) },
+            _ => { // B
+                    let mut mbtype = br.read_cb(&self.tables.mbtype_b_cb)? as usize;
+                    while mbtype == 14 { mbtype = br.read_cb(&self.tables.mbtype_b_cb)? as usize; }
+
+                    let is_coded  = (H263_MBTYPE_B_CAPS[mbtype] & H263_MBB_CAP_CODED) != 0;
+                    let is_intra  = (H263_MBTYPE_B_CAPS[mbtype] & H263_MBB_CAP_INTRA) != 0;
+                    let dquant    = (H263_MBTYPE_B_CAPS[mbtype] & H263_MBB_CAP_DQUANT) != 0;
+                    let is_fwd    = (H263_MBTYPE_B_CAPS[mbtype] & H263_MBB_CAP_FORWARD) != 0;
+                    let is_bwd    = (H263_MBTYPE_B_CAPS[mbtype] & H263_MBB_CAP_BACKWARD) != 0;
+
+                    let cbp = if is_coded {
+                            let cbpc = br.read_cb(&self.tables.cbpc_b_cb)?;
+                            let mut cbpy = br.read_cb(&self.tables.cbpy_cb)?;
+                            if !is_intra { cbpy ^= 0xF; }
+                            (cbpy << 2) | (cbpc & 3)
+                        } else { 0 };
+                    
+                    if dquant {
+                        let idx = br.read(2)? as usize;
+                        q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                    }
+println!(" MB B {}.{} cbp = {:X} @ {} ({} {})", sstate.mb_x, sstate.mb_y, cbp, br.tell(), mbtype, is_intra);
+
+                    if is_intra {
+                        let binfo = BlockInfo::new(Type::I, cbp, q);
+                        return Ok(binfo);
+                    }
+
+                    let mut binfo = BlockInfo::new(Type::B, cbp, q);
+                    if is_fwd {
+                        let mvec: [MV; 1] = [decode_mv(br, &self.tables.mv_cb)?];
+                        binfo.set_mv(&mvec);
+                    }
+                    if is_bwd {
+                        let mvec: [MV; 1] = [decode_mv(br, &self.tables.mv_cb)?];
+                        binfo.set_b_mv(&mvec);
+                    }
+                    Ok(binfo)
+                },
         }
     }
 
@@ -336,7 +376,7 @@ impl<'a> RealVideo20BR<'a> {
         let ftype = match frm_type {
                 0 | 1 => { Type::I },
                 2     => { Type::P },
-                _     => { Type::Skip },
+                _     => { Type::B },
             };
 
         let marker      = br.read(1)?;
@@ -389,8 +429,12 @@ impl RealVideo20Decoder {
         let intra_mcbpc_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263ShortCodeReader::new(H263_INTER_MCBPC);
         let inter_mcbpc_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
+        let mut coderead = H263ShortCodeReader::new(H263_MBTYPE_B);
+        let mbtype_b_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263ShortCodeReader::new(H263_CBPY);
         let cbpy_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
+        let mut coderead = H263ShortCodeReader::new(H263_CBPC_B);
+        let cbpc_b_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263RLCodeReader::new(H263_RL_CODES);
         let rl_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263RLCodeReader::new(H263_RL_CODES_AIC);
@@ -401,7 +445,9 @@ impl RealVideo20Decoder {
         let tables = Tables {
             intra_mcbpc_cb: intra_mcbpc_cb,
             inter_mcbpc_cb: inter_mcbpc_cb,
+            mbtype_b_cb:    mbtype_b_cb,
             cbpy_cb:        cbpy_cb,
+            cbpc_b_cb:      cbpc_b_cb,
             rl_cb:          rl_cb,
             aic_rl_cb:      aic_rl_cb,
             mv_cb:          mv_cb,
@@ -467,7 +513,7 @@ println!(" decode frame size {}, {} slices", src.len(), src[0]+1);
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(self.dec.is_intra());
-        frm.set_frame_type(if self.dec.is_intra() { FrameType::I } else { FrameType::P });
+        frm.set_frame_type(self.dec.get_frame_type());
         Ok(Rc::new(RefCell::new(frm)))
     }
 }
