@@ -161,6 +161,16 @@ impl H263BaseDecoder {
     }
 
     pub fn is_intra(&self) -> bool { self.ftype == Type::I }
+    pub fn get_frame_type(&self) -> FrameType {
+        match self.ftype {
+            Type::I       => FrameType::I,
+            Type::P       => FrameType::P,
+            Type::B       => FrameType::B,
+            Type::PB      => FrameType::P,
+            Type::Skip    => FrameType::Skip,
+            Type::Special => FrameType::Skip,
+        }
+    }
     pub fn get_dimensions(&self) -> (usize, usize) { (self.w, self.h) }
 
     pub fn parse_frame(&mut self, bd: &mut BlockDecoder, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
@@ -219,6 +229,7 @@ impl H263BaseDecoder {
                         mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
                         cbpi.reset(self.mb_w);
                         sstate.first_line = true;
+                        sstate.first_mb   = true;
                     }
                 }
 
@@ -230,7 +241,7 @@ impl H263BaseDecoder {
                     for i in 0..6 {
                         bd.decode_block_intra(&binfo, &sstate, binfo.get_q(), i, (cbp & (1 << (5 - i))) != 0, &mut blk[i])?;
                         if apply_acpred && (binfo.acpred != ACPredMode::None) {
-                            let has_b = (i == 1) || (i == 3) || (mb_x > 0);
+                            let has_b = (i == 1) || (i == 3) || !sstate.first_mb;
                             let has_a = (i == 2) || (i == 3) || !sstate.first_line;
                             let (b_mb, b_blk) = if has_b {
                                     if (i == 1) || (i == 3) {
@@ -299,7 +310,7 @@ impl H263BaseDecoder {
                     }
                     blockdsp::put_blocks(&mut buf, mb_x, mb_y, &blk);
                     mvi.set_zero_mv(mb_x);
-                } else if !binfo.is_skipped() {
+                } else if (binfo.mode != Type::B) && !binfo.is_skipped() {
                     if binfo.get_num_mvs() == 1 {
                         let mv = mvi.predict(mb_x, 0, false, binfo.get_mv(0));
                         if let Some(ref srcbuf) = self.prev_frm {
@@ -320,11 +331,20 @@ impl H263BaseDecoder {
                         h263_idct(&mut blk[i]);
                     }
                     blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
-                } else {
+                } else if binfo.mode != Type::B {
                     mvi.set_zero_mv(mb_x);
                     if let Some(ref srcbuf) = self.prev_frm {
                         bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, ZERO_MV);
                     }
+                } else {
+//todo
+                    if cbp != 0 {
+                        for i in 0..6 {
+                            bd.decode_block_inter(&binfo, &sstate, binfo.get_q(), i, ((cbp >> (5 - i)) & 1) != 0, &mut blk[i])?;
+                            h263_idct(&mut blk[i]);
+                        }
+                    }
+                    blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
                 }
                 if pinfo.is_pb() {
                     let mut b_mb = BMB::new();

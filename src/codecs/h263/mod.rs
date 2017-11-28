@@ -121,6 +121,7 @@ pub struct SliceState {
     pub mb_x:       usize,
     pub mb_y:       usize,
     pub first_line: bool,
+    pub first_mb:   bool,
 }
 
 const SLICE_NO_END: usize = 99999999;
@@ -142,10 +143,13 @@ impl SliceInfo {
 
 impl SliceState {
     pub fn new(is_iframe: bool) -> Self {
-        SliceState { is_iframe: is_iframe, mb_x: 0, mb_y: 0, first_line: true }
+        SliceState { is_iframe: is_iframe, mb_x: 0, mb_y: 0, first_line: true, first_mb: true }
     }
-    pub fn next_mb(&mut self) { self.mb_x += 1; }
-    pub fn new_row(&mut self) { self.mb_x = 0; self.mb_y += 1; self.first_line = false; }
+    pub fn next_mb(&mut self) { self.mb_x += 1; self.first_mb = false; }
+    pub fn new_row(&mut self) {
+        self.mb_x = 0; self.mb_y += 1;
+        self.first_line = false; self.first_mb = true;
+    }
 }
 
 #[derive(Debug,Clone,Copy)]
