@@ -364,9 +364,9 @@ impl MV {
         }
     }
     fn b_sub(pvec: MV, fwdvec: MV, bvec: MV, trb: u16, trd: u16) -> Self {
-        let bscale = (trb as i16) - (trd as i16);
-        let x = if bvec.x != 0 { fwdvec.x - pvec.x } else if trd != 0 { bscale * pvec.x / (trd as i16) } else { 0 };
-        let y = if bvec.y != 0 { fwdvec.y - pvec.y } else if trd != 0 { bscale * pvec.y / (trd as i16) } else { 0 };
+        let bscale = (trb as i32) - (trd as i32);
+        let x = if bvec.x != 0 { fwdvec.x - pvec.x } else if trd != 0 { (bscale * (pvec.x as i32) / (trd as i32)) as i16 } else { 0 };
+        let y = if bvec.y != 0 { fwdvec.y - pvec.y } else if trd != 0 { (bscale * (pvec.y as i32) / (trd as i32)) as i16 } else { 0 };
         MV { x: x, y: y }
     }
 }

@@ -186,6 +186,7 @@ impl H263BaseDecoder {
     pub fn parse_frame(&mut self, bd: &mut BlockDecoder, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
         let pinfo = bd.decode_pichdr()?;
         let mut mvi = MVInfo::new();
+        let mut mvi2 = MVInfo::new();
         let mut cbpi = CBPInfo::new();
 
 //todo handle res change
@@ -205,6 +206,7 @@ impl H263BaseDecoder {
         if save_b_data {
             self.mv_data.truncate(0);
         }
+        let is_b = pinfo.mode == Type::B;
 
         let tsdiff = pinfo.ts.wrapping_sub(self.last_ts) >> 1;
         let bsdiff = if pinfo.is_pb() { (pinfo.get_pbinfo().get_trb() as u16) << 7 }
@@ -223,6 +225,9 @@ impl H263BaseDecoder {
                 bd.decode_slice_header(&pinfo)?
             };
         mvi.reset(self.mb_w, 0, pinfo.get_mvmode());
+        if is_b {
+            mvi2.reset(self.mb_w, 0, pinfo.get_mvmode());
+        }
         cbpi.reset(self.mb_w);
 
         let mut blk: [[i16; 64]; 6] = [[0; 64]; 6];
@@ -241,6 +246,9 @@ impl H263BaseDecoder {
                     slice = bd.decode_slice_header(&pinfo)?;
                     if !self.is_gob {
                         mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
+                        if is_b {
+                            mvi2.reset(self.mb_w, mb_x, pinfo.get_mvmode());
+                        }
                         cbpi.reset(self.mb_w);
                         sstate.reset_slice(mb_x, mb_y);
                     }
@@ -326,6 +334,9 @@ impl H263BaseDecoder {
                     }
                     blockdsp::put_blocks(&mut buf, mb_x, mb_y, &blk);
                     mvi.set_zero_mv(mb_x);
+                    if is_b {
+                        mvi2.set_zero_mv(mb_x);
+                    }
                 } else if (binfo.mode != Type::B) && !binfo.is_skipped() {
                     if binfo.get_num_mvs() == 1 {
                         let mv = mvi.predict(mb_x, 0, false, binfo.get_mv(0), sstate.first_line, sstate.first_mb);
@@ -364,44 +375,57 @@ impl H263BaseDecoder {
                     let ref_mv_info = self.mv_data[mb_pos];
                     let has_fwd = binfo.get_num_mvs() > 0;
                     let has_bwd = binfo.get_num_mvs2() > 0;
-                    let is_direct = has_fwd && has_bwd;
 //todo refactor
-                    if let BlockMVInfo::Inter_4MV(mvs) = ref_mv_info {
-                        for blk_no in 0..4 {
-                            let ref_mv = mvs[blk_no];
-                            let mut ref_mv_fwd = ref_mv.scale(bsdiff, tsdiff);
-                            let mut ref_mv_bwd = ref_mv - ref_mv_fwd;
-                            let xoff = mb_x * 16 + (blk_no & 1) * 8;
-                            let yoff = mb_y * 16 + (blk_no & 2) * 4;
-                            if has_fwd { ref_mv_fwd = MV::add_umv(ref_mv_fwd, binfo.get_mv(0), pinfo.get_mvmode()); }
-                            if has_bwd { ref_mv_bwd = MV::add_umv(ref_mv_bwd, binfo.get_mv2(0), pinfo.get_mvmode()); }
-                            if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
-                                if is_direct || (!has_fwd && !has_bwd) {
-                                    bdsp.copy_blocks(&mut buf, fwd_buf, xoff, yoff, 8, 8, ref_mv_fwd);
-                                    bdsp.avg_blocks(&mut buf, bck_buf, xoff, yoff, 8, 8, ref_mv_bwd);
-                                } else if has_fwd {
-                                    bdsp.copy_blocks(&mut buf, fwd_buf, xoff, yoff, 8, 8, ref_mv_fwd);
-                                } else {
-                                    bdsp.copy_blocks(&mut buf, bck_buf, xoff, yoff, 8, 8, ref_mv_bwd);
-                                }
+                    if has_fwd || has_bwd {
+                        let fwd_mv;
+                        if has_fwd {
+                            fwd_mv = mvi.predict(mb_x, 0, false, binfo.get_mv(0), sstate.first_line, sstate.first_mb);
+                        } else {
+                            fwd_mv = ZERO_MV;
+                            mvi.set_zero_mv(mb_x);
+                        }
+                        let bwd_mv;
+                        if has_bwd {
+                            bwd_mv = mvi2.predict(mb_x, 0, false, binfo.get_mv2(0), sstate.first_line, sstate.first_mb);
+                        } else {
+                            bwd_mv = ZERO_MV;
+                            mvi2.set_zero_mv(mb_x);
+                        }
+                        if let (Some(ref fwd_buf), Some(ref bck_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
+                            if has_fwd && has_bwd {
+                                bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, fwd_mv);
+                                bdsp.avg_blocks (&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, bwd_mv);
+                            } else if has_fwd {
+                                bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, fwd_mv);
+                            } else {
+                                bdsp.copy_blocks(&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, bwd_mv);
                             }
                         }
                     } else {
-                        let ref_mv = if let BlockMVInfo::Inter_1MV(mv_) = ref_mv_info { mv_ } else { ZERO_MV };
-                        let mut ref_mv_fwd = ref_mv.scale(bsdiff, tsdiff);
-                        let mut ref_mv_bwd = ref_mv - ref_mv_fwd;
-                        if has_fwd { ref_mv_fwd = MV::add_umv(ref_mv_fwd, binfo.get_mv(0), pinfo.get_mvmode()); }
-                        if has_bwd { ref_mv_bwd = MV::add_umv(ref_mv_bwd, binfo.get_mv2(0), pinfo.get_mvmode()); }
-                        if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
-                            if is_direct || (!has_fwd && !has_bwd) {
+                        if let BlockMVInfo::Inter_4MV(mvs) = ref_mv_info {
+                            for blk_no in 0..4 {
+                                let ref_mv = mvs[blk_no];
+                                let ref_mv_fwd = ref_mv.scale(bsdiff, tsdiff);
+                                let ref_mv_bwd = ref_mv - ref_mv_fwd;
+                                let xoff = mb_x * 16 + (blk_no & 1) * 8;
+                                let yoff = mb_y * 16 + (blk_no & 2) * 4;
+                                if let (Some(ref fwd_buf), Some(ref bck_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
+                                    bdsp.copy_blocks(&mut buf, fwd_buf, xoff, yoff, 8, 8, ref_mv_fwd);
+                                    bdsp.avg_blocks (&mut buf, bck_buf, xoff, yoff, 8, 8, ref_mv_bwd);
+                                }
+                            }
+                        } else {
+                            let ref_mv = if let BlockMVInfo::Inter_1MV(mv_) = ref_mv_info { mv_ } else { ZERO_MV };
+                            let ref_mv_fwd = ref_mv.scale(bsdiff, tsdiff);
+                            let ref_mv_bwd = MV::b_sub(ref_mv, ref_mv_fwd, ZERO_MV, bsdiff, tsdiff);
+
+                            if let (Some(ref fwd_buf), Some(ref bck_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
                                 bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_fwd);
-                                bdsp.avg_blocks(&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_bwd);
-                            } else if has_fwd {
-                                bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_fwd);
-                            } else {
-                                bdsp.copy_blocks(&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_bwd);
+                                bdsp.avg_blocks (&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_bwd);
                             }
                         }
+                        mvi.set_zero_mv(mb_x);
+                        mvi2.set_zero_mv(mb_x);
                     }
                     if cbp != 0 {
                         for i in 0..6 {
