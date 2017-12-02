@@ -36,6 +36,15 @@ pub enum Type {
     I, P, PB, Skip, B, Special
 }
 
+impl Type {
+    pub fn is_ref(&self) -> bool {
+        match *self {
+            Type::I | Type::P | Type::PB => true,
+            _                            => false,
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug,Clone,Copy)]
 pub struct PBInfo {
@@ -57,19 +66,20 @@ pub struct PicInfo {
     pub w:          usize,
     pub h:          usize,
     pub mode:       Type,
+    pub mvmode:     MVMode,
     pub umv:        bool,
     pub apm:        bool,
     pub quant:      u8,
     pub pb:         Option<PBInfo>,
-    pub ts:         u8,
+    pub ts:         u16,
     pub plusinfo:   Option<PlusInfo>,
 }
 
 #[allow(dead_code)]
 impl PicInfo {
-    pub fn new(w: usize, h: usize, mode: Type, umv: bool, apm: bool, quant: u8, ts: u8, pb: Option<PBInfo>, plusinfo: Option<PlusInfo>) -> Self {
+    pub fn new(w: usize, h: usize, mode: Type, mvmode: MVMode, umv: bool, apm: bool, quant: u8, ts: u16, pb: Option<PBInfo>, plusinfo: Option<PlusInfo>) -> Self {
         PicInfo {
-            w: w, h: h, mode: mode,
+            w: w, h: h, mode: mode, mvmode: mvmode,
             umv: umv, apm: apm, quant: quant,
             pb: pb, ts: ts, plusinfo: plusinfo
         }
@@ -80,14 +90,10 @@ impl PicInfo {
     pub fn get_quant(&self) -> u8 { self.quant }
     pub fn get_apm(&self) -> bool { self.apm }
     pub fn is_pb(&self) -> bool { self.pb.is_some() }
-    pub fn get_ts(&self) -> u8 { self.ts }
+    pub fn get_ts(&self) -> u16 { self.ts }
     pub fn get_pbinfo(&self) -> PBInfo { self.pb.unwrap() }
     pub fn get_plusifo(&self) -> Option<PlusInfo> { self.plusinfo }
-    pub fn get_mvmode(&self) -> MVMode {
-            if self.umv      { MVMode::UMV }
-            else if self.apm { MVMode::Long }
-            else             { MVMode::Old }
-        }
+    pub fn get_mvmode(&self) -> MVMode { self.mvmode }
 }
 
 #[allow(dead_code)]
@@ -122,6 +128,8 @@ pub struct SliceState {
     pub mb_y:       usize,
     pub first_line: bool,
     pub first_mb:   bool,
+    pub slice_mb_x: usize,
+    pub slice_mb_y: usize,
 }
 
 const SLICE_NO_END: usize = 99999999;
@@ -143,12 +151,29 @@ impl SliceInfo {
 
 impl SliceState {
     pub fn new(is_iframe: bool) -> Self {
-        SliceState { is_iframe: is_iframe, mb_x: 0, mb_y: 0, first_line: true, first_mb: true }
+        SliceState {
+            is_iframe: is_iframe, mb_x: 0, mb_y: 0, first_line: true, first_mb: true,
+            slice_mb_x: 0, slice_mb_y: 0
+        }
     }
-    pub fn next_mb(&mut self) { self.mb_x += 1; self.first_mb = false; }
+    pub fn next_mb(&mut self) {
+        self.mb_x += 1; self.first_mb = false;
+        if self.mb_x >= self.slice_mb_x && self.mb_y > self.slice_mb_y {
+            self.first_line = false;
+        }
+    }
     pub fn new_row(&mut self) {
         self.mb_x = 0; self.mb_y += 1;
-        self.first_line = false; self.first_mb = true;
+        if self.mb_x >= self.slice_mb_x && self.mb_y > self.slice_mb_y {
+            self.first_line = false;
+        }
+        self.first_mb = true;
+    }
+    pub fn reset_slice(&mut self, smb_x: usize, smb_y: usize) {
+        self.slice_mb_x = smb_x;
+        self.slice_mb_y = smb_y;
+        self.first_line = true;
+        self.first_mb   = true;
     }
 }
 
@@ -176,6 +201,14 @@ pub struct BBlockInfo {
     cbp:     u8,
     num_mv:  usize,
     fwd:     bool,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug,Clone,Copy)]
+pub enum BlockMVInfo {
+    Intra,
+    Inter_1MV(MV),
+    Inter_4MV([MV; 4]),
 }
 
 #[allow(dead_code)]
@@ -323,14 +356,14 @@ impl MV {
         };
         new_mv
     }
-    fn scale(&self, trb: u8, trd: u8) -> Self {
+    fn scale(&self, trb: u16, trd: u16) -> Self {
         if (trd == 0) || (trb == 0) {
             ZERO_MV
         } else {
-            MV { x: (self.x * (trb as i16)) / (trd as i16), y: (self.y * (trb as i16)) / (trd as i16) }
+            MV { x: (((self.x as i32) * (trb as i32)) / (trd as i32)) as i16, y: (((self.y as i32) * (trb as i32)) / (trd as i32)) as i16 }
         }
     }
-    fn b_sub(pvec: MV, fwdvec: MV, bvec: MV, trb: u8, trd: u8) -> Self {
+    fn b_sub(pvec: MV, fwdvec: MV, bvec: MV, trb: u16, trd: u16) -> Self {
         let bscale = (trb as i16) - (trd as i16);
         let x = if bvec.x != 0 { fwdvec.x - pvec.x } else if trd != 0 { bscale * pvec.x / (trd as i16) } else { 0 };
         let y = if bvec.y != 0 { fwdvec.y - pvec.y } else if trd != 0 { bscale * pvec.y / (trd as i16) } else { 0 };

@@ -224,7 +224,7 @@ println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_
         let mb_end = shdr.mb_x + shdr.mb_y * self.mb_w + shdr.mb_c;
 
         let ftype = if !shdr.is_p { Type::I } else { Type::P };
-        let picinfo = PicInfo::new(self.w, self.h, ftype, false, false, shdr.qscale, 0, None, None);
+        let picinfo = PicInfo::new(self.w, self.h, ftype, MVMode::Old, false, false, shdr.qscale, 0, None, None);
         Ok(picinfo)
     }
 

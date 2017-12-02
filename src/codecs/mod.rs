@@ -1,6 +1,7 @@
 use frame::*;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::mem;
 use io::byteio::ByteIOError;
 use io::bitreader::BitReaderError;
 use io::codebook::CodebookError;
@@ -95,6 +96,40 @@ impl IPShuffler {
     #[allow(dead_code)]
     fn get_ref(&mut self) -> Option<NAVideoBuffer<u8>> {
         if let Some(ref frm) = self.lastframe {
+            Some(frm.clone())
+        } else {
+            None
+        }
+    }
+}
+
+#[allow(dead_code)]
+struct IPBShuffler {
+    lastframe: Option<NAVideoBuffer<u8>>,
+    nextframe: Option<NAVideoBuffer<u8>>,
+}
+
+impl IPBShuffler {
+    #[allow(dead_code)]
+    fn new() -> Self { IPBShuffler { lastframe: None, nextframe: None } }
+    #[allow(dead_code)]
+    fn clear(&mut self) { self.lastframe = None; self.nextframe = None; }
+    #[allow(dead_code)]
+    fn add_frame(&mut self, buf: NAVideoBuffer<u8>) {
+        mem::swap(&mut self.lastframe, &mut self.nextframe);
+        self.lastframe = Some(buf);
+    }
+    #[allow(dead_code)]
+    fn get_lastref(&mut self) -> Option<NAVideoBuffer<u8>> {
+        if let Some(ref frm) = self.lastframe {
+            Some(frm.clone())
+        } else {
+            None
+        }
+    }
+    #[allow(dead_code)]
+    fn get_nextref(&mut self) -> Option<NAVideoBuffer<u8>> {
+        if let Some(ref frm) = self.nextframe {
             Some(frm.clone())
         } else {
             None

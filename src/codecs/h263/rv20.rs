@@ -55,6 +55,7 @@ struct RealVideo20BR<'a> {
 
 struct RV20SliceInfo {
     ftype:  Type,
+    seq:    u32,
     qscale: u8,
     mb_x:   usize,
     mb_y:   usize,
@@ -64,8 +65,8 @@ struct RV20SliceInfo {
 }
 
 impl RV20SliceInfo {
-    fn new(ftype: Type, qscale: u8, mb_x: usize, mb_y: usize, mb_pos: usize, w: usize, h: usize) -> Self {
-        RV20SliceInfo { ftype: ftype, qscale: qscale, mb_x: mb_x, mb_y: mb_y, mb_pos: mb_pos, w: w, h: h }
+    fn new(ftype: Type, seq: u32, qscale: u8, mb_x: usize, mb_y: usize, mb_pos: usize, w: usize, h: usize) -> Self {
+        RV20SliceInfo { ftype: ftype, seq: seq, qscale: qscale, mb_x: mb_x, mb_y: mb_y, mb_pos: mb_pos, w: w, h: h }
     }
 }
 
@@ -139,11 +140,7 @@ impl<'a> RealVideo20BR<'a> {
                 level = code.get_level();
                 last  = code.is_last();
                 if br.read_bool()? { level = -level; }
-                if (idx != 0) || !sstate.is_iframe {
-                    level = (level * q) + q_add;
-                } else {
-                    level = level * (H263_DC_SCALES[quant as usize] as i16);
-                }
+                level = (level * q) + q_add;
             } else {
                 last  = br.read_bool()?;
                 run   = br.read(6)? as u8;
@@ -153,11 +150,7 @@ impl<'a> RealVideo20BR<'a> {
                     let top = br.read_s(6)? as i16;
                     level = (top << 5) | low;
                 }
-                if (idx != 0) || !sstate.is_iframe {
-                    level = (level * q) + q_add;
-                } else {
-                    level = level * (H263_DC_SCALES[quant as usize] as i16);
-                }
+                level = (level * q) + q_add;
                 if level < -2048 { level = -2048; }
                 if level >  2047 { level =  2047; }
             }
@@ -210,7 +203,7 @@ println!("slice ends @ {}\n", self.br.tell());
         }*/
 
         let plusinfo = Some(PlusInfo::new(shdr.ftype == Type::I, false, false, false));
-        let picinfo = PicInfo::new(shdr.w, shdr.h, shdr.ftype, false, false, shdr.qscale, 0, None, plusinfo);
+        let picinfo = PicInfo::new(shdr.w, shdr.h, shdr.ftype, MVMode::Long, false, false, shdr.qscale, shdr.seq as u16, None, plusinfo);
         Ok(picinfo)
     }
 
@@ -245,7 +238,7 @@ println!("slice ends @ {}\n", self.br.tell());
                         if pi.aic {
                             let acpp = br.read_bool()?;
                             acpred = ACPredMode::DC;
-                            println!("   acp {} @ {}", acpp as u8, br.tell());
+//println!("   acp {} @ {}", acpp as u8, br.tell());
                             if acpp {
                                 acpred = if br.read_bool()? { ACPredMode::Hor } else { ACPredMode::Ver };
                             }
@@ -309,7 +302,7 @@ println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
                     }
                     Ok(binfo)
                 },
-            _ => { // B
+            Type::B => { // B
                     let mut mbtype = br.read_cb(&self.tables.mbtype_b_cb)? as usize;
                     while mbtype == 14 { mbtype = br.read_cb(&self.tables.mbtype_b_cb)? as usize; }
 
@@ -330,7 +323,7 @@ println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
-println!(" MB B {}.{} cbp = {:X} @ {} ({} {})", sstate.mb_x, sstate.mb_y, cbp, br.tell(), mbtype, is_intra);
+//println!(" MB B {}.{} cbp = {:X} @ {} ({} {})", sstate.mb_x, sstate.mb_y, cbp, br.tell(), mbtype, is_intra);
 
                     if is_intra {
                         let binfo = BlockInfo::new(Type::I, cbp, q);
@@ -348,6 +341,7 @@ println!(" MB B {}.{} cbp = {:X} @ {} ({} {})", sstate.mb_x, sstate.mb_y, cbp, b
                     }
                     Ok(binfo)
                 },
+            _ => { unreachable!(); },
         }
     }
 
@@ -387,9 +381,9 @@ impl<'a> RealVideo20BR<'a> {
             br.skip(1)?; // loop filter
         }
         let seq = if self.minor_ver <= 1 {
-                br.read(8)?  << 7
+                br.read(8)?  << 8
             } else {
-                br.read(13)? << 2
+                br.read(13)? << 3
             };
         let w;
         let h;
@@ -419,7 +413,7 @@ impl<'a> RealVideo20BR<'a> {
         }
 println!("slice q {} mb {},{}", qscale, mb_x, mb_y);
 
-        Ok(RV20SliceInfo::new(ftype, qscale, mb_x, mb_y, mb_pos, w, h))
+        Ok(RV20SliceInfo::new(ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h))
     }
 }
 
@@ -455,7 +449,7 @@ impl RealVideo20Decoder {
 
         RealVideo20Decoder{
             info:           Rc::new(DUMMY_CODEC_INFO),
-            dec:            H263BaseDecoder::new(false),
+            dec:            H263BaseDecoder::new_b_frames(false),
             tables:         tables,
             w:              0,
             h:              0,
@@ -538,7 +532,7 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_rv20() {
-        test_file_decoding("realmedia", "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm", None, true, false, Some("rv20"));
+        test_file_decoding("realmedia", "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm", /*None*/Some(7000), true, false, Some("rv20"));
 //        test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(1000), true, false, Some("rv20"));
     }
 }

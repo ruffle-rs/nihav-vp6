@@ -1,4 +1,4 @@
-use std::mem;
+//use std::mem;
 use frame::*;
 use super::super::*;
 use super::super::blockdsp;
@@ -22,7 +22,6 @@ impl MVInfo {
         self.mb_start  = mb_start;
         self.mb_w      = mb_w;
         self.mb_stride = mb_w * 2;
-        self.top       = true;
         self.mv.resize(self.mb_stride * 3, ZERO_MV);
         self.mvmode    = mvmode;
     }
@@ -34,7 +33,7 @@ impl MVInfo {
         }
     }
     #[allow(non_snake_case)]
-    fn predict(&mut self, mb_x: usize, blk_no: usize, use4: bool, diff: MV) -> MV {
+    fn predict(&mut self, mb_x: usize, blk_no: usize, use4: bool, diff: MV, first_line: bool, first_mb: bool) -> MV {
         let A;
         let B;
         let C;
@@ -42,17 +41,17 @@ impl MVInfo {
         match blk_no {
             0 => {
                     if mb_x != self.mb_start {
-                        A = if mb_x != 0 { self.mv[self.mb_stride + mb_x * 2 - 1] } else { ZERO_MV };
-                        B = if !self.top { self.mv[                 mb_x * 2] } else { A };
-                        C = if !self.top && !last { self.mv[mb_x * 2 + 2] } else { ZERO_MV };
+                        A = if !first_mb   { self.mv[self.mb_stride + mb_x * 2 - 1] } else { ZERO_MV };
+                        B = if !first_line { self.mv[                 mb_x * 2] } else { A };
+                        C = if !first_line && !last { self.mv[mb_x * 2 + 2] } else { ZERO_MV };
                     } else {
                         A = ZERO_MV; B = ZERO_MV; C = ZERO_MV;
                     }
                 },
             1 => {
                     A = self.mv[self.mb_stride + mb_x * 2];
-                    B = if !self.top { self.mv[mb_x * 2 + 1] } else { A };
-                    C = if !self.top && !last { self.mv[mb_x * 2 + 2] } else { A };
+                    B = if !first_line { self.mv[mb_x * 2 + 1] } else { A };
+                    C = if !first_line && !last { self.mv[mb_x * 2 + 2] } else { A };
                 },
             2 => {
                     A = if mb_x != self.mb_start { self.mv[self.mb_stride * 2 + mb_x * 2 - 1] } else { ZERO_MV };
@@ -123,13 +122,16 @@ pub struct H263BaseDecoder {
     mb_h:       usize,
     num_mb:     usize,
     ftype:      Type,
-    prev_frm:   Option<NAVideoBuffer<u8>>,
-    cur_frm:    Option<NAVideoBuffer<u8>>,
-    last_ts:    u8,
+    ipbs:       IPBShuffler,
+    next_ts:    u16,
+    last_ts:    u16,
+    tsdiff:     u16,
     has_b:      bool,
     b_data:     Vec<BMB>,
     pred_coeffs: Vec<PredCoeffs>,
     is_gob:     bool,
+    may_have_b_frames: bool,
+    mv_data:    Vec<BlockMVInfo>,
 }
 
 #[inline]
@@ -148,16 +150,24 @@ fn clip_ac(ac: i16) -> i16 {
 
 #[allow(dead_code)]
 impl H263BaseDecoder {
-    pub fn new(is_gob: bool) -> Self {
+    pub fn new_with_opts(is_gob: bool, may_have_b_frames: bool) -> Self {
         H263BaseDecoder{
             w: 0, h: 0, mb_w: 0, mb_h: 0, num_mb: 0,
             ftype: Type::Special,
-            prev_frm: None, cur_frm: None,
-            last_ts: 0,
+            ipbs: IPBShuffler::new(),
+            last_ts: 0, next_ts: 0, tsdiff: 0,
             has_b: false, b_data: Vec::new(),
             pred_coeffs: Vec::new(),
             is_gob: is_gob,
+            may_have_b_frames: may_have_b_frames,
+            mv_data: Vec::new(),
         }
+    }
+    pub fn new(is_gob: bool) -> Self {
+        Self::new_with_opts(is_gob, false)
+    }
+    pub fn new_b_frames(is_gob: bool) -> Self {
+        Self::new_with_opts(is_gob, true)
     }
 
     pub fn is_intra(&self) -> bool { self.ftype == Type::I }
@@ -188,13 +198,17 @@ impl H263BaseDecoder {
         self.has_b = pinfo.is_pb();
 
         if self.has_b {
-            self.b_data.truncate(0);
+            self.mv_data.truncate(0);
         }
 
-        mem::swap(&mut self.cur_frm, &mut self.prev_frm);
+        let save_b_data = pinfo.mode.is_ref() && self.may_have_b_frames;
+        if save_b_data {
+            self.mv_data.truncate(0);
+        }
 
-        let tsdiff = pinfo.ts.wrapping_sub(self.last_ts);
-        let bsdiff = if pinfo.is_pb() { pinfo.get_pbinfo().get_trb() } else { 0 };
+        let tsdiff = pinfo.ts.wrapping_sub(self.last_ts) >> 1;
+        let bsdiff = if pinfo.is_pb() { (pinfo.get_pbinfo().get_trb() as u16) << 7 }
+                     else { pinfo.ts.wrapping_sub(self.next_ts) >> 1 };
 
         let fmt = formats::YUV420_FORMAT;
         let vinfo = NAVideoInfo::new(self.w, self.h, false, fmt);
@@ -228,8 +242,7 @@ impl H263BaseDecoder {
                     if !self.is_gob {
                         mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
                         cbpi.reset(self.mb_w);
-                        sstate.first_line = true;
-                        sstate.first_mb   = true;
+                        sstate.reset_slice(mb_x, mb_y);
                     }
                 }
 
@@ -238,6 +251,9 @@ impl H263BaseDecoder {
                 cbpi.set_cbp(mb_x, cbp);
                 cbpi.set_q(mb_x, binfo.get_q());
                 if binfo.is_intra() {
+                    if save_b_data {
+                        self.mv_data.push(BlockMVInfo::Intra);
+                    }
                     for i in 0..6 {
                         bd.decode_block_intra(&binfo, &sstate, binfo.get_q(), i, (cbp & (1 << (5 - i))) != 0, &mut blk[i])?;
                         if apply_acpred && (binfo.acpred != ACPredMode::None) {
@@ -312,18 +328,25 @@ impl H263BaseDecoder {
                     mvi.set_zero_mv(mb_x);
                 } else if (binfo.mode != Type::B) && !binfo.is_skipped() {
                     if binfo.get_num_mvs() == 1 {
-                        let mv = mvi.predict(mb_x, 0, false, binfo.get_mv(0));
-                        if let Some(ref srcbuf) = self.prev_frm {
+                        let mv = mvi.predict(mb_x, 0, false, binfo.get_mv(0), sstate.first_line, sstate.first_mb);
+                        if save_b_data {
+                            self.mv_data.push(BlockMVInfo::Inter_1MV(mv));
+                        }
+                        if let Some(ref srcbuf) = self.ipbs.get_lastref() {
                             bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, mv);
                         }
                     } else {
+                        let mut mv: [MV; 4] = [ZERO_MV, ZERO_MV, ZERO_MV, ZERO_MV];
                         for blk_no in 0..4 {
-                            let mv = mvi.predict(mb_x, blk_no, true, binfo.get_mv(blk_no));
-                            if let Some(ref srcbuf) = self.prev_frm {
+                            mv[blk_no] = mvi.predict(mb_x, blk_no, true, binfo.get_mv(blk_no), sstate.first_line, sstate.first_mb);
+                            if let Some(ref srcbuf) = self.ipbs.get_lastref() {
                                 bdsp.copy_blocks(&mut buf, srcbuf,
                                                  mb_x * 16 + (blk_no & 1) * 8,
-                                                 mb_y * 16 + (blk_no & 2) * 4, 8, 8, mv);
+                                                 mb_y * 16 + (blk_no & 2) * 4, 8, 8, mv[blk_no]);
                             }
+                        }
+                        if save_b_data {
+                            self.mv_data.push(BlockMVInfo::Inter_4MV(mv));
                         }
                     }
                     for i in 0..6 {
@@ -332,19 +355,61 @@ impl H263BaseDecoder {
                     }
                     blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
                 } else if binfo.mode != Type::B {
+                    self.mv_data.push(BlockMVInfo::Inter_1MV(ZERO_MV));
                     mvi.set_zero_mv(mb_x);
-                    if let Some(ref srcbuf) = self.prev_frm {
+                    if let Some(ref srcbuf) = self.ipbs.get_lastref() {
                         bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, ZERO_MV);
                     }
                 } else {
-//todo
+                    let ref_mv_info = self.mv_data[mb_pos];
+                    let has_fwd = binfo.get_num_mvs() > 0;
+                    let has_bwd = binfo.get_num_mvs2() > 0;
+                    let is_direct = has_fwd && has_bwd;
+//todo refactor
+                    if let BlockMVInfo::Inter_4MV(mvs) = ref_mv_info {
+                        for blk_no in 0..4 {
+                            let ref_mv = mvs[blk_no];
+                            let mut ref_mv_fwd = ref_mv.scale(bsdiff, tsdiff);
+                            let mut ref_mv_bwd = ref_mv - ref_mv_fwd;
+                            let xoff = mb_x * 16 + (blk_no & 1) * 8;
+                            let yoff = mb_y * 16 + (blk_no & 2) * 4;
+                            if has_fwd { ref_mv_fwd = MV::add_umv(ref_mv_fwd, binfo.get_mv(0), pinfo.get_mvmode()); }
+                            if has_bwd { ref_mv_bwd = MV::add_umv(ref_mv_bwd, binfo.get_mv2(0), pinfo.get_mvmode()); }
+                            if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
+                                if is_direct || (!has_fwd && !has_bwd) {
+                                    bdsp.copy_blocks(&mut buf, fwd_buf, xoff, yoff, 8, 8, ref_mv_fwd);
+                                    bdsp.avg_blocks(&mut buf, bck_buf, xoff, yoff, 8, 8, ref_mv_bwd);
+                                } else if has_fwd {
+                                    bdsp.copy_blocks(&mut buf, fwd_buf, xoff, yoff, 8, 8, ref_mv_fwd);
+                                } else {
+                                    bdsp.copy_blocks(&mut buf, bck_buf, xoff, yoff, 8, 8, ref_mv_bwd);
+                                }
+                            }
+                        }
+                    } else {
+                        let ref_mv = if let BlockMVInfo::Inter_1MV(mv_) = ref_mv_info { mv_ } else { ZERO_MV };
+                        let mut ref_mv_fwd = ref_mv.scale(bsdiff, tsdiff);
+                        let mut ref_mv_bwd = ref_mv - ref_mv_fwd;
+                        if has_fwd { ref_mv_fwd = MV::add_umv(ref_mv_fwd, binfo.get_mv(0), pinfo.get_mvmode()); }
+                        if has_bwd { ref_mv_bwd = MV::add_umv(ref_mv_bwd, binfo.get_mv2(0), pinfo.get_mvmode()); }
+                        if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
+                            if is_direct || (!has_fwd && !has_bwd) {
+                                bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_fwd);
+                                bdsp.avg_blocks(&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_bwd);
+                            } else if has_fwd {
+                                bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_fwd);
+                            } else {
+                                bdsp.copy_blocks(&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_bwd);
+                            }
+                        }
+                    }
                     if cbp != 0 {
                         for i in 0..6 {
                             bd.decode_block_inter(&binfo, &sstate, binfo.get_q(), i, ((cbp >> (5 - i)) & 1) != 0, &mut blk[i])?;
                             h263_idct(&mut blk[i]);
                         }
+                        blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
                     }
-                    blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
                 }
                 if pinfo.is_pb() {
                     let mut b_mb = BMB::new();
@@ -397,14 +462,19 @@ impl H263BaseDecoder {
             cbpi.update_row();
             sstate.new_row();
         }
-        
-        self.cur_frm = Some(buf);
-        self.last_ts = pinfo.ts;
+
+        if pinfo.mode.is_ref() {
+            self.ipbs.add_frame(buf);
+            self.next_ts = self.last_ts;
+            self.last_ts = pinfo.ts;
+            self.tsdiff  = tsdiff;
+        }
+
         Ok(bufinfo)
     }
 
     pub fn get_bframe(&mut self, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
-        if !self.has_b || !self.cur_frm.is_some() || !self.prev_frm.is_some() {
+        if !self.has_b || !self.ipbs.get_lastref().is_some() || !self.ipbs.get_nextref().is_some() {
             return Err(DecoderError::MissingReference);
         }
         self.has_b = false;
@@ -416,10 +486,8 @@ impl H263BaseDecoder {
         let mut bufinfo = bufret.unwrap();
         let mut b_buf = bufinfo.get_vbuf().unwrap();
 
-        if let Some(ref bck_buf) = self.prev_frm {
-            if let Some(ref fwd_buf) = self.cur_frm {
-                recon_b_frame(&mut b_buf, bck_buf, fwd_buf, self.mb_w, self.mb_h, &self.b_data, bdsp);
-            }
+        if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
+            recon_b_frame(&mut b_buf, bck_buf, fwd_buf, self.mb_w, self.mb_h, &self.b_data, bdsp);
         }
 
         self.b_data.truncate(0);

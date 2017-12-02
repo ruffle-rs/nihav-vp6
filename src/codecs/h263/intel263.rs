@@ -140,7 +140,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         let mut br = &mut self.br;
         let syncw = br.read(22)?;
         validate!(syncw == 0x000020);
-        let tr = br.read(8)? as u8;
+        let tr = (br.read(8)? << 8) as u16;
         check_marker(br)?;
         let id = br.read(1)?;
         validate!(id == 0);
@@ -205,7 +205,8 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
 
         let ftype = if is_intra { Type::I } else { Type::P };
         let plusinfo = if deblock { Some(PlusInfo::new(false, deblock, false, false)) } else { None };
-        let picinfo = PicInfo::new(w, h, ftype, umv, apm, quant as u8, tr, pbinfo, plusinfo);
+        let mvmode = if umv { MVMode::UMV } else { MVMode::Old };
+        let picinfo = PicInfo::new(w, h, ftype, mvmode, umv, apm, quant as u8, tr, pbinfo, plusinfo);
         Ok(picinfo)
     }
 
