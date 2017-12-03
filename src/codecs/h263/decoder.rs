@@ -3,7 +3,7 @@ use frame::*;
 use super::super::*;
 use super::super::blockdsp;
 use super::*;
-use super::code::*;
+//use super::code::*;
 use formats;
 
 #[allow(dead_code)]
@@ -330,7 +330,7 @@ impl H263BaseDecoder {
                             for t in 0..8 { self.pred_coeffs[mb_pos].hor[i][t] = blk[i][t * 8]; }
                             for t in 0..8 { self.pred_coeffs[mb_pos].ver[i][t] = blk[i][t]; }
                         }
-                        h263_idct(&mut blk[i]);
+                        bdsp.idct(&mut blk[i]);
                     }
                     blockdsp::put_blocks(&mut buf, mb_x, mb_y, &blk);
                     mvi.set_zero_mv(mb_x);
@@ -362,7 +362,7 @@ impl H263BaseDecoder {
                     }
                     for i in 0..6 {
                         bd.decode_block_inter(&binfo, &sstate, binfo.get_q(), i, ((cbp >> (5 - i)) & 1) != 0, &mut blk[i])?;
-                        h263_idct(&mut blk[i]);
+                        bdsp.idct(&mut blk[i]);
                     }
                     blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
                 } else if binfo.mode != Type::B {
@@ -430,7 +430,7 @@ impl H263BaseDecoder {
                     if cbp != 0 {
                         for i in 0..6 {
                             bd.decode_block_inter(&binfo, &sstate, binfo.get_q(), i, ((cbp >> (5 - i)) & 1) != 0, &mut blk[i])?;
-                            h263_idct(&mut blk[i]);
+                            bdsp.idct(&mut blk[i]);
                         }
                         blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
                     }
@@ -447,7 +447,7 @@ impl H263BaseDecoder {
                     b_mb.cbp = cbp;
                     for i in 0..6 {
                         bd.decode_block_inter(&binfo, &sstate, bquant, i, (cbp & (1 << (5 - i))) != 0, &mut b_mb.blk[i])?;
-                        h263_idct(&mut b_mb.blk[i]);
+                        bdsp.idct(&mut b_mb.blk[i]);
                     }
 
                     let is_fwd = !binfo.is_b_fwd();
