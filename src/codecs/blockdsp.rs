@@ -147,7 +147,7 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
         ebuf.resize((((pre + post) as usize) + bh) * ebuf_stride, 0);
 
         for comp in 0..3 {
-            let dstride = src.get_stride(comp);
+            let dstride = dst.get_stride(comp);
             let doff    = dst.get_offset(comp);
             let mut ddta    = dst.get_data_mut();
             let mut dbuf: &mut [u8] = ddta.as_mut_slice();
@@ -170,7 +170,7 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
             let soff    = src.get_offset(comp);
             let sdta    = src.get_data();
             let sbuf: &[u8] = sdta.as_slice();
-            let dstride = src.get_stride(comp);
+            let dstride = dst.get_stride(comp);
             let doff    = dst.get_offset(comp);
             let mut ddta    = dst.get_data_mut();
             let mut dbuf: &mut [u8] = ddta.as_mut_slice();
