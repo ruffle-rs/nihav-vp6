@@ -166,7 +166,7 @@ impl<'a> ByteReader<'a> {
         } else {
             let mut ssize = len;
             let mut buf : [u8; 16] = [0; 16];
-            let mut bref = &mut buf;
+            let bref = &mut buf;
             while ssize > bref.len() {
                 self.io.read_buf(bref)?;
                 ssize -= bref.len();

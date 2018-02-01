@@ -348,7 +348,7 @@ impl H263BlockDSP {
 fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
     let stride = buf.get_stride(comp);
     let mut dptr = buf.get_data_mut();
-    let mut buf = dptr.as_mut_slice();
+    let buf = dptr.as_mut_slice();
     for x in 0..8 {
         let a = buf[off - 2 * stride + x] as i16;
         let b = buf[off - 1 * stride + x] as i16;
@@ -378,7 +378,7 @@ fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
 fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
     let stride = buf.get_stride(comp);
     let mut dptr = buf.get_data_mut();
-    let mut buf = dptr.as_mut_slice();
+    let buf = dptr.as_mut_slice();
     for y in 0..8 {
         let a = buf[off - 2 + y * stride] as i16;
         let b = buf[off - 1 + y * stride] as i16;

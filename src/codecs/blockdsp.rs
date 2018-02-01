@@ -9,7 +9,7 @@ pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     let mut idxv = buf.get_offset(2) + xpos *  8 + ypos *  8 * stridev;
 
     let mut data = buf.get_data_mut();
-    let mut framebuf: &mut [u8] = data.as_mut_slice();
+    let framebuf: &mut [u8] = data.as_mut_slice();
 
     for j in 0..8 {
         for k in 0..8 {
@@ -63,7 +63,7 @@ pub fn add_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     let mut idxv = buf.get_offset(2) + xpos *  8 + ypos *  8 * stridev;
 
     let mut data = buf.get_data_mut();
-    let mut framebuf: &mut [u8] = data.as_mut_slice();
+    let framebuf: &mut [u8] = data.as_mut_slice();
 
     for j in 0..8 {
         for k in 0..8 {

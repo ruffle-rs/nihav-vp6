@@ -50,7 +50,7 @@ impl<'a> Intel263BR<'a> {
     }
 
     fn decode_block(&mut self, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64]) -> DecoderResult<()> {
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         let mut idx = 0;
         if intra {
             let mut dc = br.read(8)?;
@@ -137,7 +137,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
 
 #[allow(unused_variables)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         let syncw = br.read(22)?;
         validate!(syncw == 0x000020);
         let tr = (br.read(8)? << 8) as u16;
@@ -212,7 +212,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
 
     #[allow(unused_variables)]
     fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         let gbsc = br.read(17)?;
         validate!(gbsc == 1);
         let gn = br.read(5)?;
@@ -226,7 +226,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
 
     #[allow(unused_variables)]
     fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         let mut q = slice.get_quant();
         match info.get_mode() {
             Type::I => {

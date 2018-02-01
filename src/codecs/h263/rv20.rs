@@ -112,7 +112,7 @@ impl<'a> RealVideo20BR<'a> {
 
 #[allow(unused_variables)]
     fn decode_block(&mut self, sstate: &SliceState, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize, acpred: ACPredMode) -> DecoderResult<()> {
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         let mut idx = 0;
         if !sstate.is_iframe && intra {
             let mut dc = br.read(8)? as i16;
@@ -227,7 +227,7 @@ println!("slice ends @ {}\n", self.br.tell());
     }
 
     fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         let mut q = slice.get_quant();
         match info.get_mode() {
             Type::I => {
@@ -362,7 +362,7 @@ impl<'a> RealVideo20BR<'a> {
     fn read_slice_header(&mut self) -> DecoderResult<RV20SliceInfo> {
         validate!(self.slice_no < self.num_slices);
 
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         br.seek(self.slice_off[self.slice_no] * 8)?;
 //println!(" slice at off {}", br.tell());
 

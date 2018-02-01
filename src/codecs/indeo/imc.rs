@@ -434,7 +434,7 @@ impl IMCDecoder {
     }
 
     fn read_level_coeffs_raw(&mut self, br: &mut BitReader, ch: usize) -> DecoderResult<()> {
-        let mut ch_data = &mut self.ch_data[ch];
+        let ch_data = &mut self.ch_data[ch];
         let maxc_pos = br.read(5)? as usize;
         let max_coef = br.read(7)? as u8;
 
@@ -458,7 +458,7 @@ impl IMCDecoder {
     }
 
     fn calculate_channel_values(&mut self, ch: usize) {
-        let mut ch_data = &mut self.ch_data[ch];
+        let ch_data = &mut self.ch_data[ch];
         let mut tmp2: [f32; BANDS+1] = [0.0; BANDS+1];
         let mut tmp3: [f32; BANDS] = [0.0; BANDS];
 
@@ -526,7 +526,7 @@ impl IMCDecoder {
             self.ba.keep_flag[i] = level[i] == 16;
         }
         if reset {
-            let mut ch_data = &mut self.ch_data[ch];
+            let ch_data = &mut self.ch_data[ch];
             let (mut c1, mut c2) = calc_maxcoef(level[0] as f32);
             ch_data.new_floor[0] = c1;
             ch_data.log_floor[0] = c2;
@@ -550,7 +550,7 @@ impl IMCDecoder {
                 }
             }
         } else {
-            let mut ch_data = &mut self.ch_data[ch];
+            let ch_data = &mut self.ch_data[ch];
             for i in 0..BANDS {
                 if level[i] < 16 {
                     let lval = level[i] - 7;
@@ -582,7 +582,7 @@ impl IMCDecoder {
     }
 
     fn read_skip_flags(&mut self, br: &mut BitReader) -> DecoderResult<()> {
-        let mut ba = &mut self.ba;
+        let ba = &mut self.ba;
         for band in 0..BANDS {
             if !ba.band_present[band] || ba.band_width[band] == 0 { continue; }
 
@@ -697,7 +697,7 @@ impl IMCDecoder {
 
     fn inv_quant(&mut self, ch: usize, raw_coeffs: bool) {
         let qidx: usize = if raw_coeffs { 1 } else { 0 };
-        let mut ch_data = &mut self.ch_data[ch];
+        let ch_data = &mut self.ch_data[ch];
         for band in 0..BANDS {
             for i in IMC_BANDS[band]..IMC_BANDS[band + 1] {
                 ch_data.cw[i] = 0.0;

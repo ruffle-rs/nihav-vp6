@@ -122,16 +122,16 @@ impl Buffers {
 #[allow(unused_variables)]
 fn apply_delta4x4(bufs: &mut Buffers, off: usize, stride: usize,
                   deltas: &[u8], topline: bool, first_line: bool) {
-    let mut dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4)] }
-                          else { &mut bufs.buf2[off..(off + 4)] };
+    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4)] }
+                      else { &mut bufs.buf2[off..(off + 4)] };
     for i in 0..4 { dst[i] = dst[i].wrapping_add(deltas[i]) & 0x7F; }
 }
 
 #[allow(unused_variables)]
 fn apply_delta4x8(bufs: &mut Buffers, off: usize, stride: usize,
                   deltas: &[u8], topline: bool, first_line: bool) {
-    let mut dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4 + stride)] }
-                          else { &mut bufs.buf2[off..(off + 4 + stride)] };
+    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4 + stride)] }
+                      else { &mut bufs.buf2[off..(off + 4 + stride)] };
     for i in 0..4 { dst[i + stride] = dst[i].wrapping_add(deltas[i]) & 0x7F; }
     if !topline {
         for i in 0..4 { dst[i] = (dst[i + stride] + dst[i]) >> 1; }
@@ -143,8 +143,8 @@ fn apply_delta4x8(bufs: &mut Buffers, off: usize, stride: usize,
 #[allow(unused_variables)]
 fn apply_delta4x8m11(bufs: &mut Buffers, off: usize, stride: usize,
                      deltas: &[u8], topline: bool, first_line: bool) {
-    let mut dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4 + stride)] }
-                          else { &mut bufs.buf2[off..(off + 4 + stride)] };
+    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4 + stride)] }
+                      else { &mut bufs.buf2[off..(off + 4 + stride)] };
     for i in 0..4 { dst[i]          = dst[i]         .wrapping_add(deltas[i]) & 0x7F; }
     for i in 0..4 { dst[i + stride] = dst[i + stride].wrapping_add(deltas[i]) & 0x7F; }
 }
@@ -152,16 +152,16 @@ fn apply_delta4x8m11(bufs: &mut Buffers, off: usize, stride: usize,
 #[allow(unused_variables)]
 fn apply_delta8x8p(bufs: &mut Buffers, off: usize, stride: usize,
                    deltas: &[u8], topline: bool, first_line: bool) {
-    let mut dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8 + stride)] }
-                          else { &mut bufs.buf2[off..(off + 8 + stride)] };
+    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8 + stride)] }
+                      else { &mut bufs.buf2[off..(off + 8 + stride)] };
     for i in 0..8 { dst[i]          = dst[i]         .wrapping_add(deltas[i >> 1]) & 0x7F; }
     for i in 0..8 { dst[i + stride] = dst[i + stride].wrapping_add(deltas[i >> 1]) & 0x7F; }
 }
 
 fn apply_delta8x8i(bufs: &mut Buffers, off: usize, stride: usize,
                    deltas: &[u8], topline: bool, firstline: bool) {
-    let mut dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8 + stride)] }
-                          else { &mut bufs.buf2[off..(off + 8 + stride)] };
+    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8 + stride)] }
+                      else { &mut bufs.buf2[off..(off + 8 + stride)] };
     if !firstline {
         for i in 0..8 { dst[i + stride] = dst[i     ].wrapping_add(deltas[i >> 1]) & 0x7F; }
     } else {
@@ -183,8 +183,8 @@ fn copy_line_top(bufs: &mut Buffers, off: usize, stride: usize, bw: usize, topli
     } else {
         for i in 0..bw { buf[i] = DEFAULT_PIXEL; }
     }
-    let mut dst = if bufs.fbuf { &mut bufs.buf1[off..(off + bw)] }
-                          else { &mut bufs.buf2[off..(off + bw)] };
+    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + bw)] }
+                      else { &mut bufs.buf2[off..(off + bw)] };
     for i in 0..bw { dst[i] = buf[i]; }
 }
 
@@ -206,8 +206,8 @@ fn copy_line_top8x8(bufs: &mut Buffers, off: usize, stride: usize, topline: bool
     } else {
         for i in 0..8 { buf[i] = DEFAULT_PIXEL; }
     }
-    let mut dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8)] }
-                          else { &mut bufs.buf2[off..(off + 8)] };
+    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8)] }
+                      else { &mut bufs.buf2[off..(off + 8)] };
     for i in 0..8 {dst[i] = buf[i]; }
 }
 

@@ -147,7 +147,7 @@ pktdta: Vec::new(),
 
     fn read_vchunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         let str = strmgr.get_stream(self.v_id.unwrap()).unwrap();
-        let mut src = &mut self.src;
+        let src = &mut self.src;
         let magic = src.read_u16be()?;
         if magic != 0x0513 { return Err(DemuxerError::InvalidData); }
         let size = (src.read_u16le()? as usize) + 4;

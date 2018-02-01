@@ -38,7 +38,7 @@ impl<'a> NAPacketReader for ByteReader<'a> {
     }
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()> {
         let mut refbuf = pkt.get_buffer();
-        let mut buf = Rc::make_mut(&mut refbuf);
+        let buf = Rc::make_mut(&mut refbuf);
         let res = self.read_buf(buf.as_mut_slice());
         if let Err(_) = res { return Err(DemuxerError::IOError); }
         Ok(())

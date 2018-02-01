@@ -206,7 +206,7 @@ impl Indeo2Decoder {
         let cb = &self.cb;
 
         let mut data = buf.get_data_mut();
-        let mut framebuf: &mut [u8] = data.as_mut_slice();
+        let framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];
 
@@ -269,7 +269,7 @@ impl Indeo2Decoder {
         let cb = &self.cb;
 
         let mut data = buf.get_data_mut();
-        let mut framebuf: &mut [u8] = data.as_mut_slice();
+        let framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];
 

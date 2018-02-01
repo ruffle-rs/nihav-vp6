@@ -138,7 +138,7 @@ impl GremlinVideoDecoder {
         let paloff = buf.get_offset(1);
         let stride = buf.get_stride(0);
         let mut data = buf.get_data_mut();
-        let mut dst = data.as_mut_slice();
+        let dst = data.as_mut_slice();
         let mut sidx = PREAMBLE_SIZE;
         let mut didx = 0;
 

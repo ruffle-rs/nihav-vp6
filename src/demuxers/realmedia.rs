@@ -45,7 +45,7 @@ impl RMVideoStream {
     }
     fn add_slice(&mut self, slice_no: usize, data: &[u8]) {
         self.write_slice_info(slice_no);
-        let mut dslice = &mut self.frame[self.hdr_size + self.frame_pos..][..data.len()];
+        let dslice = &mut self.frame[self.hdr_size + self.frame_pos..][..data.len()];
         dslice.copy_from_slice(data);
         self.frame_pos += data.len();
     }

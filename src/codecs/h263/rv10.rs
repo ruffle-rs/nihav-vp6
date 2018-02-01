@@ -90,7 +90,7 @@ impl<'a> RealVideo10BR<'a> {
 
 #[allow(unused_variables)]
     fn decode_block(&mut self, sstate: &SliceState, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize) -> DecoderResult<()> {
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         let mut idx = 0;
         if intra {
             let mut dc;
@@ -240,7 +240,7 @@ println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_
     }
 
     fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         let mut q = slice.get_quant();
         match info.get_mode() {
             Type::I => {
@@ -321,7 +321,7 @@ impl<'a> RealVideo10BR<'a> {
     fn read_slice_header(&mut self) -> DecoderResult<RV10SliceInfo> {
         validate!(self.slice_no < self.num_slices);
 
-        let mut br = &mut self.br;
+        let br = &mut self.br;
         br.seek(self.slice_off[self.slice_no] * 8)?;
 
         let marker      = br.read(1)?;
