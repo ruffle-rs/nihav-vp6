@@ -573,7 +573,7 @@ static RM_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"RVTR", "realvideo2"),
     (b"RV30", "realvideo3"),
     (b"RV40", "realvideo4"),
-    (b"CLV1", "clearvideo"),
+    (b"CLV1", "clearvideo_rm"),
 ];
 
 #[allow(dead_code)]

@@ -132,6 +132,7 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "realvideo3", "Real Video 3", CODEC_CAP_REORDER),
     desc!(video;    "realvideo4", "Real Video 4", CODEC_CAP_REORDER),
     desc!(video;    "clearvideo", "ClearVideo"),
+    desc!(video;    "clearvideo_rm", "ClearVideo"),
     desc!(audio;    "ra14.4",     "RealAudio 14.4"),
     desc!(audio;    "ra28.8",     "RealAudio 28.8"),
     desc!(audio;    "cook",       "RealAudio Cooker"),
@@ -151,7 +152,7 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"IV50", "indeo5"),
     (b"I263", "intel263"),
 
-    (b"CLV1", "clearvideo"),
+    (b"UCOD", "clearvideo"),
 ];
 
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[

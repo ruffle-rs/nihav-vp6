@@ -151,6 +151,8 @@ pub struct DecoderInfo {
 #[cfg(feature="h263")]
 mod blockdsp;
 
+#[cfg(feature="decoder_clearvideo")]
+mod clearvideo;
 #[cfg(feature="decoder_gdvvid")]
 mod gremlinvideo;
 #[cfg(any(feature="decoder_indeo2", feature="decoder_indeo3", feature="decoder_indeo4", feature="decoder_indeo5", feature="decoder_imc"))]
@@ -162,6 +164,10 @@ mod h263;
 mod pcm;
 
 const DECODERS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_clearvideo")]
+    DecoderInfo { name: "clearvideo", get_decoder: clearvideo::get_decoder },
+#[cfg(feature="decoder_clearvideo")]
+    DecoderInfo { name: "clearvideo_rm", get_decoder: clearvideo::get_decoder_rm },
 #[cfg(feature="decoder_gdvvid")]
     DecoderInfo { name: "gdv-video", get_decoder: gremlinvideo::get_decoder },
 #[cfg(feature="decoder_indeo2")]
