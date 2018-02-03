@@ -158,7 +158,7 @@ fn build_esc_lut(table: &mut Vec<u32>,
 
     for code in &bucket.codes {
         let bits = code.bits;
-        if code.bits < MAX_LUT_BITS {
+        if code.bits <= MAX_LUT_BITS {
             fill_lut(table, mode, bucket.offset, code.code, bits,
                      maxlen, code.idx as u32, false);
         } else {
