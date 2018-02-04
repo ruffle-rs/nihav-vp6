@@ -721,6 +721,14 @@ impl NADecoder for ClearVideoDecoder {
                 0
             };
         if src.len() <= off + 1 { return Err(DecoderError::ShortData); }
+
+        if (src[off] & 0x7F) == 0x30 {
+            let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::None);
+            frm.set_keyframe(false);
+            frm.set_frame_type(FrameType::Skip);
+            return Ok(Rc::new(RefCell::new(frm)));
+        }
+
         let is_intra = (src[off] & 2) == 2;
         let mut br = BitReader::new(&src[(off + 1)..], src.len() - (off + 1), BitReaderMode::BE);
 
