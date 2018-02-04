@@ -297,6 +297,7 @@ println!(" mode 3");
 
 fn read_chunk(src: &mut ByteReader) -> DemuxerResult<(u32, u32, u16)> {
     let id      = src.read_u32be()?;
+if id == 0 { return Ok((0, 0, 0)); }
     let size    = src.read_u32be()?;
     validate!(size >= 10);
     let ver     = src.read_u16be()?;
@@ -353,7 +354,8 @@ impl<'a> RealMediaDemuxer<'a> {
         }
 
         for _ in 0..num_hdr {
-            self.parse_chunk(strmgr)?;
+            let last = self.parse_chunk(strmgr)?;
+            if last { break; }
         }
 println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
         validate!(self.data_pos > 0);
@@ -364,7 +366,7 @@ println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
         self.cur_packet  = 0;
         Ok(())
     }
-    fn parse_chunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn parse_chunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<bool> {
         let (id, size, ver) = read_chunk(self.src)?;
         let end_pos = self.src.tell() - 10 + (size as u64);
 
@@ -373,13 +375,14 @@ println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
         else if id == mktag!(b"MDPR") { self.parse_mdpr(strmgr)?; }
         else if id == mktag!(b"DATA") { if self.data_pos == 0 { self.data_pos = self.src.tell(); } }
         else if id == mktag!(b"INDX") { /* do nothing for now */ }
+        else if id == 0               { return Ok(true); }
         else                          { println!("unknown chunk type {:08X}", id); }
 
         let cpos = self.src.tell();
         if cpos < end_pos {
             self.src.read_skip((end_pos - cpos) as usize)?;
         }
-        Ok(())
+        Ok(false)
     }
 #[allow(unused_variables)]
     fn parse_content_desc(&mut self) -> DemuxerResult<()> {
