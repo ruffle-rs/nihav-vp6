@@ -169,7 +169,7 @@ impl MVInfo {
                 let C = self.mv[                 mb_x + 1];
                 MV::pred(A, B, C)
             };
-        let mut res = diff + pred_mv;
+        let mut res = pred_mv;
 
         let left_mv = -((mb_x * self.mb_size) as i16);
         let right_mv = ((self.mb_w - mb_x - 1) * self.mb_size) as i16;
@@ -180,9 +180,9 @@ impl MVInfo {
         if res.y < top_mv   { res.y = top_mv; }
         if res.y > bot_mv   { res.y = bot_mv; }
 
-        self.mv[self.mb_stride + mb_x] = res;
+        self.mv[self.mb_stride + mb_x] = res + diff;
 
-        res - diff
+        res
     }
 }
 
@@ -315,13 +315,10 @@ fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i32
 }
 
 fn copy_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
-              plane: usize, x: usize, y: usize, dx: isize, dy: isize, w: usize, h: usize)
+              plane: usize, x: usize, y: usize, dx: isize, dy: isize, size: usize)
 {
     let sx: isize = (x as isize) + dx;
     let sy: isize = (y as isize) + dy;
-
-let (wi,he) = src.get_dimensions(plane);
-if sx < 0 || sy < 0 || (sx + (w as isize))> (wi as isize) || (sy + (h as isize)) > he as isize { return; }
 
     let sstride     = src.get_stride(plane);
     let mut soff    = src.get_offset(plane) + (sx as usize) + (sy as usize) * sstride;
@@ -331,9 +328,9 @@ if sx < 0 || sy < 0 || (sx + (w as isize))> (wi as isize) || (sy + (h as isize))
     let mut doff    = dst.get_offset(plane) + x + y * dstride;
     let mut ddta    = dst.get_data_mut();
     let dbuf: &mut [u8] = ddta.as_mut_slice();
-    for _ in 0..h {
-        let dst = &mut dbuf[doff..][..w];
-        let src = &sbuf[soff..][..w];
+    for _ in 0..size {
+        let dst = &mut dbuf[doff..][..size];
+        let src = &sbuf[soff..][..size];
         dst.copy_from_slice(src);
         doff += dstride;
         soff += sstride;
@@ -341,13 +338,10 @@ if sx < 0 || sy < 0 || (sx + (w as isize))> (wi as isize) || (sy + (h as isize))
 }
 
 fn copyadd_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
-                 plane: usize, x: usize, y: usize, dx: isize, dy: isize, w: usize, h: usize, bias: i16)
+                 plane: usize, x: usize, y: usize, dx: isize, dy: isize, size: usize, bias: i16)
 {
     let sx: isize = (x as isize) + dx;
     let sy: isize = (y as isize) + dy;
-
-let (wi,he) = src.get_dimensions(plane);
-if sx < 0 || sy < 0 || (sx + (w as isize))> (wi as isize) || (sy + (h as isize)) > he as isize { return; }
 
     let sstride     = src.get_stride(plane);
     let mut soff    = src.get_offset(plane) + (sx as usize) + (sy as usize) * sstride;
@@ -357,10 +351,10 @@ if sx < 0 || sy < 0 || (sx + (w as isize))> (wi as isize) || (sy + (h as isize))
     let mut doff    = dst.get_offset(plane) + x + y * dstride;
     let mut ddta    = dst.get_data_mut();
     let dbuf: &mut [u8] = ddta.as_mut_slice();
-    for _ in 0..h {
-        let dst = &mut dbuf[doff..][..w];
-        let src = &sbuf[soff..][..w];
-        for i in 0..w {
+    for _ in 0..size {
+        let dst = &mut dbuf[doff..][..size];
+        let src = &sbuf[soff..][..size];
+        for i in 0..size {
             let val = (src[i] as i16) + bias;
             if      val < 0x00 { dst[i] = 0x00; }
             else if val > 0xFF { dst[i] = 0xFF; }
@@ -372,34 +366,31 @@ if sx < 0 || sy < 0 || (sx + (w as isize))> (wi as isize) || (sy + (h as isize))
 }
 
 fn tile_do_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
-                 plane: usize, x: usize, y: usize, dx: i16, dy: i16, w: usize, h: usize, bias: i16)
+                 plane: usize, x: usize, y: usize, dx: i16, dy: i16, size: usize, bias: i16)
 {
     if bias == 0 {
-        copy_block(dst, src, plane, x, y, dx as isize, dy as isize, w, h);
+        copy_block(dst, src, plane, x, y, dx as isize, dy as isize, size);
     } else {
-        copyadd_block(dst, src, plane, x, y, dx as isize, dy as isize, w, h, bias);
+        copyadd_block(dst, src, plane, x, y, dx as isize, dy as isize, size, bias);
     }
 }
 
 fn restore_tree(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, plane: usize,
-                x: usize, y: usize, w: usize, h: usize, tile: &TileInfo, l: usize, root_mv: MV) {
+                x: usize, y: usize, size: usize, tile: &TileInfo, root_mv: MV) {
     let mv = root_mv + tile.mv;
 
     if tile.flags == 0 {
-//for _ in 0..l {print!("    ");} println!("    r {},{} {}x{} mv {} + {}", x, y, w, h, mv, tile.bias);
-        tile_do_block(dst, src, plane, x, y, mv.x, mv.y, w, h, tile.bias);
+        tile_do_block(dst, src, plane, x, y, mv.x, mv.y, size, tile.bias);
     } else {
-        let hw = w >> 1;
-        let hh = h >> 1;
+        let hsize = size >> 1;
         for i in 0..4 {
-            let xoff = if (i & 2) == 0 { 0 } else { hw };
-            let yoff = if (i & 1) == 0 { 0 } else { hh };
+            let xoff = if (i & 2) == 0 { 0 } else { hsize };
+            let yoff = if (i & 1) == 0 { 0 } else { hsize };
 
             if let Some(ref subtile) = tile.child[i] {
-                restore_tree(dst, src, plane, x + xoff, y + yoff, hw, hh, subtile, l + 1, root_mv);
+                restore_tree(dst, src, plane, x + xoff, y + yoff, hsize, subtile, root_mv);
             } else {
-//for _ in 0..l+1 {print!("    ");} println!("    {},{} {}x{} mv {} + {}", x+xoff, y+yoff, hw, hh, mv, tile.bias);
-                tile_do_block(dst, src, plane, x + xoff, y + yoff, mv.x, mv.y, hw, hh, tile.bias);
+                tile_do_block(dst, src, plane, x + xoff, y + yoff, mv.x, mv.y, hsize, tile.bias);
             }
         }
     }
@@ -506,7 +497,6 @@ fn decode_tile_info(br: &mut BitReader, lc: &[LevelCodes], level: usize) -> Deco
             if mv_code != lc[level].mv_esc {
                 MV::new(((mv_code & 0xFF) as i8) as i16, (mv_code as i16) >> 8)
             } else {
-//println!("mvesc");
                 let x = br.read_s(8)? as i16;
                 let y = br.read_s(8)? as i16;
                 MV::new(x, y)
@@ -519,14 +509,12 @@ fn decode_tile_info(br: &mut BitReader, lc: &[LevelCodes], level: usize) -> Deco
             if bias_val != lc[level].bias_esc {
                 bias_val as i16
             } else {
-//println!("besc");
                 br.read_s(16)? as i16
             }
         } else {
             0
         };
     let mut ti = TileInfo { flags: flags, mv: mv, bias: bias, child: [None, None, None, None] };
-//for _ in 0..level {print!("    ");} println!("    tile flags {:X} mv {} bias {}", flags, mv, bias);
     if ti.flags != 0 {
         for i in 0..4 {
             if (ti.flags & (1 << i)) != 0 {
@@ -657,38 +645,32 @@ impl ClearVideoDecoder {
 
         for t_y in 0..mb_h {
             for t_x in 0..mb_w {
-//println!("tile @ {},{}", t_x << self.tsize, t_y << self.tsize);
                 if !br.read_bool()? {
                     let x = t_x << self.tsize;
                     let y = t_y << self.tsize;
-                    let w = 1   << self.tsize;
-                    let h = 1   << self.tsize;
+                    let size = 1 << self.tsize;
                     let tile = decode_tile_info(br, &self.ylev, 0)?;
                     let mv = mvi.predict(t_x, t_y, tile.mv);
-//println!(" pred val {}", mv);
-                    restore_tree(buf, prev, 0, x, y, w, h, &tile, 0, mv);
+                    restore_tree(buf, prev, 0, x, y, size, &tile, mv);
                     let x = t_x << (self.tsize - 1);
                     let y = t_y << (self.tsize - 1);
-                    let w = 1   << (self.tsize - 1);
-                    let h = 1   << (self.tsize - 1);
+                    let size = 1 << (self.tsize - 1);
                     let mut cmv = mv + tile.mv;
                     cmv.x /= 2;
                     cmv.y /= 2;
                     let tile = decode_tile_info(br, &self.ulev, 0)?;
-                    restore_tree(buf, prev, 1, x, y, w, h, &tile, 0, cmv);
+                    restore_tree(buf, prev, 1, x, y, size, &tile, cmv);
                     let tile = decode_tile_info(br, &self.vlev, 0)?;
-                    restore_tree(buf, prev, 2, x, y, w, h, &tile, 0, cmv);
+                    restore_tree(buf, prev, 2, x, y, size, &tile, cmv);
                 } else {
                     let mv = mvi.predict(t_x, t_y, ZERO_MV);
-//println!(" pred val {}", mv);
                     for plane in 0..3 {
                         let x = if plane == 0 { t_x << self.tsize } else { t_x << (self.tsize - 1) };
                         let y = if plane == 0 { t_y << self.tsize } else { t_y << (self.tsize - 1) };
-                        let w = if plane == 0 { 1 << self.tsize } else { 1 << (self.tsize - 1) };
-                        let h = if plane == 0 { 1 << self.tsize } else { 1 << (self.tsize - 1) };
-                        let mx = if plane == 0 { mv.x as isize } else { (mv.x / 2) as isize };
-                        let my = if plane == 0 { mv.y as isize } else { (mv.y / 2) as isize };
-                        copy_block(buf, prev, plane, x, y, mx, my, w, h);
+                        let size = if plane == 0 { 1 << self.tsize } else { 1 << (self.tsize - 1) };
+                        let mx = if plane == 0 { mv.x as isize } else { (mv.x >> 1) as isize };
+                        let my = if plane == 0 { mv.y as isize } else { (mv.y >> 1) as isize };
+                        copy_block(buf, prev, plane, x, y, mx, my, size);
                     }
                 }
             }
@@ -710,9 +692,7 @@ impl NADecoder for ClearVideoDecoder {
             self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
             self.frmmgr.clear();
             let edata = info.get_extradata().unwrap();
-//println!("extradata:");
-//for i in 0..edata.len() { print!(" {:02X}", edata[i]); if (i&15)==15{println!("");}}
-//println!("");
+//todo detect simply by extradata contents?
             if !self.is_rm {
                 let mut mr = MemoryReader::new_read(edata.as_slice());
                 let mut br = ByteReader::new(&mut mr);
@@ -726,7 +706,6 @@ impl NADecoder for ClearVideoDecoder {
                 let tile_size = br.read_u32be()?;
                 self.tsize = tile_size.trailing_zeros() as u8;
             }
-//println!("tile size 1<<{}, 1<<{}", self.tsize, self.tsize);
             Ok(())
         } else {
             Err(DecoderError::InvalidData)
@@ -758,6 +737,7 @@ impl NADecoder for ClearVideoDecoder {
             extend_edges(&mut buf, 1 << self.tsize);
         } else {
             let mut prev = self.frmmgr.clone_ref().unwrap();
+            extend_edges(&mut prev, 1 << self.tsize);
             self.decode_frame_inter(&mut br, &mut buf, &mut prev, vinfo.get_width(), vinfo.get_height())?;
             extend_edges(&mut buf, 1 << self.tsize);
         }
@@ -786,9 +766,9 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_clv() {
-//         test_file_decoding("avi", "assets/TalkingHead_352x288.avi", None/*Some(10)*/, true, false, Some("clv"));
-         test_file_decoding("avi", "assets/basketball.avi", None/*Some(10)*/, true, false, Some("clv"));
-panic!("debug");
+         test_file_decoding("avi", "assets/TalkingHead_352x288.avi", Some(10), true, false, Some("clv"));
+//         test_file_decoding("avi", "assets/basketball.avi", None/*Some(10)*/, true, false, Some("clv1"));
+//panic!("debug");
     }
 }
 
