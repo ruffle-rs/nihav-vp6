@@ -267,7 +267,8 @@ impl BlockInfo {
         if mvs.len() > 0 { self.skip = false; }
         let mut mv_arr: [MV; 2] = [ZERO_MV, ZERO_MV];
         for i in 0..mvs.len() { mv_arr[i] = mvs[i]; }
-        self.mv2    = mv_arr;
+        self.mv2     = mv_arr;
+        self.num_mv2 = mvs.len();
     }
     pub fn is_b_fwd(&self) -> bool { self.fwd }
     pub fn set_acpred(&mut self, acpred: ACPredMode) { self.acpred = acpred }
