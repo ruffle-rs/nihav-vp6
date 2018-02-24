@@ -178,7 +178,6 @@ fn decode_mv_component(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResul
 fn decode_mv(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<MV> {
     let xval = decode_mv_component(br, mv_cb)?;
     let yval = decode_mv_component(br, mv_cb)?;
-//println!("  MV {},{} @ {}", xval, yval, br.tell());
     Ok(MV::new(xval, yval))
 }
 
@@ -187,9 +186,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
 #[allow(unused_variables)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         self.slice_no = 0;
-println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_off[1] } else { ((self.br.tell() as u32) + (self.br.left() as u32))/8 });
         let shdr = self.read_slice_header()?;
-println!("slice ends @ {}\n", self.br.tell());
 //        self.slice_no += 1;
         validate!((shdr.mb_x == 0) && (shdr.mb_y == 0));
 /*        let mb_count;
@@ -209,7 +206,6 @@ println!("slice ends @ {}\n", self.br.tell());
 
     #[allow(unused_variables)]
     fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
-//println!("read slice {} header", self.slice_no);
         let shdr = self.read_slice_header()?;
         self.slice_no += 1;
         let mb_count;
@@ -238,12 +234,10 @@ println!("slice ends @ {}\n", self.br.tell());
                         if pi.aic {
                             let acpp = br.read_bool()?;
                             acpred = ACPredMode::DC;
-//println!("   acp {} @ {}", acpp as u8, br.tell());
                             if acpp {
                                 acpred = if br.read_bool()? { ACPredMode::Hor } else { ACPredMode::Ver };
                             }
                         }
-println!("   @ {}", br.tell());
                     }
                     let cbpy = br.read_cb(&self.tables.cbpy_cb)?;
                     let cbp = (cbpy << 2) | (cbpc & 3);
@@ -252,7 +246,6 @@ println!("   @ {}", br.tell());
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
-println!(" MB {},{} CBP {:X} @ {}", sstate.mb_x, sstate.mb_y, cbp, br.tell());
                     let mut binfo = BlockInfo::new(Type::I, cbp, q);
                     binfo.set_acpred(acpred);
                     Ok(binfo)
@@ -286,7 +279,6 @@ println!(" MB {},{} CBP {:X} @ {}", sstate.mb_x, sstate.mb_y, cbp, br.tell());
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
-println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
                     let mut binfo = BlockInfo::new(Type::P, cbp, q);
                     if !is_4x4 {
                         let mvec: [MV; 1] = [decode_mv(br, &self.tables.mv_cb)?];
@@ -323,7 +315,6 @@ println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
-//println!(" MB B {}.{} cbp = {:X} @ {} ({} {})", sstate.mb_x, sstate.mb_y, cbp, br.tell(), mbtype, is_intra);
 
                     if is_intra {
                         let binfo = BlockInfo::new(Type::I, cbp, q);
@@ -364,7 +355,6 @@ impl<'a> RealVideo20BR<'a> {
 
         let br = &mut self.br;
         br.seek(self.slice_off[self.slice_no] * 8)?;
-//println!(" slice at off {}", br.tell());
 
         let frm_type    = br.read(2)?;
         let ftype = match frm_type {
@@ -411,7 +401,6 @@ impl<'a> RealVideo20BR<'a> {
         if (self.minor_ver <= 1) && (frm_type == 3) {
             br.skip(5)?;
         }
-println!("slice q {} mb {},{}", qscale, mb_x, mb_y);
 
         Ok(RV20SliceInfo::new(ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h))
     }
@@ -478,7 +467,6 @@ impl NADecoder for RealVideo20Decoder {
             let maj_ver = ver >> 16;
             let min_ver = (ver >> 8) & 0xFF;
             let mic_ver = ver & 0xFF;
-println!("ver {:06X}", ver);
             validate!(maj_ver == 2);
             self.minor_ver = min_ver as u8;
             let rprb = src[1] & 7;
@@ -500,7 +488,6 @@ println!("ver {:06X}", ver);
     fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
-println!(" decode frame size {}, {} slices", src.len(), src[0]+1);
         let mut ibr = RealVideo20BR::new(&src, &self.tables, self.w, self.h, self.minor_ver, self.rpr);
 
         let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp)?;
@@ -532,7 +519,7 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_rv20() {
-        test_file_decoding("realmedia", "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm", /*None*/Some(7000), true, false, Some("rv20"));
+        test_file_decoding("realmedia", "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm", /*None*/Some(3000), true, false, None/*Some("rv20")*/);
 //        test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(1000), true, false, Some("rv20"));
     }
 }
