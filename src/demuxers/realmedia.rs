@@ -230,7 +230,14 @@ println!(" mode 0 pkt {}/{} off {}/{} seq {}", packet_num, num_pkts, off, frame_
                                     } else {
                                         vstr.add_slice(packet_num as usize, self.slice_buf.as_slice()); 
                                     }
-                                    continue;
+                                    if (packet_num as usize) < num_pkts {
+                                        continue;
+                                    }
+                                    //todo: check if full frame is received
+                                    let (tb_num, tb_den) = stream.get_timebase();
+                                    let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
+                                    let pkt = NAPacket::new(stream, ts, keyframe, vstr.get_frame_data());
+                                    Ok(pkt)
                                 },
                             1 => { // whole frame
                                     let seq_no = self.src.read_byte()?;
