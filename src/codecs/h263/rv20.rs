@@ -128,7 +128,7 @@ impl<'a> RealVideo20BR<'a> {
                 };
 
         let rl_cb = if sstate.is_iframe { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
-        let q_add = if quant == 0 { 0i16 } else { ((quant - 1) | 1) as i16 };
+        let q_add = if quant == 0 || sstate.is_iframe { 0i16 } else { ((quant - 1) | 1) as i16 };
         let q = (quant * 2) as i16;
         while idx < 64 {
             let code = br.read_cb(rl_cb)?;
