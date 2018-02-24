@@ -774,7 +774,7 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_clv() {
-         test_file_decoding("avi", "assets/TalkingHead_352x288.avi", Some(10), true, false, Some("clv"));
+         test_file_decoding("avi", "assets/TalkingHead_352x288.avi", Some(10), true, false, None/*Some("clv")*/);
 //         test_file_decoding("avi", "assets/basketball.avi", None/*Some(10)*/, true, false, Some("clv1"));
 //panic!("debug");
     }
