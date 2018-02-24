@@ -365,9 +365,15 @@ impl H263BaseDecoder {
                         bdsp.idct(&mut blk[i]);
                     }
                     blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
+                    if is_b {
+                        mvi2.set_zero_mv(mb_x);
+                    }
                 } else if binfo.mode != Type::B {
                     self.mv_data.push(BlockMVInfo::Inter_1MV(ZERO_MV));
                     mvi.set_zero_mv(mb_x);
+                    if is_b {
+                        mvi2.set_zero_mv(mb_x);
+                    }
                     if let Some(ref srcbuf) = self.ipbs.get_lastref() {
                         bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, ZERO_MV);
                     }
@@ -483,6 +489,9 @@ impl H263BaseDecoder {
                 }
             }
             mvi.update_row();
+            if is_b {
+                mvi2.update_row();
+            }
             cbpi.update_row();
             sstate.new_row();
         }
