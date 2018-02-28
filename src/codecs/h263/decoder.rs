@@ -51,7 +51,7 @@ impl MVInfo {
             1 => {
                     A = self.mv[self.mb_stride + mb_x * 2];
                     B = if !first_line { self.mv[mb_x * 2 + 1] } else { A };
-                    C = if !first_line && !last { self.mv[mb_x * 2 + 2] } else { A };
+                    C = if !first_line && !last { self.mv[mb_x * 2 + 2] } else { ZERO_MV/*A*/ };
                 },
             2 => {
                     A = if mb_x != self.mb_start { self.mv[self.mb_stride * 2 + mb_x * 2 - 1] } else { ZERO_MV };
@@ -89,6 +89,9 @@ impl MVInfo {
         self.mv[self.mb_stride * 1 + mb_x * 2 + 1] = ZERO_MV;
         self.mv[self.mb_stride * 2 + mb_x * 2 + 0] = ZERO_MV;
         self.mv[self.mb_stride * 2 + mb_x * 2 + 1] = ZERO_MV;
+    }
+    fn get_mv(&self, mb_x: usize, blk_no: usize) -> MV {
+        self.mv[self.mb_stride + mb_x * 2 + (blk_no & 1) + (blk_no >> 1) * self.mb_stride]
     }
 }
 
@@ -226,7 +229,7 @@ impl H263BaseDecoder {
                 bd.decode_slice_header(&pinfo)?
             };
         mvi.reset(self.mb_w, 0, pinfo.get_mvmode());
-        if is_b {
+        if is_b || pinfo.is_pb() {
             mvi2.reset(self.mb_w, 0, pinfo.get_mvmode());
         }
         cbpi.reset(self.mb_w);
@@ -247,7 +250,7 @@ impl H263BaseDecoder {
                     slice = bd.decode_slice_header(&pinfo)?;
                     if !self.is_gob {
                         mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
-                        if is_b {
+                        if is_b || pinfo.is_pb() {
                             mvi2.reset(self.mb_w, mb_x, pinfo.get_mvmode());
                         }
                         cbpi.reset(self.mb_w);
@@ -337,6 +340,8 @@ impl H263BaseDecoder {
                     mvi.set_zero_mv(mb_x);
                     if is_b {
                         mvi2.set_zero_mv(mb_x);
+                    } else if pinfo.is_pb() {
+                        mvi2.predict(mb_x, 0, false, binfo.get_mv2(0), sstate.first_line, sstate.first_mb);
                     }
                 } else if (binfo.mode != Type::B) && !binfo.is_skipped() {
                     if binfo.get_num_mvs() == 1 {
@@ -346,6 +351,9 @@ impl H263BaseDecoder {
                         }
                         if let Some(ref srcbuf) = self.ipbs.get_lastref() {
                             bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, mv);
+                        }
+                        if pinfo.is_pb() {
+                            mvi2.predict(mb_x, 0, false, binfo.get_mv(0), sstate.first_line, sstate.first_mb);
                         }
                     } else {
                         let mut mv: [MV; 4] = [ZERO_MV, ZERO_MV, ZERO_MV, ZERO_MV];
@@ -357,6 +365,11 @@ impl H263BaseDecoder {
                                                  mb_y * 16 + (blk_no & 2) * 4, 8, 8, mv[blk_no]);
                             }
                         }
+                        if pinfo.is_pb() {
+                            for blk_no in 0..4 {
+                                mvi2.predict(mb_x, blk_no, true, binfo.get_mv(blk_no), sstate.first_line, sstate.first_mb);
+                            }
+                        }
                         if save_b_data {
                             self.mv_data.push(BlockMVInfo::Inter_4MV(mv));
                         }
@@ -366,13 +379,13 @@ impl H263BaseDecoder {
                         bdsp.idct(&mut blk[i]);
                     }
                     blockdsp::add_blocks(&mut buf, mb_x, mb_y, &blk);
-                    if is_b {
+                    if is_b && !pinfo.is_pb() {
                         mvi2.set_zero_mv(mb_x);
                     }
                 } else if binfo.mode != Type::B {
                     self.mv_data.push(BlockMVInfo::Inter_1MV(ZERO_MV));
                     mvi.set_zero_mv(mb_x);
-                    if is_b {
+                    if is_b || pinfo.is_pb() {
                         mvi2.set_zero_mv(mb_x);
                     }
                     if let Some(ref srcbuf) = self.ipbs.get_lastref() {
@@ -457,27 +470,26 @@ impl H263BaseDecoder {
                         bdsp.idct(&mut b_mb.blk[i]);
                     }
 
-                    let is_fwd = !binfo.is_b_fwd();
+                    let is_fwd = binfo.is_b_fwd();
                     b_mb.fwd = is_fwd;
-                    b_mb.num_mv = binfo.get_num_mvs();
-                    if binfo.get_num_mvs() == 0 {
-                        b_mb.num_mv = 1;
-                        b_mb.mv_f[0] = binfo.get_mv2(1);
-                        b_mb.mv_b[0] = binfo.get_mv2(0);
-                    } else if binfo.get_num_mvs() == 1 {
-                        let src_mv = binfo.get_mv(0).scale(bsdiff, tsdiff);
-                        let mv_f = MV::add_umv(src_mv, binfo.get_mv2(0), pinfo.get_mvmode());
-                        let mv_b = MV::b_sub(binfo.get_mv(0), mv_f, binfo.get_mv2(0), bsdiff, tsdiff);
+                    if binfo.get_num_mvs() != 4 {
+                        let ref_mv = mvi2.get_mv(mb_x, 0);
+                        let b_mv = if binfo.is_intra() { binfo.get_mv2(1) } else { binfo.get_mv2(0) };
+                        let src_mv = if is_fwd { ZERO_MV } else { ref_mv.scale(bsdiff, tsdiff) };
+                        let mv_f = MV::add_umv(src_mv, b_mv, pinfo.get_mvmode());
+                        let mv_b = MV::b_sub(ref_mv, mv_f, b_mv, bsdiff, tsdiff);
                         b_mb.mv_f[0] = mv_f;
                         b_mb.mv_b[0] = mv_b;
+                        b_mb.num_mv = 1;
                     } else {
                         for blk_no in 0..4 {
-                            let src_mv = binfo.get_mv(blk_no).scale(bsdiff, tsdiff);
+                            let src_mv = if is_fwd { ZERO_MV } else { mvi2.get_mv(mb_x, blk_no).scale(bsdiff, tsdiff) };
                             let mv_f = MV::add_umv(src_mv, binfo.get_mv2(0), pinfo.get_mvmode());
-                            let mv_b = MV::b_sub(binfo.get_mv(blk_no), mv_f, binfo.get_mv2(0), bsdiff, tsdiff);
+                            let mv_b = MV::b_sub(mvi2.get_mv(mb_x, blk_no), mv_f, binfo.get_mv2(0), bsdiff, tsdiff);
                             b_mb.mv_f[blk_no] = mv_f;
                             b_mb.mv_b[blk_no] = mv_b;
                         }
+                        b_mb.num_mv = 4;
                     }
                     self.b_data.push(b_mb);
                 }
@@ -490,7 +502,7 @@ impl H263BaseDecoder {
                 }
             }
             mvi.update_row();
-            if is_b {
+            if is_b || pinfo.is_pb() {
                 mvi2.update_row();
             }
             cbpi.update_row();
@@ -521,7 +533,7 @@ impl H263BaseDecoder {
         let mut b_buf = bufinfo.get_vbuf().unwrap();
 
         if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
-            recon_b_frame(&mut b_buf, bck_buf, fwd_buf, self.mb_w, self.mb_h, &self.b_data, bdsp);
+            recon_b_frame(&mut b_buf, fwd_buf, bck_buf, self.mb_w, self.mb_h, &self.b_data, bdsp);
         }
 
         self.b_data.truncate(0);

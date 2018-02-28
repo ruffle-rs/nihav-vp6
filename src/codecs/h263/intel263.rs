@@ -30,6 +30,7 @@ struct Intel263BR<'a> {
     gob_no: usize,
     mb_w:   usize,
     is_pb:  bool,
+    is_ipb: bool,
 }
 
 fn check_marker<'a>(br: &mut BitReader<'a>) -> DecoderResult<()> {
@@ -46,6 +47,7 @@ impl<'a> Intel263BR<'a> {
             gob_no: 0,
             mb_w:   0,
             is_pb:  false,
+            is_ipb: false,
         }
     }
 
@@ -114,19 +116,25 @@ fn decode_mv(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<MV> {
     Ok(MV::new(xval, yval))
 }
 
-fn decode_b_info(br: &mut BitReader, is_pb: bool, is_intra: bool) -> DecoderResult<BBlockInfo> {
+fn decode_b_info(br: &mut BitReader, is_pb: bool, is_ipb: bool, is_intra: bool) -> DecoderResult<BBlockInfo> {
     if is_pb { // as improved pb
-        let pb_mv_add = if is_intra { 1 } else { 0 };
-        if br.read_bool()?{
-            if br.read_bool()? {
-                let pb_mv_count = 1 - (br.read(1)? as usize);
-                let cbpb = br.read(6)? as u8;
-                Ok(BBlockInfo::new(true, cbpb, pb_mv_count + pb_mv_add, pb_mv_count == 1))
+        if is_ipb {
+            let pb_mv_add = if is_intra { 1 } else { 0 };
+            if br.read_bool()?{
+                if br.read_bool()? {
+                    let pb_mv_count = 1 - (br.read(1)? as usize);
+                    let cbpb = br.read(6)? as u8;
+                    Ok(BBlockInfo::new(true, cbpb, pb_mv_count + pb_mv_add, pb_mv_count == 1))
+                } else {
+                    Ok(BBlockInfo::new(true, 0, 1 + pb_mv_add, true))
+                }
             } else {
-                Ok(BBlockInfo::new(true, 0, 1 + pb_mv_add, true))
+                Ok(BBlockInfo::new(true, 0, pb_mv_add, false))
             }
         } else {
-            Ok(BBlockInfo::new(true, 0, pb_mv_add, false))
+            let mvdb = br.read_bool()?;
+            let cbpb = if mvdb && br.read_bool()? { br.read(6)? as u8 } else { 0 };
+            Ok(BBlockInfo::new(true, cbpb, if mvdb { 1 } else { 0 }, false))
         }
     } else {
         Ok(BBlockInfo::new(false, 0, 0, false))
@@ -155,19 +163,22 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         let apm = br.read_bool()?;
         self.is_pb = br.read_bool()?;
         let deblock;
+        let pbplus;
         if sfmt == 0b111 {
             sfmt = br.read(3)?;
             validate!((sfmt != 0b000) && (sfmt != 0b111));
             br.read(2)?; // unknown flags
             deblock = br.read_bool()?;
             br.read(1)?; // unknown flag
-            let pbplus = br.read_bool()?;
+            pbplus = br.read_bool()?;
             br.read(5)?; // unknown flags
             let marker = br.read(5)?;
             validate!(marker == 1);
         } else {
             deblock = false;
+            pbplus = false;
         }
+        self.is_ipb = pbplus;
         let w; let h;
         if sfmt == 0b110 {
             let par = br.read(4)?;
@@ -192,7 +203,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
         if self.is_pb {
             let trb = br.read(3)?;
             let dbquant = br.read(2)?;
-            pbinfo = Some(PBInfo::new(trb as u8, dbquant as u8));
+            pbinfo = Some(PBInfo::new(trb as u8, dbquant as u8, pbplus));
         } else {
             pbinfo = None;
         }
@@ -250,7 +261,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
                     let is_4x4   = (cbpc & 0x10) != 0;
                     if is_intra {
                         let mut mvec: Vec<MV> = Vec::new();
-                        let bbinfo = decode_b_info(br, self.is_pb, true)?;
+                        let bbinfo = decode_b_info(br, self.is_pb, self.is_ipb, true)?;
                         let cbpy = br.read_cb(&self.tables.cbpy_cb)?;
                         let cbp = (cbpy << 2) | (cbpc & 3);
                         if dquant {
@@ -268,7 +279,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
                         return Ok(binfo);
                     }
 
-                    let bbinfo = decode_b_info(br, self.is_pb, false)?;
+                    let bbinfo = decode_b_info(br, self.is_pb, self.is_ipb, false)?;
                     let mut cbpy = br.read_cb(&self.tables.cbpy_cb)?;
 //                    if /* !aiv && */(cbpc & 3) != 3 {
                         cbpy ^= 0xF;

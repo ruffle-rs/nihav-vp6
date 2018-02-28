@@ -1,5 +1,5 @@
 use std::fmt;
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 use super::DecoderResult;
 use frame::NAVideoBuffer;
 
@@ -50,14 +50,16 @@ impl Type {
 pub struct PBInfo {
     trb:        u8,
     dbquant:    u8,
+    improved:   bool,
 }
 
 impl PBInfo {
-    pub fn new(trb: u8, dbquant: u8) -> Self {
-        PBInfo{ trb: trb, dbquant: dbquant }
+    pub fn new(trb: u8, dbquant: u8, improved: bool) -> Self {
+        PBInfo{ trb: trb, dbquant: dbquant, improved: improved }
     }
     pub fn get_trb(&self) -> u8 { self.trb }
     pub fn get_dbquant(&self) -> u8 { self.dbquant }
+    pub fn is_improved(&self) -> bool { self.improved }
 }
 
 #[allow(dead_code)]
@@ -90,6 +92,13 @@ impl PicInfo {
     pub fn get_quant(&self) -> u8 { self.quant }
     pub fn get_apm(&self) -> bool { self.apm }
     pub fn is_pb(&self) -> bool { self.pb.is_some() }
+    pub fn is_ipb(&self) -> bool {
+            if let Some(ref pbi) = self.pb {
+                pbi.is_improved()
+            } else {
+                false
+            }
+        }
     pub fn get_ts(&self) -> u16 { self.ts }
     pub fn get_pbinfo(&self) -> PBInfo { self.pb.unwrap() }
     pub fn get_plusifo(&self) -> Option<PlusInfo> { self.plusinfo }
@@ -379,9 +388,17 @@ impl Add for MV {
     fn add(self, other: MV) -> MV { MV { x: self.x + other.x, y: self.y + other.y } }
 }
 
+impl AddAssign for MV {
+    fn add_assign(&mut self, other: MV) { self.x += other.x; self.y += other.y; }
+}
+
 impl Sub for MV {
     type Output = MV;
     fn sub(self, other: MV) -> MV { MV { x: self.x - other.x, y: self.y - other.y } }
+}
+
+impl SubAssign for MV {
+    fn sub_assign(&mut self, other: MV) { self.x -= other.x; self.y -= other.y; }
 }
 
 impl fmt::Display for MV {
