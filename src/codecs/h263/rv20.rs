@@ -222,7 +222,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
         Ok(ret)
     }
 
-    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
+    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, _sstate: &SliceState) -> DecoderResult<BlockInfo> {
         let br = &mut self.br;
         let mut q = slice.get_quant();
         match info.get_mode() {
