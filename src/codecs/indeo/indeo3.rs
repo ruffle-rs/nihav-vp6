@@ -387,7 +387,7 @@ impl Indeo3Decoder {
                         } else {
                             fill_block8x8(&mut self.bufs,
                                           didx + xoff, stride, 8,
-                                          (y == 0), (cell.y == 0) && (y == 0));
+                                          y == 0, (cell.y == 0) && (y == 0));
                         }
                     }
                     run_blocks -= 1;
