@@ -1,6 +1,4 @@
-use std::fmt;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
-use super::DecoderResult;
+use super::{DecoderResult, MV, ZERO_MV};
 use frame::NAVideoBuffer;
 
 pub mod code;
@@ -303,46 +301,14 @@ pub enum MVMode {
     UMV,
 }
 
-#[derive(Debug,Clone,Copy)]
-pub struct MV {
-    x: i16,
-    y: i16,
+pub trait H263MVTrait {
+    fn add_umv(pred_mv: MV, add: MV, mvmode: MVMode) -> MV;
+    fn scale(&self, trb: u16, trd: u16) -> MV;
+    fn b_sub(pvec: MV, fwdvec: MV, bvec: MV, trb: u16, trd: u16) -> MV;
 }
 
-impl MV {
-    pub fn new(x: i16, y: i16) -> Self { MV{ x: x, y: y } }
-    pub fn pred(a: MV, b: MV, c: MV) -> Self {
-        let x;
-        if a.x < b.x {
-            if b.x < c.x {
-                x = b.x;
-            } else {
-                if a.x < c.x { x = c.x; } else { x = a.x; }
-            }
-        } else {
-            if b.x < c.x {
-                if a.x < c.x { x = a.x; } else { x = c.x; }
-            } else {
-                x = b.x;
-            }
-        }
-        let y;
-        if a.y < b.y {
-            if b.y < c.y {
-                y = b.y;
-            } else {
-                if a.y < c.y { y = c.y; } else { y = a.y; }
-            }
-        } else {
-            if b.y < c.y {
-                if a.y < c.y { y = a.y; } else { y = c.y; }
-            } else {
-                y = b.y;
-            }
-        }
-        MV { x: x, y: y }
-    }
-    fn add_umv(pred_mv: MV, add: MV, mvmode: MVMode) -> Self {
+impl H263MVTrait for MV {
+    fn add_umv(pred_mv: MV, add: MV, mvmode: MVMode) -> MV {
         let mut new_mv = pred_mv + add;
         match mvmode {
             MVMode::Old => {
@@ -366,44 +332,18 @@ impl MV {
         };
         new_mv
     }
-    fn scale(&self, trb: u16, trd: u16) -> Self {
+    fn scale(&self, trb: u16, trd: u16) -> MV {
         if (trd == 0) || (trb == 0) {
             ZERO_MV
         } else {
             MV { x: (((self.x as i32) * (trb as i32)) / (trd as i32)) as i16, y: (((self.y as i32) * (trb as i32)) / (trd as i32)) as i16 }
         }
     }
-    fn b_sub(pvec: MV, fwdvec: MV, bvec: MV, trb: u16, trd: u16) -> Self {
+    fn b_sub(pvec: MV, fwdvec: MV, bvec: MV, trb: u16, trd: u16) -> MV {
         let bscale = (trb as i32) - (trd as i32);
         let x = if bvec.x != 0 { fwdvec.x - pvec.x } else if trd != 0 { (bscale * (pvec.x as i32) / (trd as i32)) as i16 } else { 0 };
         let y = if bvec.y != 0 { fwdvec.y - pvec.y } else if trd != 0 { (bscale * (pvec.y as i32) / (trd as i32)) as i16 } else { 0 };
         MV { x: x, y: y }
-    }
-}
-
-pub const ZERO_MV: MV = MV { x: 0, y: 0 };
-
-impl Add for MV {
-    type Output = MV;
-    fn add(self, other: MV) -> MV { MV { x: self.x + other.x, y: self.y + other.y } }
-}
-
-impl AddAssign for MV {
-    fn add_assign(&mut self, other: MV) { self.x += other.x; self.y += other.y; }
-}
-
-impl Sub for MV {
-    type Output = MV;
-    fn sub(self, other: MV) -> MV { MV { x: self.x - other.x, y: self.y - other.y } }
-}
-
-impl SubAssign for MV {
-    fn sub_assign(&mut self, other: MV) { self.x -= other.x; self.y -= other.y; }
-}
-
-impl fmt::Display for MV {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{},{}", self.x, self.y)
     }
 }
 

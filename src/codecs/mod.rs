@@ -1,3 +1,6 @@
+use std::fmt;
+use std::ops::{Add, AddAssign, Sub, SubAssign};
+
 use frame::*;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -136,6 +139,74 @@ impl IPBShuffler {
         }
     }
 }
+
+#[derive(Debug,Clone,Copy)]
+pub struct MV {
+    pub x: i16,
+    pub y: i16,
+}
+
+impl MV {
+    pub fn new(x: i16, y: i16) -> Self { MV{ x: x, y: y } }
+    pub fn pred(a: MV, b: MV, c: MV) -> Self {
+        let x;
+        if a.x < b.x {
+            if b.x < c.x {
+                x = b.x;
+            } else {
+                if a.x < c.x { x = c.x; } else { x = a.x; }
+            }
+        } else {
+            if b.x < c.x {
+                if a.x < c.x { x = a.x; } else { x = c.x; }
+            } else {
+                x = b.x;
+            }
+        }
+        let y;
+        if a.y < b.y {
+            if b.y < c.y {
+                y = b.y;
+            } else {
+                if a.y < c.y { y = c.y; } else { y = a.y; }
+            }
+        } else {
+            if b.y < c.y {
+                if a.y < c.y { y = a.y; } else { y = c.y; }
+            } else {
+                y = b.y;
+            }
+        }
+        MV { x: x, y: y }
+    }
+}
+
+pub const ZERO_MV: MV = MV { x: 0, y: 0 };
+
+impl Add for MV {
+    type Output = MV;
+    fn add(self, other: MV) -> MV { MV { x: self.x + other.x, y: self.y + other.y } }
+}
+
+impl AddAssign for MV {
+    fn add_assign(&mut self, other: MV) { self.x += other.x; self.y += other.y; }
+}
+
+impl Sub for MV {
+    type Output = MV;
+    fn sub(self, other: MV) -> MV { MV { x: self.x - other.x, y: self.y - other.y } }
+}
+
+impl SubAssign for MV {
+    fn sub_assign(&mut self, other: MV) { self.x -= other.x; self.y -= other.y; }
+}
+
+impl fmt::Display for MV {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{},{}", self.x, self.y)
+    }
+}
+
 
 pub trait NADecoder {
     fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()>;
