@@ -71,11 +71,11 @@ fn read_rice(br: &mut BitReader, k: u8) -> BitReaderResult<u32> {
 }
 
 fn read_gamma(br: &mut BitReader) -> BitReaderResult<u32> {
-    let mut ret = 0;
+    let mut ret = 1;
     while br.read(1)? != 1 {
         ret = (ret << 1) | br.read(1)?;
     }
-    Ok(ret)
+    Ok(ret - 1)
 }
 
 fn read_gammap(br: &mut BitReader) -> BitReaderResult<u32> {
