@@ -235,7 +235,7 @@ pub struct DecoderInfo {
     get_decoder: fn () -> Box<NADecoder>,
 }
 
-#[cfg(feature="h263")]
+#[cfg(any(feature="h263", feature="decoder_realvideo3", feature="decoder_realvideo4"))]
 mod blockdsp;
 
 #[cfg(feature="decoder_clearvideo")]
@@ -246,6 +246,8 @@ mod gremlinvideo;
 mod indeo;
 #[cfg(feature="h263")]
 mod h263;
+#[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4", feature="decoder_realvideo6"))]
+mod real;
 
 #[cfg(feature="decoder_pcm")]
 mod pcm;
@@ -271,6 +273,12 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "realvideo1", get_decoder: h263::rv10::get_decoder },
 #[cfg(feature="decoder_realvideo2")]
     DecoderInfo { name: "realvideo2", get_decoder: h263::rv20::get_decoder },
+#[cfg(feature="decoder_realvideo3")]
+    DecoderInfo { name: "realvideo3", get_decoder: real::rv30::get_decoder },
+#[cfg(feature="decoder_realvideo4")]
+    DecoderInfo { name: "realvideo4", get_decoder: real::rv40::get_decoder },
+#[cfg(feature="decoder_realvideo6")]
+    DecoderInfo { name: "realvideo6", get_decoder: real::rv60::get_decoder },
 
 #[cfg(feature="decoder_pcm")]
     DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },

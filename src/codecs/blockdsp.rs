@@ -108,7 +108,7 @@ pub fn add_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     }
 }
 
-fn edge_emu(src: &NAVideoBuffer<u8>, xpos: isize, ypos: isize, bw: usize, bh: usize, dst: &mut [u8], dstride: usize, comp: usize) {
+pub fn edge_emu(src: &NAVideoBuffer<u8>, xpos: isize, ypos: isize, bw: usize, bh: usize, dst: &mut [u8], dstride: usize, comp: usize) {
     let stride = src.get_stride(comp);
     let offs   = src.get_offset(comp);
     let (w, h) = src.get_dimensions(comp);
