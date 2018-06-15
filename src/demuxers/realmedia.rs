@@ -146,8 +146,8 @@ fn read_multiple_frame(src: &mut ByteReader, stream: Rc<NAStream>, keyframe: boo
     }
     let (_, frame_size) = read_14or30(src)?;
     let (_, timestamp)  = read_14or30(src)?;
-    let seq_no          = src.read_byte()?;
-println!("  multiple frame size {} ts {} seq {}", frame_size, timestamp, seq_no);
+    let _seq_no         = src.read_byte()?;
+//println!("  multiple frame size {} ts {} seq {}", frame_size, timestamp, seq_no);
 
     read_video_buf(src, stream, timestamp, keyframe, frame_size as usize)
 }
@@ -174,30 +174,35 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             let len             = self.src.read_u16be()? as usize;
             let str_no          = self.src.read_u16be()?;
             let ts              = self.src.read_u32be()?;
-            let pkt_grp;
+            let _pkt_grp;
             if ver == 0 {
-                pkt_grp         = self.src.read_byte()?;
+                _pkt_grp         = self.src.read_byte()?;
             } else {
                 //asm_rule        = self.src.read_u16le()?;
                 self.src.read_skip(2)?;
-                pkt_grp = 0;
+                _pkt_grp = 0;
             }
             let flags           = self.src.read_byte()?;
             let hdr_size = self.src.tell() - pkt_start;
-println!("packet @{:X} size {} for {} ts {} grp {} flags {:X}", pkt_start, len, str_no, ts, pkt_grp, flags);
+//println!("packet @{:X} size {} for {} ts {} grp {} flags {:X}", pkt_start, len, str_no, ts, pkt_grp, flags);
             self.cur_packet += 1;
 
             let payload_size = len - (hdr_size as usize);
 
             let sr = self.str_ids.iter().position(|x| *x == str_no);
             if sr.is_none() {
-println!("stream {} not found", str_no);
+//println!("stream {} not found", str_no);
                 self.src.read_skip(payload_size)?;
                 return Err(DemuxerError::InvalidData);
             }
             let str_id = sr.unwrap();
-            let stream = strmgr.get_stream_by_id(str_no as u32).unwrap();
-println!("  stream {}", str_id);
+            let streamres = strmgr.get_stream_by_id(str_no as u32);
+            if streamres.is_none() {
+                self.src.read_skip(payload_size)?;
+                continue;
+            }
+            let stream = streamres.unwrap();
+//println!("  stream {}", str_id);
             if strmgr.is_ignored_id(str_no as u32) {
                 self.src.read_skip(payload_size)?;
                 continue;
@@ -219,7 +224,7 @@ println!("  stream {}", str_id);
                                     let (_, frame_size) = read_14or30(self.src)?;
                                     let (_, off)        = read_14or30(self.src)?;
                                     let seq_no = self.src.read_byte()?;
-println!(" mode 0 pkt {}/{} off {}/{} seq {}", packet_num, num_pkts, off, frame_size, seq_no);
+//println!(" mode 0 pkt {}/{} off {}/{} seq {}", packet_num, num_pkts, off, frame_size, seq_no);
                                     let hdr_skip = (self.src.tell() - pos) as usize;
 
                                     let slice_size = (payload_size - hdr_skip) as usize;
@@ -241,7 +246,7 @@ println!(" mode 0 pkt {}/{} off {}/{} seq {}", packet_num, num_pkts, off, frame_
                                 },
                             1 => { // whole frame
                                     let seq_no = self.src.read_byte()?;
-println!(" mode 1 seq {}", seq_no);
+//println!(" mode 1 seq {}", seq_no);
                                     read_video_buf(self.src, stream, ts, keyframe, payload_size - 1)
                                 },
                             2 => { // last partial frame
@@ -252,7 +257,7 @@ println!(" mode 1 seq {}", seq_no);
                                     let (_, frame_size) = read_14or30(self.src)?;
                                     let (_, tail_size)  = read_14or30(self.src)?;
                                     let seq_no = self.src.read_byte()?;
-println!(" mode 2 pkt {}/{} tail {}/{} seq {}", packet_num, num_pkts, tail_size, frame_size, seq_no);
+//println!(" mode 2 pkt {}/{} tail {}/{} seq {}", packet_num, num_pkts, tail_size, frame_size, seq_no);
                                     self.slice_buf.resize(tail_size as usize, 0);
                                     self.src.read_buf(self.slice_buf.as_mut_slice())?;
                                     vstr.add_slice(packet_num as usize, self.slice_buf.as_slice());
@@ -269,7 +274,7 @@ println!(" mode 2 pkt {}/{} tail {}/{} seq {}", packet_num, num_pkts, tail_size,
                                     Ok(pkt)
                             },
                         _ => { // multiple frames
-println!(" mode 3");
+//println!(" mode 3");
                                     let res = read_multiple_frame(self.src, stream.clone(), keyframe, true);
                                     if res.is_err() { return res; }
                                     while self.src.tell() < pos + (payload_size as u64) {
@@ -361,10 +366,18 @@ impl<'a> RealMediaDemuxer<'a> {
         }
 
         for _ in 0..num_hdr {
-            let last = self.parse_chunk(strmgr)?;
-            if last { break; }
+            if self.src.is_eof() {
+                //warn maybe?
+                break;
+            }
+            let res = self.parse_chunk(strmgr);
+            match res {
+                Ok(last) => { if last { break; } },
+                Err(DemuxerError::IOError) => { break; },
+                Err(etype) => { return Err(etype); },
+            };
         }
-println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
+//println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
         validate!(self.data_pos > 0);
         self.src.seek(SeekFrom::Start(self.data_pos))?;
         let num_packets     = self.src.read_u32be()?;
@@ -416,10 +429,10 @@ println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
         let duration        = self.src.read_u32be()?;
         let sname_size      = self.src.read_byte()? as usize;
         let sname           = read_string_size(self.src, sname_size)?;
-println!("str #{} sname = {} pkts {}/{} start {} preroll {}", stream_no, sname, maxps, avgps, start, preroll);
+//println!("str #{} sname = {} pkts {}/{} start {} preroll {}", stream_no, sname, maxps, avgps, start, preroll);
         let mime_size       = self.src.read_byte()? as usize;
         let mime            = read_string_size(self.src, mime_size)?;
-println!("mime = {}", mime);
+//println!("mime = {}", mime);
         let edata_size      = self.src.read_u32be()? as usize;
         let edata: Option<Vec<u8>> = if edata_size == 0 { None } else {
             let mut edvec: Vec<u8> = Vec::with_capacity(edata_size);
@@ -435,7 +448,7 @@ println!("mime = {}", mime);
 
                 let tag  = src.read_u32be()?;
                 let tag2 = src.peek_u32be()?;
-println!("tag1 {:X} tag2 {:X}", tag, tag2);
+//println!("tag1 {:X} tag2 {:X}", tag, tag2);
                 if tag == mktag!('.', 'r', 'a', 0xFD) {
                     //todo audio
                     let cname = "unknown";//find_codec_name(RM_AUDIO_CODEC_REGISTER, fcc);
