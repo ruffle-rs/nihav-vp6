@@ -138,6 +138,22 @@ impl IPBShuffler {
             None
         }
     }
+    #[allow(dead_code)]
+    fn get_b_fwdref(&mut self) -> Option<NAVideoBuffer<u8>> {
+        if let Some(ref frm) = self.nextframe {
+            Some(frm.clone())
+        } else {
+            None
+        }
+    }
+    #[allow(dead_code)]
+    fn get_b_bwdref(&mut self) -> Option<NAVideoBuffer<u8>> {
+        if let Some(ref frm) = self.lastframe {
+            Some(frm.clone())
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug,Clone,Copy)]
