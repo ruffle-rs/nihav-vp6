@@ -143,10 +143,11 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
             let frm = dec.decode(&pkt).unwrap();
             if pkt.get_stream().get_info().is_video() && video_pfx.is_some() && frm.borrow().get_frame_type() != FrameType::Skip {
                 let pfx = video_pfx.unwrap();
+		let pts = if let Some(fpts) = frm.borrow().get_pts() { fpts } else { pkt.get_pts().unwrap() };
                 if frm.borrow().get_buffer().get_vbuf().unwrap().get_info().get_format().is_paletted() {
-                    write_palppm(pfx, streamno, pkt.get_pts().unwrap(), frm);
+                    write_palppm(pfx, streamno, pts, frm);
                 } else {
-                    write_pgmyuv(pfx, streamno, pkt.get_pts().unwrap(), frm);
+                    write_pgmyuv(pfx, streamno, pts, frm);
                 }
             }
         }
