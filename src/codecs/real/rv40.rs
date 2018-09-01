@@ -188,7 +188,6 @@ impl RV34BitstreamDecoder for RealVideo40BR {
             h = old_h;
         }
         let start               = br.read(get_slice_start_offset_bits(w, h))? as usize;
-//println!(" type {:?} q {} set {} pts {} {}x{} start {} @ {}", ftype, q, set_idx, pts, w, h, start, br.tell());
 
         self.had_skip_run = false;
 
@@ -196,7 +195,6 @@ impl RV34BitstreamDecoder for RealVideo40BR {
     }
     fn decode_intra_pred(&mut self, br: &mut BitReader, types: &mut [i8], mut pos: usize, tstride: usize, has_top: bool) -> DecoderResult<()> {
         let start;
-//println!(" @ {}", br.tell());
         if has_top {
             start = 0;
         } else {
@@ -205,7 +203,6 @@ impl RV34BitstreamDecoder for RealVideo40BR {
             types[pos + 1] = (code >> 1) & 2;
             types[pos + 2] = (code >> 0) & 2;
             types[pos + 3] = (code << 1) & 2;
-//println!("  first line {} {} {} {} @ {}", types[pos +0],types[pos+1],types[pos+2],types[pos+3],br.tell());
             pos += tstride;
             start = 1;
         }
@@ -215,14 +212,12 @@ impl RV34BitstreamDecoder for RealVideo40BR {
                 let tr = types[pos + x - tstride + 1];
                 let t  = types[pos + x - tstride];
                 let l  = types[pos + x - 1];
-//println!(" x = {} ctx {} {} {} @ {}", x, l, t, tr, br.tell());
                 let ctx = if x < 3 { ((tr & 0xF) as u16) + (((t as u16) & 0xF) << 4) + (((l as u16) & 0xF) << 8) } else { 0xFFF };
                 let res = RV40_AIC_PATTERNS.iter().position(|&x| x == ctx);
                 if let Some(idx) = res {
                     let code = br.read_cb(&self.aic_mode2_cb[idx])?;
                     types[pos + x + 0] = code / 9;
                     types[pos + x + 1] = code % 9;
-//println!("   -> {} {}", types[pos + x + 0], types[pos + x + 1]);
                     x += 2;
                 } else {
                     if (t != -1) && (l != -1) {
@@ -235,7 +230,6 @@ impl RV34BitstreamDecoder for RealVideo40BR {
                             _           => { types[pos + x] = 0; },
                         };
                     }
-//println!("   -> {}", types[pos + x]);
                     x += 1;
                 }
             }
@@ -344,8 +338,6 @@ println!("???");
     }
     fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-
-//println!(" decode frame size {}, {} slices", src.len(), src[0]+1);
 
         let (bufinfo, ftype, ts) = self.dec.parse_frame(src.as_slice(), &mut self.bd)?;
 

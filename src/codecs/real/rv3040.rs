@@ -281,7 +281,6 @@ impl IntraModeState {
         if no_up && no_left { return PredType4x4::DC128; }
         let no_down = !has_left || (x != 0) || (y == 3);
 
-//println!("      orig {} @ {}", self.cache.data[self.cache.xpos + x + y * self.cache.stride], self.cache.xpos + x + y * self.cache.stride);
         let mut im = RV34_INTRA_PRED4[self.cache.data[self.cache.xpos + x + y * self.cache.stride] as usize];
 
         if no_up {
@@ -315,7 +314,6 @@ impl IntraModeState {
         if no_up && no_left { return PredType4x4::DC128; }
         let no_down = !has_left || (x != 0) || (y == 1);
 
-//println!("      orig {}", self.cache.data[self.cache.xpos + x + y * self.cache.stride]);
         let mut im = RV34_INTRA_PRED4[self.cache.data[self.cache.xpos + x * 2 + y * 2 * self.cache.stride] as usize];
 
         if no_up {
@@ -403,7 +401,6 @@ impl MVInfo {
         } else {
             tr_mv = left_mv;
         }
-//print!("      pred {}  {}  {}", left_mv, top_mv, tr_mv);
         MV::pred(left_mv, top_mv, tr_mv)
     }
     pub fn pred_mb_mv(&self, mb_x: usize, mb_y: usize, fwd: bool, has_top: bool, has_left: bool, has_tr: bool, has_tl: bool) -> MV {
@@ -418,19 +415,12 @@ impl MVInfo {
             self.fill(mb_x, mb_y, false, ZERO_MV);
             return;
         }
-//println!("     mvpred {:?} - {}", mbtype, mbtype.is_16x16());
-//for i in 0..mbtype.get_num_mvs() { println!("       {}", mvs[i]);}
         if mbtype.is_fwd() {
             self.fill(mb_x, mb_y, false, ZERO_MV);
         } else if mbtype.is_bwd() {
             self.fill(mb_x, mb_y, true, ZERO_MV);
         }
         let idx = mb_x * 2 + mb_y * 2 * self.w;
-/*        let pred_mv = if mbtype.is_16x16() && mbtype != MBType::MBSkip {
-                self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true)
-            } else {
-                ZERO_MV
-            };*/
 
         match mbtype {
             MBType::MBSkip => {
@@ -438,34 +428,29 @@ impl MVInfo {
                 },
             MBType::MBP16x16 |
             MBType::MBP16x16Mix => {
-let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true);
-//println!(" + {}", mvs[0]);
+                    let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true);
                     let new_mv = mvs[0] + pred_mv;
                     self.fill(mb_x, mb_y, true, new_mv);
                 },
             MBType::MBP16x8 => {
-let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true);
-//println!(" + {}", mvs[0]);
+                    let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true);
                     let new_mv = mvs[0] + pred_mv;
                     self.mv_f[idx + 0] = new_mv;
                     self.mv_f[idx + 1] = new_mv;
 
                     let idx2 = idx + self.w;
                     let pred_mv = self.pred_mv(idx2, true, true, sstate.has_left, false, sstate.has_left, true);
-//println!(" + {}", mvs[1]);
                     let new_mv = mvs[1] + pred_mv;
                     self.mv_f[idx2 + 0] = new_mv;
                     self.mv_f[idx2 + 1] = new_mv;
                 },
             MBType::MBP8x16 => {
                     let pred_mv = self.pred_mv(idx, true, sstate.has_top, sstate.has_left, sstate.has_top, sstate.has_tl, false);
-//println!(" + {}", mvs[0]);
                     let new_mv = mvs[0] + pred_mv;
                     self.mv_f[idx]          = new_mv;
                     self.mv_f[idx + self.w] = new_mv;
 
                     let pred_mv = self.pred_mv(idx + 1, true, sstate.has_top, true, sstate.has_tr, sstate.has_top, false);
-//println!(" + {}", mvs[1]);
                     let new_mv = mvs[1] + pred_mv;
                     self.mv_f[idx          + 1] = new_mv;
                     self.mv_f[idx + self.w + 1] = new_mv;
@@ -484,7 +469,6 @@ let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left
                                 has_tl = if x == 0 { sstate.has_left } else { true };
                             }
                             let pred_mv = self.pred_mv(idx8 + x, true, has_top, has_left, has_tr, has_tl, false);
-//println!(" + {}", mvs[x+y*2]);
                             let new_mv = mvs[x + y * 2] + pred_mv;
                             self.mv_f[idx8 + x] = new_mv;
                         }
@@ -520,14 +504,12 @@ let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left
                     self.fill(mb_x, mb_y, false, new_mv);
                 },
             MBType::MBForward => {
-let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true);
-println!("    fwd = {} + {}", pred_mv, mvs[0]);
+                    let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true);
                     let new_mv = mvs[0] + pred_mv;
                     self.fill(mb_x, mb_y, true,  new_mv);
                 },
             MBType::MBBackward => {
-let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true);
-println!("    bwd = {} + {}", pred_mv, mvs[0]);
+                    let pred_mv = self.pred_mv(idx, mbtype.is_fwd(), sstate.has_top, sstate.has_left, sstate.has_tr, sstate.has_tl, true);
                     let new_mv = mvs[0] + pred_mv;
                     self.fill(mb_x, mb_y, false, new_mv);
                 },
@@ -600,7 +582,6 @@ fn decode_slice_header(br: &mut BitReader, bd: &mut RV34BitstreamDecoder, slice_
     } else {
         shdr.end = ((shdr.width + 15) >> 4) * ((shdr.height + 15) >> 4);
     }
-//println!(" slice {}: {} - {}x{} deblock {} {:X} q{} {}-{}", slice_no, shdr.ftype, shdr.width, shdr.height, shdr.deblock, shdr.pts, shdr.quant, shdr.start, shdr.end);
     Ok(shdr)
 }
 
@@ -863,7 +844,6 @@ impl RV34Decoder {
 
             if is_16 {
                 let im16 = imode.get_pred16_type(sstate.has_top, sstate.has_left);
-//println!("     pred16 {:?}", im16);
                 self.cdsp.ipred16x16[im16 as usize](framebuf, offset, stride);
             }
 
@@ -891,7 +871,6 @@ impl RV34Decoder {
                             } else {
                                 [0; 4]
                             };
-//println!("    pred4 {},{} {:?} ({})", x, y, im, im as u8);
                         self.cdsp.ipred4x4[im as usize](framebuf, offset + x*4, stride, &topright);
                     }
                     if has_ac {
@@ -915,7 +894,6 @@ impl RV34Decoder {
             let framebuf: &mut [u8] = data.as_mut_slice();
             if is_16 {
                 let im8 = imode.get_pred8_type(sstate.has_top, sstate.has_left);
-//println!("     pred8 {:?}", im8);
                 self.cdsp.ipred8x8[im8 as usize](framebuf, offset, stride);
             }
             for y in 0..2 {
@@ -940,7 +918,6 @@ impl RV34Decoder {
                             } else {
                                 [0; 4]
                             };
-//println!("    pred4chr {},{} {:?} ({})", x, y, im, im as u8);
                         self.cdsp.ipred4x4[im as usize](framebuf, offset + x*4, stride, &topright);
                     }
                     if has_ac {
@@ -1179,8 +1156,6 @@ impl RV34Decoder {
         }
         //todo validate against ref frame
 
-//println!(" frame {:?} pts {} {}x{} trd = {} trb = {}", hdr0.ftype, hdr0.pts, hdr0.width, hdr0.height, sstate.trd, sstate.trb);
-
         let vinfo = NAVideoInfo::new(hdr0.width, hdr0.height, false, YUV420_FORMAT);
         let bufret = alloc_video_buffer(vinfo, 4);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
@@ -1201,7 +1176,6 @@ impl RV34Decoder {
                 sstate.mb_x = mb_x;
                 if mb_pos == slice.end {
                     slice = decode_slice_header(&mut br, bd, slice_no, &slice_offs, self.width, self.height)?;
-//println!(" new slice! {}-{}", mb_pos, slice.end);
                     validate!(slice.fits(&hdr0));
                     q = slice.quant;
                     slice_no += 1;
@@ -1253,7 +1227,6 @@ impl RV34Decoder {
                     }
                 }
                 let cbp;
-// println!("   mb {}.{} type {:?}", mb_x, mb_y, mbh.mbtype);
                 let is_16 = (mbh.mbtype == MBType::MBIntra16) || (mbh.mbtype == MBType::MBP16x16Mix);
                 if mbh.mbtype == MBType::MBSkip {
                     cbp = 0;
@@ -1266,7 +1239,6 @@ impl RV34Decoder {
                         self.coderead.select_codes(true, q, slice.set_idx, true);
                     }
                     cbp = self.coderead.decode_cbp(&mut br)?;
-// println!("    CBP {:X} @ {}", cbp, br.tell());
                 }
                 sstate.cbp = cbp;
                 if is_intra || mbh.mbtype.is_intra() {
@@ -1296,20 +1268,6 @@ impl RV34Decoder {
         if hdr0.deblock {
             self.dsp.loop_filter(&mut buf, hdr0.ftype, &mbinfo, mb_w, mb_h - 1);
         }
-/*if self.is_b{
-    let stride = buf.get_stride(0);
-    let mut offset = buf.get_offset(0);
-    let mut data = buf.get_data_mut();
-    let framebuf: &mut [u8] = data.as_mut_slice();
-
-    for _ in 0..mb_h {
-        for x in 0..mb_w {
-            for i in 0..16 { framebuf[offset + x * 16 + 15 + i*stride] = 255; }
-        }
-        for x in 0..mb_w*16 { framebuf[offset+stride*15+x] = 255;}
-        offset += 16 * stride;
-    }
-}*/
         if !self.is_b {
             self.ipbs.add_frame(buf);
             mem::swap(&mut self.mvi, &mut self.ref_mvi);
