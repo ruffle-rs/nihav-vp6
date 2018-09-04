@@ -72,6 +72,7 @@ impl RMVideoStream {
 #[derive(Clone,Copy,PartialEq)]
 enum Deinterleaver {
     None,
+    RA28_8,
     Generic,
     Sipro,
     VBR,
@@ -80,11 +81,31 @@ enum Deinterleaver {
 #[allow(dead_code)]
 struct RMAudioStream {
     deint:      Deinterleaver,
+    iinfo:      Option<InterleaveInfo>,
 }
 
+const RM_ILEAVE_INT0: u32 = mktag!(b"Int0");
+const RM_ILEAVE_INT4: u32 = mktag!(b"Int4");
+const RM_ILEAVE_GENR: u32 = mktag!(b"genr");
+const RM_ILEAVE_SIPR: u32 = mktag!(b"sipr");
+const RM_ILEAVE_VBRS: u32 = mktag!(b"vbrs");
+
 impl RMAudioStream {
-    fn new(deint: Deinterleaver) -> Self {
-        RMAudioStream { deint: deint }
+    fn new(iinfo: Option<InterleaveInfo>) -> Self {
+        let deint;
+        if let Some(info) = iinfo {
+            deint = match info.id {
+                    RM_ILEAVE_INT0 => Deinterleaver::None,
+                    RM_ILEAVE_INT4 => Deinterleaver::RA28_8,
+                    RM_ILEAVE_GENR => Deinterleaver::Generic,
+                    RM_ILEAVE_SIPR => Deinterleaver::Sipro,
+                    RM_ILEAVE_VBRS => Deinterleaver::VBR,
+                    _ => {println!("unknown deint {:X}", info.id); Deinterleaver::None },
+                };
+        } else {
+            deint = Deinterleaver::None;
+        }
+        RMAudioStream { deint: deint, iinfo: iinfo }
     }
 }
 
@@ -317,6 +338,172 @@ if id == 0 { return Ok((0, 0, 0)); }
     Ok((id, size, ver))
 }
 
+#[derive(Clone,Copy,Debug)]
+struct InterleaveInfo {
+    id:         u32,
+    factor:     u16,
+    block_size: u16,
+    frame_size: u16,
+}
+
+#[derive(Clone,Copy,Debug)]
+struct RealAudioInfo {
+    fcc:                u32,
+    sample_rate:        u32,
+    sample_size:        u16,
+    channels:           u16,
+    channel_mask:       u32,
+    granularity:        u32,
+    bytes_per_minute:   u32,
+    total_bytes:        u32,
+    edata_size:         u32,
+    ileave_info:        Option<InterleaveInfo>
+}
+
+fn skip_ra_metadata(src: &mut ByteReader) -> DemuxerResult<()> {
+    let title_len           = src.read_byte()? as usize;
+    src.read_skip(title_len)?;
+    let author_len          = src.read_byte()? as usize;
+    src.read_skip(author_len)?;
+    let copywrong_len       = src.read_byte()? as usize;
+    src.read_skip(copywrong_len)?;
+    let comment_len         = src.read_byte()? as usize;
+    src.read_skip(comment_len)?;
+    Ok(())
+}
+
+#[allow(unused_variables)]
+fn parse_aformat3(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
+    let start = src.tell();
+    let header_len          = src.read_u16be()?;
+    validate!(header_len >= 24);
+    let flavor              = src.read_u16be()?;
+    let granularity         = src.read_u32be()?;
+    let bytes_per_minute    = src.read_u32be()?;
+    let total_bytes         = src.read_u32be()?;
+
+    skip_ra_metadata(src)?;
+
+    let _can_copy           = src.read_byte()?;
+    let fcc_len             = src.read_byte()?;
+    validate!(fcc_len == 4);
+    let fcc                 = src.read_u32be()?;
+
+    let end = src.tell();
+    validate!(end - start <= (header_len as u64) + 2);
+
+    Ok(RealAudioInfo {
+        fcc: fcc, sample_rate: 8000, sample_size: 16, channels: 1, channel_mask: 0,
+        granularity: granularity, bytes_per_minute: bytes_per_minute,
+        total_bytes: total_bytes, edata_size: 0,
+        ileave_info: None,
+    })
+}
+
+#[allow(unused_variables)]
+fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
+    let start = src.tell();
+    src.read_skip(2)?; // zeroes
+    let id                  = src.read_u32be()?;
+    validate!(id == mktag!(b".ra4"));
+    let data_size           = src.read_u32be()?;
+    let _ver4               = src.read_u16be()?; // should be 4
+    let header_size         = src.read_u32be()?;
+    let _flavor             = src.read_u16be()?;
+    let granularity         = src.read_u32be()?;
+    let total_bytes         = src.read_u32be()?;
+    let bytes_per_minute    = src.read_u32be()?;
+    let _bytes_per_minute2  = src.read_u32be()?;
+    let ileave_factor       = src.read_u16be()?;
+    let ileave_block_size   = src.read_u16be()?;
+    let _user_data          = src.read_u16be()?;
+    let sample_rate         = src.read_u32be()?;
+    let sample_size         = src.read_u32be()?;
+    let channels            = src.read_u16be()?;
+    let interleaver_id_len  = src.read_byte()?;
+    validate!(interleaver_id_len == 4);
+    let interleaver_id      = src.read_u32be()?;
+    let fcc_len             = src.read_byte()?;
+    validate!(fcc_len == 4);
+    let fcc                 = src.read_u32be()?;
+    let is_interleaved      = src.read_byte()?;
+    let _can_copy           = src.read_byte()?;
+    let _stream_type        = src.read_byte()?;
+
+    skip_ra_metadata(src)?;
+
+    let end = src.tell();
+    validate!(end - start <= (header_size as u64) + 10);
+
+    let ileave_info = if is_interleaved != 0 {
+            Some(InterleaveInfo {
+                    id: interleaver_id, factor: ileave_factor, block_size: ileave_block_size, frame_size: 0,
+                })
+        } else {
+            None
+        };
+
+    Ok(RealAudioInfo {
+        fcc: fcc, sample_rate: sample_rate, sample_size: sample_size as u16, channels: channels, channel_mask: 0,
+        granularity: granularity, bytes_per_minute: bytes_per_minute,
+        total_bytes: total_bytes & 0xFFFFFF, edata_size: 0,
+        ileave_info: ileave_info,
+    })
+}
+
+#[allow(unused_variables)]
+fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
+    let start = src.tell();
+    src.read_skip(2)?; // zeroes
+    let id                  = src.read_u32be()?;
+    validate!(id == mktag!(b".ra5"));
+    let data_size           = src.read_u32be()?;
+    let _ver5               = src.read_u16be()?; // should be 5
+    let header_size         = src.read_u32be()?;
+    let _flavor             = src.read_u16be()?;
+    let granularity         = src.read_u32be()?;
+    let total_bytes         = src.read_u32be()?;
+    let bytes_per_minute    = src.read_u32be()?;
+    let _bytes_per_minute2  = src.read_u32be()?;
+    let ileave_factor       = src.read_u16be()?;
+    let ileave_block_size   = src.read_u16be()?;
+    let frame_size          = src.read_u16be()?;
+    let user_data           = src.read_u32be()?;
+    let _sample_rate1       = src.read_u16be()?;
+    let sample_rate         = src.read_u32be()?;
+    let sample_size         = src.read_u32be()?;
+    let channels            = src.read_u16be()?;
+    let interleaver_id      = src.read_u32be()?;
+    let fcc                 = src.read_u32be()?;
+    let is_interleaved      = src.read_byte()?;
+    let _can_copy           = src.read_byte()?;
+    let _stream_type        = src.read_byte()?;
+    let has_ileave_pattern  = src.read_byte()?;
+    if has_ileave_pattern != 0 {
+unimplemented!("ra5 interleave pattern");
+    }
+    let edata_size          = src.read_u32be()?;
+
+    let end = src.tell();
+    validate!(end - start <= (header_size as u64) + 10);
+    src.read_skip((end as usize) - (header_size as usize))?;
+
+    let ileave_info = if is_interleaved != 0 {
+            Some(InterleaveInfo {
+                    id: interleaver_id, factor: ileave_factor, block_size: ileave_block_size, frame_size: frame_size,
+                })
+        } else {
+            None
+        };
+
+    Ok(RealAudioInfo {
+        fcc: fcc, sample_rate: sample_rate, sample_size: sample_size as u16, channels: channels, channel_mask: 0,
+        granularity: granularity, bytes_per_minute: bytes_per_minute,
+        total_bytes: total_bytes & 0xFFFFFF, edata_size: edata_size,
+        ileave_info: ileave_info,
+    })
+}
+
 const RMVB_HDR_SIZE:  u32 = 18;
 const RMVB_PROP_SIZE: u32 = 50;
 const KEYFRAME_FLAG: u8 = 0x02;
@@ -450,16 +637,38 @@ impl<'a> RealMediaDemuxer<'a> {
                 let tag2 = src.peek_u32be()?;
 //println!("tag1 {:X} tag2 {:X}", tag, tag2);
                 if tag == mktag!('.', 'r', 'a', 0xFD) {
-                    //todo audio
-                    let cname = "unknown";//find_codec_name(RM_AUDIO_CODEC_REGISTER, fcc);
-                    let soniton = NASoniton::new(16, SONITON_FLAG_SIGNED);
-                    let ahdr = NAAudioInfo::new(44100, 2, soniton, 1/*block_align as usize*/);
-                    let extradata = None;
-                    let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
-                    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, ainfo, 1, 44100));
+                    let ver         = src.read_u16be()?;
+                    let ainfo = match ver {
+                        3 => {
+                                parse_aformat3(&mut src)?
+                            },
+                        4 => {
+                                parse_aformat4(&mut src)?
+                            },
+                        5 => {
+                                parse_aformat5(&mut src)?
+                            },
+                        _ => {
+                                println!("unknown version {}", ver);
+                                return Err(DemuxerError::InvalidData);
+                            },
+                    };
+println!(" got ainfo {:?}", ainfo);
+                    let cname = find_codec_name(RM_AUDIO_CODEC_REGISTER, ainfo.fcc);
+                    let srate = ainfo.sample_rate;
+                    let soniton = NASoniton::new(ainfo.sample_size as u8, SONITON_FLAG_SIGNED);
+                    let ahdr = NAAudioInfo::new(srate, ainfo.channels as u8, soniton, 1);
+                    let extradata = if ainfo.edata_size == 0 {
+                            None
+                        } else {
+                            let eslice = &edata_[(src.tell() as usize)..];
+                            Some(eslice.to_vec())
+                        };
+                    let nainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
+                    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, srate));
                     if res.is_none() { return Err(MemoryError); }
 
-                    let astr = RMAudioStream::new(Deinterleaver::None);
+                    let astr = RMAudioStream::new(ainfo.ileave_info);
                     self.streams.push(RMStreamType::Audio(astr));
                 } else if ((tag2 == mktag!('V', 'I', 'D', 'O')) || (tag2 == mktag!('I', 'M', 'A', 'G'))) && ((tag as usize) <= edata_size) {
                     src.read_skip(4)?;
@@ -491,6 +700,22 @@ impl<'a> RealMediaDemuxer<'a> {
 
                     let vstr = RMVideoStream::new();
                     self.streams.push(RMStreamType::Video(vstr));
+                } else if tag == mktag!(b"LSD:") {
+                    let extradata = Some(edata_.to_vec());
+
+                    src.read_skip(4)?; //version
+                    let channels    = src.read_u16be()?;
+                    let samp_size   = src.read_u16be()?;
+                    let sample_rate = src.read_u32be()?;
+
+                    println!("LSD sr {}, {} ch", sample_rate, channels);
+                    let soniton = NASoniton::new(samp_size as u8, SONITON_FLAG_SIGNED);
+                    let ahdr = NAAudioInfo::new(sample_rate, channels as u8, soniton, 1);
+                    let nainfo = NACodecInfo::new("ralf", NACodecTypeInfo::Audio(ahdr), extradata);
+                    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, sample_rate));
+                    if res.is_none() { return Err(MemoryError); }
+                    let astr = RMAudioStream::new(None);
+                    self.streams.push(RMStreamType::Audio(astr));
                 } else {
                     self.streams.push(RMStreamType::Logical);
                 }
