@@ -11,6 +11,7 @@ pub enum DemuxerError {
     IOError,
     NotImplemented,
     MemoryError,
+    TryAgain,
 }
 
 type DemuxerResult<T> = Result<T, DemuxerError>;

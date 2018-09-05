@@ -82,6 +82,8 @@ enum Deinterleaver {
 struct RMAudioStream {
     deint:      Deinterleaver,
     iinfo:      Option<InterleaveInfo>,
+    buf:        Vec<u8>,
+    sub_packet: usize,
 }
 
 const RM_ILEAVE_INT0: u32 = mktag!(b"Int0");
@@ -93,6 +95,7 @@ const RM_ILEAVE_VBRS: u32 = mktag!(b"vbrs");
 impl RMAudioStream {
     fn new(iinfo: Option<InterleaveInfo>) -> Self {
         let deint;
+        let mut buf: Vec<u8>;
         if let Some(info) = iinfo {
             deint = match info.id {
                     RM_ILEAVE_INT0 => Deinterleaver::None,
@@ -102,10 +105,53 @@ impl RMAudioStream {
                     RM_ILEAVE_VBRS => Deinterleaver::VBR,
                     _ => {println!("unknown deint {:X}", info.id); Deinterleaver::None },
                 };
+            match deint {
+                Deinterleaver::None     => { buf = Vec::new(); },
+                Deinterleaver::RA28_8   => {
+                        let bsize = (info.frame_size as usize) * (info.factor as usize);
+                        buf = Vec::with_capacity(bsize);
+                        buf.resize(bsize, 0u8);
+                    },
+                Deinterleaver::Generic  => { unimplemented!("deint"); },
+                Deinterleaver::Sipro    => { unimplemented!("deint"); },
+                Deinterleaver::VBR      => { unimplemented!("deint"); },
+            };
         } else {
             deint = Deinterleaver::None;
+            buf = Vec::new();
         }
-        RMAudioStream { deint: deint, iinfo: iinfo }
+        RMAudioStream { deint: deint, iinfo: iinfo, buf: buf, sub_packet: 0 }
+    }
+    fn read_apackets(&mut self, _queued_packets: &mut Vec<NAPacket>, src: &mut ByteReader, stream: Rc<NAStream>, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
+        let (tb_num, tb_den) = stream.get_timebase();
+        let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
+
+        if keyframe {
+            self.sub_packet = 0;
+        }
+        match self.deint {
+            Deinterleaver::None     => { src.read_packet(stream, ts, keyframe, payload_size) },
+            Deinterleaver::RA28_8   => {
+                    let iinfo = self.iinfo.unwrap();
+                    let factor   = iinfo.factor as usize;
+                    let halffact = factor >> 1;
+                    let fsize    = iinfo.frame_size as usize;
+                    let bsize    = iinfo.block_size as usize;
+                    let ppos     = self.sub_packet;
+                    for sb in 0..halffact {
+                        let mut dst = &mut self.buf[sb * 2 * fsize + ppos * bsize..][..bsize];
+                        src.read_buf(&mut dst)?;
+                    }
+                    self.sub_packet += 1;
+                    if self.sub_packet == factor {
+                        self.sub_packet = 0;
+                        Ok(NAPacket::new(stream, ts, true, self.buf.clone()))
+                    } else {
+                        Err(DemuxerError::TryAgain)
+                    }
+                },
+            _                       => { src.read_packet(stream, ts, keyframe, payload_size) },
+        }
     }
 }
 
@@ -309,9 +355,11 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
                         }
                     },
                 RMStreamType::Audio(ref mut astr) => {
-                        let (tb_num, tb_den) = stream.get_timebase();
-                        let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
-                        self.src.read_packet(stream, ts, keyframe, payload_size)
+                        let ret = astr.read_apackets(&mut self.queued_pkts, &mut self.src, stream, ts, keyframe, payload_size);
+                        if let Err(DemuxerError::TryAgain) = ret {
+                            continue;
+                        }
+                        ret
                     },
                 _ => {
 //                        self.src.read_skip(payload_size)?;
@@ -437,7 +485,8 @@ fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
 
     let ileave_info = if is_interleaved != 0 {
             Some(InterleaveInfo {
-                    id: interleaver_id, factor: ileave_factor, block_size: ileave_block_size, frame_size: 0,
+                    id: interleaver_id, factor: ileave_factor, block_size: granularity as u16,
+                    frame_size: ileave_block_size,
                 })
         } else {
             None
