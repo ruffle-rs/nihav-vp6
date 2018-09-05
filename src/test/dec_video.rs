@@ -180,8 +180,8 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
     }
 
     let name = format!("assets/{}out.wav", audio_pfx);
-    let mut file = File::create(name).unwrap();
-    let mut fw = FileWriter::new_write(&mut file);
+    let file = File::create(name).unwrap();
+    let mut fw = FileWriter::new_write(file);
     let mut wr = ByteWriter::new(&mut fw);
     let mut wwr = WavWriter::new(&mut wr);
     let mut wrote_header = false;

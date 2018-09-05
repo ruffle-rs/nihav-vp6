@@ -370,8 +370,8 @@ pub struct MemoryWriter<'a> {
     pos:      usize,
 }
 
-pub struct FileWriter<'a> {
-    file:     &'a File,
+pub struct FileWriter {
+    file:     File,
 }
 
 impl<'a> ByteWriter<'a> {
@@ -519,13 +519,13 @@ impl<'a> ByteIO for MemoryWriter<'a> {
     }
 }
 
-impl<'a> FileWriter<'a> {
-    pub fn new_write(file: &'a mut File) -> Self {
+impl FileWriter {
+    pub fn new_write(file: File) -> Self {
         FileWriter { file: file }
     }
 }
 
-impl<'a> ByteIO for FileWriter<'a> {
+impl ByteIO for FileWriter {
     #[allow(unused_variables)]
     fn read_byte(&mut self) -> ByteIOResult<u8> {
         Err(ByteIOError::NotImplemented)
