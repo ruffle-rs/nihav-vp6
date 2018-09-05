@@ -336,7 +336,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
 
 pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelMap) -> Result<NABufferType, AllocatorError> {
     let mut offs: Vec<usize> = Vec::new();
-    if ainfo.format.is_planar() {
+    if ainfo.format.is_planar() || (ainfo.channels == 1 && (ainfo.format.get_bits() % 8) == 0) {
         let len = nsamples.checked_mul(ainfo.channels as usize);
         if len == None { return Err(AllocatorError::TooLargeDimensions); }
         let length = len.unwrap();
