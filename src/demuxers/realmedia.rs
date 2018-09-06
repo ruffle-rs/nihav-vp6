@@ -375,7 +375,11 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
 //println!(" mode 2 pkt {}/{} tail {}/{} seq {}", packet_num, num_pkts, tail_size, frame_size, seq_no);
                                     self.slice_buf.resize(tail_size as usize, 0);
                                     self.src.read_buf(self.slice_buf.as_mut_slice())?;
-                                    vstr.add_slice(packet_num as usize, self.slice_buf.as_slice());
+                                    if packet_num == 1 && frame_size == tail_size {
+                                        vstr.start_slice(num_pkts, frame_size as usize, self.slice_buf.as_slice());
+                                    } else {
+                                        vstr.add_slice(packet_num as usize, self.slice_buf.as_slice()); 
+                                    }
 
                                     while self.src.tell() < pos + (payload_size as u64) {
                                         let res = read_multiple_frame(self.src, stream.clone(), false, false);
