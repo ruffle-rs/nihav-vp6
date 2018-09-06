@@ -26,7 +26,7 @@ impl RA144Decoder {
     fn new() -> Self {
         RA144Decoder {
             chmap:      NAChannelMap::new(),
-            ainfo:      NAAudioInfo::new(0, 1, SND_F32P_FORMAT, NBLOCKS * BLOCKSIZE),
+            ainfo:      NAAudioInfo::new(0, 1, SND_S16_FORMAT, NBLOCKS * BLOCKSIZE),
             info:       NACodecInfo::new_dummy(),
 
             old_energy:     0,
