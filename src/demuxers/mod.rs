@@ -201,7 +201,7 @@ pub trait DemuxerCreator {
 }
 
 macro_rules! validate {
-    ($a:expr) => { if !$a { return Err(DemuxerError::InvalidData); } };
+    ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DemuxerError::InvalidData); } };
 }
 
 #[cfg(feature="demuxer_gdv")]
