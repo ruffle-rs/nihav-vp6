@@ -299,7 +299,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             }
             let flags           = self.src.read_byte()?;
             let hdr_size = self.src.tell() - pkt_start;
-//println!("packet @{:X} size {} for {} ts {} grp {} flags {:X}", pkt_start, len, str_no, ts, pkt_grp, flags);
+//println!("packet @{:X} size {} for {} ts {} grp {} flags {:X}", pkt_start, len, str_no, ts, _pkt_grp, flags);
             self.cur_packet += 1;
 
             let payload_size = len - (hdr_size as usize);
@@ -428,6 +428,11 @@ fn read_chunk(src: &mut ByteReader) -> DemuxerResult<(u32, u32, u16)> {
     let id      = src.read_u32be()?;
 if id == 0 { return Ok((0, 0, 0)); }
     let size    = src.read_u32be()?;
+if size == 0 {
+    let ver     = src.read_u16be()?;
+    validate!(ver <= 1);
+    return Ok((id, 0x0FFFFFFF, ver));
+}
     validate!(size >= 10);
     let ver     = src.read_u16be()?;
     validate!(ver <= 1);
@@ -666,7 +671,7 @@ impl<'a> RealMediaDemuxer<'a> {
         self.src.seek(SeekFrom::Start(self.data_pos))?;
         let num_packets     = self.src.read_u32be()?;
         let next_data_hdr   = self.src.read_u32be()?;
-        self.num_packets = num_packets;
+        self.num_packets = if num_packets > 0 { num_packets } else { 0xFFFFFF };
         self.cur_packet  = 0;
         Ok(())
     }
