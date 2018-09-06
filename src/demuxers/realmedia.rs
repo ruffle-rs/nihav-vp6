@@ -107,13 +107,13 @@ impl RMAudioStream {
                 };
             match deint {
                 Deinterleaver::None     => { buf = Vec::new(); },
-                Deinterleaver::RA28_8   => {
+                Deinterleaver::RA28_8  |
+                Deinterleaver::Generic |
+                Deinterleaver::Sipro    => {
                         let bsize = (info.frame_size as usize) * (info.factor as usize);
                         buf = Vec::with_capacity(bsize);
                         buf.resize(bsize, 0u8);
                     },
-                Deinterleaver::Generic  => { unimplemented!("deint"); },
-                Deinterleaver::Sipro    => { unimplemented!("deint"); },
                 Deinterleaver::VBR      => { unimplemented!("deint"); },
             };
         } else {
@@ -122,7 +122,7 @@ impl RMAudioStream {
         }
         RMAudioStream { deint: deint, iinfo: iinfo, buf: buf, sub_packet: 0 }
     }
-    fn read_apackets(&mut self, _queued_packets: &mut Vec<NAPacket>, src: &mut ByteReader, stream: Rc<NAStream>, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
+    fn read_apackets(&mut self, queued_packets: &mut Vec<NAPacket>, src: &mut ByteReader, stream: Rc<NAStream>, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
         let (tb_num, tb_den) = stream.get_timebase();
         let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
 
@@ -130,7 +130,7 @@ impl RMAudioStream {
             self.sub_packet = 0;
         }
         match self.deint {
-            Deinterleaver::None     => { src.read_packet(stream, ts, keyframe, payload_size) },
+            Deinterleaver::None     => { return src.read_packet(stream, ts, keyframe, payload_size); },
             Deinterleaver::RA28_8   => {
                     let iinfo = self.iinfo.unwrap();
                     let factor   = iinfo.factor as usize;
@@ -145,13 +145,61 @@ impl RMAudioStream {
                     self.sub_packet += 1;
                     if self.sub_packet == factor {
                         self.sub_packet = 0;
-                        Ok(NAPacket::new(stream, ts, true, self.buf.clone()))
+                        return Ok(NAPacket::new(stream, ts, true, self.buf.clone()));
                     } else {
-                        Err(DemuxerError::TryAgain)
+                        return Err(DemuxerError::TryAgain);
                     }
                 },
-            _                       => { src.read_packet(stream, ts, keyframe, payload_size) },
+            Deinterleaver::Generic  => {
+                    let iinfo = self.iinfo.unwrap();
+                    let factor   = iinfo.factor as usize;
+                    let fsize    = iinfo.frame_size as usize;
+                    let bsize    = iinfo.block_size as usize;
+                    let factor2  = fsize / bsize;
+                    let ppos     = self.sub_packet;
+
+                    for sb in 0..factor2 {
+                        let sb_pos = factor * sb + ((factor + 1) >> 1) * (ppos & 1) + (ppos >> 1);
+                        let mut dst = &mut self.buf[bsize * sb_pos..][..bsize];
+                        src.read_buf(&mut dst)?;
+                    }
+                },
+            Deinterleaver::Sipro    => {
+                    let iinfo = self.iinfo.unwrap();
+                    let fsize    = iinfo.frame_size as usize;
+                    let ppos     = self.sub_packet;
+
+                    let mut dst = &mut self.buf[fsize * ppos..][..fsize];
+                    src.read_buf(&mut dst)?;
+                },
+            _                       => { return src.read_packet(stream, ts, keyframe, payload_size); },
+        };
+
+        let iinfo = self.iinfo.unwrap();
+        let factor   = iinfo.factor as usize;
+        let fsize    = iinfo.frame_size as usize;
+
+        self.sub_packet += 1;
+        if self.sub_packet < factor {
+            return Err(DemuxerError::TryAgain);
         }
+
+        self.sub_packet = 0;
+
+        if self.deint == Deinterleaver::Sipro {
+// todo sipro deinterleave
+        }
+
+        let mut frames_iter = self.buf.chunks(fsize);
+        let pkt0 = frames_iter.next().unwrap();
+
+        let pkt_ts = NATimeInfo::new(None, None, None, tb_num, tb_den);
+        for pkts in frames_iter {
+            let pkt = NAPacket::new(stream.clone(), pkt_ts, true, pkts.to_vec());
+            queued_packets.push(pkt);
+        }
+        queued_packets.reverse();
+        Ok(NAPacket::new(stream, ts, true, pkt0.to_vec()))
     }
 }
 
@@ -515,8 +563,8 @@ fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     let bytes_per_minute    = src.read_u32be()?;
     let _bytes_per_minute2  = src.read_u32be()?;
     let ileave_factor       = src.read_u16be()?;
-    let ileave_block_size   = src.read_u16be()?;
     let frame_size          = src.read_u16be()?;
+    let ileave_block_size   = src.read_u16be()?;
     let user_data           = src.read_u32be()?;
     let _sample_rate1       = src.read_u16be()?;
     let sample_rate         = src.read_u32be()?;
