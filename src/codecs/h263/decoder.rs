@@ -133,6 +133,7 @@ pub struct H263BaseDecoder {
     b_data:     Vec<BMB>,
     pred_coeffs: Vec<PredCoeffs>,
     is_gob:     bool,
+    slice_reset: bool,
     may_have_b_frames: bool,
     mv_data:    Vec<BlockMVInfo>,
 }
@@ -153,7 +154,7 @@ fn clip_ac(ac: i16) -> i16 {
 
 #[allow(dead_code)]
 impl H263BaseDecoder {
-    pub fn new_with_opts(is_gob: bool, may_have_b_frames: bool) -> Self {
+    pub fn new_with_opts(is_gob: bool, slice_reset: bool, may_have_b_frames: bool) -> Self {
         H263BaseDecoder{
             w: 0, h: 0, mb_w: 0, mb_h: 0, num_mb: 0,
             ftype: Type::Special,
@@ -161,16 +162,16 @@ impl H263BaseDecoder {
             last_ts: 0, next_ts: 0, tsdiff: 0,
             has_b: false, b_data: Vec::new(),
             pred_coeffs: Vec::new(),
-            is_gob: is_gob,
+            is_gob: is_gob, slice_reset: slice_reset,
             may_have_b_frames: may_have_b_frames,
             mv_data: Vec::new(),
         }
     }
     pub fn new(is_gob: bool) -> Self {
-        Self::new_with_opts(is_gob, false)
+        Self::new_with_opts(is_gob, true, false)
     }
     pub fn new_b_frames(is_gob: bool) -> Self {
-        Self::new_with_opts(is_gob, true)
+        Self::new_with_opts(is_gob, true, true)
     }
 
     pub fn is_intra(&self) -> bool { self.ftype == Type::I }
@@ -248,7 +249,7 @@ impl H263BaseDecoder {
 
                 if slice.is_at_end(mb_pos) || (slice.needs_check() && mb_pos > 0 && bd.is_slice_end()) {
                     slice = bd.decode_slice_header(&pinfo)?;
-                    if !self.is_gob {
+                    if !self.is_gob && self.slice_reset {
                         mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
                         if is_b || pinfo.is_pb() {
                             mvi2.reset(self.mb_w, mb_x, pinfo.get_mvmode());

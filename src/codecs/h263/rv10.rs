@@ -27,6 +27,7 @@ struct RealVideo10Decoder {
     h:       usize,
     new_ver: bool,
     bdsp:    H263BlockDSP,
+    mvmode:  MVMode,
 }
 
 struct RealVideo10BR<'a> {
@@ -42,6 +43,7 @@ struct RealVideo10BR<'a> {
     new_ver:    bool,
     dc_coded:   [bool; 3],
     last_dc:    [i16; 3],
+    mvmode:     MVMode,
 }
 
 struct RV10SliceInfo {
@@ -59,7 +61,7 @@ impl RV10SliceInfo {
 }
 
 impl<'a> RealVideo10BR<'a> {
-    fn new(src: &'a [u8], tables: &'a Tables, width: usize, height: usize, new_ver: bool) -> Self {
+    fn new(src: &'a [u8], tables: &'a Tables, width: usize, height: usize, new_ver: bool, mvmode: MVMode) -> Self {
         let nslices = (src[0] as usize) + 1;
         let mut slice_offs = Vec::with_capacity(nslices);
         {
@@ -85,6 +87,7 @@ impl<'a> RealVideo10BR<'a> {
             new_ver:    new_ver,
             dc_coded:   [false; 3],
             last_dc:    [0; 3],
+            mvmode:     mvmode,
         }
     }
 
@@ -94,7 +97,6 @@ impl<'a> RealVideo10BR<'a> {
         let mut idx = 0;
         if intra {
             let mut dc;
-//println!("dc prev {} @ {} of {},{} / {}x{}", self.last_dc[plane_no], br.tell() - (self.slice_off[self.slice_no - 1] as usize) * 8, sstate.mb_x, sstate.mb_y, self.mb_w, self.mb_h);
             if !self.new_ver || !sstate.is_iframe {
                 dc = br.read(8)? as i16;
                 if dc == 255 { dc = 128; }
@@ -115,7 +117,6 @@ impl<'a> RealVideo10BR<'a> {
                     if val != 0 {
                         diff = val - 128;
                     } else {
-println!("escape!!!");
                         let code = br.read(2)?;
                         match code {
                             0x0 => { diff = ((br.read(7)? + 1) as i8) as i16; },
@@ -137,12 +138,10 @@ println!("escape!!!");
                                         br.skip(4)?;
                                         diff = 1;
                                     } else {
-println!("!!! wrong chroma esc");
                                         return Err(DecoderError::InvalidData);
                                     }
                                 },
                         };
-println!("!!! diff = {} @ {}", diff, br.tell());
                     }
                     dc = (self.last_dc[plane_no] - diff) & 0xFF;
                     self.last_dc[plane_no] = dc;
@@ -151,7 +150,6 @@ println!("!!! diff = {} @ {}", diff, br.tell());
                     dc = self.last_dc[plane_no];
                 }
             }
-//println!("dc new {} @ {}", self.last_dc[plane_no], br.tell());
             blk[0] = dc << 3;
             idx = 1;
         }
@@ -208,7 +206,6 @@ fn decode_mv_component(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResul
 fn decode_mv(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<MV> {
     let xval = decode_mv_component(br, mv_cb)?;
     let yval = decode_mv_component(br, mv_cb)?;
-//println!("  MV {},{} @ {}", xval, yval, br.tell());
     Ok(MV::new(xval, yval))
 }
 
@@ -217,20 +214,18 @@ impl<'a> BlockDecoder for RealVideo10BR<'a> {
 #[allow(unused_variables)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         self.slice_no = 0;
-println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_off[1] } else { ((self.br.tell() as u32) + (self.br.left() as u32))/8 });
         let shdr = self.read_slice_header()?;
         validate!((shdr.mb_x == 0) && (shdr.mb_y == 0));
 
         let mb_end = shdr.mb_x + shdr.mb_y * self.mb_w + shdr.mb_c;
 
         let ftype = if !shdr.is_p { Type::I } else { Type::P };
-        let picinfo = PicInfo::new(self.w, self.h, ftype, MVMode::Old, false, false, shdr.qscale, 0, None, None);
+        let picinfo = PicInfo::new(self.w, self.h, ftype, self.mvmode, false, false, shdr.qscale, 0, None, None);
         Ok(picinfo)
     }
 
     #[allow(unused_variables)]
     fn decode_slice_header(&mut self, info: &PicInfo) -> DecoderResult<SliceInfo> {
-//println!("read slice {} header", self.slice_no);
         let shdr = self.read_slice_header()?;
         self.slice_no += 1;
         let mb_end = shdr.mb_x + shdr.mb_y * self.mb_w + shdr.mb_c;
@@ -239,7 +234,7 @@ println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_
         Ok(ret)
     }
 
-    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
+    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, _sstate: &SliceState) -> DecoderResult<BlockInfo> {
         let br = &mut self.br;
         let mut q = slice.get_quant();
         match info.get_mode() {
@@ -284,7 +279,6 @@ println!("decoding picture header size {}", if self.num_slices > 1 { self.slice_
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
                     }
-println!(" MB {}.{} cbp = {:X}", sstate.mb_x, sstate.mb_y, cbp);
                     let mut binfo = BlockInfo::new(Type::P, cbp, q);
                     if !is_4x4 {
                         let mvec: [MV; 1] = [decode_mv(br, &self.tables.mv_cb)?];
@@ -358,7 +352,6 @@ impl<'a> RealVideo10BR<'a> {
             mb_count    = self.mb_w * self.mb_h;
         }
         br.skip(3)?;
-println!("slice q {} mb {},{} {}", qscale, mb_x, mb_y, mb_count);
         validate!(mb_x + mb_y * self.mb_w + mb_count <= self.mb_w * self.mb_h);
 
         Ok(RV10SliceInfo::new(is_p, qscale, mb_x, mb_y, mb_count))
@@ -397,12 +390,13 @@ impl RealVideo10Decoder {
 
         RealVideo10Decoder{
             info:           Rc::new(DUMMY_CODEC_INFO),
-            dec:            H263BaseDecoder::new(false),
+            dec:            H263BaseDecoder::new_with_opts(false, false, false),
             tables:         tables,
             w:              0,
             h:              0,
             new_ver:        false,
             bdsp:           H263BlockDSP::new(),
+            mvmode:         MVMode::Long,
         }
     }
 }
@@ -426,6 +420,9 @@ impl NADecoder for RealVideo10Decoder {
 println!("ver {:06X} -> {}", ver, mic_ver);
             validate!(maj_ver == 1);
             self.new_ver = mic_ver > 1;
+            if (src[3] & 1) != 0 {
+                self.mvmode = MVMode::UMV;
+            }
 {
 let mut br = BitReader::new(src, src.len(), BitReaderMode::BE);
 println!("edata:");
@@ -441,8 +438,8 @@ println!("???");
     fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
-println!(" decode frame size {}, {} slices", src.len(), src[0]+1);
-        let mut ibr = RealVideo10BR::new(&src, &self.tables, self.w, self.h, self.new_ver);
+//println!(" decode frame size {}, {} slices", src.len(), src[0]+1);
+        let mut ibr = RealVideo10BR::new(&src, &self.tables, self.w, self.h, self.new_ver, self.mvmode);
 
         let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp)?;
 
