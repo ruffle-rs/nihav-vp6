@@ -319,7 +319,7 @@ mod test {
     #[test]
     fn test_ra144() {
         let file = "assets/RV/ra3_in_rm_file.rm";
-        test_decode_audio("realaudio", file, None, "realaudio144");
+        test_decode_audio("realmedia", file, Some(5000), "ra14.4");
     }
 }
 

@@ -209,7 +209,7 @@ mod test {
     #[test]
     fn test_ra288() {
         let file = "assets/RV/A0000044.rm";
-        test_decode_audio("realmedia", file, None, "realaudio288");
+        test_decode_audio("realmedia", file, Some(5000), "ra28.8");
     }
 }
 
