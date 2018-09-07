@@ -15,6 +15,20 @@ macro_rules! mktag {
     });
 }
 
+const RM_SIPRO_BLOCK_SIZES: [usize; 4] = [ 29, 19, 37, 20 ];
+const RM_SIPRO_SWAPS:   [[u8; 2]; 38] = [
+    [  0, 63 ], [  1, 22 ], [  2, 44 ], [  3, 90 ],
+    [  5, 81 ], [  7, 31 ], [  8, 86 ], [  9, 58 ],
+    [ 10, 36 ], [ 12, 68 ], [ 13, 39 ], [ 14, 73 ],
+    [ 15, 53 ], [ 16, 69 ], [ 17, 57 ], [ 19, 88 ],
+    [ 20, 34 ], [ 21, 71 ], [ 24, 46 ], [ 25, 94 ],
+    [ 26, 54 ], [ 28, 75 ], [ 29, 50 ], [ 32, 70 ],
+    [ 33, 92 ], [ 35, 74 ], [ 38, 85 ], [ 40, 56 ],
+    [ 42, 87 ], [ 43, 65 ], [ 45, 59 ], [ 48, 79 ],
+    [ 49, 93 ], [ 51, 89 ], [ 55, 95 ], [ 61, 76 ],
+    [ 67, 83 ], [ 77, 80 ]
+];
+
 struct RMVideoStream {
     frame:      Vec<u8>,
     hdr_size:   usize,
@@ -187,7 +201,7 @@ impl RMAudioStream {
         self.sub_packet = 0;
 
         if self.deint == Deinterleaver::Sipro {
-// todo sipro deinterleave
+            sipro_restore(&mut self.buf, factor, fsize);
         }
 
         let mut frames_iter = self.buf.chunks(fsize);
@@ -200,6 +214,26 @@ impl RMAudioStream {
         }
         queued_packets.reverse();
         Ok(NAPacket::new(stream, ts, true, pkt0.to_vec()))
+    }
+}
+
+fn sipro_restore(buf: &mut [u8], factor: usize, fsize: usize) {
+    let stride = factor * fsize * 2 / 96;
+    for i in 0..38 {
+        let mut sidx = (RM_SIPRO_SWAPS[i][0] as usize) * stride;
+        let mut didx = (RM_SIPRO_SWAPS[i][1] as usize) * stride;
+        for _ in 0..stride {
+            let in0 = buf[sidx >> 1];
+            let in1 = buf[didx >> 1];
+            let nib0 = (in0 >> ((sidx & 1) * 4)) & 0xF;
+            let nib1 = (in1 >> ((didx & 1) * 4)) & 0xF;
+
+            buf[didx >> 1] = (nib0 << (4 * (didx & 1))) | (in1 & (0xF << (4 * (!didx & 1))));
+            buf[sidx >> 1] = (nib1 << (4 * (sidx & 1))) | (in0 & (0xF << (4 * (!sidx & 1))));
+
+            sidx += 1;
+            didx += 1;
+        }
     }
 }
 
@@ -456,6 +490,7 @@ struct RealAudioInfo {
     fcc:                u32,
     sample_rate:        u32,
     sample_size:        u16,
+    flavor:             u16,
     channels:           u16,
     channel_mask:       u32,
     granularity:        u32,
@@ -498,7 +533,8 @@ fn parse_aformat3(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     validate!(end - start <= (header_len as u64) + 2);
 
     Ok(RealAudioInfo {
-        fcc: fcc, sample_rate: 8000, sample_size: 16, channels: 1, channel_mask: 0,
+        fcc: fcc, flavor: flavor,
+        sample_rate: 8000, sample_size: 16, channels: 1, channel_mask: 0,
         granularity: granularity, bytes_per_minute: bytes_per_minute,
         total_bytes: total_bytes, edata_size: 0,
         ileave_info: None,
@@ -514,7 +550,7 @@ fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     let data_size           = src.read_u32be()?;
     let _ver4               = src.read_u16be()?; // should be 4
     let header_size         = src.read_u32be()?;
-    let _flavor             = src.read_u16be()?;
+    let flavor              = src.read_u16be()?;
     let granularity         = src.read_u32be()?;
     let total_bytes         = src.read_u32be()?;
     let bytes_per_minute    = src.read_u32be()?;
@@ -550,7 +586,8 @@ fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
         };
 
     Ok(RealAudioInfo {
-        fcc: fcc, sample_rate: sample_rate, sample_size: sample_size as u16, channels: channels, channel_mask: 0,
+        fcc: fcc, flavor: flavor,
+        sample_rate: sample_rate, sample_size: sample_size as u16, channels: channels, channel_mask: 0,
         granularity: granularity, bytes_per_minute: bytes_per_minute,
         total_bytes: total_bytes & 0xFFFFFF, edata_size: 0,
         ileave_info: ileave_info,
@@ -566,7 +603,7 @@ fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     let data_size           = src.read_u32be()?;
     let _ver5               = src.read_u16be()?; // should be 5
     let header_size         = src.read_u32be()?;
-    let _flavor             = src.read_u16be()?;
+    let flavor              = src.read_u16be()?;
     let granularity         = src.read_u32be()?;
     let total_bytes         = src.read_u32be()?;
     let bytes_per_minute    = src.read_u32be()?;
@@ -603,7 +640,8 @@ unimplemented!("ra5 interleave pattern");
         };
 
     Ok(RealAudioInfo {
-        fcc: fcc, sample_rate: sample_rate, sample_size: sample_size as u16, channels: channels, channel_mask: 0,
+        fcc: fcc, flavor: flavor,
+        sample_rate: sample_rate, sample_size: sample_size as u16, channels: channels, channel_mask: 0,
         granularity: granularity, bytes_per_minute: bytes_per_minute,
         total_bytes: total_bytes & 0xFFFFFF, edata_size: edata_size,
         ileave_info: ileave_info,
@@ -761,9 +799,15 @@ impl<'a> RealMediaDemuxer<'a> {
                     };
 println!(" got ainfo {:?}", ainfo);
                     let cname = find_codec_name(RM_AUDIO_CODEC_REGISTER, ainfo.fcc);
+                    let blk_size = if ainfo.fcc != mktag!(b"sipr") {
+                            ainfo.granularity as usize
+                        } else {
+                            validate!(ainfo.flavor <= 3);
+                            RM_SIPRO_BLOCK_SIZES[ainfo.flavor as usize]
+                        };
                     let srate = ainfo.sample_rate;
                     let soniton = NASoniton::new(ainfo.sample_size as u8, SONITON_FLAG_SIGNED);
-                    let ahdr = NAAudioInfo::new(srate, ainfo.channels as u8, soniton, 1);
+                    let ahdr = NAAudioInfo::new(srate, ainfo.channels as u8, soniton, blk_size);
                     let extradata = if ainfo.edata_size == 0 {
                             None
                         } else {
