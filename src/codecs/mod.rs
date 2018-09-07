@@ -251,6 +251,8 @@ mod real;
 
 #[cfg(feature="decoder_pcm")]
 mod pcm;
+#[cfg(feature="decoder_sipro")]
+mod sipro;
 
 const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_clearvideo")]
@@ -290,6 +292,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "ra14.4", get_decoder: real::ra144::get_decoder },
 #[cfg(feature="decoder_realaudio288")]
     DecoderInfo { name: "ra28.8", get_decoder: real::ra288::get_decoder },
+#[cfg(feature="decoder_sipro")]
+    DecoderInfo { name: "sipro", get_decoder: sipro::get_decoder },
 ];
 
 pub fn find_decoder(name: &str) -> Option<fn () -> Box<NADecoder>> {
