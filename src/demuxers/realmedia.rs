@@ -104,6 +104,7 @@ const RM_ILEAVE_INT0: u32 = mktag!(b"Int0");
 const RM_ILEAVE_INT4: u32 = mktag!(b"Int4");
 const RM_ILEAVE_GENR: u32 = mktag!(b"genr");
 const RM_ILEAVE_SIPR: u32 = mktag!(b"sipr");
+const RM_ILEAVE_VBRF: u32 = mktag!(b"vbrf");
 const RM_ILEAVE_VBRS: u32 = mktag!(b"vbrs");
 
 impl RMAudioStream {
@@ -116,6 +117,7 @@ impl RMAudioStream {
                     RM_ILEAVE_INT4 => Deinterleaver::RA28_8,
                     RM_ILEAVE_GENR => Deinterleaver::Generic,
                     RM_ILEAVE_SIPR => Deinterleaver::Sipro,
+                    RM_ILEAVE_VBRF => Deinterleaver::VBR,
                     RM_ILEAVE_VBRS => Deinterleaver::VBR,
                     _ => {println!("unknown deint {:X}", info.id); Deinterleaver::None },
                 };
@@ -396,7 +398,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
                             1 => { // whole frame
                                     let seq_no = self.src.read_byte()?;
 //println!(" mode 1 seq {}", seq_no);
-                                    read_video_buf(self.src, stream, ts, keyframe, payload_size - 1)
+                                    read_video_buf(self.src, stream, ts, keyframe, payload_size - 2)
                                 },
                             2 => { // last partial frame
                                     let b1  = self.src.read_byte()?;
@@ -629,7 +631,7 @@ unimplemented!("ra5 interleave pattern");
 
     let end = src.tell();
     validate!(end - start <= (header_size as u64) + 10);
-    src.read_skip((end as usize) - (header_size as usize))?;
+//    src.read_skip(((end - start) as usize) - (header_size as usize) - 10)?;
 
     let ileave_info = if is_interleaved != 0 {
             Some(InterleaveInfo {
