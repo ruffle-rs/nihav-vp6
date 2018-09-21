@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::string::*;
 use std::fmt;
 
@@ -92,6 +93,47 @@ impl NAChannelType {
     }
 }
 
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub struct ChannelParseError {}
+
+impl FromStr for NAChannelType {
+    type Err = ChannelParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "C"     => Ok(NAChannelType::C),
+            "L"     => Ok(NAChannelType::L),
+            "R"     => Ok(NAChannelType::R),
+            "Cs"    => Ok(NAChannelType::Cs),
+            "Ls"    => Ok(NAChannelType::Ls),
+            "Rs"    => Ok(NAChannelType::Rs),
+            "Lss"   => Ok(NAChannelType::Lss),
+            "Rss"   => Ok(NAChannelType::Rss),
+            "LFE"   => Ok(NAChannelType::LFE),
+            "Lc"    => Ok(NAChannelType::Lc),
+            "Rc"    => Ok(NAChannelType::Rc),
+            "Lh"    => Ok(NAChannelType::Lh),
+            "Rh"    => Ok(NAChannelType::Rh),
+            "Ch"    => Ok(NAChannelType::Ch),
+            "LFE2"  => Ok(NAChannelType::LFE2),
+            "Lw"    => Ok(NAChannelType::Lw),
+            "Rw"    => Ok(NAChannelType::Rw),
+            "Ov"    => Ok(NAChannelType::Ov),
+            "Lhs"   => Ok(NAChannelType::Lhs),
+            "Rhs"   => Ok(NAChannelType::Rhs),
+            "Chs"   => Ok(NAChannelType::Chs),
+            "Ll"    => Ok(NAChannelType::Ll),
+            "Rl"    => Ok(NAChannelType::Rl),
+            "Cl"    => Ok(NAChannelType::Cl),
+            "Lt"    => Ok(NAChannelType::Lt),
+            "Rt"    => Ok(NAChannelType::Rt),
+            "Lo"    => Ok(NAChannelType::Lo),
+            "Ro"    => Ok(NAChannelType::Ro),
+            _   => Err(ChannelParseError{}),
+        }        
+    }
+}
+
 impl fmt::Display for NAChannelType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match *self {
@@ -154,6 +196,29 @@ impl NAChannelMap {
             if self.ids[i] as i32 == t as i32 { return Some(i as u8); }
         }
         None
+    }
+}
+
+impl fmt::Display for NAChannelMap {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut map = String::new();
+        for el in self.ids.iter() {
+            if map.len() > 0 { map.push(','); }
+            map.push_str(&*el.to_string());
+        }
+        write!(f, "{}", map)
+    }
+}
+
+impl FromStr for NAChannelMap {
+    type Err = ChannelParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut chm = NAChannelMap::new();
+        for tok in s.split(',') {
+            chm.add_channel(NAChannelType::from_str(tok)?);
+        }
+        Ok(chm)
     }
 }
 
