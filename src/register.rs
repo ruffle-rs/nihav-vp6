@@ -138,7 +138,7 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "cook",       "RealAudio Cooker"),
     desc!(audio;    "ralf",       "RealAudio Lossless"),
     desc!(audio;    "aac",        "AAC"),
-    desc!(audio;    "ac3",        "AC-3"),
+    desc!(audio;    "ac3",        "ETSI TS 102 366"),
     desc!(audio;    "atrac3",     "Sony Atrac3"),
     desc!(audio;    "sipro",      "Sipro Labs ADPCM"),
 ];
