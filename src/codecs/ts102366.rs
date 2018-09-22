@@ -98,14 +98,14 @@ fn do_imdct_core(fft: &mut FFT, xsc: &[FFTComplex; BLOCK_LEN/2], size: usize, il
     let scale = 1.0 / ((1 << 24) as f32);
     for k in 0..N4 {
         let (c0, c1) = if !ilace {
-                ((coeffs[N2 - 2 * k - 1] as f32) * scale ,
+                ((coeffs[N2 - 2 * k - 1] as f32) * scale,
                  (coeffs[     2 * k]     as f32) * scale)
             } else {
                 ((coeffs[N - 4 * k - 2] as f32) * scale,
                  (coeffs[    4 * k]     as f32) * scale)
             };
-        z[k].re = c0 * xsc[k].re - c1 * xsc[k].im;
-        z[k].im = c0 * xsc[k].im + c1 * xsc[k].re;
+        let c = FFTComplex { re: c0, im: c1 };
+        z[k] = c * xsc[k];
     }
     fft.do_fft_inplace(z, false);
     for k in 0..N4 {
@@ -895,6 +895,10 @@ impl AudioBlock {
                     self.phsflg[bnd]                = br.read_bool()?;
                 }
             }
+        } else {
+            for ch in 0..channels {
+                self.chdata[ch].chincpl = false;
+            }
         }
         // stereo rematrixing
         if is_stereo {
@@ -1105,6 +1109,48 @@ impl AudioBlock {
             }
         }
     }
+    fn rematrix(&mut self) {
+        let maxbin = self.chdata[0].endmant.min(self.chdata[1].endmant);
+        if self.rematflg[0] {
+            let end = maxbin.min(25);
+            for bin in 13..end {
+                let s = self.chdata[0].mant[bin] + self.chdata[1].mant[bin];
+                let d = self.chdata[0].mant[bin] - self.chdata[1].mant[bin];
+                self.chdata[0].mant[bin] = d;
+                self.chdata[1].mant[bin] = s;
+            }
+            if maxbin <= 25 { return; }
+        }
+        if self.rematflg[1] {
+            let end = maxbin.min(37);
+            for bin in 25..end {
+                let s = self.chdata[0].mant[bin] + self.chdata[1].mant[bin];
+                let d = self.chdata[0].mant[bin] - self.chdata[1].mant[bin];
+                self.chdata[0].mant[bin] = d;
+                self.chdata[1].mant[bin] = s;
+            }
+            if maxbin <= 37 { return; }
+        }
+        if self.rematflg[2] {
+            let end = maxbin.min(61);
+            for bin in 37..end {
+                let s = self.chdata[0].mant[bin] + self.chdata[1].mant[bin];
+                let d = self.chdata[0].mant[bin] - self.chdata[1].mant[bin];
+                self.chdata[0].mant[bin] = d;
+                self.chdata[1].mant[bin] = s;
+            }
+            if maxbin <= 61 { return; }
+        }
+        if self.rematflg[3] {
+            let end = maxbin;
+            for bin in 61..end {
+                let s = self.chdata[0].mant[bin] + self.chdata[1].mant[bin];
+                let d = self.chdata[0].mant[bin] - self.chdata[1].mant[bin];
+                self.chdata[0].mant[bin] = d;
+                self.chdata[1].mant[bin] = s;
+            }
+        }
+    }
     fn synth_audio_block(&mut self, imdct512: &mut IMDCTContext, imdct256: &mut IMDCTContext, tmp: &mut IMDCTWorkspace, channel: usize, delay: &mut [f32; BLOCK_LEN], dst: &mut [f32]) {
         self.chdata[channel].synth(imdct512, imdct256, tmp, delay, dst);
     }
@@ -1160,6 +1206,9 @@ impl NADecoder for AudioDecoder {
             let all_zero = self.ablk.read(&mut br, &bsi, sinfo.fscod as usize, blk)?;
             let off = blk * BLOCK_LEN;
             self.ablk.couple_channels(bsi.acmod);
+            if bsi.acmod == ACMode::Stereo {
+                self.ablk.rematrix();
+            }
             for ch in 0..core_channels {
                 let dpos = abuf.get_offset(ch) + off;
                 let dst = &mut output[dpos..][..BLOCK_LEN];
