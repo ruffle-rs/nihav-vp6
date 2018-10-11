@@ -193,7 +193,7 @@ impl RMAudioStream {
 
         let iinfo = self.iinfo.unwrap();
         let factor   = iinfo.factor as usize;
-        let fsize    = iinfo.frame_size as usize;
+        let fsize    = if iinfo.block_size != 0 { iinfo.block_size } else { iinfo.frame_size } as usize;
 
         self.sub_packet += 1;
         if self.sub_packet < factor {
