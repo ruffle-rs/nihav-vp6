@@ -20,4 +20,6 @@ pub mod rv60;
 pub mod ra144;
 #[cfg(feature="decoder_realaudio288")]
 pub mod ra288;
+#[cfg(feature="decoder_cook")]
+pub mod cook;
 

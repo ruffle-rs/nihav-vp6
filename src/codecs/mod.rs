@@ -246,7 +246,7 @@ mod gremlinvideo;
 mod indeo;
 #[cfg(feature="h263")]
 mod h263;
-#[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4", feature="decoder_realvideo6", feature="decoder_realaudio144", feature="decoder_realaudio288"))]
+#[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4", feature="decoder_realvideo6", feature="decoder_realaudio144", feature="decoder_realaudio288", feature="decoder_cook"))]
 mod real;
 
 #[cfg(feature="decoder_pcm")]
@@ -298,6 +298,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "sipro", get_decoder: sipro::get_decoder },
 #[cfg(feature="decoder_ts102366")]
     DecoderInfo { name: "ac3", get_decoder: ts102366::get_decoder },
+#[cfg(feature="decoder_cook")]
+    DecoderInfo { name: "cook", get_decoder: real::cook::get_decoder },
 ];
 
 pub fn find_decoder(name: &str) -> Option<fn () -> Box<NADecoder>> {
