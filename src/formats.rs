@@ -175,6 +175,20 @@ pub struct NAChannelMap {
     ids: Vec<NAChannelType>,
 }
 
+const MS_CHANNEL_MAP: [NAChannelType; 11] = [
+    NAChannelType::L,
+    NAChannelType::R,
+    NAChannelType::C,
+    NAChannelType::LFE,
+    NAChannelType::Ls,
+    NAChannelType::Rs,
+    NAChannelType::Lss,
+    NAChannelType::Rss,
+    NAChannelType::Cs,
+    NAChannelType::Lc,
+    NAChannelType::Rc,
+];
+
 impl NAChannelMap {
     pub fn new() -> Self { NAChannelMap { ids: Vec::new() } }
     pub fn add_channel(&mut self, ch: NAChannelType) {
@@ -196,6 +210,15 @@ impl NAChannelMap {
             if self.ids[i] as i32 == t as i32 { return Some(i as u8); }
         }
         None
+    }
+    pub fn from_ms_mapping(chmap: u32) -> Self {
+        let mut cm = NAChannelMap::new();
+        for i in 0..MS_CHANNEL_MAP.len() {
+            if ((chmap >> i) & 1) != 0 {
+                cm.add_channel(MS_CHANNEL_MAP[i]);
+            }
+        }
+        cm
     }
 }
 
