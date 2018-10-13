@@ -20,6 +20,7 @@ pub const SONITON_FLAG_SIGNED :u32 = 0x10;
 
 pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, be: false, packed: false, planar: false, float: false, signed: false };
 pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, be: false, packed: false, planar: false, float: false, signed: true };
+pub const SND_S16P_FORMAT: NASoniton = NASoniton { bits: 16, be: false, packed: false, planar: true, float: false, signed: true };
 pub const SND_F32P_FORMAT: NASoniton = NASoniton { bits: 32, be: false, packed: false, planar: true, float: true, signed: true };
 
 impl NASoniton {
