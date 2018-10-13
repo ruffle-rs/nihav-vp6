@@ -22,4 +22,6 @@ pub mod ra144;
 pub mod ra288;
 #[cfg(feature="decoder_cook")]
 pub mod cook;
+#[cfg(feature="decoder_ralf")]
+pub mod ralf;
 
