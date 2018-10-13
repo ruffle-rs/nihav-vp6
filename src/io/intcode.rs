@@ -33,7 +33,7 @@ fn read_unary(br: &mut BitReader, terminator: u32) -> BitReaderResult<u32> {
     }
 }
 
-fn read_unary_lim(br: &mut BitReader, terminator: u32, len: u32) -> BitReaderResult<u32> {
+fn read_unary_lim(br: &mut BitReader, len: u32, terminator: u32) -> BitReaderResult<u32> {
     let mut res: u32 = 0;
     loop {
         if br.read(1)? == terminator { return Ok(res); }
@@ -101,7 +101,7 @@ impl<'a> IntCodeReader for BitReader<'a> {
         match t {
             UintCodeType::UnaryOnes               => read_unary(self, 0),
             UintCodeType::UnaryZeroes             => read_unary(self, 1),
-            UintCodeType::LimitedUnary(len, term) => read_unary_lim(self, term, len),
+            UintCodeType::LimitedUnary(len, term) => read_unary_lim(self, len, term),
             UintCodeType::Unary012                => read_unary_lim(self, 2, 0),
             UintCodeType::Unary210                => read_unary210(self),
             UintCodeType::Golomb(m)               => read_golomb(self, m),
