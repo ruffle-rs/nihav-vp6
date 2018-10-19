@@ -570,7 +570,7 @@ impl IMCDecoder {
                 self.ba.band_width[i] = 0;
             }
         }
-        
+
         for i in 0..BANDS-1 {
             if self.ba.band_width[i] > 0 {
                 self.ba.band_present[i] = br.read_bool()?;
@@ -721,7 +721,7 @@ impl IMCDecoder {
                         ch_data.cw[i] =  quant[val - 1]       * ch_data.adj_floor[band];
                     } else {
                         ch_data.cw[i] = -quant[max - val - 1] * ch_data.adj_floor[band];
-                    }                    
+                    }
                 }
             }
         }

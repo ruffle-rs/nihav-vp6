@@ -163,7 +163,7 @@ fn read_trans_band_header(br: &mut BitReader, w: usize, h: usize, dst: &mut [i16
         let g = br.read(8)?;
         let b = br.read(8)?;
     }
-    
+
     br.skip(1)?;
 
     let mut cb = IVI_CB_ZERO;

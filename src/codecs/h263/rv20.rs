@@ -310,7 +310,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
                             if !is_intra { cbpy ^= 0xF; }
                             (cbpy << 2) | (cbpc & 3)
                         } else { 0 };
-                    
+
                     if dquant {
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
@@ -424,7 +424,7 @@ impl RealVideo20Decoder {
         let aic_rl_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = H263ShortCodeReader::new(H263_MV);
         let mv_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        
+
         let tables = Tables {
             intra_mcbpc_cb: intra_mcbpc_cb,
             inter_mcbpc_cb: inter_mcbpc_cb,

@@ -286,7 +286,7 @@ impl DSP {
             window[i] = w;
             window[512 - 1 - i] = w;
         }
-        
+
         Self {
                 imdct:  IMDCT::new(FFTMode::SplitRadix, 512),
                 tmp:    [0.0; ATRAC3_FRAME_SIZE + 64],

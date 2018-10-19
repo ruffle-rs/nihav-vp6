@@ -239,7 +239,7 @@ impl GremlinVideoDecoder {
                 let off = -((b >> 2) as isize) - 1;
                 validate!(len <= size);
                 size -= len;
-                self.lz_copy(idx, off, len)?; 
+                self.lz_copy(idx, off, len)?;
                 idx += len;
             }
         }
@@ -326,7 +326,7 @@ impl GremlinVideoDecoder {
                     let len = if (b & 0x80) == 0 { 2 } else { 3 };
                     validate!(len <= size);
                     size -= len;
-                    self.lz_copy(idx, -(off as isize), len)?; 
+                    self.lz_copy(idx, -(off as isize), len)?;
                     idx += len;
                 }
             } else {
@@ -361,7 +361,7 @@ impl GremlinVideoDecoder {
                 }
                 validate!(len <= size);
                 size -= len;
-                self.lz_copy(idx, off, len)?; 
+                self.lz_copy(idx, off, len)?;
                 idx += len;
             }
         }

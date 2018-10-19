@@ -219,7 +219,7 @@ impl RV40DSP {
     pub fn new() -> Self {
         RV40DSP {
             luma_mc: [
-                    [ copy_16,       luma_mc_10_16,  luma_mc_20_16, luma_mc_30_16, 
+                    [ copy_16,       luma_mc_10_16,  luma_mc_20_16, luma_mc_30_16,
                       luma_mc_01_16, luma_mc_11_16,  luma_mc_21_16, luma_mc_31_16,
                       luma_mc_02_16, luma_mc_12_16,  luma_mc_22_16, luma_mc_32_16,
                       luma_mc_03_16, luma_mc_13_16,  luma_mc_23_16, luma_mc_33_16 ],

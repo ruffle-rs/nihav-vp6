@@ -836,7 +836,7 @@ impl AudioBlock {
     fn read(&mut self, br: &mut BitReader, bsi: &BSI, fscod: usize, blk_no: usize) -> DecoderResult<bool> {
         let channels = bsi.acmod.get_num_channels();
         let is_stereo = bsi.acmod == ACMode::Stereo;
-        
+
         for ch in 0..channels {
             self.chdata[ch].blksw                   = br.read_bool()?;
         }

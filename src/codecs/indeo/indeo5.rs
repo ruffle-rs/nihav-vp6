@@ -260,7 +260,7 @@ impl IndeoXParser for Indeo5Parser {
                 },
             _ => { unreachable!(); }
         };
-        
+
         Ok(BandHeader::new(plane_no, band_no, self.mb_size[band_id], self.blk_size[band_id], self.is_hpel[band_id], inherit_mv, has_qdelta, inherit_qd, band_q, rvmap_idx, num_corr, corr_map, blk_cb, tr, txtype))
     }
 

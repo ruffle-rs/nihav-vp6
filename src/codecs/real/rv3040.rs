@@ -974,7 +974,7 @@ impl RV34Decoder {
             MBType::MBSkip | MBType::MBDirect => {
                     if let (Some(ref fwdbuf), Some(ref bwdbuf)) = (self.ipbs.get_b_fwdref(), self.ipbs.get_b_bwdref()) {
                         for y in 0..2 {
-                            for x in 0..2 { 
+                            for x in 0..2 {
                                 let (mv_f, mv_b) = self.ref_mvi.get_mv(mb_x, mb_y, x, y, true).scale(sstate.trd, sstate.trb);
                                 do_mc_8x8(&self.dsp, buf, fwdbuf, mb_x, x, mb_y, y, mv_f, false);
                                 do_mc_8x8(&self.dsp, &mut self.avg_buf, bwdbuf, mb_x, x, mb_y, y, mv_b, true);

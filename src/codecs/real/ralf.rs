@@ -342,7 +342,7 @@ impl RALFDecoder {
             _ => unreachable!(),
         }
         self.sample_offset += length;
-        
+
         Ok(())
     }
 }

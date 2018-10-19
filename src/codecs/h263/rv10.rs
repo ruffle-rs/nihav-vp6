@@ -376,7 +376,7 @@ impl RealVideo10Decoder {
         let luma_dc_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = CodeReader::new(RV10_CHROMA_DC_CODES,  RV10_CHROMA_DC_BITS);
         let chroma_dc_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        
+
         let tables = Tables {
             intra_mcbpc_cb: intra_mcbpc_cb,
             inter_mcbpc_cb: inter_mcbpc_cb,

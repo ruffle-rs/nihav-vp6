@@ -374,7 +374,7 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         let mut data: Vec<u8> = Vec::with_capacity(length);
         data.resize(length, 0);
         let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
-        Ok(NABufferType::AudioPacked(buf))        
+        Ok(NABufferType::AudioPacked(buf))
     }
 }
 

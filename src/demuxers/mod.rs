@@ -237,6 +237,6 @@ pub fn find_demuxer(name: &str) -> Option<&DemuxerCreator> {
 pub fn create_demuxer<'a>(dmxcr: &DemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<Demuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     let mut str = StreamManager::new();
-    dmx.open(&mut str)?;    
+    dmx.open(&mut str)?;
     Ok(Demuxer::new(dmx, str))
 }

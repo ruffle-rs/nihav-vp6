@@ -90,7 +90,7 @@ fn haar8x8_2d(blk: &mut[i32; 64]) {
         let mut c1 = blk[i + 1*8] << 1;
         let mut c2 = blk[i + 2*8] << 1;
         let mut c3 = blk[i + 3*8] << 1;
-        haar_transform!(c0, c1, c2, c3, 
+        haar_transform!(c0, c1, c2, c3,
                         blk[i + 4*8], blk[i + 5*8], blk[i + 6*8], blk[i + 7*8]);
         blk[i + 0*8] = c0;
         blk[i + 1*8] = c1;

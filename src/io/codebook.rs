@@ -181,7 +181,7 @@ fn build_esc_lut(table: &mut Vec<u32>,
     for (_, sec_bucket) in &escape_list {
         build_esc_lut(table, mode, sec_bucket)?;
     }
-    
+
     Ok(())
 }
 

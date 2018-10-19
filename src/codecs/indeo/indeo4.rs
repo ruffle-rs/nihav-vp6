@@ -201,7 +201,6 @@ impl IndeoXParser for Indeo4Parser {
 
         let blk_cb;
         if br.read_bool()? {
-            
             blk_cb = br.read_ivi_codebook_desc(false, true)?;
         } else {
             blk_cb = self.blk_cb;

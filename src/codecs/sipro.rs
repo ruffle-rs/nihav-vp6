@@ -297,7 +297,7 @@ impl SiproDecoder {
                 sum += self.excitation[estart + j]     * SIPRO_SINC_LBR[idx0 as usize];
                 sum += self.excitation[estart - j - 1] * SIPRO_SINC_LBR[idx1 as usize];
             }
-            self.excitation[EXCITATION_OFFSET + sf * 48 + i] = sum;            
+            self.excitation[EXCITATION_OFFSET + sf * 48 + i] = sum;
         }
     }
     fn unpack_pulses_16k(&mut self, sf: usize) {
@@ -409,7 +409,7 @@ impl SiproDecoder {
         let gain0 = SIPRO_GAIN_CB_LBR[self.gc_index[sf]][0];
         let gain1 = SIPRO_GAIN_CB_LBR[self.gc_index[sf]][1];
         self.prev_pitch_gain = gain0;
-        
+
         self.avg_energy = 0.01;
         for el in self.fix_vec.iter().take(48) {
             self.avg_energy += *el * *el;

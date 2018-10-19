@@ -384,7 +384,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
                                     if packet_num == 1 {
                                         vstr.start_slice(num_pkts, frame_size as usize, self.slice_buf.as_slice());
                                     } else {
-                                        vstr.add_slice(packet_num as usize, self.slice_buf.as_slice()); 
+                                        vstr.add_slice(packet_num as usize, self.slice_buf.as_slice());
                                     }
                                     if (packet_num as usize) < num_pkts {
                                         continue;
@@ -414,7 +414,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
                                     if packet_num == 1 && frame_size == tail_size {
                                         vstr.start_slice(num_pkts, frame_size as usize, self.slice_buf.as_slice());
                                     } else {
-                                        vstr.add_slice(packet_num as usize, self.slice_buf.as_slice()); 
+                                        vstr.add_slice(packet_num as usize, self.slice_buf.as_slice());
                                     }
 
                                     while self.src.tell() < pos + (payload_size as u64) {

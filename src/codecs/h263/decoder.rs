@@ -81,7 +81,7 @@ impl MVInfo {
                 _ => {},
             };
         }
-        
+
         new_mv
     }
     fn set_zero_mv(&mut self, mb_x: usize) {

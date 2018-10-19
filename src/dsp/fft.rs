@@ -130,7 +130,7 @@ impl FFT {
             }
             return;
         }
-        
+
         let hsize = (1 << (bits - 1)) as usize;
         self.do_fft_inplace_ct(&mut data[0..hsize], bits - 1, forward);
         self.do_fft_inplace_ct(&mut data[hsize..],  bits - 1, forward);

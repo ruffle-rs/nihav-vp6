@@ -163,7 +163,6 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
             let bh_ = if comp > 0 { bh/2 } else { bh };
             (interp[mode])(&mut dbuf[doff + x + y * dstride..], dstride, ebuf.as_slice(), ebuf_stride, bw_, bh_);
         }
-        
     } else {
         for comp in 0..3 {
             let sstride = src.get_stride(comp);

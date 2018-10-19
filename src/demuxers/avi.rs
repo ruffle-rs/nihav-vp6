@@ -105,7 +105,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             let (tb_num, tb_den) = stream.get_timebase();
             let ts = NATimeInfo::new(Some(self.cur_frame[stream_no as usize]), None, None, tb_num, tb_den);
             let pkt = self.src.read_packet(stream, ts, false, size)?;
-            self.cur_frame[stream_no as usize] += 1;            
+            self.cur_frame[stream_no as usize] += 1;
             self.movi_size -= size + 8;
 
             return Ok(pkt);

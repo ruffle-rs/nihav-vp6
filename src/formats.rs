@@ -131,7 +131,7 @@ impl FromStr for NAChannelType {
             "Lo"    => Ok(NAChannelType::Lo),
             "Ro"    => Ok(NAChannelType::Ro),
             _   => Err(ChannelParseError{}),
-        }        
+        }
     }
 }
 
