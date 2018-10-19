@@ -361,7 +361,7 @@ mod test {
 //         test_file_decoding("realmedia", "assets/RV/rv40_ralf.rmvb", Some(1000), true, false, /*None*/Some("rv40"));
          test_file_decoding("realmedia", "assets/RV/rv40_weighted_mc.rmvb", Some(400), true, false, None/*Some("rv40")*/);
 //         test_file_decoding("realmedia", "assets/RV/rv40_weighted_mc_2.rmvb", Some(1000), true, false, /*None*/Some("rv40"));
-panic!("end");
+//panic!("end");
     }
 }
 
