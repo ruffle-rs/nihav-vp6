@@ -653,7 +653,7 @@ fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     if has_ileave_pattern != 0 {
 unimplemented!("ra5 interleave pattern");
     }
-    let edata_size          = src.read_u32be()?;
+    let mut edata_size          = src.read_u32be()?;
 
     let end = src.tell();
     validate!(end - start <= (header_size as u64) + 10);
@@ -666,6 +666,11 @@ unimplemented!("ra5 interleave pattern");
         } else {
             None
         };
+    if (fcc == mktag!(b"raac")) || (fcc == mktag!(b"racp")) {
+        validate!(edata_size > 1);
+        edata_size -= 1;
+        src.read_skip(1)?;
+    }
 
     Ok(RealAudioInfo {
         fcc: fcc, flavor: flavor,
