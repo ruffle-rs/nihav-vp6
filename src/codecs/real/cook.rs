@@ -568,6 +568,7 @@ impl NADecoder for CookDecoder {
                         self.pairs[0].read_hdr_v1(&mut br)?;
                         self.channels = self.pairs[0].mode.get_channels();
                         if ainfo.get_channels() == 1 { // forced mono
+                            self.pairs[0].mode = Mode::Mono;
                             self.channels       = 1;
                             chmap = 0x4;
                         } else {
