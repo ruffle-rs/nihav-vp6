@@ -130,7 +130,9 @@ impl RMAudioStream {
                         buf = Vec::with_capacity(bsize);
                         buf.resize(bsize, 0u8);
                     },
-                Deinterleaver::VBR      => { unimplemented!("deint"); },
+                Deinterleaver::VBR      => {
+                        buf = Vec::new();
+                    },
             };
         } else {
             deint = Deinterleaver::None;
@@ -188,7 +190,31 @@ impl RMAudioStream {
                     let mut dst = &mut self.buf[fsize * ppos..][..fsize];
                     src.read_buf(&mut dst)?;
                 },
-            _                       => { return src.read_packet(stream, ts, keyframe, payload_size); },
+            Deinterleaver::VBR      => {
+                    validate!(payload_size >= 5);
+                    let hdrsizesize         = src.read_u16be()?;
+                    let num_entries = (hdrsizesize / 16) as usize;
+                    validate!(payload_size >= num_entries * 3 + 2);
+                    let mut sizes: Vec<usize> = Vec::with_capacity(num_entries);
+                    let mut tot_size = 0;
+                    for _ in 0..num_entries {
+                        let sz              = src.read_u16be()? as usize;
+                        tot_size += sz;
+                        sizes.push(sz);
+                    }
+                    validate!(tot_size + num_entries * 2 + 2 == payload_size);
+                    let pkt_ts = NATimeInfo::new(None, None, None, tb_num, tb_den);
+                    let mut first = true;
+                    for size in sizes.iter() {
+                        let cur_ts = if first { ts } else { pkt_ts };
+                        first = false;
+                        let pkt = src.read_packet(stream.clone(), cur_ts, true, *size)?;
+                        queued_packets.push(pkt);
+                    }
+                    queued_packets.reverse();
+                    let pkt0 = queued_packets.pop().unwrap();
+                    return Ok(pkt0);
+                },
         };
 
         let iinfo = self.iinfo.unwrap();
@@ -945,27 +971,6 @@ fn parse_rm_stream(io: &mut ByteReader) -> DemuxerResult<NAStream> {
     //read properties
     unimplemented!();
 }
-
-#[allow(dead_code)]
-#[allow(unused_variables)]
-fn read_ra_vbr_stream(io: &mut ByteReader) -> DemuxerResult<NAPacket> {
-    let hdrsizesize = io.read_u16le()?;
-    let num_entries = (hdrsizesize / 16) as usize;
-    let mut sizes: Vec<usize> = Vec::with_capacity(num_entries);
-    for _ in 0..num_entries {
-        let sz      = io.read_u16le()? as usize;
-        sizes.push(sz);
-    }
-    for i in 0..num_entries {
-//read packet of sizes[i]
-    }
-    unimplemented!();
-}
-
-//todo interleavers
-
-//todo opaque data
-
 
 static RM_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"RV10", "realvideo1"),
