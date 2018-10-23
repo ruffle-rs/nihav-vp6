@@ -309,6 +309,25 @@ impl CodebookDescReader<u32> for ShortCodebookDescReader {
     fn len(&mut self) -> usize { self.data.len() }
 }
 
+pub struct TableCodebookDescReader<CodeType:'static, IndexType:'static> {
+    bits:       &'static [u8],
+    codes:      &'static [CodeType],
+    idx_map:    fn(usize) -> IndexType,
+}
+
+impl<'a, CodeType, IndexType> TableCodebookDescReader<CodeType, IndexType> {
+    pub fn new(codes: &'static [CodeType], bits: &'static [u8], idx_map: fn(usize) -> IndexType) -> Self {
+        Self { bits, codes, idx_map }
+    }
+}
+impl<CodeType: Copy+Into<u32>, IndexType> CodebookDescReader<IndexType> for TableCodebookDescReader<CodeType, IndexType>
+{
+    fn bits(&mut self, idx: usize) -> u8  { self.bits[idx] }
+    fn code(&mut self, idx: usize) -> u32 { self.codes[idx].into() }
+    fn sym (&mut self, idx: usize) -> IndexType { (self.idx_map)(idx) }
+    fn len(&mut self) -> usize { self.bits.len() }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
