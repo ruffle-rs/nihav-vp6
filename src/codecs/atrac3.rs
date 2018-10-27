@@ -288,7 +288,7 @@ impl DSP {
         }
 
         Self {
-                imdct:  IMDCT::new(FFTMode::SplitRadix, 512),
+                imdct:  IMDCT::new(FFTMode::SplitRadix, 512, false),
                 tmp:    [0.0; ATRAC3_FRAME_SIZE + 64],
                 gain_tab, gain_tab2, window,
             }
