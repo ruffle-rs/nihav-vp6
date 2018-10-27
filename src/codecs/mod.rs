@@ -249,6 +249,8 @@ mod h263;
 #[cfg(any(feature="decoder_realvideo3", feature="decoder_realvideo4", feature="decoder_realvideo6", feature="decoder_realaudio144", feature="decoder_realaudio288", feature="decoder_cook", feature="decoder_ralf"))]
 mod real;
 
+#[cfg(feature="decoder_aac")]
+mod aac;
 #[cfg(feature="decoder_atrac3")]
 mod atrac3;
 #[cfg(feature="decoder_pcm")]
@@ -304,6 +306,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "cook", get_decoder: real::cook::get_decoder },
 #[cfg(feature="decoder_atrac3")]
     DecoderInfo { name: "atrac3", get_decoder: atrac3::get_decoder },
+#[cfg(feature="decoder_aac")]
+    DecoderInfo { name: "aac", get_decoder: aac::get_decoder },
 #[cfg(feature="decoder_ralf")]
     DecoderInfo { name: "ralf", get_decoder: real::ralf::get_decoder },
 ];
