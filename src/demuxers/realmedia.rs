@@ -738,7 +738,11 @@ impl<'a> RealMediaDemuxer<'a> {
             match res {
                 Ok(last) => { if last { break; } },
                 Err(DemuxerError::IOError) => { break; },
-                Err(etype) => { return Err(etype); },
+                Err(etype) => {
+                        if self.data_pos == 0 { // data is not found, report error
+                            return Err(etype);
+                        }
+                    },
             };
         }
 //println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
