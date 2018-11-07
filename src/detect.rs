@@ -185,7 +185,7 @@ const DETECTORS: &[DetectConditions] = &[
     DetectConditions {
         demux_name: "realmedia",
         extensions: ".rm,.rmvb,.rma,.ra,.ram",
-        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b".RMF")},
+        conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b".RMF"), &CC::Str(b".RMP")) },
                       CheckItem{offs: 4, cond: &CC::Ge(Arg::U32BE(10))}],
     },
     DetectConditions {

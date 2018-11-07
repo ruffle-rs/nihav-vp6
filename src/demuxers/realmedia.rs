@@ -275,6 +275,7 @@ enum RMStreamType {
 struct RealMediaDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
     data_pos:       u64,
+    data_ver:       u16,
     num_packets:    u32,
     cur_packet:     u32,
 
@@ -496,12 +497,12 @@ if id == 0 { return Ok((0, 0, 0)); }
     let size    = src.read_u32be()?;
 if size == 0 {
     let ver     = src.read_u16be()?;
-    validate!(ver <= 1);
+    validate!(ver <= 2);
     return Ok((id, 0x0FFFFFFF, ver));
 }
     validate!(size >= 10);
     let ver     = src.read_u16be()?;
-    validate!(ver <= 1);
+    validate!(ver <= 2);
     Ok((id, size, ver))
 }
 
@@ -627,7 +628,7 @@ fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     let start = src.tell();
     src.read_skip(2)?; // zeroes
     let id                  = src.read_u32be()?;
-    validate!(id == mktag!(b".ra5"));
+    validate!((id == mktag!(b".ra5")) || (id == mktag!(b".ra4")));
     let data_size           = src.read_u32be()?;
     let _ver5               = src.read_u16be()?; // should be 5
     let header_size         = src.read_u32be()?;
@@ -654,10 +655,13 @@ fn parse_aformat5(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
 unimplemented!("ra5 interleave pattern");
     }
     let mut edata_size          = src.read_u32be()?;
-
     let end = src.tell();
-    validate!(end - start <= (header_size as u64) + 10);
+    if id == mktag!(b".ra5") {
+        validate!(end - start <= (header_size as u64) + 10);
 //    src.read_skip(((end - start) as usize) - (header_size as usize) - 10)?;
+    } else {
+        validate!(end - start <= (header_size as u64) + 15);
+    }
 
     let ileave_info = if is_interleaved != 0 {
             Some(InterleaveInfo {
@@ -690,6 +694,7 @@ impl<'a> RealMediaDemuxer<'a> {
         RealMediaDemuxer {
             src:            io,
             data_pos:       0,
+            data_ver:       0,
             num_packets:    0,
             cur_packet:     0,
             streams:        Vec::new(),
@@ -701,7 +706,7 @@ impl<'a> RealMediaDemuxer<'a> {
 #[allow(unused_variables)]
     fn read_header(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
         let (id, size, ver) = read_chunk(self.src)?;
-        validate!(id == mktag!(b".RMF"));
+        validate!((id == mktag!(b".RMF")) || (id == mktag!(b".RMP")));
         validate!(size >= RMVB_HDR_SIZE);
         let fver    = self.src.read_u32be()?;
         validate!(fver <= 1);
@@ -712,8 +717,9 @@ impl<'a> RealMediaDemuxer<'a> {
         }
 
         let (id, size, ver) = read_chunk(self.src)?;
-        validate!(size >= RMVB_PROP_SIZE);
-        validate!(ver == 0);
+        let prop_size = if ver == 0 { RMVB_PROP_SIZE } else { RMVB_PROP_SIZE + 4 };
+        validate!(size >= prop_size);
+        validate!((ver == 0) || (ver == 2));
         let maxbr       = self.src.read_u32be()?;
         let avgbr       = self.src.read_u32be()?;
         let maxps       = self.src.read_u32be()?;
@@ -721,12 +727,15 @@ impl<'a> RealMediaDemuxer<'a> {
         let num_pkt     = self.src.read_u32be()? as usize;
         let duration    = self.src.read_u32be()?;
         let preroll     = self.src.read_u32be()?;
+        if ver == 2 {
+                          self.src.read_skip(4)?;
+        }
         let idx_off     = self.src.read_u32be()?;
         let data_off    = self.src.read_u32be()?;
         let num_streams = self.src.read_u16be()? as usize;
         let flags       = self.src.read_u16be()?;
-        if size > RMVB_PROP_SIZE {
-            self.src.read_skip((size - RMVB_PROP_SIZE) as usize)?;
+        if size > prop_size {
+            self.src.read_skip((size - prop_size) as usize)?;
         }
 
         for _ in 0..num_hdr {
@@ -749,6 +758,9 @@ impl<'a> RealMediaDemuxer<'a> {
         validate!(self.data_pos > 0);
         self.src.seek(SeekFrom::Start(self.data_pos))?;
         let num_packets     = self.src.read_u32be()?;
+        if self.data_ver == 2 {
+                              self.src.read_skip(12)?; // zeroes?
+        }
         let next_data_hdr   = self.src.read_u32be()?;
         self.num_packets = if num_packets > 0 { num_packets } else { 0xFFFFFF };
         self.cur_packet  = 0;
@@ -758,10 +770,10 @@ impl<'a> RealMediaDemuxer<'a> {
         let (id, size, ver) = read_chunk(self.src)?;
         let end_pos = self.src.tell() - 10 + (size as u64);
 
-        validate!(ver == 0);
+        validate!((ver == 0) || (ver == 2));
              if id == mktag!(b"CONT") { self.parse_content_desc()?; }
         else if id == mktag!(b"MDPR") { self.parse_mdpr(strmgr)?; }
-        else if id == mktag!(b"DATA") { if self.data_pos == 0 { self.data_pos = self.src.tell(); } }
+        else if id == mktag!(b"DATA") { if self.data_pos == 0 { self.data_ver = ver; self.data_pos = self.src.tell(); } }
         else if id == mktag!(b"INDX") { /* do nothing for now */ }
         else if id == 0               { return Ok(true); }
         else                          { println!("unknown chunk type {:08X}", id); }
@@ -987,6 +999,7 @@ static RM_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"RVTR", "realvideo2"),
     (b"RV30", "realvideo3"),
     (b"RV40", "realvideo4"),
+    (b"RV60", "realvideo6"),
     (b"CLV1", "clearvideo_rm"),
 ];
 
