@@ -131,6 +131,7 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "realvideo2", "Real Video 2"),
     desc!(video;    "realvideo3", "Real Video 3", CODEC_CAP_REORDER),
     desc!(video;    "realvideo4", "Real Video 4", CODEC_CAP_REORDER),
+    desc!(video;    "realvideo6", "Real Video 6", CODEC_CAP_REORDER),
     desc!(video;    "clearvideo", "ClearVideo"),
     desc!(video;    "clearvideo_rm", "ClearVideo"),
     desc!(audio;    "ra14.4",     "RealAudio 14.4"),
