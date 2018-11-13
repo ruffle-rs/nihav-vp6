@@ -15,6 +15,10 @@ pub mod rv40;
 pub mod rv40dsp;
 #[cfg(feature="decoder_realvideo6")]
 pub mod rv60;
+#[cfg(feature="decoder_realvideo6")]
+pub mod rv60codes;
+#[cfg(feature="decoder_realvideo6")]
+pub mod rv60dsp;
 
 #[cfg(feature="decoder_realaudio144")]
 pub mod ra144;

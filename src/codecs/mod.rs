@@ -156,7 +156,7 @@ impl IPBShuffler {
     }
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 pub struct MV {
     pub x: i16,
     pub y: i16,

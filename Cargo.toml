@@ -21,7 +21,7 @@ dsp_window = ["dsp"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_clearvideo", "decoder_gdvvid", "decoder_indeo2", "decoder_indeo3", "decoder_indeo4", "decoder_indeo5", "decoder_intel263", "decoder_realvideo1", "decoder_realvideo2", "decoder_realvideo3", "decoder_realvideo4"]
+all_video_decoders = ["decoder_clearvideo", "decoder_gdvvid", "decoder_indeo2", "decoder_indeo3", "decoder_indeo4", "decoder_indeo5", "decoder_intel263", "decoder_realvideo1", "decoder_realvideo2", "decoder_realvideo3", "decoder_realvideo4", "decoder_realvideo6"]
 decoder_clearvideo = ["decoders"]
 decoder_gdvvid = ["decoders"]
 decoder_indeo2 = ["decoders"]
@@ -33,6 +33,7 @@ decoder_realvideo1 = ["h263", "decoders"]
 decoder_realvideo2 = ["h263", "decoders"]
 decoder_realvideo3 = ["decoders"]
 decoder_realvideo4 = ["decoders"]
+decoder_realvideo6 = ["decoders"]
 
 all_audio_decoders = ["decoder_pcm", "decoder_imc", "decoders_real"]
 decoder_pcm = ["decoders"]
