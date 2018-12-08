@@ -129,7 +129,7 @@ impl<'a> RealVideo20BR<'a> {
 
         let rl_cb = if sstate.is_iframe { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
         let q_add = if quant == 0 || sstate.is_iframe { 0i16 } else { ((quant - 1) | 1) as i16 };
-        let q = (quant * 2) as i16;
+        let q = if plane_no == 0 { (quant * 2) as i16 } else { H263_CHROMA_QUANT[quant as usize] as i16 };
         while idx < 64 {
             let code = br.read_cb(rl_cb)?;
             let run;
@@ -181,6 +181,14 @@ fn decode_mv(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<MV> {
     Ok(MV::new(xval, yval))
 }
 
+fn read_dquant(br: &mut BitReader, q: u8) -> DecoderResult<u8> {
+    if br.read_bool()? {
+        Ok(H263_MODIFIED_QUANT[br.read(1)? as usize][q as usize])
+    } else {
+        Ok(br.read(5)? as u8)
+    }
+}
+
 impl<'a> BlockDecoder for RealVideo20BR<'a> {
 
 #[allow(unused_variables)]
@@ -222,9 +230,9 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
         Ok(ret)
     }
 
-    fn decode_block_header(&mut self, info: &PicInfo, slice: &SliceInfo, _sstate: &SliceState) -> DecoderResult<BlockInfo> {
+    fn decode_block_header(&mut self, info: &PicInfo, _slice: &SliceInfo, sstate: &SliceState) -> DecoderResult<BlockInfo> {
         let br = &mut self.br;
-        let mut q = slice.get_quant();
+        let mut q = sstate.quant;
         match info.get_mode() {
             Type::I => {
                     let mut cbpc = br.read_cb(&self.tables.intra_mcbpc_cb)?;
@@ -243,8 +251,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
                     let cbp = (cbpy << 2) | (cbpc & 3);
                     let dquant = (cbpc & 4) != 0;
                     if dquant {
-                        let idx = br.read(2)? as usize;
-                        q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                        q = read_dquant(br, q)?;
                     }
                     let mut binfo = BlockInfo::new(Type::I, cbp, q);
                     binfo.set_acpred(acpred);
@@ -263,8 +270,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
                         let cbpy = br.read_cb(&self.tables.cbpy_cb)?;
                         let cbp = (cbpy << 2) | (cbpc & 3);
                         if dquant {
-                            let idx = br.read(2)? as usize;
-                            q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                            q = read_dquant(br, q)?;
                         }
                         let binfo = BlockInfo::new(Type::I, cbp, q);
                         return Ok(binfo);
@@ -276,8 +282,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
 //                    }
                     let cbp = (cbpy << 2) | (cbpc & 3);
                     if dquant {
-                        let idx = br.read(2)? as usize;
-                        q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                        q = read_dquant(br, q)?;
                     }
                     let mut binfo = BlockInfo::new(Type::P, cbp, q);
                     if !is_4x4 {
@@ -312,8 +317,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
                         } else { 0 };
 
                     if dquant {
-                        let idx = br.read(2)? as usize;
-                        q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                        q = read_dquant(br, q)?;
                     }
 
                     if is_intra {

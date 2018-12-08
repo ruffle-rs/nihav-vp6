@@ -137,6 +137,7 @@ pub struct SliceState {
     pub first_mb:   bool,
     pub slice_mb_x: usize,
     pub slice_mb_y: usize,
+    pub quant:      u8,
 }
 
 const SLICE_NO_END: usize = 99999999;
@@ -160,7 +161,7 @@ impl SliceState {
     pub fn new(is_iframe: bool) -> Self {
         SliceState {
             is_iframe: is_iframe, mb_x: 0, mb_y: 0, first_line: true, first_mb: true,
-            slice_mb_x: 0, slice_mb_y: 0
+            slice_mb_x: 0, slice_mb_y: 0, quant: 0
         }
     }
     pub fn next_mb(&mut self) {

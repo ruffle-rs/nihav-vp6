@@ -243,6 +243,7 @@ impl H263BaseDecoder {
             self.pred_coeffs.truncate(0);
             self.pred_coeffs.resize(self.mb_w * self.mb_h, ZERO_PRED_COEFFS);
         }
+        sstate.quant = slice.quant;
         for mb_y in 0..self.mb_h {
             for mb_x in 0..self.mb_w {
                 for i in 0..6 { for j in 0..64 { blk[i][j] = 0; } }
@@ -256,6 +257,7 @@ impl H263BaseDecoder {
                         }
                         cbpi.reset(self.mb_w);
                         sstate.reset_slice(mb_x, mb_y);
+                        sstate.quant = slice.quant;
                     }
                 }
 
@@ -263,6 +265,7 @@ impl H263BaseDecoder {
                 let cbp = binfo.get_cbp();
                 cbpi.set_cbp(mb_x, cbp);
                 cbpi.set_q(mb_x, binfo.get_q());
+                sstate.quant = binfo.get_q();
                 if binfo.is_intra() {
                     if save_b_data {
                         self.mv_data.push(BlockMVInfo::Intra);
