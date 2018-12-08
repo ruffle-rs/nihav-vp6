@@ -347,7 +347,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             if self.cur_packet >= self.num_packets { return Err(DemuxerError::EOF); }
 
             let pkt_start = self.src.tell();
-            let ver             = self.src.read_u16le()?;
+            let ver             = self.src.read_u16be()?;
             validate!(ver <= 1);
             let len             = self.src.read_u16be()? as usize;
             let str_no          = self.src.read_u16be()?;
@@ -356,7 +356,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             if ver == 0 {
                 _pkt_grp         = self.src.read_byte()?;
             } else {
-                //asm_rule        = self.src.read_u16le()?;
+                //asm_rule        = self.src.read_u16be()?;
                 self.src.read_skip(2)?;
                 _pkt_grp = 0;
             }
@@ -976,19 +976,19 @@ fn read_string_size(src: &mut ByteReader, size: usize) -> DemuxerResult<String> 
 fn parse_rm_stream(io: &mut ByteReader) -> DemuxerResult<NAStream> {
     let mimetype    = read_string(io)?;
     let strname     = read_string(io)?;
-    let strnum      = io.read_u32le()?;
-    let maxbr       = io.read_u32le()?;
-    let avgbr       = io.read_u32le()?;
-    let maxsize     = io.read_u32le()?;
-    let avgsize     = io.read_u32le()?;
-    let duration    = io.read_u32le()?;
-    let preroll     = io.read_u32le()?;
-    let start       = io.read_u32le()?;
-    let edatalen    = io.read_u32le()? as usize;
+    let strnum      = io.read_u32be()?;
+    let maxbr       = io.read_u32be()?;
+    let avgbr       = io.read_u32be()?;
+    let maxsize     = io.read_u32be()?;
+    let avgsize     = io.read_u32be()?;
+    let duration    = io.read_u32be()?;
+    let preroll     = io.read_u32be()?;
+    let start       = io.read_u32be()?;
+    let edatalen    = io.read_u32be()? as usize;
     let mut edata: Vec<u8> = Vec::with_capacity(edatalen);
     edata.resize(edatalen, 0);
     io.read_buf(&mut edata)?;
-    let numprops    = io.read_u32le()? as usize;
+    let numprops    = io.read_u32be()? as usize;
     //read properties
     unimplemented!();
 }
