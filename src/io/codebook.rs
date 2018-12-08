@@ -195,7 +195,12 @@ impl<S: Copy> Codebook<S> {
         let mut symidx: usize = 0;
         for i in 0..cb.len() {
             let bits = cb.bits(i);
-            if bits > 0 { nnz = nnz + 1; }
+            if bits > 0 {
+                nnz = nnz + 1;
+                if cb.code(i) >= (1 << bits) {
+                    return Err(CodebookError::InvalidCodebook);
+                }
+            }
             maxbits = max(bits, maxbits);
             if bits > MAX_LUT_BITS {
                 let code = cb.code(i);
