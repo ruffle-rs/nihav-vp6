@@ -219,8 +219,8 @@ const DEMUXERS: &[&'static DemuxerCreator] = &[
     &gdv::GDVDemuxerCreator {},
 #[cfg(feature="demuxer_real")]
     &realmedia::RealMediaDemuxerCreator {},
-//#[cfg(feature="demuxer_real")]
-//    &realmedia::RealAudioDemuxerCreator {},
+#[cfg(feature="demuxer_real")]
+    &realmedia::RealAudioDemuxerCreator {},
 //#[cfg(feature="demuxer_real")]
 //    &realmedia::RealIVRDemuxerCreator {},
 ];

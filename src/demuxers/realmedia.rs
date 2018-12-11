@@ -993,6 +993,109 @@ fn parse_rm_stream(io: &mut ByteReader) -> DemuxerResult<NAStream> {
     unimplemented!();
 }
 
+struct RealAudioDemuxer<'a> {
+    src:            &'a mut ByteReader<'a>,
+    stream:         Option<RMAudioStream>,
+    data_start:     u64,
+    data_end:       u64,
+    blk_size:       usize,
+    queued_pkts:    Vec<NAPacket>,
+}
+
+impl<'a> DemuxCore<'a> for RealAudioDemuxer<'a> {
+    #[allow(unused_variables)]
+    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+        let magic                                       = self.src.read_u32be()?;
+        validate!(magic == mktag!(b".ra\xFD"));
+        let ver         = self.src.read_u16be()?;
+        let ainfo = match ver {
+            3 => {
+                    parse_aformat3(&mut self.src)?
+                },
+            4 => {
+                    parse_aformat4(&mut self.src)?
+                },
+            5 => {
+                    parse_aformat5(&mut self.src)?
+                },
+            _ => {
+                    println!("unknown version {}", ver);
+                    return Err(DemuxerError::InvalidData);
+                },
+        };
+println!(" got ainfo {:?}", ainfo);
+        let cname = find_codec_name(RM_AUDIO_CODEC_REGISTER, ainfo.fcc);
+        let blk_size = if ainfo.fcc != mktag!(b"sipr") {
+                ainfo.granularity as usize
+            } else {
+                validate!(ainfo.flavor <= 3);
+                RM_SIPRO_BLOCK_SIZES[ainfo.flavor as usize]
+            };
+        let srate = ainfo.sample_rate;
+        let soniton = NASoniton::new(ainfo.sample_size as u8, SONITON_FLAG_SIGNED);
+        let ahdr = NAAudioInfo::new(srate, ainfo.channels as u8, soniton, blk_size);
+        let extradata = if ainfo.edata_size == 0 {
+                None
+            } else {
+                let mut dta: Vec<u8> = Vec::with_capacity(ainfo.edata_size as usize);
+                dta.resize(ainfo.edata_size as usize, 0);
+                self.src.read_buf(dta.as_mut_slice())?;
+                Some(dta)
+            };
+        let nainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 0, nainfo, 1, srate));
+        if res.is_none() { return Err(MemoryError); }
+
+        let astr = RMAudioStream::new(ainfo.ileave_info);
+        self.data_start = self.src.tell();
+        self.data_end   = if ainfo.total_bytes > 0 { self.src.tell() + (ainfo.total_bytes as u64) } else { 0 };
+        self.blk_size = blk_size;
+        self.stream = Some(astr);
+
+        Ok(())
+    }
+
+    fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
+        if !self.queued_pkts.is_empty() {
+            let pkt = self.queued_pkts.pop().unwrap();
+            return Ok(pkt);
+        }
+        if (self.data_end != 0) && (self.src.tell() >= self.data_end) {
+            return Err(DemuxerError::EOF);
+        }
+        let streamres = strmgr.get_stream_by_id(0);
+        let stream = streamres.unwrap();
+        if let Some(ref mut astr) = self.stream {
+            loop {
+                let ret = astr.read_apackets(&mut self.queued_pkts, &mut self.src, stream.clone(), 0, false, self.blk_size);
+                if let Err(DemuxerError::TryAgain) = ret {
+                    continue;
+                }
+                return ret;
+            }
+        }
+        Err(DemuxerError::NoSuchInput)
+    }
+
+    #[allow(unused_variables)]
+    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
+        Err(NotImplemented)
+    }
+}
+
+impl<'a> RealAudioDemuxer<'a> {
+    fn new(io: &'a mut ByteReader<'a>) -> Self {
+        RealAudioDemuxer {
+            src:            io,
+            data_start:     0,
+            data_end:       0,
+            blk_size:       0,
+            stream:         None,
+            queued_pkts:    Vec::new(),
+        }
+    }
+}
+
 static RM_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"RV10", "realvideo1"),
     (b"RV20", "realvideo2"),
@@ -1024,6 +1127,24 @@ impl DemuxerCreator for RealMediaDemuxerCreator {
     }
     fn get_name(&self) -> &'static str { "realmedia" }
 }
+
+pub struct RealAudioDemuxerCreator { }
+
+impl DemuxerCreator for RealAudioDemuxerCreator {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+        Box::new(RealAudioDemuxer::new(br))
+    }
+    fn get_name(&self) -> &'static str { "realaudio" }
+}
+
+/*pub struct RealIVRDemuxerCreator { }
+
+impl DemuxerCreator for RealIVRDemuxerCreator {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+        Box::new(RealIVRDemuxer::new(br))
+    }
+    fn get_name(&self) -> &'static str { "real_ivr" }
+}*/
 
 #[cfg(test)]
 mod test {
@@ -1060,5 +1181,26 @@ mod test {
             println!("Got {}", pkt);
         }
 //panic!("the end");
+    }
+    #[test]
+    fn test_ra_demux() {
+        let mut file =
+//            File::open("assets/RV/welcome288.ra").unwrap();
+            File::open("assets/RV/diemusik.ra").unwrap();
+        let mut fr = FileReader::new_read(&mut file);
+        let mut br = ByteReader::new(&mut fr);
+        let mut dmx = RealAudioDemuxer::new(&mut br);
+        let mut sm = StreamManager::new();
+        dmx.open(&mut sm).unwrap();
+
+        loop {
+            let pktres = dmx.get_frame(&mut sm);
+            if let Err(e) = pktres {
+                if e == DemuxerError::EOF { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            println!("Got {}", pkt);
+        }
     }
 }
