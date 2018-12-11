@@ -1484,7 +1484,7 @@ mod test {
     use test::dec_video::test_file_decoding;
     #[test]
     fn test_rv60() {
-         test_file_decoding("realmedia", "assets/RV/RV60.rmhd", Some(4000), true, false, /*None*/Some("rv60"));
-panic!("end");
+         test_file_decoding("realmedia", "assets/RV/RV60.rmhd", Some(4000), true, false, None/*Some("rv60")*/);
+//panic!("end");
     }
 }
