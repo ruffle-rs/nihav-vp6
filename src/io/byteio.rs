@@ -48,7 +48,7 @@ pub struct FileReader<'a> {
 macro_rules! read_int {
     ($s: ident, $inttype: ty, $size: expr, $which: ident) => ({
         let mut buf = [0; $size];
-        try!($s.read_buf(&mut buf));
+        $s.read_buf(&mut buf)?;
         unsafe {
             Ok((*(buf.as_ptr() as *const $inttype)).$which())
         }
@@ -58,7 +58,7 @@ macro_rules! read_int {
 macro_rules! peek_int {
     ($s: ident, $inttype: ty, $size: expr, $which: ident) => ({
         let mut buf = [0; $size];
-        try!($s.peek_buf(&mut buf));
+        $s.peek_buf(&mut buf)?;
         unsafe {
             Ok((*(buf.as_ptr() as *const $inttype)).$which())
         }
