@@ -275,6 +275,7 @@ enum RMStreamType {
 struct RealMediaDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
     data_pos:       u64,
+    next_data:      u64,
     data_ver:       u16,
     num_packets:    u32,
     cur_packet:     u32,
@@ -344,7 +345,19 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             return Ok(pkt);
         }
         loop {
-            if self.cur_packet >= self.num_packets { return Err(DemuxerError::EOF); }
+            if self.cur_packet >= self.num_packets {
+                if (self.next_data != 0) && (self.next_data == self.src.tell()) {
+                    let res = read_chunk(self.src);
+                    if let Ok((id, size, ver)) = res {
+                        self.data_pos = self.src.tell();
+                        self.data_ver = ver;
+                        if self.parse_data_start().is_ok() {
+                            continue;
+                        }
+                    }
+                }
+                return Err(DemuxerError::EOF);
+            }
 
             let pkt_start = self.src.tell();
             let ver             = self.src.read_u16be()?;
@@ -353,14 +366,17 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             let str_no          = self.src.read_u16be()?;
             let ts              = self.src.read_u32be()?;
             let _pkt_grp;
+            let flags;
             if ver == 0 {
                 _pkt_grp         = self.src.read_byte()?;
+                flags           = self.src.read_byte()?;
             } else {
                 //asm_rule        = self.src.read_u16be()?;
                 self.src.read_skip(2)?;
                 _pkt_grp = 0;
+                self.src.read_skip(1)?;
+                flags = 0;
             }
-            let flags           = self.src.read_byte()?;
             let hdr_size = self.src.tell() - pkt_start;
 //println!("packet @{:X} size {} for {} ts {} grp {} flags {:X}", pkt_start, len, str_no, ts, _pkt_grp, flags);
             self.cur_packet += 1;
@@ -694,6 +710,7 @@ impl<'a> RealMediaDemuxer<'a> {
         RealMediaDemuxer {
             src:            io,
             data_pos:       0,
+            next_data:      0,
             data_ver:       0,
             num_packets:    0,
             cur_packet:     0,
@@ -757,6 +774,10 @@ impl<'a> RealMediaDemuxer<'a> {
 //println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
         validate!(self.data_pos > 0);
         self.src.seek(SeekFrom::Start(self.data_pos))?;
+        self.parse_data_start()?;
+        Ok(())
+    }
+    fn parse_data_start(&mut self) -> DemuxerResult<()> {
         let num_packets     = self.src.read_u32be()?;
         if self.data_ver == 2 {
                               self.src.read_skip(12)?; // zeroes?
@@ -764,6 +785,7 @@ impl<'a> RealMediaDemuxer<'a> {
         let next_data_hdr   = self.src.read_u32be()?;
         self.num_packets = if num_packets > 0 { num_packets } else { 0xFFFFFF };
         self.cur_packet  = 0;
+        self.next_data   = next_data_hdr as u64;
         Ok(())
     }
     fn parse_chunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<bool> {
