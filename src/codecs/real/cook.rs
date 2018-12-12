@@ -143,7 +143,7 @@ struct CookChannelPair {
     decouple:       [u8; BAND_SIZE],
     category:       [u8; MAX_SUBBANDS * 2],
 
-    block:          [[f32; MAX_SAMPLES]; 2],
+    block:          [[f32; MAX_SAMPLES * 2]; 2],
     delay:          [[f32; MAX_SAMPLES]; 2],
     gains:          [[i32; 9]; 2],
     prev_gains:     [[i32; 9]; 2],
@@ -164,7 +164,7 @@ impl CookChannelPair {
             decouple:       [0; BAND_SIZE],
             category:       [0; MAX_SUBBANDS * 2],
 
-            block:          [[0.0; MAX_SAMPLES]; 2],
+            block:          [[0.0; MAX_SAMPLES * 2]; 2],
             delay:          [[0.0; MAX_SAMPLES]; 2],
             gains:          [[0; 9]; 2],
             prev_gains:     [[0; 9]; 2],
@@ -309,7 +309,7 @@ impl CookChannelPair {
         validate!(num_gains <= 8);
 
         swap(&mut self.gains[channel], &mut self.prev_gains[channel]);
-        self.block[channel] = [0.0; MAX_SAMPLES];
+        self.block[channel] = [0.0; MAX_SAMPLES * 2];
 
         // gains
         let mut ipos = 0;
@@ -367,7 +367,7 @@ impl CookChannelPair {
         self.bitalloc(num_vectors, br.left() as usize);
 
         // coefficients
-        self.block[channel] = [0.0; MAX_SAMPLES];
+        self.block[channel] = [0.0; MAX_SAMPLES * 2];
         let mut off = 0;
         for sb in 0..tot_subbands {
             let mut coef_index: [u8; BAND_SIZE] = [0; BAND_SIZE];
