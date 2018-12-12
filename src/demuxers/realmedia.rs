@@ -265,6 +265,53 @@ fn sipro_restore(buf: &mut [u8], factor: usize, fsize: usize) {
     }
 }
 
+struct SubstreamInfo {
+    id:         u32,
+    map:        Vec<u16>,
+    str_ids:    Vec<u32>,
+}
+
+struct MLTIMapper {
+    sub_info:   Vec<SubstreamInfo>,
+}
+
+impl MLTIMapper {
+    fn new() -> Self {
+        MLTIMapper {
+            sub_info:   Vec::new(),
+        }
+    }
+    fn add_stream(&mut self, stream_no: u32) {
+        let ssinfo = SubstreamInfo { id: stream_no, map: Vec::new(), str_ids: Vec::new() };
+        self.sub_info.push(ssinfo);
+    }
+    fn find_idx(&self, stream_no: u32) -> Option<usize> {
+        self.sub_info.iter().position(|x| x.id == stream_no)
+    }
+    fn add_map_rule(&mut self, stream_no: u32, map_ss: u16) {
+        let idx = self.find_idx(stream_no).unwrap();
+        self.sub_info[idx].map.push(map_ss);
+    }
+    fn add_substream(&mut self, stream_no: u32, sstr_id: u32) {
+        let idx = self.find_idx(stream_no).unwrap();
+        self.sub_info[idx].str_ids.push(sstr_id);
+    }
+    fn is_mlti_stream(&self, stream_no: u32) -> bool {
+        self.find_idx(stream_no).is_some()
+    }
+    fn find_substream(&self, stream_no: u32, grp: u16) -> Option<u32> {
+        if let Some(idx) = self.find_idx(stream_no) {
+            if (grp as usize) < self.sub_info[idx].map.len() {
+                let sub_id = self.sub_info[idx].map[grp as usize] as usize;
+                if sub_id < self.sub_info[idx].str_ids.len() {
+                    return Some(self.sub_info[idx].str_ids[sub_id]);
+                }
+            }
+        }
+        None
+    }
+}
+
 enum RMStreamType {
     Audio(RMAudioStream),
     Video(RMVideoStream),
@@ -280,8 +327,11 @@ struct RealMediaDemuxer<'a> {
     num_packets:    u32,
     cur_packet:     u32,
 
+    mlti_stream_no: u32,
+    mlti_mapper:    MLTIMapper,
+
     streams:        Vec<RMStreamType>,
-    str_ids:        Vec<u16>,
+    str_ids:        Vec<u32>,
 
     queued_pkts:    Vec<NAPacket>,
     slice_buf:      Vec<u8>,
@@ -363,41 +413,49 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             let ver             = self.src.read_u16be()?;
             validate!(ver <= 1);
             let len             = self.src.read_u16be()? as usize;
-            let str_no          = self.src.read_u16be()?;
+            let str_no          = self.src.read_u16be()? as u32;
             let ts              = self.src.read_u32be()?;
-            let _pkt_grp;
+            let pkt_grp;
             let flags;
             if ver == 0 {
-                _pkt_grp         = self.src.read_byte()?;
+                pkt_grp         = self.src.read_byte()? as u16;
                 flags           = self.src.read_byte()?;
             } else {
                 //asm_rule        = self.src.read_u16be()?;
+                //asm_flags       = self.src.read_byte()?;
                 self.src.read_skip(2)?;
-                _pkt_grp = 0;
+                pkt_grp = 0;
                 self.src.read_skip(1)?;
                 flags = 0;
             }
             let hdr_size = self.src.tell() - pkt_start;
-//println!("packet @{:X} size {} for {} ts {} grp {} flags {:X}", pkt_start, len, str_no, ts, _pkt_grp, flags);
+//println!("packet @{:X} size {} for {} ts {} grp {} flags {:X}", pkt_start, len, str_no, ts, pkt_grp, flags);
             self.cur_packet += 1;
 
             let payload_size = len - (hdr_size as usize);
 
-            let sr = self.str_ids.iter().position(|x| *x == str_no);
+            let stream_id;
+            if !self.mlti_mapper.is_mlti_stream(str_no as u32) {
+                stream_id = str_no as u32;
+            } else {
+                stream_id = self.mlti_mapper.find_substream(str_no as u32, pkt_grp).unwrap();
+            }
+            let sr = self.str_ids.iter().position(|x| *x == stream_id);
             if sr.is_none() {
 //println!("stream {} not found", str_no);
                 self.src.read_skip(payload_size)?;
                 return Err(DemuxerError::InvalidData);
             }
             let str_id = sr.unwrap();
-            let streamres = strmgr.get_stream_by_id(str_no as u32);
+
+            let streamres = strmgr.get_stream_by_id(stream_id);
             if streamres.is_none() {
                 self.src.read_skip(payload_size)?;
                 continue;
             }
             let stream = streamres.unwrap();
 //println!("  stream {}", str_id);
-            if strmgr.is_ignored_id(str_no as u32) {
+            if strmgr.is_ignored_id(stream_id) {
                 self.src.read_skip(payload_size)?;
                 continue;
             }
@@ -714,6 +772,8 @@ impl<'a> RealMediaDemuxer<'a> {
             data_ver:       0,
             num_packets:    0,
             cur_packet:     0,
+            mlti_stream_no: 0x10000,
+            mlti_mapper:    MLTIMapper::new(),
             streams:        Vec::new(),
             str_ids:        Vec::new(),
             queued_pkts:    Vec::new(),
@@ -820,7 +880,7 @@ impl<'a> RealMediaDemuxer<'a> {
     }
 #[allow(unused_variables)]
     fn parse_mdpr(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
-        let stream_no       = self.src.read_u16be()?;
+        let stream_no       = self.src.read_u16be()? as u32;
 //todo check stream_no for duplicates
         let maxbr           = self.src.read_u32be()?;
         let avgbr           = self.src.read_u32be()?;
@@ -842,7 +902,7 @@ impl<'a> RealMediaDemuxer<'a> {
             self.src.read_buf(&mut edvec)?;
             Some(edvec)
         };
-        self.str_ids.push(stream_no);
+        let mut is_mlti = false;
         if edata_size > 8 {
             if let Some(edata_) = edata {
                 let mut mr = MemoryReader::new_read(edata_.as_slice());
@@ -852,75 +912,9 @@ impl<'a> RealMediaDemuxer<'a> {
                 let tag2 = src.peek_u32be()?;
 //println!("tag1 {:X} tag2 {:X}", tag, tag2);
                 if tag == mktag!('.', 'r', 'a', 0xFD) {
-                    let ver         = src.read_u16be()?;
-                    let ainfo = match ver {
-                        3 => {
-                                parse_aformat3(&mut src)?
-                            },
-                        4 => {
-                                parse_aformat4(&mut src)?
-                            },
-                        5 => {
-                                parse_aformat5(&mut src)?
-                            },
-                        _ => {
-                                println!("unknown version {}", ver);
-                                return Err(DemuxerError::InvalidData);
-                            },
-                    };
-println!(" got ainfo {:?}", ainfo);
-                    let cname = find_codec_name(RM_AUDIO_CODEC_REGISTER, ainfo.fcc);
-                    let blk_size = if ainfo.fcc != mktag!(b"sipr") {
-                            ainfo.granularity as usize
-                        } else {
-                            validate!(ainfo.flavor <= 3);
-                            RM_SIPRO_BLOCK_SIZES[ainfo.flavor as usize]
-                        };
-                    let srate = ainfo.sample_rate;
-                    let soniton = NASoniton::new(ainfo.sample_size as u8, SONITON_FLAG_SIGNED);
-                    let ahdr = NAAudioInfo::new(srate, ainfo.channels as u8, soniton, blk_size);
-                    let extradata = if ainfo.edata_size == 0 {
-                            None
-                        } else {
-                            let eslice = &edata_[(src.tell() as usize)..];
-                            Some(eslice.to_vec())
-                        };
-                    let nainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
-                    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, srate));
-                    if res.is_none() { return Err(MemoryError); }
-
-                    let astr = RMAudioStream::new(ainfo.ileave_info);
-                    self.streams.push(RMStreamType::Audio(astr));
+                    self.parse_audio_stream(strmgr, stream_no, &mut src, &edata_.as_slice())?;
                 } else if ((tag2 == mktag!('V', 'I', 'D', 'O')) || (tag2 == mktag!('I', 'M', 'A', 'G'))) && ((tag as usize) <= edata_size) {
-                    src.read_skip(4)?;
-                    let fcc         = src.read_u32be()?;
-                    let width       = src.read_u16be()? as usize;
-                    let height      = src.read_u16be()? as usize;
-                    let bpp         = src.read_u16be()?;
-                    let pad_w       = src.read_u16be()?;
-                    let pad_h       = src.read_u16be()?;
-                    let fps;
-                    if tag2 == mktag!('V', 'I', 'D', 'O') {
-                        fps         = src.read_u32be()?;
-                    } else {
-                        fps = 0x10000;
-                    }
-                    let extradata: Option<Vec<u8>>;
-                    if src.left() > 0 {
-                        let eslice = &edata_[(src.tell() as usize)..];
-                        extradata = Some(eslice.to_vec());
-                    } else {
-                        extradata = None;
-                    }
-                    let cname = find_codec_name(RM_VIDEO_CODEC_REGISTER, fcc);
-
-                    let vhdr = NAVideoInfo::new(width, height, false, RGB24_FORMAT);
-                    let vinfo = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), extradata);
-                    let res = strmgr.add_stream(NAStream::new(StreamType::Video, stream_no as u32, vinfo, 0x10000, fps));
-                    if res.is_none() { return Err(DemuxerError::MemoryError); }
-
-                    let vstr = RMVideoStream::new();
-                    self.streams.push(RMStreamType::Video(vstr));
+                    self.parse_video_stream(strmgr, stream_no, &mut src, &edata_.as_slice(), tag2)?;
                 } else if tag == mktag!(b"LSD:") {
                     let extradata = Some(edata_.to_vec());
 
@@ -937,6 +931,45 @@ println!(" got ainfo {:?}", ainfo);
                     if res.is_none() { return Err(MemoryError); }
                     let astr = RMAudioStream::new(None);
                     self.streams.push(RMStreamType::Audio(astr));
+                } else if tag == mktag!(b"MLTI") {
+                    is_mlti = true;
+                    let num_rules       = src.read_u16be()? as usize;
+                    let mut max_sub = 0;
+                    self.mlti_mapper.add_stream(stream_no);
+                    for i in 0..num_rules {
+                        let substr      = src.read_u16be()?;
+                        max_sub = max_sub.max(substr);
+                        self.mlti_mapper.add_map_rule(stream_no, substr);
+                    }
+                    let num_substreams  = src.read_u16be()? as usize;
+                    validate!(num_substreams > (max_sub as usize));
+                    for i in 0..num_substreams {
+                        let hdr_size    = src.read_u32be()? as usize;
+                        validate!(hdr_size > 8);
+                        let pos = src.tell() as usize;
+                        src.read_skip(hdr_size)?;
+                        self.mlti_mapper.add_substream(stream_no, self.mlti_stream_no);
+                        {
+                            let hdrsrc = &edata_[pos..][..hdr_size];
+                            let mut mr = MemoryReader::new_read(hdrsrc);
+                            let mut hsrc = ByteReader::new(&mut mr);
+
+                            let tag  = hsrc.read_u32be()?;
+                            let tag2 = hsrc.peek_u32be()?;
+                            let stream_no = self.mlti_stream_no;
+                            self.mlti_stream_no += 1;
+//todo check that all substreams are of the same type");
+                            if tag == mktag!('.', 'r', 'a', 0xFD) {
+                                self.parse_audio_stream(strmgr, stream_no, &mut hsrc, hdrsrc)?;
+                            } else if (tag2 == mktag!('V', 'I', 'D', 'O')) && ((tag as usize) <= hdr_size) {
+                                self.parse_video_stream(strmgr, stream_no, &mut hsrc, hdrsrc, tag2)?;
+                            } else {
+println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
+                                return Err(DemuxerError::InvalidData);
+                            }
+                            self.str_ids.push(stream_no);
+                        }
+                    }
                 } else {
                     self.streams.push(RMStreamType::Logical);
                 }
@@ -944,7 +977,85 @@ println!(" got ainfo {:?}", ainfo);
         } else {
             self.streams.push(RMStreamType::Unknown);
         }
+        if !is_mlti {
+            self.str_ids.push(stream_no);
+        }
 
+        Ok(())
+    }
+    fn parse_audio_stream(&mut self, strmgr: &mut StreamManager, stream_no: u32, src: &mut ByteReader, edata_: &[u8]) -> DemuxerResult<()> {
+        let ver         = src.read_u16be()?;
+        let ainfo = match ver {
+            3 => {
+                    parse_aformat3(src)?
+                },
+            4 => {
+                    parse_aformat4(src)?
+                },
+            5 => {
+                    parse_aformat5(src)?
+                },
+            _ => {
+                    println!("unknown version {}", ver);
+                    return Err(DemuxerError::InvalidData);
+                },
+        };
+println!(" got ainfo {:?}", ainfo);
+        let cname = find_codec_name(RM_AUDIO_CODEC_REGISTER, ainfo.fcc);
+        let blk_size = if ainfo.fcc != mktag!(b"sipr") {
+                ainfo.granularity as usize
+            } else {
+                validate!(ainfo.flavor <= 3);
+                RM_SIPRO_BLOCK_SIZES[ainfo.flavor as usize]
+            };
+        let srate = ainfo.sample_rate;
+        let soniton = NASoniton::new(ainfo.sample_size as u8, SONITON_FLAG_SIGNED);
+        let ahdr = NAAudioInfo::new(srate, ainfo.channels as u8, soniton, blk_size);
+        let extradata = if ainfo.edata_size == 0 {
+                None
+            } else {
+                let eslice = &edata_[(src.tell() as usize)..];
+                Some(eslice.to_vec())
+            };
+        let nainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, srate));
+        if res.is_none() { return Err(MemoryError); }
+
+        let astr = RMAudioStream::new(ainfo.ileave_info);
+        self.streams.push(RMStreamType::Audio(astr));
+        Ok(())
+    }
+#[allow(unused_variables)]
+    fn parse_video_stream(&mut self, strmgr: &mut StreamManager, stream_no: u32, src: &mut ByteReader, edata_: &[u8], tag2: u32) -> DemuxerResult<()> {
+        src.read_skip(4)?;
+        let fcc         = src.read_u32be()?;
+        let width       = src.read_u16be()? as usize;
+        let height      = src.read_u16be()? as usize;
+        let bpp         = src.read_u16be()?;
+        let pad_w       = src.read_u16be()?;
+        let pad_h       = src.read_u16be()?;
+        let fps;
+        if tag2 == mktag!('V', 'I', 'D', 'O') {
+            fps         = src.read_u32be()?;
+        } else {
+            fps = 0x10000;
+        }
+        let extradata: Option<Vec<u8>>;
+        if src.left() > 0 {
+            let eslice = &edata_[(src.tell() as usize)..];
+            extradata = Some(eslice.to_vec());
+        } else {
+            extradata = None;
+        }
+        let cname = find_codec_name(RM_VIDEO_CODEC_REGISTER, fcc);
+
+        let vhdr = NAVideoInfo::new(width, height, false, RGB24_FORMAT);
+        let vinfo = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), extradata);
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, stream_no as u32, vinfo, 0x10000, fps));
+        if res.is_none() { return Err(DemuxerError::MemoryError); }
+
+        let vstr = RMVideoStream::new();
+        self.streams.push(RMStreamType::Video(vstr));
         Ok(())
     }
 /*#[allow(unused_variables)]
