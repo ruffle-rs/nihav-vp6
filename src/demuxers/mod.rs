@@ -221,8 +221,8 @@ const DEMUXERS: &[&'static DemuxerCreator] = &[
     &realmedia::RealMediaDemuxerCreator {},
 #[cfg(feature="demuxer_real")]
     &realmedia::RealAudioDemuxerCreator {},
-//#[cfg(feature="demuxer_real")]
-//    &realmedia::RealIVRDemuxerCreator {},
+#[cfg(feature="demuxer_real")]
+    &realmedia::RealIVRDemuxerCreator {},
 ];
 
 pub fn find_demuxer(name: &str) -> Option<&DemuxerCreator> {
