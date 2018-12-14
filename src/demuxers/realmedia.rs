@@ -83,7 +83,6 @@ impl RMVideoStream {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Clone,Copy,PartialEq)]
 enum Deinterleaver {
     None,
@@ -93,7 +92,6 @@ enum Deinterleaver {
     VBR,
 }
 
-#[allow(dead_code)]
 struct RMAudioStream {
     deint:      Deinterleaver,
     iinfo:      Option<InterleaveInfo>,
@@ -1091,36 +1089,6 @@ impl<'a> RealMediaDemuxer<'a> {
 
         Ok(())
     }
-/*#[allow(unused_variables)]
-    fn read_pkt_header(&mut self) -> DemuxerResult<()> {
-        let ver             = self.src.read_u16be()?;
-        validate!(ver <= 1);
-        let str_no          = self.src.read_u16be()?;
-        let timestamp       = self.src.read_u32be()?;
-        if ver == 0 {
-            let pkt_group   = self.src.read_byte()?;
-            let pkt_flags   = self.src.read_byte()?;
-        } else {
-            let asm_rule    = self.src.read_u16be()?;
-            let asm_flags   = self.src.read_byte()?;
-        }
-        Ok(())
-    }*/
-}
-
-fn read_string(src: &mut ByteReader) -> DemuxerResult<String> {
-    let mut vec: Vec<u8> = Vec::new();
-    loop {
-        let c = src.read_byte()?;
-        if c == 0 { break; }
-        vec.push(c);
-    }
-    let str = String::from_utf8(vec);
-    if str.is_ok() {
-        Ok(str.unwrap())
-    } else {
-        Ok(String::new())
-    }
 }
 
 fn read_string_size(src: &mut ByteReader, size: usize) -> DemuxerResult<String> {
@@ -1135,28 +1103,6 @@ fn read_string_size(src: &mut ByteReader, size: usize) -> DemuxerResult<String> 
     } else {
         Ok(String::new())
     }
-}
-
-#[allow(dead_code)]
-#[allow(unused_variables)]
-fn parse_rm_stream(io: &mut ByteReader) -> DemuxerResult<NAStream> {
-    let mimetype    = read_string(io)?;
-    let strname     = read_string(io)?;
-    let strnum      = io.read_u32be()?;
-    let maxbr       = io.read_u32be()?;
-    let avgbr       = io.read_u32be()?;
-    let maxsize     = io.read_u32be()?;
-    let avgsize     = io.read_u32be()?;
-    let duration    = io.read_u32be()?;
-    let preroll     = io.read_u32be()?;
-    let start       = io.read_u32be()?;
-    let edatalen    = io.read_u32be()? as usize;
-    let mut edata: Vec<u8> = Vec::with_capacity(edatalen);
-    edata.resize(edatalen, 0);
-    io.read_buf(&mut edata)?;
-    let numprops    = io.read_u32be()? as usize;
-    //read properties
-    unimplemented!();
 }
 
 struct RealAudioDemuxer<'a> {
@@ -1609,7 +1555,6 @@ static RM_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"CLV1", "clearvideo_rm"),
 ];
 
-#[allow(dead_code)]
 static RM_AUDIO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"lpcJ", "ra14.4"),
     (b"28_8", "ra28.8"),
