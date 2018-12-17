@@ -1,6 +1,6 @@
-use formats;
+use crate::formats;
 use super::*;
-use io::byteio::*;
+use crate::io::byteio::*;
 
 struct GremlinVideoDecoder {
     info:       Rc<NACodecInfo>,
@@ -465,7 +465,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_gdv() {
          test_file_decoding("gdv", "assets/intro1.gdv", Some(10), true, false, None);

@@ -1,6 +1,6 @@
-use codecs::*;
-use io::bitreader::BitReader;
-use io::codebook::*;
+use crate::codecs::*;
+use crate::io::bitreader::BitReader;
+use crate::io::codebook::*;
 use std::mem;
 use std::ptr;
 

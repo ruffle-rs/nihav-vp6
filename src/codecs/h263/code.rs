@@ -1,4 +1,4 @@
-use frame::NAVideoBuffer;
+use crate::frame::NAVideoBuffer;
 use super::{BlockDSP, CBPInfo, MV};
 use super::super::blockdsp;
 //use super::h263data::*;

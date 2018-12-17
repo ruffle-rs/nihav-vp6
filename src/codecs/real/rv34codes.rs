@@ -1,6 +1,6 @@
-use codecs::DecoderResult;
-use io::bitreader::BitReader;
-use io::codebook::*;
+use crate::codecs::DecoderResult;
+use crate::io::bitreader::BitReader;
+use crate::io::codebook::*;
 
 struct CBPSet {
     cbp_pattern:    Codebook<u16>,

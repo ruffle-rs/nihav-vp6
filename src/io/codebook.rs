@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::cmp::{max, min};
-use io::bitreader::BitReader;
+use super::bitreader::BitReader;
 
 #[derive(Debug)]
 pub enum CodebookError {
@@ -336,7 +336,7 @@ impl<CodeType: Copy+Into<u32>, IndexType> CodebookDescReader<IndexType> for Tabl
 #[cfg(test)]
 mod test {
     use super::*;
-    use io::bitreader::*;
+    use crate::io::bitreader::*;
 
     #[test]
     fn test_cb() {

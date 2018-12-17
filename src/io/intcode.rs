@@ -1,4 +1,4 @@
-use io::bitreader::{BitReader, BitReaderError, BitReaderResult};
+use crate::io::bitreader::{BitReader, BitReaderError, BitReaderResult};
 
 #[derive(Debug)]
 pub enum UintCodeType {
@@ -131,7 +131,7 @@ impl<'a> IntCodeReader for BitReader<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use io::bitreader::*;
+    use crate::io::bitreader::*;
 
     #[test]
     fn int_codes() {

@@ -1,8 +1,8 @@
-use formats;
-use io::bitreader::*;
-use io::codebook::*;
-use io::intcode::*;
-use codecs::*;
+use crate::formats;
+use crate::io::bitreader::*;
+use crate::io::codebook::*;
+use crate::io::intcode::*;
+use crate::codecs::*;
 use super::rv3040::*;
 use super::rv40dsp::*;
 
@@ -355,7 +355,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_rv40() {
 //         test_file_decoding("realmedia", "assets/RV/rv40_ralf.rmvb", Some(1000), true, false, /*None*/Some("rv40"));

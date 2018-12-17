@@ -1,11 +1,11 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use formats::YUV420_FORMAT;
-use frame::*;
-use codecs::{NADecoder, MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
-use io::byteio::{MemoryReader,ByteReader};
-use io::bitreader::{BitReader,BitReaderMode};
-use io::intcode::*;
+use crate::formats::YUV420_FORMAT;
+use crate::frame::*;
+use crate::codecs::{NADecoder, MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
+use crate::io::byteio::{MemoryReader,ByteReader};
+use crate::io::bitreader::{BitReader,BitReaderMode};
+use crate::io::intcode::*;
 
 use super::rv60codes::*;
 use super::rv60dsp::*;
@@ -1481,7 +1481,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_rv60() {
          test_file_decoding("realmedia", "assets/RV/RV60.rmhd", Some(4000), true, false, None/*Some("rv60")*/);

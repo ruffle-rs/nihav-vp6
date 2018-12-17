@@ -2,13 +2,13 @@ use std::mem;
 use std::ptr;
 use std::f32::consts;
 
-use formats::*;
-use frame::*;
+use crate::formats::*;
+use crate::frame::*;
 use super::super::*;
-use io::bitreader::*;
-use io::codebook::*;
-use dsp::fft::*;
-use dsp::window::*;
+use crate::io::bitreader::*;
+use crate::io::codebook::*;
+use crate::dsp::fft::*;
+use crate::dsp::window::*;
 
 const BANDS:      usize =  32;
 const COEFFS:     usize = 256;
@@ -1107,7 +1107,7 @@ const IMC_CB_SELECTOR: [[usize; BANDS]; 4] = [
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_imc() {
 //        let file = "assets/neal73_saber.avi";

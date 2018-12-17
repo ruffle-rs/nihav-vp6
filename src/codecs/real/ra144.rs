@@ -1,7 +1,7 @@
-use formats::*;
-use frame::*;
+use crate::formats::*;
+use crate::frame::*;
 use super::super::*;
-use io::bitreader::*;
+use crate::io::bitreader::*;
 
 const NBLOCKS: usize = 4;
 const BLOCKSIZE: usize = 40;
@@ -315,7 +315,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_ra144() {
         let file = "assets/RV/ra3_in_rm_file.rm";

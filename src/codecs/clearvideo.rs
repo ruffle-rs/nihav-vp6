@@ -1,7 +1,7 @@
-use io::byteio::{ByteReader,MemoryReader};
-use io::bitreader::*;
-use io::codebook::*;
-use formats;
+use crate::io::byteio::{ByteReader,MemoryReader};
+use crate::io::bitreader::*;
+use crate::io::codebook::*;
+use crate::formats;
 use super::*;
 use std::fmt;
 use std::ops::{Add, Sub};
@@ -771,7 +771,7 @@ pub fn get_decoder_rm() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_clv() {
          test_file_decoding("avi", "assets/TalkingHead_352x288.avi", Some(10), true, false, None/*Some("clv")*/);

@@ -1,6 +1,6 @@
-use io::bitreader::*;
-use io::codebook::*;
-use formats;
+use crate::io::bitreader::*;
+use crate::io::codebook::*;
+use crate::formats;
 use super::super::*;
 use super::*;
 use super::decoder::*;
@@ -412,7 +412,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_intel263() {
          test_file_decoding("avi", "assets/neal73_saber.avi", Some(16), true, false, None/*Some("i263")*/);

@@ -1,5 +1,5 @@
 use std::io::SeekFrom;
-use io::byteio::ByteReader;
+use crate::io::byteio::ByteReader;
 
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum DetectionScore {
@@ -242,7 +242,7 @@ pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, 
 mod test {
     use super::*;
     use std::fs::File;
-    use io::byteio::*;
+    use crate::io::byteio::*;
 
     #[test]
     fn test_avi_detect() {

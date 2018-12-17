@@ -1,6 +1,6 @@
-use frame::{FrameType, NAVideoBuffer};
-use codecs::MV;
-use codecs::blockdsp::edge_emu;
+use crate::frame::{FrameType, NAVideoBuffer};
+use crate::codecs::MV;
+use crate::codecs::blockdsp::edge_emu;
 use super::rv3040::{RV34DSP, RV34MBInfo};
 
 fn clip8(a: i16) -> u8 {

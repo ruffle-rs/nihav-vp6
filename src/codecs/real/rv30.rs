@@ -1,7 +1,7 @@
-use formats;
-use io::bitreader::*;
-use io::intcode::*;
-use codecs::*;
+use crate::formats;
+use crate::io::bitreader::*;
+use crate::io::intcode::*;
+use crate::codecs::*;
 use super::rv3040::*;
 use super::rv30dsp::*;
 
@@ -162,7 +162,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_rv30() {
 //         test_file_decoding("realmedia", "assets/RV/rv30_chroma_drift.rm", Some(1000), true, false, /*None*/Some("rv30"));

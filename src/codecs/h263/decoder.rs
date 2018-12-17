@@ -1,10 +1,10 @@
 //use std::mem;
-use frame::*;
+use crate::frame::*;
 use super::super::*;
 use super::super::blockdsp;
 use super::*;
 //use super::code::*;
-use formats;
+use crate::formats;
 
 #[allow(dead_code)]
 struct MVInfo {

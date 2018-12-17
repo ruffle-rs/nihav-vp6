@@ -1,13 +1,13 @@
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-use frame::*;
+use crate::frame::*;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::mem;
-use io::byteio::ByteIOError;
-use io::bitreader::BitReaderError;
-use io::codebook::CodebookError;
+use crate::io::byteio::ByteIOError;
+use crate::io::bitreader::BitReaderError;
+use crate::io::codebook::CodebookError;
 
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]

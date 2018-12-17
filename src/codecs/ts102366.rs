@@ -1,8 +1,8 @@
-use formats::*;
-use frame::*;
+use crate::formats::*;
+use crate::frame::*;
 use super::*;
-use io::bitreader::*;
-use dsp::fft::*;
+use crate::io::bitreader::*;
+use crate::dsp::fft::*;
 use std::str::FromStr;
 use std::f32::consts;
 
@@ -1245,7 +1245,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_ts102366() {
         let file = "assets/RV/sp_sample1.rm";

@@ -1,4 +1,4 @@
-use frame::*;
+use crate::frame::*;
 
 pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i16;64]; 6]) {
     let stridey = buf.get_stride(0);

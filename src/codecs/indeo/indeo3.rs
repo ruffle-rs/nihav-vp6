@@ -1,6 +1,6 @@
-use formats;
+use crate::formats;
 use super::super::*;
-use io::byteio::*;
+use crate::io::byteio::*;
 use std::io::SeekFrom;
 use std::mem;
 
@@ -783,7 +783,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_indeo3() {
          test_file_decoding("avi", "assets/iv32_example.avi", Some(10), true, false, None);

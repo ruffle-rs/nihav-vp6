@@ -1,6 +1,6 @@
-use frame::NAVideoBuffer;
-use codecs::MV;
-use codecs::blockdsp::edge_emu;
+use crate::frame::NAVideoBuffer;
+use crate::codecs::MV;
+use crate::codecs::blockdsp::edge_emu;
 
 fn clip8(val: i16) -> u8 { val.min(255).max(0) as u8 }
 

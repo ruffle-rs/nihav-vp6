@@ -1,4 +1,4 @@
-use formats::*;
+use crate::formats::*;
 use super::*;
 
 struct PCMDecoder { chmap: NAChannelMap }

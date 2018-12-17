@@ -1,6 +1,6 @@
-use io::bitreader::*;
-use io::codebook::*;
-use formats;
+use crate::io::bitreader::*;
+use crate::io::codebook::*;
+use crate::formats;
 use super::super::*;
 
 static INDEO2_DELTA_TABLE: [[u8; 256]; 4] = [
@@ -367,7 +367,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_indeo2() {
          test_file_decoding("avi", "assets/laser05.avi", Some(10), true, false, None);

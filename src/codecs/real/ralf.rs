@@ -1,10 +1,10 @@
-use formats::*;
-use frame::*;
-use codecs::*;
-use io::byteio::*;
-use io::bitreader::*;
-use io::codebook::*;
-use io::intcode::*;
+use crate::formats::*;
+use crate::frame::*;
+use crate::codecs::*;
+use crate::io::byteio::*;
+use crate::io::bitreader::*;
+use crate::io::codebook::*;
+use crate::io::intcode::*;
 
 struct CodebookSet {
     filter_params_cb:   Codebook<u16>,
@@ -475,7 +475,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_ralf() {
         let file = "assets/RV/rv40_ralf.rmvb";

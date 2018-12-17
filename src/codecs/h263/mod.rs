@@ -1,5 +1,5 @@
 use super::{DecoderResult, MV, ZERO_MV};
-use frame::NAVideoBuffer;
+use crate::frame::NAVideoBuffer;
 
 pub mod code;
 pub mod data;

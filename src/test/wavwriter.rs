@@ -1,5 +1,5 @@
-use io::byteio::*;
-use frame::*;
+use crate::io::byteio::*;
+use crate::frame::*;
 use std::io::SeekFrom;
 
 pub struct WavWriter<'a> {

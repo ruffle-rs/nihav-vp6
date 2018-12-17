@@ -1,10 +1,10 @@
 use std::mem;
 use std::rc::Rc;
 use std::cell::{Ref,RefCell};
-use io::bitreader::*;
+use crate::io::bitreader::*;
 //use io::intcode::*;
 use super::super::*;
-use formats::*;
+use crate::formats::*;
 use super::ivi::*;
 use super::ividsp::*;
 

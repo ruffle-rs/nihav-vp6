@@ -1,9 +1,9 @@
 use super::*;
-use register;
+use crate::register;
 use super::DemuxerError::*;
 //use io::byteio::*;
 //use frame::*;
-use formats::*;
+use crate::formats::*;
 
 macro_rules! mktag {
     ($a:expr, $b:expr, $c:expr, $d:expr) => ({

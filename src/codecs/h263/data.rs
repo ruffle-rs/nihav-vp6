@@ -1,4 +1,4 @@
-use io::codebook::CodebookDescReader;
+use crate::io::codebook::CodebookDescReader;
 
 #[allow(dead_code)]
 pub const H263_SCALES: &[u8] = &[

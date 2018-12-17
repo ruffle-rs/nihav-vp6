@@ -1,11 +1,11 @@
-use formats::*;
-use frame::*;
+use crate::formats::*;
+use crate::frame::*;
 use super::*;
-use io::bitreader::*;
-use io::byteio::*;
-use io::codebook::*;
-use dsp::fft::FFTMode;
-use dsp::mdct::IMDCT;
+use crate::io::bitreader::*;
+use crate::io::byteio::*;
+use crate::io::codebook::*;
+use crate::dsp::fft::FFTMode;
+use crate::dsp::mdct::IMDCT;
 use std::f32::consts;
 
 #[derive(Clone,Copy,PartialEq)]
@@ -698,7 +698,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_atrac3() {
         let file = "assets/RV/rv30_atrc_384x208_realproducer_plus_8.51.rm";

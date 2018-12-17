@@ -1,6 +1,6 @@
-use io::bitreader::*;
-use io::codebook::*;
-use formats;
+use crate::io::bitreader::*;
+use crate::io::codebook::*;
+use crate::formats;
 use super::super::*;
 use super::*;
 use super::code::H263BlockDSP;
@@ -520,7 +520,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::test_file_decoding;
+    use crate::test::dec_video::test_file_decoding;
     #[test]
     fn test_rv20() {
         test_file_decoding("realmedia", "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm", /*None*/Some(3000), true, false, None/*Some("rv20")*/);

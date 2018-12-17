@@ -1,13 +1,13 @@
-use formats::*;
-use frame::*;
-use codecs::*;
-use dsp::fft::FFTMode;
-use dsp::mdct::IMDCT;
-use dsp::window::*;
-use io::bitreader::*;
-use io::codebook::*;
+use crate::formats::*;
+use crate::frame::*;
+use crate::codecs::*;
+use crate::dsp::fft::FFTMode;
+use crate::dsp::mdct::IMDCT;
+use crate::dsp::window::*;
+use crate::io::bitreader::*;
+use crate::io::codebook::*;
 use std::fmt;
-use io::intcode::*;
+use crate::io::intcode::*;
 use std::mem;
 use std::ptr;
 use std::str::FromStr;
@@ -1261,7 +1261,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_aac() {
 //        let file = "assets/RV/rv40_weighted_mc.rmvb";

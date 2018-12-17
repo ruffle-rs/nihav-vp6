@@ -1,12 +1,12 @@
-use formats::*;
-use frame::*;
+use crate::formats::*;
+use crate::frame::*;
 use super::super::*;
-use dsp::fft::FFTMode;
-use dsp::mdct::IMDCT;
-use io::bitreader::*;
-use io::byteio::{ByteReader, MemoryReader};
-use io::codebook::*;
-use io::intcode::*;
+use crate::dsp::fft::FFTMode;
+use crate::dsp::mdct::IMDCT;
+use crate::io::bitreader::*;
+use crate::io::byteio::{ByteReader, MemoryReader};
+use crate::io::codebook::*;
+use crate::io::intcode::*;
 use std::f32::consts;
 use std::mem::swap;
 
@@ -678,7 +678,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_cook() {
 //        let file = "assets/RV/rv30_weighted_mc.rm";

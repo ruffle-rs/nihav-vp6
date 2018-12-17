@@ -1,7 +1,7 @@
-use formats::*;
-use frame::*;
+use crate::formats::*;
+use crate::frame::*;
 use super::super::*;
-use io::bitreader::*;
+use crate::io::bitreader::*;
 const CHMAP_MONO: [NAChannelType; 1] = [NAChannelType::C];
 const NBLOCKS: usize = 32;
 const BLOCKSIZE: usize = 5;
@@ -205,7 +205,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_ra288() {
         let file = "assets/RV/A0000044.rm";

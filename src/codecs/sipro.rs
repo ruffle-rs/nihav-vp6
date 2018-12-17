@@ -1,7 +1,7 @@
-use formats::*;
-use frame::*;
+use crate::formats::*;
+use crate::frame::*;
 use super::*;
-use io::bitreader::*;
+use crate::io::bitreader::*;
 
 use std::f32::consts::PI;
 
@@ -739,7 +739,7 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use test::dec_video::*;
+    use crate::test::dec_video::*;
     #[test]
     fn test_sipro() {
         let file = "assets/RV/autahi-vox.rm";
