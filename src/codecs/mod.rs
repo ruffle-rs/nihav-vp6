@@ -266,7 +266,9 @@ const DECODERS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_clearvideo")]
     DecoderInfo { name: "clearvideo_rm", get_decoder: clearvideo::get_decoder_rm },
 #[cfg(feature="decoder_gdvvid")]
-    DecoderInfo { name: "gdv-video", get_decoder: gremlinvideo::get_decoder },
+    DecoderInfo { name: "gdv-audio", get_decoder: gremlinvideo::get_decoder_audio },
+#[cfg(feature="decoder_gdvvid")]
+    DecoderInfo { name: "gdv-video", get_decoder: gremlinvideo::get_decoder_video },
 #[cfg(feature="decoder_indeo2")]
     DecoderInfo { name: "indeo2", get_decoder: indeo::indeo2::get_decoder },
 #[cfg(feature="decoder_indeo3")]

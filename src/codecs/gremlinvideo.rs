@@ -1,4 +1,5 @@
 use crate::formats;
+use crate::formats::{NAChannelType, NAChannelMap};
 use super::*;
 use crate::io::byteio::*;
 
@@ -459,8 +460,100 @@ impl NADecoder for GremlinVideoDecoder {
     }
 }
 
-pub fn get_decoder() -> Box<NADecoder> {
+pub fn get_decoder_video() -> Box<NADecoder> {
     Box::new(GremlinVideoDecoder::new())
+}
+
+struct GremlinAudioDecoder {
+    ainfo:      NAAudioInfo,
+    chmap:      NAChannelMap,
+    delta_tab: [i16; 256],
+    state0:     i16,
+    state1:     i16,
+}
+
+impl GremlinAudioDecoder {
+    fn new() -> Self {
+        let mut delta_tab: [i16; 256] = [0; 256];
+        let mut delta = 0;
+        let mut code = 64;
+        let mut step = 45;
+        for i in 0..127 {
+            delta += code >> 5;
+            code  += step;
+            step  += 2;
+            delta_tab[i * 2 + 1] =  delta;
+            delta_tab[i * 2 + 2] = -delta;
+        }
+        delta_tab[255] = 32767;//delta + (code >> 5);
+        GremlinAudioDecoder {
+            ainfo:  NAAudioInfo::new(0, 1, formats::SND_S16_FORMAT, 0),
+            chmap:  NAChannelMap::new(),
+            delta_tab,
+            state0: 0,
+            state1: 0,
+        }
+    }
+}
+
+const CHMAP_MONO: [NAChannelType; 1] = [NAChannelType::C];
+const CHMAP_STEREO: [NAChannelType; 2] = [NAChannelType::L, NAChannelType::R];
+
+fn get_default_chmap(nch: u8) -> NAChannelMap {
+    let mut chmap = NAChannelMap::new();
+    match nch {
+        1 => chmap.add_channels(&CHMAP_MONO),
+        2 => chmap.add_channels(&CHMAP_STEREO),
+        _ => (),
+    }
+    chmap
+}
+
+impl NADecoder for GremlinAudioDecoder {
+    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+        if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
+            self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), formats::SND_S16P_FORMAT, ainfo.get_block_len());
+            self.chmap = get_default_chmap(ainfo.get_channels());
+            if self.chmap.num_channels() == 0 { return Err(DecoderError::InvalidData); }
+            Ok(())
+        } else {
+            Err(DecoderError::InvalidData)
+        }
+    }
+    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+        let info = pkt.get_stream().get_info();
+        if let NACodecTypeInfo::Audio(_) = info.get_properties() {
+            let pktbuf = pkt.get_buffer();
+            let samples = pktbuf.len() / self.chmap.num_channels();
+            let mut abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
+            let mut adata = abuf.get_abuf_i16().unwrap();
+            let off1 = adata.get_offset(1);
+            let mut buf = adata.get_data_mut();
+            if self.chmap.num_channels() == 2 {
+                for (i, e) in pktbuf.chunks(2).enumerate() {
+                    self.state0 = self.state0.wrapping_add(self.delta_tab[e[0] as usize]);
+                    buf[i] = self.state0;
+                    self.state1 = self.state1.wrapping_add(self.delta_tab[e[1] as usize]);
+                    buf[off1 + i] = self.state1;
+                }
+            } else {
+                for (i, e) in pktbuf.iter().enumerate() {
+                    self.state0 += self.delta_tab[*e as usize];
+                    buf[i] = self.state0;
+                }
+            }
+            let mut frm = NAFrame::new_from_pkt(pkt, info, abuf);
+            frm.set_duration(Some(samples as u64));
+            frm.set_keyframe(false);
+            Ok(Rc::new(RefCell::new(frm)))
+        } else {
+            Err(DecoderError::InvalidData)
+        }
+    }
+}
+
+pub fn get_decoder_audio() -> Box<NADecoder> {
+    Box::new(GremlinAudioDecoder::new())
 }
 
 #[cfg(test)]
