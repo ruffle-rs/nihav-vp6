@@ -102,13 +102,13 @@ fn haar8x8_2d(blk: &mut[i32; 64]) {
                         blk[i + 4*8], blk[i + 5*8], blk[i + 6*8], blk[i + 7*8]);
     }
     for i in 0..8 {
-        let mut row = &mut blk[i*8..(i+1)*8];
+        let row = &mut blk[i*8..(i+1)*8];
         haar_transform!(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]);
     }
 }
 fn haar8x8_row(blk: &mut[i32; 64]) {
     for i in 0..8 {
-        let mut row = &mut blk[i*8..(i+1)*8];
+        let row = &mut blk[i*8..(i+1)*8];
         haar_transform!(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]);
     }
 }
@@ -135,13 +135,13 @@ fn haar4x4_2d(blk: &mut[i32; 64]) {
         haar_transform!(blk[i + 0*4], blk[i + 1*4], blk[i + 2*4], blk[i + 3*4]);
     }
     for i in 0..4 {
-        let mut row = &mut blk[i*4..(i+1)*4];
+        let row = &mut blk[i*4..(i+1)*4];
         haar_transform!(row[0], row[1], row[2], row[3]);
     }
 }
 fn haar4x4_row(blk: &mut[i32; 64]) {
     for i in 0..4 {
-        let mut row = &mut blk[i*4..(i+1)*4];
+        let row = &mut blk[i*4..(i+1)*4];
         haar_transform!(row[0], row[1], row[2], row[3]);
     }
 }
@@ -168,7 +168,7 @@ fn slant8x8_2d(blk: &mut[i32; 64]) {
                          blk[i + 4*8], blk[i + 5*8], blk[i + 6*8], blk[i + 7*8], pass1);
     }
     for i in 0..8 {
-        let mut row = &mut blk[i*8..(i+1)*8];
+        let row = &mut blk[i*8..(i+1)*8];
         slant_transform!(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], pass2);
     }
 }
@@ -180,7 +180,7 @@ fn slant8x8_row(blk: &mut[i32; 64]) {
     let pass = |x: i32| (x + 1) >> 1;
 
     for i in 0..8 {
-        let mut row = &mut blk[i*8..(i+1)*8];
+        let row = &mut blk[i*8..(i+1)*8];
         slant_transform!(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], pass);
     }
 }
@@ -215,7 +215,7 @@ fn slant4x4_2d(blk: &mut[i32; 64]) {
         slant_transform!(blk[i + 0*4], blk[i + 1*4], blk[i + 2*4], blk[i + 3*4], pass1);
     }
     for i in 0..4 {
-        let mut row = &mut blk[i*4..(i+1)*4];
+        let row = &mut blk[i*4..(i+1)*4];
         slant_transform!(row[0], row[1], row[2], row[3], pass2);
     }
 }
@@ -227,7 +227,7 @@ fn slant4x4_row(blk: &mut[i32; 64]) {
     let pass = |x: i32| (x + 1) >> 1;
 
     for i in 0..4 {
-        let mut row = &mut blk[i*4..(i+1)*4];
+        let row = &mut blk[i*4..(i+1)*4];
         slant_transform!(row[0], row[1], row[2], row[3], pass);
     }
 }
@@ -312,7 +312,7 @@ pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, 
     match mode {
         0 => {
             for _ in 0..h {
-                let mut dest = &mut dst[didx..didx+w];
+                let dest = &mut dst[didx..didx+w];
                 dest.copy_from_slice(&src[sidx..sidx+w]);
                 sidx += sstride;
                 didx += dstride;

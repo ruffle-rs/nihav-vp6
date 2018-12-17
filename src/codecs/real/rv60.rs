@@ -741,7 +741,7 @@ println!(" left {} bits", br.left());
                             let dstride = buf.get_stride(0);
                             let off = xpos + ypos * dstride;
                             let mut data = buf.get_data_mut();
-                            let mut dst = &mut data;
+                            let dst = &mut data;
                             self.populate_ipred(hdr, dst, 0, dstride, 0, 0, size, true);
                             self.ipred.pred_angle(dst, off, dstride, size, itype as usize, true);
                         }
