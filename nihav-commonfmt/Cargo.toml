@@ -1,0 +1,31 @@
+[package]
+name = "nihav_commonfmt"
+version = "0.1.0"
+authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
+edition = "2018"
+
+[dependencies.nihav_core]
+path = "../nihav-core"
+features = ["h263", "mdct", "fft", "dsp_window"]
+
+[dev-dependencies]
+nihav_realmedia = { path = "../nihav-realmedia" }
+
+[features]
+default = ["all_decoders", "all_demuxers"]
+decoders = []
+demuxers = []
+all_demuxers = ["demuxer_avi"]
+demuxer_avi = ["demuxers"]
+
+all_decoders = ["all_video_decoders", "all_audio_decoders"]
+
+all_video_decoders = ["decoder_clearvideo"]
+decoder_clearvideo = ["decoders"]
+
+all_audio_decoders = ["decoder_pcm", "decoder_ts102366", "decoder_sipro", "decoder_atrac3", "decoder_aac"]
+decoder_pcm = ["decoders"]
+decoder_ts102366 = ["decoders"]
+decoder_sipro = ["decoders"]
+decoder_atrac3 = ["decoders"]
+decoder_aac = ["decoders"]

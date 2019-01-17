@@ -1,9 +1,9 @@
-use super::*;
-use crate::register;
-use super::DemuxerError::*;
-//use io::byteio::*;
-//use frame::*;
-use crate::formats::*;
+use nihav_core::demuxers::*;
+use nihav_core::register;
+use nihav_core::demuxers::DemuxerError::*;
+use nihav_core::io::byteio::*;
+use nihav_core::frame::*;
+use nihav_core::formats::*;
 
 macro_rules! mktag {
     ($a:expr, $b:expr, $c:expr, $d:expr) => ({

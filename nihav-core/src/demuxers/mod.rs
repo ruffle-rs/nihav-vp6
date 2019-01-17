@@ -204,15 +204,6 @@ macro_rules! validate {
     ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DemuxerError::InvalidData); } };
 }
 
-#[cfg(feature="demuxer_avi")]
-mod avi;
-
-
-const DEMUXERS: &[&'static DemuxerCreator] = &[
-#[cfg(feature="demuxer_avi")]
-    &avi::AVIDemuxerCreator {},
-];
-
 pub fn create_demuxer<'a>(dmxcr: &DemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<Demuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     let mut str = StreamManager::new();
@@ -238,11 +229,5 @@ impl RegisteredDemuxers {
             }
         }
         None
-    }
-}
-
-pub fn core_register_all_demuxers(rd: &mut RegisteredDemuxers) {
-    for demuxer in DEMUXERS.into_iter() {
-        rd.add_demuxer(*demuxer);
     }
 }

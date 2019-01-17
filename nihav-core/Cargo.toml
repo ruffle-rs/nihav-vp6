@@ -5,27 +5,14 @@ authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
 edition = "2018"
 
 [features]
-default = ["all_decoders", "all_demuxers"]
-demuxers = []
-all_demuxers = ["demuxer_avi"]
-demuxer_avi = ["demuxers"]
+default = ["decoders", "demuxers"]
 
 decoders = []
+demuxers = []
+
 h263 = []
 
 dsp = []
 fft = ["dsp"]
 mdct = ["fft", "dsp"]
 dsp_window = ["dsp"]
-
-all_decoders = ["all_video_decoders", "all_audio_decoders"]
-
-all_video_decoders = ["decoder_clearvideo"]
-decoder_clearvideo = ["decoders"]
-
-all_audio_decoders = ["decoder_pcm", "decoder_ts102366", "decoder_sipro", "decoder_atrac3", "decoder_aac"]
-decoder_pcm = ["decoders"]
-decoder_ts102366 = ["decoders", "fft"]
-decoder_sipro = ["decoders"]
-decoder_atrac3 = ["decoders", "mdct"]
-decoder_aac = ["decoders", "mdct", "dsp_window"]
