@@ -1263,12 +1263,21 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use crate::test::dec_video::*;
+    use nihav_core::codecs::RegisteredDecoders;
+    use nihav_core::demuxers::RegisteredDemuxers;
+    use nihav_core::test::dec_video::test_decode_audio;
+    use crate::codecs::generic_register_all_codecs;
+    use nihav_realmedia::demuxers::realmedia_register_all_demuxers;
     #[test]
     fn test_aac() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        realmedia_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        generic_register_all_codecs(&mut dec_reg);
+
 //        let file = "assets/RV/rv40_weighted_mc.rmvb";
         let file = "assets/RV/rv40_weighted_mc_2.rmvb";
-        test_decode_audio("realmedia", file, Some(12000), "aac");
+        test_decode_audio("realmedia", file, Some(12000), "aac", &dmx_reg, &dec_reg);
     }
 }
 

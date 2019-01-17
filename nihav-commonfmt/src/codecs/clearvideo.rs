@@ -774,10 +774,18 @@ pub fn get_decoder_rm() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use crate::test::dec_video::test_file_decoding;
+    use nihav_core::codecs::RegisteredDecoders;
+    use nihav_core::demuxers::RegisteredDemuxers;
+    use nihav_core::test::dec_video::test_file_decoding;
+    use crate::codecs::generic_register_all_codecs;
+    use crate::demuxers::generic_register_all_demuxers;
     #[test]
     fn test_clv() {
-         test_file_decoding("avi", "assets/TalkingHead_352x288.avi", Some(10), true, false, None/*Some("clv")*/);
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        generic_register_all_codecs(&mut dec_reg);
+        test_file_decoding("avi", "assets/TalkingHead_352x288.avi", Some(10), true, false, None/*Some("clv")*/, &dmx_reg, &dec_reg);
 //         test_file_decoding("avi", "assets/basketball.avi", None/*Some(10)*/, true, false, Some("clv1"));
 //panic!("debug");
     }

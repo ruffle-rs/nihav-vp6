@@ -103,8 +103,9 @@ fn write_palppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
 
 pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
                           decode_video: bool, decode_audio: bool,
-                          video_pfx: Option<&str>) {
-    let dmx_f = find_demuxer(demuxer).unwrap();
+                          video_pfx: Option<&str>,
+                          dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders) {
+    let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
     let mut file = File::open(name).unwrap();
     let mut fr = FileReader::new_read(&mut file);
     let mut br = ByteReader::new(&mut fr);
@@ -114,7 +115,7 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();
-        let decfunc = find_decoder(info.get_name());
+        let decfunc = dec_reg.find_decoder(info.get_name());
         if let Some(df) = decfunc {
             if (decode_video && info.is_video()) || (decode_audio && info.is_audio()) {
                 let mut dec = (df)();
@@ -154,8 +155,9 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
     }
 }
 
-pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pfx: &str) {
-    let dmx_f = find_demuxer(demuxer).unwrap();
+pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pfx: &str,
+                         dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders) {
+    let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
     let mut file = File::open(name).unwrap();
     let mut fr = FileReader::new_read(&mut file);
     let mut br = ByteReader::new(&mut fr);
@@ -165,7 +167,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();
-        let decfunc = find_decoder(info.get_name());
+        let decfunc = dec_reg.find_decoder(info.get_name());
         if let Some(df) = decfunc {
             if info.is_audio() {
                 let mut dec = (df)();
