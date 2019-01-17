@@ -1,0 +1,11 @@
+[package]
+name = "nihav_allstuff"
+version = "0.1.0"
+authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+nihav_core = { path = "../nihav-core" }
+nihav_game = { path = "../nihav-game" }
+nihav_indeo = { path = "../nihav-indeo" }
+nihav_realmedia = { path = "../nihav-realmedia" }

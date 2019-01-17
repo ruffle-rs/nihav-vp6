@@ -1,0 +1,23 @@
+[package]
+name = "nihav_game"
+version = "0.1.0"
+authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
+edition = "2018"
+
+[dependencies.nihav_core]
+path = "../nihav-core"
+features = []
+
+[features]
+default = ["all_decoders", "all_demuxers"]
+demuxers = []
+all_demuxers = ["demuxer_gdv"]
+demuxer_gdv = ["demuxers"]
+
+all_decoders = ["all_video_decoders", "all_audio_decoders"]
+decoders = []
+
+all_video_decoders = ["decoder_gdvvid"]
+decoder_gdvvid = ["decoders"]
+
+all_audio_decoders = []

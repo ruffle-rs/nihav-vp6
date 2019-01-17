@@ -1,0 +1,24 @@
+use std::rc::Rc;
+use nihav_core::demuxers::*;
+
+macro_rules! validate {
+    ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DemuxerError::InvalidData); } };
+}
+
+#[cfg(feature="demuxer_real")]
+mod realmedia;
+
+const RM_DEMUXERS: &[&'static DemuxerCreator] = &[
+#[cfg(feature="demuxer_real")]
+    &realmedia::RealMediaDemuxerCreator {},
+#[cfg(feature="demuxer_real")]
+    &realmedia::RealAudioDemuxerCreator {},
+#[cfg(feature="demuxer_real")]
+    &realmedia::RealIVRDemuxerCreator {},
+];
+
+pub fn realmedia_register_all_demuxers(rd: &mut RegisteredDemuxers) {
+    for demuxer in RM_DEMUXERS.into_iter() {
+        rd.add_demuxer(*demuxer);
+    }
+}
