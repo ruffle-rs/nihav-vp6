@@ -561,9 +561,18 @@ pub fn get_decoder_audio() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use crate::test::dec_video::test_file_decoding;
+    use nihav_core::codecs::RegisteredDecoders;
+    use nihav_core::demuxers::RegisteredDemuxers;
+    use nihav_core::test::dec_video::test_file_decoding;
+    use crate::codecs::game_register_all_codecs;
+    use crate::demuxers::game_register_all_demuxers;
     #[test]
     fn test_gdv() {
-         test_file_decoding("gdv", "assets/intro1.gdv", Some(10), true, false, None);
+        let mut dmx_reg = RegisteredDemuxers::new();
+        game_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        game_register_all_codecs(&mut dec_reg);
+
+        test_file_decoding("gdv", "assets/intro1.gdv", Some(10), true, false, None, &dmx_reg, &dec_reg);
     }
 }

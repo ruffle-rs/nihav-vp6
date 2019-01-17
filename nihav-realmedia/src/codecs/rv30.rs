@@ -165,11 +165,20 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use crate::test::dec_video::test_file_decoding;
+    use nihav_core::codecs::RegisteredDecoders;
+    use nihav_core::demuxers::RegisteredDemuxers;
+    use nihav_core::test::dec_video::*;
+    use crate::codecs::realmedia_register_all_codecs;
+    use crate::demuxers::realmedia_register_all_demuxers;
     #[test]
     fn test_rv30() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        realmedia_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        realmedia_register_all_codecs(&mut dec_reg);
+
 //         test_file_decoding("realmedia", "assets/RV/rv30_chroma_drift.rm", Some(1000), true, false, /*None*/Some("rv30"));
-         test_file_decoding("realmedia", "assets/RV/rv30_weighted_mc.rm", Some(400), true, false, None/*Some("rv30")*/);
+        test_file_decoding("realmedia", "assets/RV/rv30_weighted_mc.rm", Some(400), true, false, None/*Some("rv30")*/, &dmx_reg, &dec_reg);
 //         test_file_decoding("realmedia", "assets/RV/simpsons-clip.rm", Some(1337)/*Some(6666)*/, true, false, /*None*/Some("rv30"));
 //panic!("end");
     }

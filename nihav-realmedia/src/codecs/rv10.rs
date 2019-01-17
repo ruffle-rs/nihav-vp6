@@ -460,10 +460,19 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use crate::test::dec_video::test_file_decoding;
+    use nihav_core::codecs::RegisteredDecoders;
+    use nihav_core::demuxers::RegisteredDemuxers;
+    use nihav_core::test::dec_video::*;
+    use crate::codecs::realmedia_register_all_codecs;
+    use crate::demuxers::realmedia_register_all_demuxers;
     #[test]
     fn test_rv10() {
-         test_file_decoding("realmedia", "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm", Some(1000), true, false, None/*Some("rv10")*/);
+        let mut dmx_reg = RegisteredDemuxers::new();
+        realmedia_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        realmedia_register_all_codecs(&mut dec_reg);
+
+        test_file_decoding("realmedia", "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm", Some(1000), true, false, None/*Some("rv10")*/, &dmx_reg, &dec_reg);
     }
 }
 

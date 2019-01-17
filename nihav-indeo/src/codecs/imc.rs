@@ -1109,15 +1109,24 @@ const IMC_CB_SELECTOR: [[usize; BANDS]; 4] = [
 
 #[cfg(test)]
 mod test {
-    use crate::test::dec_video::*;
+    use nihav_core::codecs::RegisteredDecoders;
+    use nihav_core::demuxers::RegisteredDemuxers;
+    use nihav_core::test::dec_video::*;
+    use crate::codecs::indeo_register_all_codecs;
+    use nihav_commonfmt::demuxers::generic_register_all_demuxers;
     #[test]
     fn test_imc() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        indeo_register_all_codecs(&mut dec_reg);
+
 //        let file = "assets/neal73_saber.avi";
 //        let file = "assets/IMC/hvalen.avi";
         let file = "assets/IMC/8khz.avi";
 //        let file = "assets/STsKlassFist-1a.avi";
 //        let file = "assets/IMC/Angel Bday.avi";
-        test_decode_audio("avi", file, None, "imc");
+        test_decode_audio("avi", file, None, "imc", &dmx_reg, &dec_reg);
         //test_file_decoding("avi", file, None, false, true, None);
     }
 }

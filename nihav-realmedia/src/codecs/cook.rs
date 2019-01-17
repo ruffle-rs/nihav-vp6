@@ -680,12 +680,21 @@ pub fn get_decoder() -> Box<NADecoder> {
 
 #[cfg(test)]
 mod test {
-    use crate::test::dec_video::*;
+    use nihav_core::codecs::RegisteredDecoders;
+    use nihav_core::demuxers::RegisteredDemuxers;
+    use nihav_core::test::dec_video::*;
+    use crate::codecs::realmedia_register_all_codecs;
+    use crate::demuxers::realmedia_register_all_demuxers;
     #[test]
     fn test_cook() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        realmedia_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        realmedia_register_all_codecs(&mut dec_reg);
+
 //        let file = "assets/RV/rv30_weighted_mc.rm";
         let file = "assets/RV/multichannel.rma";
-        test_decode_audio("realmedia", file, Some(2000), "cook");
+        test_decode_audio("realmedia", file, Some(2000), "cook", &dmx_reg, &dec_reg);
     }
 }
 

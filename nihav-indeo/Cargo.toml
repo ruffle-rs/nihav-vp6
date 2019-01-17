@@ -8,6 +8,9 @@ edition = "2018"
 path = "../nihav-core"
 features = ["h263", "fft", "dsp_window"]
 
+[dev-dependencies]
+nihav_commonfmt = { path = "../nihav-commonfmt" }
+
 [features]
 default = ["all_decoders"]
 
