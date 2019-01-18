@@ -200,10 +200,6 @@ pub trait DemuxerCreator {
     fn get_name(&self) -> &'static str;
 }
 
-macro_rules! validate {
-    ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DemuxerError::InvalidData); } };
-}
-
 pub fn create_demuxer<'a>(dmxcr: &DemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<Demuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     let mut str = StreamManager::new();

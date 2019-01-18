@@ -3,7 +3,6 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use crate::frame::*;
 use std::rc::Rc;
-use std::cell::RefCell;
 use std::mem;
 use crate::io::byteio::ByteIOError;
 use crate::io::bitreader::BitReaderError;
@@ -43,10 +42,6 @@ impl From<CodebookError> for DecoderError {
 
 impl From<AllocatorError> for DecoderError {
     fn from(_: AllocatorError) -> Self { DecoderError::AllocError }
-}
-
-macro_rules! validate {
-    ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DecoderError::InvalidData); } };
 }
 
 #[allow(dead_code)]
