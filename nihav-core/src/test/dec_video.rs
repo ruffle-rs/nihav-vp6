@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use crate::frame::*;
 use crate::codecs::*;
 use crate::demuxers::*;
-use crate::io::byteio::*;
+//use crate::io::byteio::*;
 use super::wavwriter::WavWriter;
 
 fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {

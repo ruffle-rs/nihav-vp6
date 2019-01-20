@@ -1,9 +1,9 @@
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc;
-use std::cell::*;
-use crate::formats::*;
+pub use std::rc::Rc;
+pub use std::cell::*;
+pub use crate::formats::*;
 
 #[allow(dead_code)]
 #[derive(Clone,Copy,PartialEq)]

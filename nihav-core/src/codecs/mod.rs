@@ -1,8 +1,8 @@
 use std::fmt;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-use crate::frame::*;
-use std::rc::Rc;
+pub use crate::frame::*;
+pub use std::rc::Rc;
 use std::mem;
 use crate::io::byteio::ByteIOError;
 use crate::io::bitreader::BitReaderError;

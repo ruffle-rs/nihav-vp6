@@ -1,6 +1,6 @@
 use std::rc::Rc;
-use crate::frame::*;
-use crate::io::byteio::*;
+pub use crate::frame::*;
+pub use crate::io::byteio::*;
 
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
