@@ -1,7 +1,5 @@
 use nihav_core::frame::*;
 use nihav_core::demuxers::*;
-use nihav_core::io::byteio::*;
-use nihav_core::formats::*;
 //use std::collections::HashMap;
 
 enum GDVState {

@@ -5,7 +5,6 @@ use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::formats;
 use nihav_core::codecs::*;
-use nihav_core::frame::*;
 use std::fmt;
 use std::ops::{Add, Sub};
 

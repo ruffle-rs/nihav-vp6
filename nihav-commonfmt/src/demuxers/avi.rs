@@ -1,9 +1,6 @@
 use nihav_core::demuxers::*;
 use nihav_core::register;
 use nihav_core::demuxers::DemuxerError::*;
-use nihav_core::io::byteio::*;
-use nihav_core::frame::*;
-use nihav_core::formats::*;
 
 macro_rules! mktag {
     ($a:expr, $b:expr, $c:expr, $d:expr) => ({

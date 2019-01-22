@@ -4,8 +4,6 @@ use std::cell::{Ref,RefCell};
 use nihav_core::io::bitreader::*;
 //use io::intcode::*;
 use nihav_core::codecs::*;
-use nihav_core::formats::*;
-use nihav_core::frame::*;
 use super::ivi::*;
 use super::ividsp::*;
 
