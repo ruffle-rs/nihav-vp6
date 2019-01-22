@@ -404,6 +404,9 @@ pub const RGB24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::R
                                         elem_size: 3, be: false, alpha: false, palette: false };
 
 impl NAPixelChromaton {
+    pub fn new(h_ss: u8, v_ss: u8, packed: bool, depth: u8, shift: u8, comp_offs: u8, next_elem: u8) -> Self {
+        Self { h_ss, v_ss, packed, depth, shift, comp_offs, next_elem }
+    }
     pub fn get_subsampling(&self) -> (u8, u8) { (self.h_ss, self.v_ss) }
     pub fn is_packed(&self) -> bool { self.packed }
     pub fn get_depth(&self) -> u8   { self.depth }
