@@ -77,6 +77,11 @@ fn write_palppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     ofile.write_all(hdr.as_bytes()).unwrap();
     let dta = buf.get_data();
     let ls = buf.get_stride(0);
+    let offs: [usize; 3] = [
+            buf.get_info().get_format().get_chromaton(0).unwrap().get_offset() as usize,
+            buf.get_info().get_format().get_chromaton(1).unwrap().get_offset() as usize,
+            buf.get_info().get_format().get_chromaton(2).unwrap().get_offset() as usize
+        ];
     let mut idx  = 0;
     let mut line: Vec<u8> = Vec::with_capacity(w * 3);
     line.resize(w * 3, 0);
@@ -84,9 +89,9 @@ fn write_palppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
         let src = &dta[idx..(idx+w)];
         for x in 0..w {
             let pix = src[x] as usize;
-            line[x * 3 + 0] = dta[paloff + pix * 3 + 2];
-            line[x * 3 + 1] = dta[paloff + pix * 3 + 1];
-            line[x * 3 + 2] = dta[paloff + pix * 3 + 0];
+            line[x * 3 + 0] = dta[paloff + pix * 3 + offs[0]];
+            line[x * 3 + 1] = dta[paloff + pix * 3 + offs[1]];
+            line[x * 3 + 2] = dta[paloff + pix * 3 + offs[2]];
         }
         ofile.write_all(line.as_slice()).unwrap();
         idx  += ls;
