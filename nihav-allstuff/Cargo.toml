@@ -9,4 +9,5 @@ nihav_core = { path = "../nihav-core" }
 nihav_commonfmt = { path = "../nihav-commonfmt" }
 nihav_game = { path = "../nihav-game" }
 nihav_indeo = { path = "../nihav-indeo" }
+nihav_rad = { path = "../nihav-rad" }
 nihav_realmedia = { path = "../nihav-realmedia" }
