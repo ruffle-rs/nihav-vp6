@@ -198,6 +198,11 @@ const DETECTORS: &[DetectConditions] = &[
         extensions: ".smk",
         conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b"SMK2"), &CC::Str(b"SMK4"))}],
     },
+    DetectConditions {
+        demux_name: "bmv",
+        extensions: ".bmv",
+        conditions: &[],
+    },
 ];
 
 pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, DetectionScore)> {
