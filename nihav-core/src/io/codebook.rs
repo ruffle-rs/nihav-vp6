@@ -314,18 +314,18 @@ impl CodebookDescReader<u32> for ShortCodebookDescReader {
     fn len(&mut self) -> usize { self.data.len() }
 }
 
-pub struct TableCodebookDescReader<CodeType:'static, IndexType:'static> {
-    bits:       &'static [u8],
-    codes:      &'static [CodeType],
+pub struct TableCodebookDescReader<'a, CodeType:'static, IndexType:'static> {
+    bits:       &'a [u8],
+    codes:      &'a [CodeType],
     idx_map:    fn(usize) -> IndexType,
 }
 
-impl<'a, CodeType, IndexType> TableCodebookDescReader<CodeType, IndexType> {
-    pub fn new(codes: &'static [CodeType], bits: &'static [u8], idx_map: fn(usize) -> IndexType) -> Self {
+impl<'a, CodeType, IndexType> TableCodebookDescReader<'a, CodeType, IndexType> {
+    pub fn new(codes: &'a [CodeType], bits: &'a [u8], idx_map: fn(usize) -> IndexType) -> Self {
         Self { bits, codes, idx_map }
     }
 }
-impl<CodeType: Copy+Into<u32>, IndexType> CodebookDescReader<IndexType> for TableCodebookDescReader<CodeType, IndexType>
+impl<'a, CodeType: Copy+Into<u32>, IndexType> CodebookDescReader<IndexType> for TableCodebookDescReader<'a, CodeType, IndexType>
 {
     fn bits(&mut self, idx: usize) -> u8  { self.bits[idx] }
     fn code(&mut self, idx: usize) -> u32 { self.codes[idx].into() }
