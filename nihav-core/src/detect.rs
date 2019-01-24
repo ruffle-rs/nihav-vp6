@@ -194,6 +194,14 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b".R1M"), &CC::Str(b".REC"))}],
     },
     DetectConditions {
+        demux_name: "bink",
+        extensions: ".bik,.kb2",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::In(Arg::U32BE(0x32494B62),     // BIKb
+                                                               Arg::U32BE(0x32494B7B)),    // BIKz
+                                                       &CC::In(Arg::U32BE(0x4B423261),     // KB2a
+                                                               Arg::U32BE(0x4B42327B)))}], // KB2z
+    },
+    DetectConditions {
         demux_name: "smacker",
         extensions: ".smk",
         conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b"SMK2"), &CC::Str(b"SMK4"))}],
