@@ -13,6 +13,7 @@ demuxers = []
 h263 = []
 
 dsp = []
+dct = ["dsp"]
 fft = ["dsp"]
 mdct = ["fft", "dsp"]
 dsp_window = ["dsp"]
