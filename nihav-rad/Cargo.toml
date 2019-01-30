@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies.nihav_core]
 path = "../nihav-core"
-features = ["fft"]
+features = ["dct", "fft"]
 
 [features]
 default = ["all_decoders", "all_demuxers"]
