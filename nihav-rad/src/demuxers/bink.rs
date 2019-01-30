@@ -117,12 +117,14 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
             validate!(payload_size > size + 4);
             payload_size -= size + 4;
 
-            let strres = strmgr.get_stream(atrk.id);
-            validate!(strres.is_some());
-            let stream = strres.unwrap();
-            let ts = NATimeInfo::new(Some(self.cur_frame as u64), None, None, self.tb_num, self.tb_den);
-            let pkt = self.src.read_packet(stream.clone(), ts, true, size)?;
-            self.queued_packets.push(pkt);
+            if size > 0 {
+                let strres = strmgr.get_stream(atrk.id);
+                validate!(strres.is_some());
+                let stream = strres.unwrap();
+                let ts = NATimeInfo::new(Some(self.cur_frame as u64), None, None, self.tb_num, self.tb_den);
+                let pkt = self.src.read_packet(stream.clone(), ts, true, size)?;
+                self.queued_packets.push(pkt);
+            }
         }
         self.queued_packets.reverse();
 
