@@ -9,7 +9,7 @@ const BINK_AUD_FLAG_DCT:    u8 = 0x10;
 const BINK_AUD_FLAG_STEREO: u8 = 0x20;
 
 impl AudioTrack {
-    fn new(strmgr: &mut StreamManager, srate: u32, flags: u8, str_id: usize) -> DemuxerResult<Self> {
+    fn new(strmgr: &mut StreamManager, srate: u32, flags: u8, str_id: usize, magic: &[u8; 4]) -> DemuxerResult<Self> {
         let channels = if (flags & BINK_AUD_FLAG_STEREO) != 0 { 2 } else { 1 };
         let codecname = if (flags & BINK_AUD_FLAG_DCT) != 0 {
                 "bink-audio-dct"
@@ -17,7 +17,9 @@ impl AudioTrack {
                 "bink-audio-rdft"
             };
         let ahdr = NAAudioInfo::new(srate, channels, SND_F32P_FORMAT, 1);
-        let ainfo = NACodecInfo::new(codecname, NACodecTypeInfo::Audio(ahdr), None);
+        let mut edata: Vec<u8> = Vec::with_capacity(4);
+        edata.extend_from_slice(magic);
+        let ainfo = NACodecInfo::new(codecname, NACodecTypeInfo::Audio(ahdr), Some(edata));
         let res = strmgr.add_stream(NAStream::new(StreamType::Audio, (str_id + 1) as u32, ainfo, 1, srate));
         validate!(res.is_some());
         let id = res.unwrap();
@@ -87,7 +89,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
             let srate                       = src.read_u24le()?;
             let flags                       = src.read_byte()?;
             validate!(srate > 0);
-            self.ainfo.push(AudioTrack::new(strmgr, srate, flags, i)?);
+            self.ainfo.push(AudioTrack::new(strmgr, srate, flags, i, &magic)?);
         }
         for _ in 0..num_audio {
             let _trk_id                     = src.read_u32le()?;
