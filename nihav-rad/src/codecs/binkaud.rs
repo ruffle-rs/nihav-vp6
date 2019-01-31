@@ -152,15 +152,7 @@ impl BinkAudioDecoder {
             for i in 0..(self.len >> 4) {
                 self.delay[chno][i] = self.coeffs[self.duration + i];
             }
-        } else { // somehow it ends here in reverse order
-            for i in 0..self.len >> 2 {
-                let t0 = self.coeffs[self.len - 2 - i * 2];
-                let t1 = self.coeffs[self.len - 1 - i * 2];
-                self.coeffs[self.len - 2 - i * 2] = self.coeffs[i * 2];
-                self.coeffs[self.len - 1 - i * 2] = self.coeffs[i * 2 + 1];
-                self.coeffs[i * 2] = t0;
-                self.coeffs[i * 2 + 1] = t1;
-            }
+        } else {
             let overlap_len = if self.first_frm { 0 } else { self.len >> 8 };
             overlap(&self.delay[0], &self.coeffs[0..], &mut dst[off0..], overlap_len, 2);
             overlap(&self.delay[1], &self.coeffs[1..], &mut dst[off1..], overlap_len, 2);
@@ -211,7 +203,7 @@ impl NADecoder for BinkAudioDecoder {
                 self.duration >>= 1;
             }
             self.transform = if !self.use_dct {
-                    Transform::RDFT(RDFTBuilder::new_rdft(FFTMode::SplitRadix, self.len >> 1, false))
+                    Transform::RDFT(RDFTBuilder::new_rdft(FFTMode::SplitRadix, self.len >> 1, false, false))
                 } else {
                     Transform::DCT(DCT::new(DCTMode::DCT_III, self.len))
                 };

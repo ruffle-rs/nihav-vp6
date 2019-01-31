@@ -430,6 +430,7 @@ pub struct RDFT {
     fft:    FFT,
     fwd:    bool,
     size:   usize,
+    fwd_fft:    bool,
 }
 
 fn crossadd(a: &FFTComplex, b: &FFTComplex) -> FFTComplex {
@@ -460,7 +461,7 @@ impl RDFT {
             buf[0].re = a - b;
             buf[0].im = a + b;
         }
-        self.fft.do_fft_inplace(buf, true);
+        self.fft.do_fft_inplace(buf, self.fwd_fft);
         if self.fwd {
             for n in 0..self.size/2 {
                 let in0 = buf[n + 1];
@@ -489,14 +490,14 @@ pub struct RDFTBuilder {
 }
 
 impl RDFTBuilder {
-    pub fn new_rdft(mode: FFTMode, size: usize, forward: bool) -> RDFT {
+    pub fn new_rdft(mode: FFTMode, size: usize, forward: bool, forward_fft: bool) -> RDFT {
         let mut table: Vec<FFTComplex> = Vec::with_capacity(size / 4);
         let (base, scale) = if forward { (consts::PI / (size as f32), 0.5) } else { (-consts::PI / (size as f32), 1.0) };
         for i in 0..size/2 {
             table.push(FFTComplex::exp(base * ((i + 1) as f32)).scale(scale));
         }
         let fft = FFTBuilder::new_fft(mode, size);
-        RDFT { table, fft, size, fwd: forward }
+        RDFT { table, fft, size, fwd: forward, fwd_fft: forward_fft }
     }
 }
 
@@ -552,7 +553,7 @@ mod test {
     fn test_rdft() {
         let mut fin:   [FFTComplex; 128] = [FFTC_ZERO; 128];
         let mut fout1: [FFTComplex; 128] = [FFTC_ZERO; 128];
-        let mut rdft = RDFTBuilder::new_rdft(FFTMode::SplitRadix,  fin.len(), true);
+        let mut rdft = RDFTBuilder::new_rdft(FFTMode::SplitRadix,  fin.len(), true, true);
         let mut seed: u32 = 42;
         for i in 0..fin.len() {
             seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
@@ -563,7 +564,7 @@ mod test {
             fin[i].im = (val as f32) / 256.0;
         }
         rdft.do_rdft(&fin, &mut fout1);
-        let mut irdft = RDFTBuilder::new_rdft(FFTMode::SplitRadix,  fin.len(), false);
+        let mut irdft = RDFTBuilder::new_rdft(FFTMode::SplitRadix,  fin.len(), false, true);
         irdft.do_rdft_inplace(&mut fout1);
 
         for i in 0..fin.len() {
