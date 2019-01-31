@@ -184,7 +184,7 @@ impl NADecoder for BinkAudioDecoder {
             let channels = ainfo.get_channels();
             validate!(channels <= 2);
             self.ainfo = NAAudioInfo::new(srate, channels, SND_F32P_FORMAT, 2);
-            self.chmap = NAChannelMap::from_str("L,R").unwrap();
+            self.chmap = NAChannelMap::from_str(if channels == 2 {"L,R"} else {"C"}).unwrap();
             if let Some(ref edata) = info.get_extradata() {
                 if edata.as_slice() == b"BIKb" {
                     self.version_b = true;
