@@ -134,7 +134,7 @@ impl<'a> CC<'a> {
         match *self {
             CC::Or (ref a, ref b) => { a.eval(src) || b.eval(src) },
             CC::Eq(ref arg)      => { arg.eq(src) },
-            CC::In(ref a, ref b) => { a.le(src) && b.ge(src) },
+            CC::In(ref a, ref b) => { a.ge(src) && b.le(src) },
             CC::Lt(ref arg)      => { arg.lt(src) },
             CC::Le(ref arg)      => { arg.le(src) },
             CC::Gt(ref arg)      => { arg.gt(src) },
@@ -195,7 +195,7 @@ const DETECTORS: &[DetectConditions] = &[
     },
     DetectConditions {
         demux_name: "bink",
-        extensions: ".bik,.kb2",
+        extensions: ".bik,.bk2",
         conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::In(Arg::U32BE(0x32494B62),     // BIKb
                                                                Arg::U32BE(0x32494B7B)),    // BIKz
                                                        &CC::In(Arg::U32BE(0x4B423261),     // KB2a
@@ -244,9 +244,9 @@ pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, 
         if score == DetectionScore::MagicMatches {
             return Some((detector.demux_name, score));
         }
-        if let None = result {
+        if result.is_none() && score != DetectionScore::No {
             result = Some((detector.demux_name, score));
-        } else {
+        } else if result.is_some() {
             let (_, oldsc) = result.unwrap();
             if oldsc.less(score) {
                 result = Some((detector.demux_name, score));
