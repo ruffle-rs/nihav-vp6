@@ -154,6 +154,20 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"I263", "intel263"),
 
     (b"UCOD", "clearvideo"),
+
+    (b"DUCK", "truemotion1"),
+    (b"TR20", "truemotionrt"),
+    (b"TM20", "truemotion2"),
+    (b"TM2A", "truemotion2x"),
+    (b"TM2X", "truemotion2x"),
+    (b"VP30", "truemotion3"),
+    (b"VP31", "truemotion3"),
+    (b"VP40", "truemotion4"),
+    (b"VP50", "truemotion5"),
+    (b"VP60", "truemotion6"),
+    (b"VP61", "truemotion6"),
+    (b"VP62", "truemotion6"),
+    (b"VP70", "truemotion7"),
 ];
 
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
