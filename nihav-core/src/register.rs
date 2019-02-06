@@ -176,6 +176,8 @@ static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
     (0x0003, "pcm"),
     (0x0401, "imc"),
     (0x0402, "iac"),
+    (0x0500, "on2avc-500"),
+    (0x0501, "on2avc-501"),
 ];
 
 pub fn find_codec_from_avi_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
