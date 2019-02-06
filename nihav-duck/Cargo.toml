@@ -1,0 +1,29 @@
+[package]
+name = "nihav_duck"
+version = "0.1.0"
+authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
+edition = "2018"
+
+[dependencies.nihav_core]
+path = "../nihav-core"
+features = ["fft", "dsp_window"]
+
+[dev-dependencies]
+nihav_commonfmt = { path = "../nihav-commonfmt" }
+
+[features]
+default = ["all_decoders"]
+
+all_decoders = ["decoder_truemotion1", "decoder_truemotionrt"]#, "decoder_truemotion2", "decoder_truemotion2x", "decoder_truemotion3", "decoder_truemotion4", "decoder_truemotion5", "decoder_truemotion6", "decoder_truemotion7", "decoder_on2avc"]
+decoders = []
+
+decoder_truemotion1 = ["decoders"]
+decoder_truemotionrt = ["decoders"]
+decoder_truemotion2 = ["decoders"]
+decoder_truemotion2x = ["decoders"]
+decoder_truemotion3 = ["decoders"]
+decoder_truemotion4 = ["decoders"]
+decoder_truemotion5 = ["decoders"]
+decoder_truemotion6 = ["decoders"]
+decoder_truemotion7 = ["decoders"]
+decoder_on2avc = ["decoders"]
