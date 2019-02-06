@@ -77,6 +77,10 @@ impl HAMShuffler {
     }
 }
 
+impl Default for HAMShuffler {
+    fn default() -> Self { Self { lastframe: None } }
+}
+
 #[allow(dead_code)]
 pub struct IPShuffler {
     lastframe: Option<NAVideoBuffer<u8>>,
@@ -99,6 +103,10 @@ impl IPShuffler {
             None
         }
     }
+}
+
+impl Default for IPShuffler {
+    fn default() -> Self { Self { lastframe: None } }
 }
 
 #[allow(dead_code)]
@@ -149,6 +157,10 @@ impl IPBShuffler {
             None
         }
     }
+}
+
+impl Default for IPBShuffler {
+    fn default() -> Self { Self { lastframe: None, nextframe: None } }
 }
 
 #[derive(Debug,Clone,Copy,PartialEq)]

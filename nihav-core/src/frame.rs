@@ -430,6 +430,10 @@ impl NACodecInfo {
     }
 }
 
+impl Default for NACodecInfo {
+    fn default() -> Self { DUMMY_CODEC_INFO }
+}
+
 impl fmt::Display for NACodecInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let edata = match self.extradata.clone() {
