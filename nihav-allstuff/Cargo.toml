@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 nihav_core = { path = "../nihav-core" }
 nihav_commonfmt = { path = "../nihav-commonfmt" }
+nihav_duck = { path = "../nihav-duck" }
 nihav_game = { path = "../nihav-game" }
 nihav_indeo = { path = "../nihav-indeo" }
 nihav_rad = { path = "../nihav-rad" }

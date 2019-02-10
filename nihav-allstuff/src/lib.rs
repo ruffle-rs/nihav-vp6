@@ -1,5 +1,6 @@
 extern crate nihav_core;
 extern crate nihav_commonfmt;
+extern crate nihav_duck;
 extern crate nihav_game;
 extern crate nihav_indeo;
 extern crate nihav_rad;
@@ -10,6 +11,8 @@ use nihav_core::demuxers::RegisteredDemuxers;
 
 use nihav_commonfmt::codecs::generic_register_all_codecs;
 use nihav_commonfmt::demuxers::generic_register_all_demuxers;
+
+use nihav_duck::codecs::duck_register_all_codecs;
 
 use nihav_game::codecs::game_register_all_codecs;
 use nihav_game::demuxers::game_register_all_demuxers;
@@ -24,6 +27,7 @@ use nihav_realmedia::demuxers::realmedia_register_all_demuxers;
 
 pub fn nihav_register_all_codecs(rd: &mut RegisteredDecoders) {
     generic_register_all_codecs(rd);
+    duck_register_all_codecs(rd);
     game_register_all_codecs(rd);
     indeo_register_all_codecs(rd);
     rad_register_all_codecs(rd);
