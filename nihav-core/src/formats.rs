@@ -297,6 +297,18 @@ impl ColorModel {
             _                => 3,
         }
     }
+    pub fn is_rgb(&self) -> bool {
+        match *self {
+            ColorModel::RGB(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_yuv(&self) -> bool {
+        match *self {
+            ColorModel::YUV(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for ColorModel {
@@ -315,13 +327,13 @@ impl fmt::Display for ColorModel {
 
 #[derive(Clone,Copy,PartialEq)]
 pub struct NAPixelChromaton {
-    h_ss:           u8,
-    v_ss:           u8,
-    packed:         bool,
-    depth:          u8,
-    shift:          u8,
-    comp_offs:      u8,
-    next_elem:      u8,
+    pub h_ss:           u8,
+    pub v_ss:           u8,
+    pub packed:         bool,
+    pub depth:          u8,
+    pub shift:          u8,
+    pub comp_offs:      u8,
+    pub next_elem:      u8,
 }
 
 pub const FORMATON_FLAG_BE      :u32 = 0x01;
@@ -331,13 +343,13 @@ pub const FORMATON_FLAG_PALETTE :u32 = 0x04;
 
 #[derive(Clone,Copy,PartialEq)]
 pub struct NAPixelFormaton {
-    model:      ColorModel,
-    components: u8,
-    comp_info:  [Option<NAPixelChromaton>; 5],
-    elem_size:  u8,
-    be:         bool,
-    alpha:      bool,
-    palette:    bool,
+    pub model:      ColorModel,
+    pub components: u8,
+    pub comp_info:  [Option<NAPixelChromaton>; 5],
+    pub elem_size:  u8,
+    pub be:         bool,
+    pub alpha:      bool,
+    pub palette:    bool,
 }
 
 macro_rules! chromaton {
