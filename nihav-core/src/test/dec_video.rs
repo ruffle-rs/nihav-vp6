@@ -98,6 +98,72 @@ fn write_palppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     }
 }
 
+fn write_ppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
+    let frm = frmref.borrow();
+    let name = format!("assets/{}out{:02}_{:06}.ppm", pfx, strno, num);
+    let mut ofile = File::create(name).unwrap();
+    if let NABufferType::VideoPacked(ref buf) = frm.get_buffer() {
+        let (w, h) = buf.get_dimensions(0);
+        let hdr = format!("P6\n{} {}\n255\n", w, h);
+        ofile.write_all(hdr.as_bytes()).unwrap();
+        let dta = buf.get_data();
+        let stride = buf.get_stride(0);
+        let offs: [usize; 3] = [
+                buf.get_info().get_format().get_chromaton(0).unwrap().get_offset() as usize,
+                buf.get_info().get_format().get_chromaton(1).unwrap().get_offset() as usize,
+                buf.get_info().get_format().get_chromaton(2).unwrap().get_offset() as usize
+            ];
+        let step = buf.get_info().get_format().get_elem_size() as usize;
+        let mut line: Vec<u8> = Vec::with_capacity(w * 3);
+        line.resize(w * 3, 0);
+        for src in dta.chunks(stride) {
+            for x in 0..w {
+                line[x * 3 + 0] = src[x * step + offs[0]];
+                line[x * 3 + 1] = src[x * step + offs[1]];
+                line[x * 3 + 2] = src[x * step + offs[2]];
+            }
+            ofile.write_all(line.as_slice()).unwrap();
+        }
+    } else if let NABufferType::Video16(ref buf) = frm.get_buffer() {
+        let (w, h) = buf.get_dimensions(0);
+        let hdr = format!("P6\n{} {}\n255\n", w, h);
+        ofile.write_all(hdr.as_bytes()).unwrap();
+        let dta = buf.get_data();
+        let stride = buf.get_stride(0);
+        let depths: [u8; 3] = [
+                buf.get_info().get_format().get_chromaton(0).unwrap().get_depth(),
+                buf.get_info().get_format().get_chromaton(1).unwrap().get_depth(),
+                buf.get_info().get_format().get_chromaton(2).unwrap().get_depth()
+            ];
+        let masks: [u16; 3] = [
+                (1 << depths[0]) - 1,
+                (1 << depths[1]) - 1,
+                (1 << depths[2]) - 1
+            ];
+        let shifts: [u8; 3] = [
+                buf.get_info().get_format().get_chromaton(0).unwrap().get_shift(),
+                buf.get_info().get_format().get_chromaton(1).unwrap().get_shift(),
+                buf.get_info().get_format().get_chromaton(2).unwrap().get_shift()
+            ];
+        let mut line: Vec<u8> = Vec::with_capacity(w * 3);
+        line.resize(w * 3, 0);
+        for src in dta.chunks(stride) {
+            for x in 0..w {
+                let elem = src[x];
+                let r = ((elem >> shifts[0]) & masks[0]) << (8 - depths[0]);
+                let g = ((elem >> shifts[1]) & masks[1]) << (8 - depths[1]);
+                let b = ((elem >> shifts[2]) & masks[2]) << (8 - depths[2]);
+                line[x * 3 + 0] = r as u8;
+                line[x * 3 + 1] = g as u8;
+                line[x * 3 + 2] = b as u8;
+            }
+            ofile.write_all(line.as_slice()).unwrap();
+        }
+    } else {
+panic!(" unhandled buf format");
+    }
+}
+
 /*fn open_wav_out(pfx: &str, strno: usize) -> WavWriter {
     let name = format!("assets/{}out{:02}.wav", pfx, strno);
     let mut file = File::create(name).unwrap();
@@ -150,10 +216,15 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
             if pkt.get_stream().get_info().is_video() && video_pfx.is_some() && frm.borrow().get_frame_type() != FrameType::Skip {
                 let pfx = video_pfx.unwrap();
 		let pts = if let Some(fpts) = frm.borrow().get_pts() { fpts } else { pkt.get_pts().unwrap() };
-                if frm.borrow().get_buffer().get_vbuf().unwrap().get_info().get_format().is_paletted() {
+                let vinfo = frm.borrow().get_buffer().get_video_info().unwrap();
+                if vinfo.get_format().is_paletted() {
                     write_palppm(pfx, streamno, pts, frm);
-                } else {
+                } else if vinfo.get_format().get_model().is_yuv() {
                     write_pgmyuv(pfx, streamno, pts, frm);
+                } else if vinfo.get_format().get_model().is_rgb() {
+                    write_ppm(pfx, streamno, pts, frm);
+                } else {
+panic!(" unknown format");
                 }
             }
         }
