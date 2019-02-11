@@ -23,6 +23,8 @@ mod truemotion6;
 #[cfg(feature="decoder_truemotion7")]
 mod truemotion7;
 
+#[cfg(any(feature="decoder_dk3_adpcm", feature="decoder_dk4_adpcm"))]
+mod dkadpcm;
 #[cfg(feature="decoder_on2avc")]
 mod on2avc;
 
@@ -46,6 +48,10 @@ const DUCK_CODECS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_truemotion7")]
     DecoderInfo { name: "truemotion7", get_decoder: truemotion7::get_decoder },
 
+#[cfg(feature="decoder_dk3_adpcm")]
+    DecoderInfo { name: "adpcm-dk3", get_decoder: dkadpcm::get_decoder_dk3 },
+#[cfg(feature="decoder_dk4_adpcm")]
+    DecoderInfo { name: "adpcm-dk4", get_decoder: dkadpcm::get_decoder_dk4 },
 #[cfg(feature="decoder_on2avc")]
     DecoderInfo { name: "on2avc-500", get_decoder: on2avc::get_decoder_500 },
 #[cfg(feature="decoder_on2avc")]
