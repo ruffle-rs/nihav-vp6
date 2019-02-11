@@ -174,6 +174,8 @@ static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
     (0x0000, "pcm"),
     (0x0001, "pcm"),
     (0x0003, "pcm"),
+    (0x0061, "adpcm-dk4"),
+    (0x0062, "adpcm-dk3"),
     (0x0401, "imc"),
     (0x0402, "iac"),
     (0x0500, "on2avc-500"),
