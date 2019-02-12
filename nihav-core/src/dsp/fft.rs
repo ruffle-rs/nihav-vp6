@@ -2,6 +2,7 @@ use std::f32::{self, consts};
 use std::ops::{Not, Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
 use std::fmt;
 
+#[repr(C)]
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub struct FFTComplex {
     pub re: f32,
