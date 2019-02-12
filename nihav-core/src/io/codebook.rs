@@ -18,14 +18,14 @@ pub enum CodebookMode {
 type CodebookResult<T> = Result<T, CodebookError>;
 
 pub struct FullCodebookDesc<S> {
-    code: u32,
-    bits: u8,
-    sym:  S,
+    pub code: u32,
+    pub bits: u8,
+    pub sym:  S,
 }
 
 pub struct ShortCodebookDesc {
-    code: u32,
-    bits: u8,
+    pub code: u32,
+    pub bits: u8,
 }
 
 pub trait CodebookDescReader<S> {
