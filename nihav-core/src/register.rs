@@ -118,6 +118,8 @@ pub fn get_codec_description(name: &str) -> Option<&'static CodecDescription> {
 }
 
 static CODEC_REGISTER: &'static [CodecDescription] = &[
+    desc!(audio-ll; "pcm", "PCM"),
+
     desc!(video-im; "indeo1", "Intel Raw IF09"),
     desc!(video-im; "indeo2", "Intel Indeo 2"),
     desc!(video;    "indeo3", "Intel Indeo 3"),
@@ -142,6 +144,34 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "ac3",        "ETSI TS 102 366"),
     desc!(audio;    "atrac3",     "Sony Atrac3"),
     desc!(audio;    "sipro",      "Sipro Labs ADPCM"),
+
+    desc!(video;    "truemotion1",   "TrueMotion 1"), 
+    desc!(video-im; "truemotionrt",  "TrueMotion RT"), 
+    desc!(video;    "truemotion2",   "TrueMotion 2"), 
+    desc!(video;    "truemotion2x",  "TrueMotion 2X"),
+    desc!(video;    "vp3",           "VP3"),
+    desc!(video;    "vp4",           "VP4"),
+    desc!(video;    "vp5",           "VP5"),
+    desc!(video;    "vp6",           "VP6"),
+    desc!(video;    "vp7",           "VP7"),
+    desc!(video;    "vp8",           "VP8"),
+    desc!(video;    "vp9",           "VP9"),
+    desc!(audio;    "adpcm-dk3",     "Duck DK3 ADPCM"),
+    desc!(audio;    "adpcm-dk4",     "Duck DK4 ADPCM"),
+    desc!(audio;    "on2-avc-500",   "On2 AVC"),
+    desc!(audio;    "on2-avc-501",   "On2 AVC"),
+
+    desc!(video;    "gdv-video",     "Gremlin Digital Video - video"),
+    desc!(audio;    "gdv-audio",     "Gremlin Digital Video - audio"),
+    desc!(video;    "bmv-video",     "BMV video"),
+    desc!(audio;    "bmv-audio",     "BMV audio"),
+
+    desc!(video;    "smacker-video", "Smacker video"),
+    desc!(audio;    "smacker-audio", "Smacker audio"),
+    desc!(video;    "bink-video",    "Bink video"),
+    desc!(video;    "bink2-video",   "Bink2 video"),
+    desc!(audio;    "bink-audio-dct",   "Bink audio (DCT)"),
+    desc!(audio;    "bink-audio-rdft",  "Bink audio (RDFT)"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
