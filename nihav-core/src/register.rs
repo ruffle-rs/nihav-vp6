@@ -160,14 +160,14 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"TM20", "truemotion2"),
     (b"TM2A", "truemotion2x"),
     (b"TM2X", "truemotion2x"),
-    (b"VP30", "truemotion3"),
-    (b"VP31", "truemotion3"),
-    (b"VP40", "truemotion4"),
-    (b"VP50", "truemotion5"),
-    (b"VP60", "truemotion6"),
-    (b"VP61", "truemotion6"),
-    (b"VP62", "truemotion6"),
-    (b"VP70", "truemotion7"),
+    (b"VP30", "vp3"),
+    (b"VP31", "vp3"),
+    (b"VP40", "vp4"),
+    (b"VP50", "vp5"),
+    (b"VP60", "vp6"),
+    (b"VP61", "vp6"),
+    (b"VP62", "vp6"),
+    (b"VP70", "vp7"),
 ];
 
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[

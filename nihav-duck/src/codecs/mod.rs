@@ -12,16 +12,12 @@ mod truemotionrt;
 mod truemotion2;
 #[cfg(feature="decoder_truemotion2x")]
 mod truemotion2x;
-#[cfg(feature="decoder_truemotion3")]
-mod truemotion3;
-#[cfg(feature="decoder_truemotion4")]
-mod truemotion4;
-#[cfg(feature="decoder_truemotion5")]
-mod truemotion5;
-#[cfg(feature="decoder_truemotion6")]
-mod truemotion6;
-#[cfg(feature="decoder_truemotion7")]
-mod truemotion7;
+#[cfg(any(feature="decoder_vp3", feature="decoder_vp4"))]
+mod vp3;
+#[cfg(any(feature="decoder_vp5", feature="decoder_vp6"))]
+mod vp56;
+#[cfg(feature="decoder_vp7")]
+mod vp7;
 
 #[cfg(any(feature="decoder_dk3_adpcm", feature="decoder_dk4_adpcm"))]
 mod dkadpcm;
@@ -37,16 +33,16 @@ const DUCK_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "truemotion2", get_decoder: truemotion2::get_decoder },
 #[cfg(feature="decoder_truemotion2x")]
     DecoderInfo { name: "truemotion2x", get_decoder: truemotion2x::get_decoder },
-#[cfg(feature="decoder_truemotion3")]
-    DecoderInfo { name: "truemotion3", get_decoder: truemotion3::get_decoder },
-#[cfg(feature="decoder_truemotion4")]
-    DecoderInfo { name: "truemotion4", get_decoder: truemotion4::get_decoder },
-#[cfg(feature="decoder_truemotion5")]
-    DecoderInfo { name: "truemotion5", get_decoder: truemotion5::get_decoder },
-#[cfg(feature="decoder_truemotion6")]
-    DecoderInfo { name: "truemotion6", get_decoder: truemotion6::get_decoder },
-#[cfg(feature="decoder_truemotion7")]
-    DecoderInfo { name: "truemotion7", get_decoder: truemotion7::get_decoder },
+#[cfg(feature="decoder_vp3")]
+    DecoderInfo { name: "vp3", get_decoder: vp3::get_decoder_vp3 },
+#[cfg(feature="decoder_vp4")]
+    DecoderInfo { name: "vp4", get_decoder: vp3::get_decoder_vp4 },
+#[cfg(feature="decoder_vp5")]
+    DecoderInfo { name: "vp5", get_decoder: vp56::get_decoder_vp5 },
+#[cfg(feature="decoder_vp6")]
+    DecoderInfo { name: "vp6", get_decoder: vp56::get_decoder_vp6 },
+#[cfg(feature="decoder_vp7")]
+    DecoderInfo { name: "vp7", get_decoder: vp7::get_decoder },
 
 #[cfg(feature="decoder_dk3_adpcm")]
     DecoderInfo { name: "adpcm-dk3", get_decoder: dkadpcm::get_decoder_dk3 },
