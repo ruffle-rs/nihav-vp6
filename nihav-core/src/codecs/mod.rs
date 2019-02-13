@@ -267,4 +267,7 @@ impl RegisteredDecoders {
         }
         None
     }
+    pub fn iter(&self) -> std::slice::Iter<DecoderInfo> {
+        self.decs.iter()
+    }
 }

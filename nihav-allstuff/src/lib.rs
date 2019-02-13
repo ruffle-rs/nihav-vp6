@@ -40,3 +40,27 @@ pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     rad_register_all_demuxers(rd);
     realmedia_register_all_demuxers(rd);
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use nihav_core::register::get_codec_description;
+
+    #[test]
+    fn test_descriptions() {
+        let mut rd = RegisteredDecoders::new();
+        nihav_register_all_codecs(&mut rd);
+        let mut has_missing = false;
+        for dec in rd.iter() {
+            print!("decoder {} - ", dec.name);
+            let ret = get_codec_description(dec.name);
+            if let Some(desc) = ret {
+                println!("{}", desc);
+            } else {
+                println!("missing!");
+                has_missing = true;
+            }
+        }
+        assert!(!has_missing);
+    }
+}
