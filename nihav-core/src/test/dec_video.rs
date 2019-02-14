@@ -4,6 +4,7 @@ use crate::frame::*;
 use crate::codecs::*;
 use crate::demuxers::*;
 //use crate::io::byteio::*;
+use crate::scale::*;
 use super::wavwriter::WavWriter;
 
 fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
@@ -123,66 +124,23 @@ fn write_palppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
 fn write_ppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
     let name = format!("assets/{}out{:02}_{:06}.ppm", pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
-    if let NABufferType::VideoPacked(ref buf) = frm.get_buffer() {
+        let info = frm.get_buffer().get_video_info().unwrap();
+        let mut dpic = alloc_video_buffer(NAVideoInfo::new(info.get_width(), info.get_height(), false, RGB24_FORMAT), 0).unwrap();
+        let ifmt = ScaleInfo { width: info.get_width(), height: info.get_height(), fmt: info.get_format() };
+        let ofmt = ScaleInfo { width: info.get_width(), height: info.get_height(), fmt: RGB24_FORMAT };
+        let mut scaler = NAScale::new(ifmt, ofmt).unwrap();
+        scaler.convert(&frm.get_buffer(), &mut dpic).unwrap();
+        let buf = dpic.get_vbuf().unwrap();
         let (w, h) = buf.get_dimensions(0);
         let hdr = format!("P6\n{} {}\n255\n", w, h);
         ofile.write_all(hdr.as_bytes()).unwrap();
         let dta = buf.get_data();
         let stride = buf.get_stride(0);
-        let offs: [usize; 3] = [
-                buf.get_info().get_format().get_chromaton(0).unwrap().get_offset() as usize,
-                buf.get_info().get_format().get_chromaton(1).unwrap().get_offset() as usize,
-                buf.get_info().get_format().get_chromaton(2).unwrap().get_offset() as usize
-            ];
-        let step = buf.get_info().get_format().get_elem_size() as usize;
         let mut line: Vec<u8> = Vec::with_capacity(w * 3);
         line.resize(w * 3, 0);
         for src in dta.chunks(stride) {
-            for x in 0..w {
-                line[x * 3 + 0] = src[x * step + offs[0]];
-                line[x * 3 + 1] = src[x * step + offs[1]];
-                line[x * 3 + 2] = src[x * step + offs[2]];
-            }
-            ofile.write_all(line.as_slice()).unwrap();
+            ofile.write_all(&src[0..w*3]).unwrap();
         }
-    } else if let NABufferType::Video16(ref buf) = frm.get_buffer() {
-        let (w, h) = buf.get_dimensions(0);
-        let hdr = format!("P6\n{} {}\n255\n", w, h);
-        ofile.write_all(hdr.as_bytes()).unwrap();
-        let dta = buf.get_data();
-        let stride = buf.get_stride(0);
-        let depths: [u8; 3] = [
-                buf.get_info().get_format().get_chromaton(0).unwrap().get_depth(),
-                buf.get_info().get_format().get_chromaton(1).unwrap().get_depth(),
-                buf.get_info().get_format().get_chromaton(2).unwrap().get_depth()
-            ];
-        let masks: [u16; 3] = [
-                (1 << depths[0]) - 1,
-                (1 << depths[1]) - 1,
-                (1 << depths[2]) - 1
-            ];
-        let shifts: [u8; 3] = [
-                buf.get_info().get_format().get_chromaton(0).unwrap().get_shift(),
-                buf.get_info().get_format().get_chromaton(1).unwrap().get_shift(),
-                buf.get_info().get_format().get_chromaton(2).unwrap().get_shift()
-            ];
-        let mut line: Vec<u8> = Vec::with_capacity(w * 3);
-        line.resize(w * 3, 0);
-        for src in dta.chunks(stride) {
-            for x in 0..w {
-                let elem = src[x];
-                let r = ((elem >> shifts[0]) & masks[0]) << (8 - depths[0]);
-                let g = ((elem >> shifts[1]) & masks[1]) << (8 - depths[1]);
-                let b = ((elem >> shifts[2]) & masks[2]) << (8 - depths[2]);
-                line[x * 3 + 0] = r as u8;
-                line[x * 3 + 1] = g as u8;
-                line[x * 3 + 2] = b as u8;
-            }
-            ofile.write_all(line.as_slice()).unwrap();
-        }
-    } else {
-panic!(" unhandled buf format");
-    }
 }
 
 /*fn open_wav_out(pfx: &str, strno: usize) -> WavWriter {
