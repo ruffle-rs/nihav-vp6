@@ -211,45 +211,45 @@ impl NABufferType {
             _ => None,
         }
     }
-    pub fn get_vbuf(&mut self) -> Option<NAVideoBuffer<u8>> {
+    pub fn get_vbuf(&self) -> Option<NAVideoBuffer<u8>> {
         match *self {
             NABufferType::Video(ref vb)       => Some(vb.clone()),
             NABufferType::VideoPacked(ref vb) => Some(vb.clone()),
             _ => None,
         }
     }
-    pub fn get_vbuf16(&mut self) -> Option<NAVideoBuffer<u16>> {
+    pub fn get_vbuf16(&self) -> Option<NAVideoBuffer<u16>> {
         match *self {
             NABufferType::Video16(ref vb)     => Some(vb.clone()),
             _ => None,
         }
     }
-    pub fn get_vbuf32(&mut self) -> Option<NAVideoBuffer<u32>> {
+    pub fn get_vbuf32(&self) -> Option<NAVideoBuffer<u32>> {
         match *self {
             NABufferType::Video32(ref vb)     => Some(vb.clone()),
             _ => None,
         }
     }
-    pub fn get_abuf_u8(&mut self) -> Option<NAAudioBuffer<u8>> {
+    pub fn get_abuf_u8(&self) -> Option<NAAudioBuffer<u8>> {
         match *self {
             NABufferType::AudioU8(ref ab) => Some(ab.clone()),
             NABufferType::AudioPacked(ref ab) => Some(ab.clone()),
             _ => None,
         }
     }
-    pub fn get_abuf_i16(&mut self) -> Option<NAAudioBuffer<i16>> {
+    pub fn get_abuf_i16(&self) -> Option<NAAudioBuffer<i16>> {
         match *self {
             NABufferType::AudioI16(ref ab) => Some(ab.clone()),
             _ => None,
         }
     }
-    pub fn get_abuf_i32(&mut self) -> Option<NAAudioBuffer<i32>> {
+    pub fn get_abuf_i32(&self) -> Option<NAAudioBuffer<i32>> {
         match *self {
             NABufferType::AudioI32(ref ab) => Some(ab.clone()),
             _ => None,
         }
     }
-    pub fn get_abuf_f32(&mut self) -> Option<NAAudioBuffer<f32>> {
+    pub fn get_abuf_f32(&self) -> Option<NAAudioBuffer<f32>> {
         match *self {
             NABufferType::AudioF32(ref ab) => Some(ab.clone()),
             _ => None,
