@@ -10,6 +10,7 @@ pub mod io;
 pub mod refs;
 pub mod register;
 pub mod detect;
+pub mod scale;
 
 #[cfg(feature="dsp")]
 pub mod dsp;
