@@ -420,9 +420,9 @@ pub const RGB565_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::
 
 pub const RGB24_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
                                         comp_info: [
-                                            chromaton!(packrgb; 8, 0, 2, 3),
-                                            chromaton!(packrgb; 8, 0, 1, 3),
                                             chromaton!(packrgb; 8, 0, 0, 3),
+                                            chromaton!(packrgb; 8, 0, 1, 3),
+                                            chromaton!(packrgb; 8, 0, 2, 3),
                                             None, None],
                                         elem_size: 3, be: false, alpha: false, palette: false };
 
