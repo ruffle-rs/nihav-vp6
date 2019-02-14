@@ -309,6 +309,16 @@ impl ColorModel {
             _ => false,
         }
     }
+    pub fn get_short_name(&self) -> &'static str {
+        match *self {
+            ColorModel::RGB(_)   => "rgb",
+            ColorModel::YUV(_)   => "yuv",
+            ColorModel::CMYK     => "cmyk",
+            ColorModel::HSV      => "hsv",
+            ColorModel::LAB      => "lab",
+            ColorModel::XYZ      => "xyz",
+        }
+    }
 }
 
 impl fmt::Display for ColorModel {
@@ -340,12 +350,13 @@ pub const FORMATON_FLAG_BE      :u32 = 0x01;
 pub const FORMATON_FLAG_ALPHA   :u32 = 0x02;
 pub const FORMATON_FLAG_PALETTE :u32 = 0x04;
 
+pub const MAX_CHROMATONS: usize = 5;
 
 #[derive(Clone,Copy,PartialEq)]
 pub struct NAPixelFormaton {
     pub model:      ColorModel,
     pub components: u8,
-    pub comp_info:  [Option<NAPixelChromaton>; 5],
+    pub comp_info:  [Option<NAPixelChromaton>; MAX_CHROMATONS],
     pub elem_size:  u8,
     pub be:         bool,
     pub alpha:      bool,
@@ -466,7 +477,7 @@ impl NAPixelFormaton {
                comp4: Option<NAPixelChromaton>,
                comp5: Option<NAPixelChromaton>,
                flags: u32, elem_size: u8) -> Self {
-        let mut chromatons: [Option<NAPixelChromaton>; 5] = [None; 5];
+        let mut chromatons: [Option<NAPixelChromaton>; MAX_CHROMATONS] = [None; MAX_CHROMATONS];
         let mut ncomp = 0;
         let be      = (flags & FORMATON_FLAG_BE)      != 0;
         let alpha   = (flags & FORMATON_FLAG_ALPHA)   != 0;
@@ -493,6 +504,33 @@ impl NAPixelFormaton {
     pub fn has_alpha(&self) -> bool { self.alpha }
     pub fn is_paletted(&self) -> bool { self.palette }
     pub fn get_elem_size(&self) -> u8 { self.elem_size }
+    pub fn is_unpacked(&self) -> bool {
+        for chr in self.comp_info.iter() {
+            if let Some(ref chromaton) = chr {
+                if chromaton.is_packed() { return false; }
+            }
+        }
+        true
+    }
+    pub fn get_max_depth(&self) -> u8 {
+        let mut mdepth = 0;
+        for chr in self.comp_info.iter() {
+            if let Some(ref chromaton) = chr {
+                mdepth = mdepth.max(chromaton.depth);
+            }
+        }
+        mdepth
+    }
+    pub fn get_max_subsampling(&self) -> u8 {
+        let mut ssamp = 0;
+        for chr in self.comp_info.iter() {
+            if let Some(ref chromaton) = chr {
+                let (ss_v, ss_h) = chromaton.get_subsampling();
+                ssamp = ssamp.max(ss_v).max(ss_h);
+            }
+        }
+        ssamp
+    }
 }
 
 impl fmt::Display for NAPixelFormaton {
