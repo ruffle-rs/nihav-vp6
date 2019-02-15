@@ -753,7 +753,7 @@ impl NADecoder for Indeo3Decoder {
         let vinfo = self.info.get_properties().get_video_info().unwrap();
         let bufret = alloc_video_buffer(vinfo, 2);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = bufret.unwrap();
+        let bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
         let ystart  = data_start + (yoff as u64);
         let ustart  = data_start + (uoff as u64);

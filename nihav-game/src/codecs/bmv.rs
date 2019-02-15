@@ -275,7 +275,7 @@ impl NADecoder for BMVAudioDecoder {
             let nblocks = pktbuf[0] as usize;
             validate!(pktbuf.len() == 1 + 65 * nblocks);
             let samples = nblocks * 32;
-            let mut abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
+            let abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
             let mut adata = abuf.get_abuf_i16().unwrap();
             let off1 = adata.get_offset(1);
             let mut dst = adata.get_data_mut();

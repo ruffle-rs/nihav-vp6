@@ -774,7 +774,7 @@ pub struct RV34Decoder {
 impl RV34Decoder {
     pub fn new(is_rv30: bool, dsp: Box<RV34DSP>) -> Self {
         let tmp_vinfo = NAVideoInfo::new(16, 16, false, YUV420_FORMAT);
-        let mut vt = alloc_video_buffer(tmp_vinfo, 4).unwrap();
+        let vt = alloc_video_buffer(tmp_vinfo, 4).unwrap();
         let vb = vt.get_vbuf();
         let avg_buf = vb.unwrap();
         RV34Decoder {
@@ -1159,7 +1159,7 @@ impl RV34Decoder {
         let vinfo = NAVideoInfo::new(hdr0.width, hdr0.height, false, YUV420_FORMAT);
         let bufret = alloc_video_buffer(vinfo, 4);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = bufret.unwrap();
+        let bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         sstate.q = q;

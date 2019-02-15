@@ -172,7 +172,7 @@ impl NADecoder for RA288Decoder {
         let nframes = pktbuf.len() / FRAME_SIZE;
         let duration = NBLOCKS * BLOCKSIZE * nframes;
 
-        let mut abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
+        let abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
         let mut adata = abuf.get_abuf_f32().unwrap();
         let mut dst = adata.get_data_mut();
 

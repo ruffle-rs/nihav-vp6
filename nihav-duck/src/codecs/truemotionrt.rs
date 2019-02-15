@@ -62,7 +62,7 @@ impl NADecoder for TMRTDecoder {
         let myinfo = NAVideoInfo::new(width, height, false, YUV410_FORMAT);
         let bufret = alloc_video_buffer(myinfo, 2);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = bufret.unwrap();
+        let bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         let mut br = BitReader::new(&src[hdr_size..], src.len() - hdr_size, BitReaderMode::LE);

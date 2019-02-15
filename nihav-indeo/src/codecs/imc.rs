@@ -896,7 +896,7 @@ impl NADecoder for IMCDecoder {
         let nblocks = pktbuf.len() / BLOCK_SIZE / (self.ainfo.get_channels() as usize);
         let duration = COEFFS * nblocks;
 
-        let mut abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
+        let abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
         let mut adata = abuf.get_abuf_f32().unwrap();
         let mut dst = adata.get_data_mut();
 

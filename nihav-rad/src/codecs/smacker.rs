@@ -440,7 +440,7 @@ impl NADecoder for SmackerVideoDecoder {
 
         let is_intra;
         let ftype;
-        let mut bufinfo;
+        let bufinfo;
         if src.len() > PAL_SIZE {
             let mut br = BitReader::new(&src[PAL_SIZE..], src.len() - PAL_SIZE, BitReaderMode::LE);
 
@@ -521,7 +521,7 @@ impl NADecoder for SmackerAudioDecoder {
             validate!(!(stereo ^ (self.chans == 2)));
             validate!(!(bits16 ^ (self.bits == 16)));
 
-            let mut abuf;
+            let abuf;
             let samples;
             let nch = if stereo { 2 } else { 1 };
             if bits16 {

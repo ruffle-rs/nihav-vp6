@@ -1199,7 +1199,7 @@ impl NADecoder for AudioDecoder {
         let ainfo = NAAudioInfo::new(sinfo.samplerate >> bsi.shift, channels as u8,
                                      SND_F32P_FORMAT, BLOCK_LEN);
 
-        let mut abuf = alloc_audio_buffer(ainfo, duration, bsi.acmod.get_channel_map(bsi.lfeon))?;
+        let abuf = alloc_audio_buffer(ainfo, duration, bsi.acmod.get_channel_map(bsi.lfeon))?;
         let mut adata = abuf.get_abuf_f32().unwrap();
         let mut output = adata.get_data_mut();
 

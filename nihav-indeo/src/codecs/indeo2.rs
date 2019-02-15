@@ -335,7 +335,7 @@ impl NADecoder for Indeo2Decoder {
             let vinfo = self.info.get_properties().get_video_info().unwrap();
             let bufret = alloc_video_buffer(vinfo, 2);
             if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-            let mut bufinfo = bufret.unwrap();
+            let bufinfo = bufret.unwrap();
             let mut buf = bufinfo.get_vbuf().unwrap();
             for plane in 0..3 {
                 let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;

@@ -264,7 +264,7 @@ impl NADecoder for RA144Decoder {
 
         let duration = NBLOCKS * BLOCKSIZE * nframes;
 
-        let mut abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
+        let abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
         let mut adata = abuf.get_abuf_i16().unwrap();
         let mut dst = adata.get_data_mut();
 

@@ -575,7 +575,7 @@ impl NADecoder for TM2Decoder {
         let myinfo = NAVideoInfo::new(self.width, self.height, false, RGB24_FORMAT);
         let bufret = alloc_video_buffer(myinfo, 2);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = bufret.unwrap();
+        let bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         let is_intra = self.decode_blocks()?;

@@ -77,7 +77,7 @@ impl NADecoder for DuckADPCMDecoder {
             let nblocks = pktbuf.len() / self.block_len;
             let out_block_len = self.ainfo.get_block_len();
             let duration = out_block_len * nblocks;
-            let mut abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
+            let abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
             let mut adata = abuf.get_abuf_i16().unwrap();
             let mut off0 = adata.get_offset(0);
             let mut off1 = adata.get_offset(1);

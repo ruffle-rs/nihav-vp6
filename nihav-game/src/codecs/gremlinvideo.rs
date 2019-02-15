@@ -528,7 +528,7 @@ impl NADecoder for GremlinAudioDecoder {
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();
             let samples = pktbuf.len() / self.chmap.num_channels();
-            let mut abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
+            let abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
             let mut adata = abuf.get_abuf_i16().unwrap();
             let off1 = adata.get_offset(1);
             let mut buf = adata.get_data_mut();

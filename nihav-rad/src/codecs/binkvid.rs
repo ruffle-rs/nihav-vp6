@@ -1220,7 +1220,7 @@ impl NADecoder for BinkDecoder {
             } else {
                 let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4);
                 if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-                let mut bufinfo = bufret.unwrap();
+                let bufinfo = bufret.unwrap();
                 buf = bufinfo.get_vbuf().unwrap();
                 self.key_frame = true;
                 self.hams.add_frame(buf);
@@ -1229,7 +1229,7 @@ impl NADecoder for BinkDecoder {
         } else {
             let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4);
             if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-            let mut bufinfo = bufret.unwrap();
+            let bufinfo = bufret.unwrap();
             buf = bufinfo.get_vbuf().unwrap();
         }
 
@@ -1253,7 +1253,7 @@ println!("decode frame {} b={} i={}", pkt.get_pts().unwrap(), self.is_ver_b, sel
                 self.decode_plane(&mut br, plane_idx, &mut buf)?;
             }
         }
-        let mut bufinfo = NABufferType::Video(buf);
+        let bufinfo = NABufferType::Video(buf);
         if !self.is_ver_b {
             self.ips.add_frame(bufinfo.get_vbuf().unwrap());
         }

@@ -238,7 +238,7 @@ impl NADecoder for BinkAudioDecoder {
             let nsamples = br.read(32)? as usize;
 //            validate!(nsamples % self.duration == 0);
 
-            let mut abuf = alloc_audio_buffer(self.ainfo, nsamples / self.chmap.num_channels() / 2, self.chmap.clone())?;
+            let abuf = alloc_audio_buffer(self.ainfo, nsamples / self.chmap.num_channels() / 2, self.chmap.clone())?;
             let mut adata = abuf.get_abuf_f32().unwrap();
             let mut off0 = adata.get_offset(0);
             let mut off1 = adata.get_offset(1);

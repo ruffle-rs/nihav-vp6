@@ -607,7 +607,7 @@ impl NADecoder for TM1Decoder {
             let myinfo = NAVideoInfo::new(out_width, height, false, fmt);
             let bufret = alloc_video_buffer(myinfo, 2);
             if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-            let mut bufinfo = bufret.unwrap();
+            let bufinfo = bufret.unwrap();
             self.lastframe.reset();
             if !is_24bit {
                 self.lastframe.set16(bufinfo.get_vbuf16().unwrap());

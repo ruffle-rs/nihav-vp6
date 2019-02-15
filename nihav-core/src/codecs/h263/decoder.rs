@@ -221,7 +221,7 @@ impl H263BaseDecoder {
         let vinfo = NAVideoInfo::new(self.w, self.h, false, fmt);
         let bufret = alloc_video_buffer(vinfo, 4);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = bufret.unwrap();
+        let bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         let mut slice = if self.is_gob {
@@ -533,7 +533,7 @@ impl H263BaseDecoder {
         let vinfo = NAVideoInfo::new(self.w, self.h, false, fmt);
         let bufret = alloc_video_buffer(vinfo, 4);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = bufret.unwrap();
+        let bufinfo = bufret.unwrap();
         let mut b_buf = bufinfo.get_vbuf().unwrap();
 
         if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {

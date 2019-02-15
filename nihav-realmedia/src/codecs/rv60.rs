@@ -643,7 +643,7 @@ struct RealVideo60Decoder {
 impl RealVideo60Decoder {
     fn new() -> Self {
         let tmp_vinfo = NAVideoInfo::new(64, 64, false, YUV420_FORMAT);
-        let mut vt = alloc_video_buffer(tmp_vinfo, 4).unwrap();
+        let vt = alloc_video_buffer(tmp_vinfo, 4).unwrap();
         let vb = vt.get_vbuf();
         let avg_buf = vb.unwrap();
         RealVideo60Decoder{
@@ -1445,7 +1445,7 @@ println!("???");
         let tmp_vinfo = NAVideoInfo::new(hdr.width, hdr.height, false, YUV420_FORMAT);
         let res = alloc_video_buffer(tmp_vinfo, 6);
         if !res.is_ok() { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = res.unwrap();
+        let bufinfo = res.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         let cu_w = hdr.get_width_cu();
