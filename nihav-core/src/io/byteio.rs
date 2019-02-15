@@ -65,6 +65,33 @@ macro_rules! peek_int {
     })
 }
 
+macro_rules! read_int_func {
+    ($s: ident, $inttype: ty, $size: expr, $which: ident) => {
+        pub fn $s(src: &[u8]) -> ByteIOResult<$inttype> {
+            if src.len() < $size { return Err(ByteIOError::ReadError); }
+            unsafe {
+                Ok((*(src.as_ptr() as *const $inttype)).$which())
+            }
+        }
+    }
+}
+
+read_int_func!(read_u16be, u16, 2, to_be);
+read_int_func!(read_u16le, u16, 2, to_le);
+read_int_func!(read_u32be, u32, 4, to_be);
+read_int_func!(read_u32le, u32, 4, to_le);
+read_int_func!(read_u64be, u64, 8, to_be);
+read_int_func!(read_u64le, u64, 8, to_le);
+
+pub fn read_u24be(src: &[u8]) -> ByteIOResult<u32> {
+    if src.len() < 3 { return Err(ByteIOError::ReadError); }
+    Ok(((src[0] as u32) << 16) | ((src[1] as u32) << 8) | (src[2] as u32))
+}
+pub fn read_u24le(src: &[u8]) -> ByteIOResult<u32> {
+    if src.len() < 3 { return Err(ByteIOError::ReadError); }
+    Ok(((src[2] as u32) << 16) | ((src[1] as u32) << 8) | (src[0] as u32))
+}
+
 impl<'a> ByteReader<'a> {
     pub fn new(io: &'a mut ByteIO) -> Self { ByteReader { io: io } }
 
