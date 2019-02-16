@@ -20,6 +20,8 @@ struct MV {
 struct Buffers {
     width:      usize,
     height:     usize,
+    cw:         usize,
+    ch:         usize,
     buf1:       Vec<u8>,
     buf2:       Vec<u8>,
     fbuf:       bool,
@@ -28,7 +30,7 @@ struct Buffers {
 const DEFAULT_PIXEL: u8 = 0x40;
 
 impl Buffers {
-    fn new() -> Self { Buffers { width: 0, height: 0, buf1: Vec::new(), buf2: Vec::new(), fbuf: true } }
+    fn new() -> Self { Buffers { width: 0, height: 0, cw: 0, ch: 0, buf1: Vec::new(), buf2: Vec::new(), fbuf: true } }
     fn reset(&mut self) {
         self.width  = 0;
         self.height = 0;
@@ -38,17 +40,19 @@ impl Buffers {
     fn alloc(&mut self, w: usize, h: usize) {
         self.width  = w;
         self.height = h;
-        self.buf1.resize(w * h + (w >> 2) * (h >> 2) * 2, DEFAULT_PIXEL);
-        self.buf2.resize(w * h + (w >> 2) * (h >> 2) * 2, DEFAULT_PIXEL);
+        self.cw = ((w >> 2) + 3) & !3;
+        self.ch = ((h >> 2) + 3) & !3;
+        self.buf1.resize(w * h + self.cw * self.ch * 2, DEFAULT_PIXEL);
+        self.buf2.resize(w * h + self.cw * self.ch * 2, DEFAULT_PIXEL);
     }
     fn flip(&mut self) { self.fbuf = !self.fbuf; }
     fn get_stride(&mut self, planeno: usize) -> usize {
-        if planeno == 0 { self.width } else { self.width >> 2 }
+        if planeno == 0 { self.width } else { self.cw }
     }
     fn get_offset(&mut self, planeno: usize) -> usize {
         match planeno {
             1 => self.width * self.height,
-            2 => self.width * self.height + (self.width >> 2) * (self.height >> 2),
+            2 => self.width * self.height + self.cw * self.ch,
             _ => 0,
         }
     }
@@ -58,7 +62,7 @@ impl Buffers {
             let mut doff = fbuf.get_offset(planeno);
             let sstride = self.get_stride(planeno);
             let dstride = fbuf.get_stride(planeno);
-            let width  = if planeno == 0 { self.width }  else { self.width  >> 2 };
+            let width  = if planeno == 0 { self.width }  else { self.width >> 2 };
             let height = if planeno == 0 { self.height } else { self.height >> 2 };
             let src = if self.fbuf { &self.buf1[0..] } else { &self.buf2[0..] };
             let mut dst = fbuf.get_data_mut();
@@ -645,8 +649,9 @@ impl Indeo3Decoder {
         }
 
         let shift = if planeno == 0 { 2 } else { 4 };
-        let cell = IV3Cell::new((self.bufs.width  >> shift) as u16,
-                                (self.bufs.height >> shift) as u16);
+        let round = (1 << shift) - 1;
+        let cell = IV3Cell::new(((self.bufs.width  + round) >> shift) as u16,
+                                ((self.bufs.height + round) >> shift) as u16);
         self.br_reset();
         self.parse_tree(br, cell, offs, stride, if planeno > 0 { 10 } else { 40 }, true)?;
         validate!(br.tell() <= end);
@@ -751,7 +756,9 @@ impl NADecoder for Indeo3Decoder {
 
         let intraframe = (flags & FLAG_KEYFRAME) != 0;
         let vinfo = self.info.get_properties().get_video_info().unwrap();
-        let bufret = alloc_video_buffer(vinfo, 2);
+        validate!((vinfo.get_width() & !3) == (self.width & !3).into());
+        validate!((vinfo.get_height() & !3) == (self.height & !3).into());
+        let bufret = alloc_video_buffer(vinfo, 4);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
         let bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
