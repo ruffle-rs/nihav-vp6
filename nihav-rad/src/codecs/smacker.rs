@@ -160,7 +160,9 @@ impl SmackerTree16 {
     }
     fn reset(&mut self) {
         for i in 0..self.last.len() {
-            self.tree[self.last[i]] = 0;
+            if self.last[i] != SMK_LAST_UNINIT {
+                self.tree[self.last[i]] = 0;
+            }
         }
     }
 }
