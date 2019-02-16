@@ -211,6 +211,11 @@ const DETECTORS: &[DetectConditions] = &[
         extensions: ".bmv",
         conditions: &[],
     },
+    DetectConditions {
+        demux_name: "vmd",
+        extensions: ".vmd",
+        conditions: &[],
+    },
 ];
 
 pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, DetectionScore)> {

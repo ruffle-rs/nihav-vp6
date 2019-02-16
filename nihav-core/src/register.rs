@@ -165,6 +165,8 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "gdv-audio",     "Gremlin Digital Video - audio"),
     desc!(video;    "bmv-video",     "BMV video"),
     desc!(audio;    "bmv-audio",     "BMV audio"),
+    desc!(video;    "vmd-video",     "VMD video"),
+    desc!(audio;    "vmd-audio",     "VMD audio"),
 
     desc!(video;    "smacker-video", "Smacker video"),
     desc!(audio;    "smacker-audio", "Smacker audio"),

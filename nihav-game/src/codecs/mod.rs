@@ -8,6 +8,8 @@ macro_rules! validate {
 pub mod bmv;
 #[cfg(feature="decoder_gdvvid")]
 pub mod gremlinvideo;
+#[cfg(feature="decoder_vmd")]
+pub mod vmd;
 
 const GAME_CODECS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_gdvvid")]
@@ -18,6 +20,10 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "bmv-audio", get_decoder: bmv::get_decoder_audio },
 #[cfg(feature="decoder_bmv")]
     DecoderInfo { name: "bmv-video", get_decoder: bmv::get_decoder_video },
+#[cfg(feature="decoder_vmd")]
+    DecoderInfo { name: "vmd-audio", get_decoder: vmd::get_decoder_audio },
+#[cfg(feature="decoder_vmd")]
+    DecoderInfo { name: "vmd-video", get_decoder: vmd::get_decoder_video },
 ];
 
 pub fn game_register_all_codecs(rd: &mut RegisteredDecoders) {
