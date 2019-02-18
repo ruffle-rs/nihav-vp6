@@ -237,6 +237,9 @@ fn fill_block8x8(bufs: &mut Buffers, doff: usize, stride: usize, h: usize, topli
     }
 
     let start = if !topline { 0 } else { 1 };
+    if topline {
+        didx += stride;
+    }
     if bufs.fbuf {
         for _ in start..h {
             for i in 0..8 { bufs.buf1[didx + i] = buf[i]; }
