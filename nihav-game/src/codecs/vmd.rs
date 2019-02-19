@@ -330,7 +330,7 @@ impl VMDAudioDecoder {
                 }
                 let mut ch = 0;
                 let flip_ch = if channels == 2 { 1 } else { 0 };
-                for _ in 1..self.blk_align {
+                for _ in channels..self.blk_align*channels {
                     let b                           = br.read_byte()? as usize;
                     if (b & 0x80) != 0 {
                         pred[ch] -= SOL_AUD_STEPS16[b & 0x7F] as i32;
@@ -358,12 +358,13 @@ impl NADecoder for VMDAudioDecoder {
                 fmt = SND_U8_FORMAT;
                 self.is16bit = false;
                 self.blk_size = ainfo.get_block_len();
+                self.blk_align = ainfo.get_block_len() / (ainfo.get_channels() as usize);
             } else {
                 fmt = SND_S16P_FORMAT;
                 self.is16bit = true;
                 self.blk_size = (ainfo.get_block_len() + 1) * (ainfo.get_channels() as usize);
+                self.blk_align = ainfo.get_block_len();
             };
-            self.blk_align = ainfo.get_block_len() / (ainfo.get_channels() as usize);
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), fmt, ainfo.get_block_len());
             self.chmap = NAChannelMap::from_str(if ainfo.get_channels() == 1 { "C" } else { "L,R" }).unwrap();
             Ok(())
@@ -410,12 +411,21 @@ impl NADecoder for VMDAudioDecoder {
                         for i in 0..self.blk_align * channels {
                             dst[doff + i] = 0;
                         }
-                    } else {
-                        for i in 0..self.blk_align * channels {
+                    } else if channels == 1 {
+                        for i in 0..self.blk_size {
                             dst[doff + i]       = br.read_byte()?;
                         }
+                    } else {
+                        for i in 0..self.blk_size {
+                            let val             = br.read_byte()?;
+                            if val < 128 {
+                                dst[doff + i] = 127 - val;
+                            } else {
+                                dst[doff + i] = val;
+                            }
+                        }
                     }
-                    doff += self.blk_align;
+                    doff += self.blk_align * channels;
                     mask >>= 1;
                 }
             }
@@ -461,6 +471,8 @@ mod test {
 
 //        let file = "assets/1491.VMD";
         let file = "assets/128.vmd";
+//        let file = "assets/1000.VMD";
+//        let file = "assets/235.VMD";
         test_decode_audio("vmd", file, None, "vmd", &dmx_reg, &dec_reg);
     }
 }

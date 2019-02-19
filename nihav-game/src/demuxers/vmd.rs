@@ -54,11 +54,11 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 12)).unwrap();
 
         let srate = read_u16le(&header[804..])? as u32;
+        let block_size;
         if srate > 0 {
             let bsize = read_u16le(&header[806..])? as usize;
-            let channels = if (header[811] & 0x80) != 0 { 2 } else { 1 };
+            let channels = if (header[811] & 0x8F) != 0 { 2 } else { 1 };
             let is16bit;
-            let block_size;
             if (bsize & 0x8000) != 0 {
                 is16bit = true;
                 block_size = 0x10000 - bsize;
@@ -70,6 +70,8 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
             let ahdr = NAAudioInfo::new(srate, channels, if is16bit { SND_S16P_FORMAT } else { SND_U8_FORMAT }, block_size);
             let ainfo = NACodecInfo::new("vmd-audio", NACodecTypeInfo::Audio(ahdr), None);
             self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate)).unwrap();
+        } else {
+            block_size = 0;
         }
 
         let adelay  = read_u16le(&header[808..])? as u32;
@@ -88,9 +90,12 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
             for _ in 0..fpb {
                 let chtype                      = src.read_byte()?;
                                                   src.read_skip(1)?;
-                let size                        = src.read_u32le()?;
+                let mut size                    = src.read_u32le()?;
                 let mut hdr: [u8; FRAME_HDR_SIZE] = [0; FRAME_HDR_SIZE];
                                                   src.read_buf(&mut hdr)?;
+                if (i == 0) && (chtype == CHTYPE_AUDIO) && (size > 4) && ((size as usize) < block_size/2) {
+                    size += 0x10000;
+                }
                 if (chtype == CHTYPE_VIDEO || chtype == CHTYPE_AUDIO) && (size > 0) {
                     let ts = if (i == 0) || (chtype != CHTYPE_AUDIO) {
                             i as u32
