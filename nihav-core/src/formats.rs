@@ -505,6 +505,7 @@ impl NAPixelFormaton {
     pub fn is_paletted(&self) -> bool { self.palette }
     pub fn get_elem_size(&self) -> u8 { self.elem_size }
     pub fn is_unpacked(&self) -> bool {
+        if self.palette { return false; }
         for chr in self.comp_info.iter() {
             if let Some(ref chromaton) = chr {
                 if chromaton.is_packed() { return false; }
