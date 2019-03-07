@@ -376,7 +376,7 @@ impl NADecoder for GremlinVideoDecoder {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
             if !vinfo.get_format().is_paletted() { return Err(DecoderError::NotImplemented); }
-            let fmt = formats::PAL8_FORMAT;
+            let fmt = PAL8_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
@@ -393,7 +393,7 @@ impl NADecoder for GremlinVideoDecoder {
             for c in 0..256 {
                 for i in 0..3 {
                     let cc = edata[c * 3 + i];
-                    self.pal[c * 3 + (2 - i)] = (cc << 2) | (cc >> 4);
+                    self.pal[c * 3 + i] = (cc << 2) | (cc >> 4);
                 }
             }
             Ok(())
@@ -420,7 +420,7 @@ impl NADecoder for GremlinVideoDecoder {
             for c in 0..256 {
                 for i in 0..3 {
                     let b = br.read_byte()?;
-                    self.pal[c * 3 + (2 - i)] = (b << 2) | (b >> 4);
+                    self.pal[c * 3 + i] = (b << 2) | (b >> 4);
                 }
             }
             if cmethod == 1 {
