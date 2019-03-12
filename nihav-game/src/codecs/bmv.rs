@@ -320,9 +320,9 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-//        let file = "assets/PERFECT.BMV";
-//        let file = "assets/DW2-MOUSE.BMV";
-        let file = "assets/WILDCAT.BMV";
+//        let file = "assets/Game/PERFECT.BMV";
+//        let file = "assets/Game/DW2-MOUSE.BMV";
+        let file = "assets/Game/WILDCAT.BMV";
         test_file_decoding("bmv", file, Some(40), true, false, None, &dmx_reg, &dec_reg);
     }
     #[test]
@@ -332,9 +332,9 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-        let file = "assets/PERFECT.BMV";
-//        let file = "assets/DW2-MOUSE.BMV";
-//        let file = "assets/WILDCAT.BMV";
+        let file = "assets/Game/PERFECT.BMV";
+//        let file = "assets/Game/DW2-MOUSE.BMV";
+//        let file = "assets/Game/WILDCAT.BMV";
         test_decode_audio("bmv", file, None, "bmv", &dmx_reg, &dec_reg);
     }
 }

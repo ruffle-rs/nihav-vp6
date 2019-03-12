@@ -458,8 +458,8 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-//        let file = "assets/1491.VMD";
-        let file = "assets/128.vmd";
+//        let file = "assets/Game/1491.VMD";
+        let file = "assets/Game/128.vmd";
         test_file_decoding("vmd", file, Some(10), true, false, None/*Some("vmd")*/, &dmx_reg, &dec_reg);
     }
     #[test]
@@ -469,10 +469,10 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-//        let file = "assets/1491.VMD";
-        let file = "assets/128.vmd";
-//        let file = "assets/1000.VMD";
-//        let file = "assets/235.VMD";
+//        let file = "assets/Game/1491.VMD";
+        let file = "assets/Game/128.vmd";
+//        let file = "assets/Game/1000.VMD";
+//        let file = "assets/Game/235.VMD";
         test_decode_audio("vmd", file, None, "vmd", &dmx_reg, &dec_reg);
     }
 }

@@ -731,8 +731,8 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/IV5/sample.avi", /*None*/Some(2), true, false, None, &dmx_reg, &dec_reg);
-//         test_file_decoding("avi", "assets/IV5/W32mdl_1.avi", None/*Some(2)*/, true, false, Some("iv5"));
+        test_file_decoding("avi", "assets/Indeo/IV5/sample.avi", /*None*/Some(2), true, false, None, &dmx_reg, &dec_reg);
+//         test_file_decoding("avi", "assets/Indeo/IV5/W32mdl_1.avi", None/*Some(2)*/, true, false, Some("iv5"));
 //panic!("the end");
     }
 }

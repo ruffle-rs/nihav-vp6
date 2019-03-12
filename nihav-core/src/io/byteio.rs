@@ -626,7 +626,7 @@ mod test {
         assert_eq!(reader.read_u24le().unwrap(), 0x010101u32);
         assert_eq!(reader.read_u32le().unwrap(), 0x01010101u32);
         assert_eq!(reader.read_u64le().unwrap(), 0x0101010101010101u64);
-        let mut file = File::open("assets/MaoMacha.asx").unwrap();
+        let mut file = File::open("assets/Misc/MaoMacha.asx").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br2 = ByteReader::new(&mut fr);
         assert_eq!(br2.read_byte().unwrap(), 0x30);

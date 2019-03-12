@@ -398,7 +398,7 @@ mod test {
 
     #[test]
     fn test_avi_demux() {
-        let mut file = File::open("assets/laser05.avi").unwrap();
+        let mut file = File::open("assets/Indeo/laser05.avi").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = AVIDemuxer::new(&mut br);

@@ -427,6 +427,6 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/neal73_saber.avi", Some(16), true, false, None/*Some("i263")*/, &dmx_reg, &dec_reg);
+        test_file_decoding("avi", "assets/Indeo/neal73_saber.avi", Some(16), true, false, None/*Some("i263")*/, &dmx_reg, &dec_reg);
     }
 }

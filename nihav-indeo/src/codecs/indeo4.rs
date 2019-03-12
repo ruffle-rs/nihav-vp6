@@ -778,7 +778,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/IV4/volcano.avi", /*None*/Some(16), true, false, None/*Some("iv4")*/, &dmx_reg, &dec_reg);
+        test_file_decoding("avi", "assets/Indeo/IV4/volcano.avi", /*None*/Some(16), true, false, None/*Some("iv4")*/, &dmx_reg, &dec_reg);
 //panic!("the end");
     }
 }

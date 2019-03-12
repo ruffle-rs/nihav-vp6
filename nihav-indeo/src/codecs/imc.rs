@@ -1121,11 +1121,11 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_codecs(&mut dec_reg);
 
-//        let file = "assets/neal73_saber.avi";
-//        let file = "assets/IMC/hvalen.avi";
-        let file = "assets/IMC/8khz.avi";
-//        let file = "assets/STsKlassFist-1a.avi";
-//        let file = "assets/IMC/Angel Bday.avi";
+//        let file = "assets/Indeo/neal73_saber.avi";
+//        let file = "assets/Indeo/IMC/hvalen.avi";
+        let file = "assets/Indeo/IMC/8khz.avi";
+//        let file = "assets/Indeo/STsKlassFist-1a.avi";
+//        let file = "assets/Indeo/IMC/Angel Bday.avi";
         test_decode_audio("avi", file, None, "imc", &dmx_reg, &dec_reg);
         //test_file_decoding("avi", file, None, false, true, None);
     }

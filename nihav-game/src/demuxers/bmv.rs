@@ -106,7 +106,7 @@ mod test {
 
     #[test]
     fn test_bmv_demux() {
-        let mut file = File::open("assets/DW2-MOUSE.BMV").unwrap();
+        let mut file = File::open("assets/Game/DW2-MOUSE.BMV").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = BMVDemuxer::new(&mut br);

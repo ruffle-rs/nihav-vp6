@@ -784,8 +784,8 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_codecs(&mut dec_reg);
-        test_file_decoding("avi", "assets/TalkingHead_352x288.avi", Some(10), true, false, None/*Some("clv")*/, &dmx_reg, &dec_reg);
-//         test_file_decoding("avi", "assets/basketball.avi", None/*Some(10)*/, true, false, Some("clv1"));
+        test_file_decoding("avi", "assets/Misc/TalkingHead_352x288.avi", Some(10), true, false, None/*Some("clv")*/, &dmx_reg, &dec_reg);
+//         test_file_decoding("avi", "assets/Misc/basketball.avi", None/*Some(10)*/, true, false, Some("clv1"));
 //panic!("debug");
     }
 }

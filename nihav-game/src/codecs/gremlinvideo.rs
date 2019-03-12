@@ -573,6 +573,6 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("gdv", "assets/intro1.gdv", Some(10), true, false, None, &dmx_reg, &dec_reg);
+        test_file_decoding("gdv", "assets/Game/intro1.gdv", Some(10), true, false, None, &dmx_reg, &dec_reg);
     }
 }

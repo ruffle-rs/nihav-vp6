@@ -175,7 +175,7 @@ mod test {
 
     #[test]
     fn test_gdv_demux() {
-        let mut file = File::open("assets/intro1.gdv").unwrap();
+        let mut file = File::open("assets/Game/intro1.gdv").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = GremlinVideoDemuxer::new(&mut br);

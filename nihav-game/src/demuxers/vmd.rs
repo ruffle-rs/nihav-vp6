@@ -184,8 +184,8 @@ mod test {
 
     #[test]
     fn test_vmd_demux() {
-        let mut file = File::open("assets/128.vmd").unwrap();
-        //let mut file = File::open("assets/1491.VMD").unwrap();
+        let mut file = File::open("assets/Game/128.vmd").unwrap();
+        //let mut file = File::open("assets/Game/1491.VMD").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = VMDDemuxer::new(&mut br);
