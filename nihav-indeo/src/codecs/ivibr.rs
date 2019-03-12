@@ -389,9 +389,10 @@ impl FrameData {
         Ok(())
     }
     fn fill_plane(&mut self, vb: &mut NAVideoBuffer<u8>, plane: usize) {
-        let (w, h)   = vb.get_dimensions(plane);
-        let mut didx = vb.get_offset(plane);
-        let dstride  = vb.get_stride(plane);
+        let dplane = if (plane == 1) || (plane == 2) { plane ^ 3 } else { plane };
+        let (w, h)   = vb.get_dimensions(dplane);
+        let mut didx = vb.get_offset(dplane);
+        let dstride  = vb.get_stride(dplane);
         let mut dst  = vb.get_data_mut();
         let src      = &self.plane_buf[plane];
         let mut sidx = 0;
@@ -687,7 +688,7 @@ br.skip(skip_part as u32)?;
                     let mut cbp = mb.cbp;
                     for blk_no in 0..4 {
                         let mut blk: [i32; 64] = [0; 64];
-                        let boff = (blk_no & 1) * 8 + (blk_no & 2) * 4 * stride + mb_x * 16;
+                        let boff = (blk_no & 1) * band.blk_size + (blk_no >> 1) * band.blk_size * stride + mb_x * band.mb_size;
                         if !is_intra {
                             if mb.mtype != MBType::Bidir {
                                 let idx;
@@ -699,18 +700,18 @@ br.skip(skip_part as u32)?;
                                 let pf = self.frames[idx].borrow();
                                 do_mc(&mut dst[dstidx + boff..], stride,
                                       &pf.plane_buf[band.plane_no], pf.plane_stride[band.plane_no],
-                                      pos_x + mb_x * 16 + (blk_no & 1) * 8,
-                                      pos_y + mb_y * 16 + (blk_no & 2) * 4,
+                                      pos_x + mb_x * band.mb_size + (blk_no & 1) * band.blk_size,
+                                      pos_y + mb_y * band.mb_size + (blk_no >> 1) * band.blk_size,
                                       pos_x, pos_x + tile_w, pos_y, pos_y + tile_h,
-                                      mb.mv_x, mb.mv_y, band.halfpel, 8);
+                                      mb.mv_x, mb.mv_y, band.halfpel, band.blk_size);
                             } else {
                                 let pf = self.frames[self.prev_frame].borrow();
                                 let nf = self.frames[self.next_frame].borrow();
                                 do_mc_b(&mut dst[dstidx + boff..], stride,
                                       &pf.plane_buf[band.plane_no], pf.plane_stride[band.plane_no],
                                       &nf.plane_buf[band.plane_no], nf.plane_stride[band.plane_no],
-                                      pos_x + mb_x * 16 + (blk_no & 1) * 8,
-                                      pos_y + mb_y * 16 + (blk_no & 2) * 4,
+                                      pos_x + mb_x * band.mb_size + (blk_no & 1) * band.blk_size,
+                                      pos_y + mb_y * band.mb_size + (blk_no >> 1) * band.blk_size,
                                       pos_x, pos_x + tile_w, pos_y, pos_y + tile_h,
                                       mb.mv_x, mb.mv_y, mb.mv2_x, mb.mv2_y, band.halfpel,
                                       band.blk_size);
@@ -725,10 +726,18 @@ br.skip(skip_part as u32)?;
                                     add_block(&mut dst, dstidx + boff, stride, &blk, 8);
                                 }
                             }
+                            if let TxType::Transform4(ref params) = band.ttype {
+                                decode_block4x4(br, &band.blk_cb, &band.rvmap, params, is_intra, band.tr.is_2d(), &mut prev_dc, mb.q, &mut blk, tr)?;
+                                if is_intra {
+                                    put_block(&mut dst, dstidx + boff, stride, &blk, 4);
+                                } else {
+                                    add_block(&mut dst, dstidx + boff, stride, &blk, 4);
+                                }
+                            }
                         } else {
                             if is_intra {
                                 (transform_dc)(&mut blk, prev_dc);
-                                put_block(&mut dst, dstidx + boff, stride, &blk, 8);
+                                put_block(&mut dst, dstidx + boff, stride, &blk, band.blk_size);
                             }
                         }
                         cbp >>= 1;
@@ -870,9 +879,10 @@ br.skip(skip_part as u32)?;
                 if num_bands == 1 {
                     frame.fill_plane(vb, plane);
                 } else {
-                    let (w, h)  = vb.get_dimensions(plane);
-                    let dstride = vb.get_stride(plane);
-                    let off     = vb.get_offset(plane);
+                    let dplane = if (plane == 1) || (plane == 2) { plane ^ 3 } else { plane };
+                    let (w, h)  = vb.get_dimensions(dplane);
+                    let dstride = vb.get_stride(dplane);
+                    let off     = vb.get_offset(dplane);
                     let mut dst = vb.get_data_mut();
                     dec.recombine_plane(&frame.plane_buf[plane], frame.plane_stride[plane], &mut dst[off..], dstride, w, h);
                 }
