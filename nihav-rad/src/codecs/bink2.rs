@@ -1831,7 +1831,7 @@ mod test {
         //let file = "assets/RAD/sc13_01_partial.bk2";
         let file = "assets/RAD/ge_video_86l.bk2";
         //let file = "assets/RAD/eg_club_0.bk2";
-        test_file_decoding("bink", file, Some(42), true, false, Some("bink2"), &dmx_reg, &dec_reg);
+        test_file_decoding("bink", file, Some(8), true, false, None/*Some("bink2")*/, &dmx_reg, &dec_reg);
     }
 }
 
