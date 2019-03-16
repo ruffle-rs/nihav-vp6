@@ -133,13 +133,30 @@ macro_rules! chroma_interp {
     };
 }
 
+macro_rules! avg_tree {
+    ($a: expr, $b: expr) => (($a + $b + 1) >> 1);
+    ($a: expr, $b: expr, $c: expr, $d: expr) => (avg_tree!(avg_tree!($a, $b), avg_tree!($c, $d)));
+}
+
 impl Bink2DSP {
     fn calc_dc(src: &[u8], stride: usize) -> i32 {
-        let mut sum = 0;
-        for row in src.chunks(stride).take(8) {
-            for i in 0..8 { sum += row[i] as i32; }
+        let mut sums = [0u16; 8];
+        for i in 0..8 {
+            let s0 = src[i + stride * 0] as u16;
+            let s1 = src[i + stride * 1] as u16;
+            let s2 = src[i + stride * 2] as u16;
+            let s3 = src[i + stride * 3] as u16;
+            let s4 = src[i + stride * 4] as u16;
+            let s5 = src[i + stride * 5] as u16;
+            let s6 = src[i + stride * 6] as u16;
+            let s7 = src[i + stride * 7] as u16;
+            sums[i] = avg_tree!(avg_tree!(s0, s1, s2, s3), avg_tree!(s4, s5, s6, s7));
         }
-        sum >> 3
+        let mut sum = 0;
+        for e in sums.iter() {
+            sum += e;
+        }
+        sum as i32
     }
     fn put_mb4(dst: &mut [u8], mut off: usize, stride: usize, blk: &mut [[i32; 64]; 4]) {
         bink2_idct(&mut blk[0]);
