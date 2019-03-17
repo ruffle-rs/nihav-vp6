@@ -82,6 +82,9 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         self.video_id = res.unwrap();
 
         let num_audio                       = src.read_u32le()? as usize;
+        if magic_tag >= mktag!(b"KB2i") {
+                                              src.read_skip(4)?;
+        }
         validate!(num_audio < 256);
                                               src.read_skip(num_audio * 4)?; // audio max output frame size?
         self.ainfo = Vec::with_capacity(num_audio);
