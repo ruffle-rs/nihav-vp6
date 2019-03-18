@@ -85,6 +85,7 @@ fn bink2_idct(coeffs: &mut [i32; 64]) {
 
 fn bink2_idct_old(coeffs: &mut [f32; 64]) {
     let mut tmp: [f32; 64] = [0.0; 64];
+    coeffs[0] += 512.5;
     for i in 0..8 {
         idct!(float; coeffs, 8, i, tmp, 8, i, 0, 0);
     }
@@ -208,16 +209,16 @@ impl Bink2DSP {
         {
             let dout = &mut dst[off..];
             for (row, (b0, b1)) in dout.chunks_mut(stride).zip(blk[0].chunks(8).zip(blk[1].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8(b0[i] as i32); }
-                for i in 0..8 { row[i + 8] = clip8(b1[i] as i32); }
+                for i in 0..8 { row[i + 0] = clip8((b0[i] as i32) - 512); }
+                for i in 0..8 { row[i + 8] = clip8((b1[i] as i32) - 512); }
             }
         }
         off += stride * 8;
         {
             let dout = &mut dst[off..];
             for (row, (b2, b3)) in dout.chunks_mut(stride).zip(blk[2].chunks(8).zip(blk[3].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8(b2[i] as i32); }
-                for i in 0..8 { row[i + 8] = clip8(b3[i] as i32); }
+                for i in 0..8 { row[i + 0] = clip8((b2[i] as i32) - 512); }
+                for i in 0..8 { row[i + 8] = clip8((b3[i] as i32) - 512); }
             }
         }
     }
@@ -229,16 +230,16 @@ impl Bink2DSP {
         {
             let dout = &mut dst[off..];
             for (row, (b0, b1)) in dout.chunks_mut(stride).zip(blk[0].chunks(8).zip(blk[1].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8((row[i + 0] as i32) + (b0[i] as i32)); }
-                for i in 0..8 { row[i + 8] = clip8((row[i + 8] as i32) + (b1[i] as i32)); }
+                for i in 0..8 { row[i + 0] = clip8((row[i + 0] as i32) + (b0[i] as i32) - 512); }
+                for i in 0..8 { row[i + 8] = clip8((row[i + 8] as i32) + (b1[i] as i32) - 512); }
             }
         }
         off += stride * 8;
         {
             let dout = &mut dst[off..];
             for (row, (b2, b3)) in dout.chunks_mut(stride).zip(blk[2].chunks(8).zip(blk[3].chunks(8))) {
-                for i in 0..8 { row[i + 0] = clip8((row[i + 0] as i32) + (b2[i] as i32)); }
-                for i in 0..8 { row[i + 8] = clip8((row[i + 8] as i32) + (b3[i] as i32)); }
+                for i in 0..8 { row[i + 0] = clip8((row[i + 0] as i32) + (b2[i] as i32) - 512); }
+                for i in 0..8 { row[i + 8] = clip8((row[i + 8] as i32) + (b3[i] as i32) - 512); }
             }
         }
     }
