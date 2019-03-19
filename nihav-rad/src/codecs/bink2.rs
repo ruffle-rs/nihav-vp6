@@ -111,7 +111,7 @@ macro_rules! luma_filter {
             let t0 = el!($src, $off - 0 * $step) + el!($src, $off + 1 * $step);
             let t1 = el!($src, $off - 1 * $step) + el!($src, $off + 2 * $step);
             let t2 = el!($src, $off - 2 * $step) + el!($src, $off + 3 * $step);
-            clip8((((t0 * 19) >> 1) - t1 * 2 + (t2 >> 1) + 8) >> 4)
+            (((t0 * 19) >> 1) - t1 * 2 + (t2 >> 1) + 8) >> 4
         });
 }
 
@@ -251,8 +251,10 @@ impl Bink2DSP {
         let (d_y, add_y) = if (mv.y & 1) != 0 { (2, 5) } else { (0, 0) };
 
         let (w, h) = ref_pic.get_dimensions(plane);
-        validate!((sx - d_x >= 0) && (sx - d_x + add_x + 16 <= (w as isize)));
-        validate!((sy - d_y >= 0) && (sy - d_y + add_y + 16 <= (h as isize)));
+        let align_w = ((w + 31) & !31) as isize;
+        let align_h = ((h + 31) & !31) as isize;
+        validate!((sx - d_x >= 0) && (sx - d_x + add_x + 16 <= align_w));
+        validate!((sy - d_y >= 0) && (sy - d_y + add_y + 16 <= align_h));
         let pstride = ref_pic.get_stride(plane);
         let mut poff = ref_pic.get_offset(plane) + (sx as usize) + (sy as usize) * pstride;
         let pdata = ref_pic.get_data();
@@ -270,7 +272,7 @@ impl Bink2DSP {
             1 => {
                 for out in dst.chunks_mut(stride).take(16) {
                     for i in 0..16 {
-                        out[i] = luma_filter!(ppix, poff + i, 1);
+                        out[i] = clip8(luma_filter!(ppix, poff + i, 1));
                     }
                     poff += pstride;
                 }
@@ -278,22 +280,22 @@ impl Bink2DSP {
             2 => {
                 for out in dst.chunks_mut(stride).take(16) {
                     for i in 0..16 {
-                        out[i] = luma_filter!(ppix, poff + i, pstride);
+                        out[i] = clip8(luma_filter!(ppix, poff + i, pstride));
                     }
                     poff += pstride;
                 }
             },
             3 => {
-                let mut tmp = [0u8; 21 * 16];
+                let mut tmp = [0i16; 21 * 16];
                 for out in tmp.chunks_mut(16) {
                     for i in 0..16 {
-                        out[i] = luma_filter!(ppix, poff - 2 * pstride + i, 1);
+                        out[i] = luma_filter!(ppix, poff - 2 * pstride + i, 1) as i16;
                     }
                     poff += pstride;
                 }
                 for (row, out) in dst.chunks_mut(stride).take(16).enumerate() {
                     for i in 0..16 {
-                        out[i] = luma_filter!(tmp, (row + 2) * 16 + i, 16);
+                        out[i] = clip8(luma_filter!(tmp, (row + 2) * 16 + i, 16));
                     }
                 }
             },
@@ -310,8 +312,10 @@ impl Bink2DSP {
         let add_y = if my != 0 { 1 } else { 0 };
 
         let (w, h) = ref_pic.get_dimensions(plane);
-        validate!((sx >= 0) && (sx + add_x + 8 <= (w as isize)));
-        validate!((sy >= 0) && (sy + add_y + 8 <= (h as isize)));
+        let align_w = ((w + 15) & !15) as isize;
+        let align_h = ((h + 15) & !15) as isize;
+        validate!((sx >= 0) && (sx + add_x + 8 <= align_w));
+        validate!((sy >= 0) && (sy + add_y + 8 <= align_h));
         let pstride = ref_pic.get_stride(plane);
         let poff = ref_pic.get_offset(plane) + (sx as usize) + (sy as usize) * pstride;
         let pdata = ref_pic.get_data();
@@ -1012,7 +1016,7 @@ impl Bink2Decoder {
         let mut data = buf.get_data_mut();
         let dst = data.as_mut_slice();
         let bw = (width  + 31) >> 5;
-        let bh = (height + 31) >> 6;
+        let bheight = (height + 31) >> 5;
         self.cur_w = (width + 7) & !7;
         self.cur_h = ((height + 7) & !7) >> 1;
 
@@ -1023,11 +1027,15 @@ println!("fill {:X}", frame_flags);
 unimplemented!();
         }
         for slice_no in 0..2 {
-            if slice_no == 1 {
+            let bh;
+            if slice_no == 0 {
+                bh = bheight >> 1;
+            } else {
+                bh = bheight - (bheight >> 1);
                 br.seek(offset2 * 8)?;
-                off_y = ooff_y + stride_y * bh * 32;
-                off_u = ooff_u + stride_u * bh * 16;
-                off_v = ooff_v + stride_v * bh * 16;
+                off_y = ooff_y + stride_y * (bheight >> 1) * 32;
+                off_u = ooff_u + stride_u * (bheight >> 1) * 16;
+                off_v = ooff_v + stride_v * (bheight >> 1) * 16;
             }
             let mut row_flags: Vec<u8> = Vec::with_capacity(height >> 3);
             let mut col_flags: Vec<u8> = Vec::with_capacity(width >> 3);
@@ -1176,7 +1184,7 @@ unimplemented!();
                             if let Some(ref ref_pic) = self.ips.get_ref() {
                                 for blk_no in 0..4 {
                                     let xoff = bx * 32 + (blk_no & 1) * 16;
-                                    let yoff = slice_no * bh * 32 + by * 32 + (blk_no & 2) * 8;
+                                    let yoff = slice_no * (bheight >> 1) * 32 + by * 32 + (blk_no & 2) * 8;
                                     Bink2DSP::mc_luma(&mut dst[off_y..], stride_y, ref_pic, xoff, yoff, ZERO_MV, 0)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_u..], stride_u, ref_pic, xoff >> 1, yoff >> 1, ZERO_MV, 1)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_v..], stride_v, ref_pic, xoff >> 1, yoff >> 1, ZERO_MV, 2)?;
@@ -1195,7 +1203,7 @@ unimplemented!();
                             if let Some(ref ref_pic) = self.ips.get_ref() {
                                 for blk_no in 0..4 {
                                     let xoff = bx * 32 + (blk_no & 1) * 16;
-                                    let yoff = slice_no * bh * 32 + by * 32 + (blk_no & 2) * 8;
+                                    let yoff = slice_no * (bheight >> 1) * 32 + by * 32 + (blk_no & 2) * 8;
                                     let mv = self.mvs.get_mv(bx, blk_no);
                                     Bink2DSP::mc_luma(&mut dst[off_y..], stride_y, ref_pic, xoff, yoff, mv, 0)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_u..], stride_u, ref_pic, xoff >> 1, yoff >> 1, mv, 1)?;
@@ -1214,7 +1222,7 @@ unimplemented!();
                             if let Some(ref ref_pic) = self.ips.get_ref() {
                                 for blk_no in 0..4 {
                                     let xoff = bx * 32 + (blk_no & 1) * 16;
-                                    let yoff = slice_no * bh * 32 + by * 32 + (blk_no & 2) * 8;
+                                    let yoff = slice_no * (bheight >> 1) * 32 + by * 32 + (blk_no & 2) * 8;
                                     let mv = self.mvs.get_mv(bx, blk_no);
                                     Bink2DSP::mc_luma(&mut dst[off_y..], stride_y, ref_pic, xoff, yoff, mv, 0)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_u..], stride_u, ref_pic, xoff >> 1, yoff >> 1, mv, 1)?;
@@ -1812,7 +1820,7 @@ impl NADecoder for Bink2Decoder {
         let mut buf;
         self.key_frame = pkt.is_keyframe();
 
-        let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4);
+        let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 5);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
         let bufinfo = bufret.unwrap();
         buf = bufinfo.get_vbuf().unwrap();
