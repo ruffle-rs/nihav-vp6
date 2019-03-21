@@ -1026,30 +1026,39 @@ impl Bink2Decoder {
 println!("fill {:X}", frame_flags);
 unimplemented!();
         }
+        let mut row_flags: Vec<bool> = Vec::with_capacity(bheight * 4);
+        let mut col_flags: Vec<bool> = Vec::with_capacity(bw * 4);
+        if (frame_flags & 0x10000) != 0 {
+            if (frame_flags & 0x8000) == 0 {
+                decode_flags(br, &mut row_flags, 1, bheight * 4 - 1)?;
+            } else {
+                row_flags.resize(bheight * 4, false);
+            }
+            if (frame_flags & 0x4000) == 0 {
+                decode_flags(br, &mut col_flags, 1, bw * 4 - 1)?;
+            } else {
+                col_flags.resize(bw * 4, false);
+            }
+        } else {
+            row_flags.resize(bheight * 4, false);
+            col_flags.resize(bw * 4, false);
+        }
+        //store frame_flags  * 8 & 0x7F8
+
         for slice_no in 0..2 {
             let bh;
+            let yoff;
             if slice_no == 0 {
                 bh = bheight >> 1;
+                yoff = 0;
             } else {
                 bh = bheight - (bheight >> 1);
                 br.seek(offset2 * 8)?;
                 off_y = ooff_y + stride_y * (bheight >> 1) * 32;
                 off_u = ooff_u + stride_u * (bheight >> 1) * 16;
                 off_v = ooff_v + stride_v * (bheight >> 1) * 16;
+                yoff = bheight >> 1;
             }
-            let mut row_flags: Vec<u8> = Vec::with_capacity(height >> 3);
-            let mut col_flags: Vec<u8> = Vec::with_capacity(width >> 3);
-            if (frame_flags & 0x1000) != 0 {
-                if (frame_flags & 0x8000) != 0 {
-                    decode_flags(br, &mut row_flags, 1, (height >> 3) - 1)?;
-                }
-                if (frame_flags & 0x4000) != 0 {
-                    decode_flags(br, &mut col_flags, 1, (width >> 3) - 1)?;
-                }
-            }
-            row_flags.resize(height >> 3, 0);
-            col_flags.resize(width >> 3, 0);
-            //store frame_flags  * 8 & 0x7F8
 
             let mut row_state = frame_flags & 0x2E000;
             if is_intra {
@@ -1073,7 +1082,7 @@ unimplemented!();
                 let mut q_y_p = 8;
                 let mut q_u_p = 8;
                 let mut q_v_p = 8;
-                let rflags = (row_flags[by >> 1] >> (if (by & 1) != 0 { 4 } else { 0 })) as u32;
+                let rflags = (row_flags[by + yoff] as u32) * 4;
                 row_state = (row_state & 0x3FFFFFF) | ((row_state >> 4) & 0xC000000) | (rflags << 28);
                 if by == 0 {
                     row_state |= 0x80;
@@ -1098,7 +1107,7 @@ unimplemented!();
                     if (bx & 1) != 0 {
                         blk_state |= 0x200;
                     }
-                    let clflags = (col_flags[bx >> 1] >> (if (bx & 1) != 0 { 4 } else { 0 })) as u32;
+                    let clflags = (col_flags[bx] as u32) * 4;
                     let edge_state_c = ((blk_state >> 4) & 0x3C0000) | (blk_state & 0xFC03FFFF) | ((clflags & 0xF) << 22);
                     let edge_state_y = (frame_flags & 0x40000) | (blk_state & 0x3FFFF);
                     edge_state = edge_state_c;
@@ -1305,43 +1314,33 @@ unimplemented!();
     }
 }
 
-fn decode_flags(_br: &mut BitReader, _dst: &mut Vec<u8>, _start: usize, _nbits: usize) -> DecoderResult<u32> {
-unimplemented!();
-/*    if !br.read_bool()? { // read bits into byte array?
-        if nbits == 0 { return Ok(()); }
-        if nbits < 9 {
-            shift = in_shift;
-            pfx = 0;
-        } else {
-            shift = in_shift;
-            loop {
-                pfx |= br.read(8)? << shift;
-                dst.push((pfx & 0xFF) as u8);
-                pfx >>= 8;
-                shift -= 8;
-            }
+fn decode_flags(br: &mut BitReader, dst: &mut Vec<bool>, start: usize, nbits: usize) -> DecoderResult<()> {
+    if start > 0 {
+        dst.push(false);
+    }
+    if !br.read_bool()? {
+        for _ in 0..nbits {
+            let bit                             = br.read_bool()?;
+            dst.push(bit);
         }
-        let val                                 = br.read(cur_nbits)?;
-        dst.push(pfx | (val << shift))
     } else {
         let mut cur_bits = nbits;
         let mut mode = 0;
-        let mut lastbit = 0;
+        let mut lastbit = false;
         while cur_bits > 0 {
             if !br.read_bool()? {
-                lastbit = if mode == 3 { lastbit ^ 1 } else { br.read(1)? };
-                let val1 = lastval | (lastbit << shift);
-                let val2 = br.read(if cur_bits > 4 { 4 } else { cur_bits });
-                let val = lastval | (lastbit << shift) | (val2 << (shift + 1));
-                mode = 2;
-                if oshift >= 8 {
-                    dst.push((val & 0xFF) as u8);
-                    oshift -= 8;
-                    val >>= 8;
+                lastbit = if mode == 3 { !lastbit } else { br.read_bool()? };
+                dst.push(lastbit);
+                cur_bits -= 1;
+                let len = cur_bits.min(4);
+                for _ in 0..len {
+                    let bit                     = br.read_bool()?;
+                    dst.push(bit);
                 }
-                lastval = val;
+                cur_bits -= len;
+                mode = 2;
             } else {
-                let bread;
+                let bread: u8;
                 if cur_bits < 4 {
                     bread = 2;
                 } else if cur_bits < 16 {
@@ -1349,20 +1348,21 @@ unimplemented!();
                 } else {
                     bread = 4 | 1;
                 }
-                lastbit = if mode == 3 { lastbit ^ 1 } else { br.read(1)? };
-                run = (if mode == 3 { bread + 1 } else { bread + 2 }).min(cur_bits);
-                if run == cur_bits {
-                    output lastbit x run
-                } else {
+                lastbit = if mode == 3 { !lastbit } else { br.read_bool()? };
+                let mut run = (if mode == 3 { bread + 1 } else { bread + 2 } as usize).min(cur_bits);
+                if run != cur_bits {
                     let add_run = br.read(bread)? as usize;
                     run += add_run;
-                    output lastbit x run
-                    mode = if add_run == (1 << bread) - 1 { 3 } else { 1 };
+                    mode = if add_run == (1 << bread) - 1 { 1 } else { 3 };
                 }
+                for _ in 0..run {
+                    dst.push(lastbit);
+                }
+                cur_bits -= run;
             }
         }
     }
-    Ok(())*/
+    Ok(())
 }
 
 fn get_new_quant(br: &mut BitReader, prev_q: u8) -> DecoderResult<u8> {
