@@ -1239,6 +1239,7 @@ impl IVRRecord {
                     let flags   = src.read_u32be()?;
                     let len     = src.read_u32be()? as usize;
                     let chk     = src.read_u32be()?;
+                    validate!((len > 0) && (len < (1 << 24)));
                     Ok(IVRRecord::Packet { ts, str, flags, len, checksum: chk })
                 },
             3 => {
@@ -1404,12 +1405,13 @@ impl RecordDemuxer {
         loop {
             let rec = IVRRecord::read(src)?;
             match rec {
-                IVRRecord::Packet { ts, str, flags: _, len, checksum: _ } => {
+                IVRRecord::Packet { ts, str, flags, len, checksum: _ } => {
                         let payload_size = len;
                         let sr = self.remap_ids.iter().position(|x| *x == str);
                         validate!(sr.is_some());
                         let str_no = self.start_str + (sr.unwrap() as u32);
-                        let stream_id = str_data.get_stream_id(str_no as u32, 0/*pkt_grp*/);
+                        let pkt_grp = ((flags >> 8) & 0xFF) as u16;
+                        let stream_id = str_data.get_stream_id(str_no as u32, pkt_grp);
                         let sr = str_data.find_stream(stream_id);
                         if sr.is_none() {
                             src.read_skip(payload_size)?;
@@ -1482,10 +1484,12 @@ println!("R1M kind");
                     2 => {
                             let len = self.src.read_u32be()? as u64;
                             let pos = self.src.tell();
-                            let num_streams = self.str_data.streams.len() as u32;
-                            let mut rec = RecordDemuxer::new(pos + 12, num_streams);
-                            rec.parse_header(&mut self.src, strmgr, &mut self.str_data)?;
-                            self.recs.push(rec);
+                            if len > 0x20 {
+                                let num_streams = self.str_data.streams.len() as u32;
+                                let mut rec = RecordDemuxer::new(pos + 12, num_streams);
+                                rec.parse_header(&mut self.src, strmgr, &mut self.str_data)?;
+                                self.recs.push(rec);
+                            }
                             self.src.seek(SeekFrom::Start(pos + len))?;
                         },
                     b'R' => {
