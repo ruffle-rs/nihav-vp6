@@ -5,6 +5,15 @@ use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::io::intcode::*;
 
+macro_rules! mktag {
+    ($a:expr, $b:expr, $c:expr, $d:expr) => ({
+        (($a as u32) << 24) | (($b as u32) << 16) | (($c as u32) << 8) | ($d as u32)
+    });
+    ($arr:expr) => ({
+        (($arr[0] as u32) << 24) | (($arr[1] as u32) << 16) | (($arr[2] as u32) << 8) | ($arr[3] as u32)
+    });
+}
+
 macro_rules! idct_mul {
     (a; $val: expr) => ($val + ($val >> 2));
     (b; $val: expr) => ($val >> 1);
@@ -991,6 +1000,10 @@ struct Bink2Decoder {
     ips:        IPShuffler,
 
     version:    u32,
+    has_alpha:  bool,
+    slice_h:    [usize; 8],
+    num_slices: usize,
+
     key_frame:  bool,
     cur_w:      usize,
     cur_h:      usize,
@@ -998,6 +1011,7 @@ struct Bink2Decoder {
     y_dcs:      YDCInfo,
     u_dcs:      CDCInfo,
     v_dcs:      CDCInfo,
+    a_dcs:      YDCInfo,
     mvs:        MVInfo,
 
     codes:      Bink2Codes,
@@ -1009,9 +1023,9 @@ impl Bink2Decoder {
     }
 
     fn decode_frame_new(&mut self, br: &mut BitReader, buf: &mut NAVideoBuffer<u8>, is_intra: bool) -> DecoderResult<()> {
-        let (stride_y, stride_u, stride_v) = (buf.get_stride(0), buf.get_stride(1), buf.get_stride(2));
-        let (mut off_y, mut off_u, mut off_v) = (buf.get_offset(0), buf.get_offset(1), buf.get_offset(2));
-        let (ooff_y, ooff_u, ooff_v) = (off_y, off_u, off_v);
+        let (stride_y, stride_u, stride_v, stride_a) = (buf.get_stride(0), buf.get_stride(1), buf.get_stride(2), buf.get_stride(3));
+        let (mut off_y, mut off_u, mut off_v, mut off_a) = (buf.get_offset(0), buf.get_offset(1), buf.get_offset(2), buf.get_offset(3));
+        let (ooff_y, ooff_u, ooff_v, ooff_a) = (off_y, off_u, off_v, off_a);
         let (width, height) = buf.get_dimensions(0);
         let mut data = buf.get_data_mut();
         let dst = data.as_mut_slice();
@@ -1021,44 +1035,45 @@ impl Bink2Decoder {
         self.cur_h = ((height + 7) & !7) >> 1;
 
         let frame_flags                         = br.read(32)?;
-        let offset2                             = br.read(32)?;
-        if (frame_flags & 0x80000) != 0 {
-println!("fill {:X}", frame_flags);
-unimplemented!();
+        let mut offsets: [u32; 7] = [0; 7];
+        for i in 0..self.num_slices-1 {
+            offsets[i]                          = br.read(32)?;
+        }
+        let mut do_alpha = self.has_alpha;
+        if (frame_flags & 0x80000) != 0 && self.has_alpha {
+            do_alpha = false;
+            let fillval = (frame_flags >> 24) as u8;
+            let aplane = &mut dst[off_a..][..stride_a * bheight * 32];
+            for el in aplane.iter_mut() {
+                *el = fillval;
+            }
         }
         let mut row_flags: Vec<bool> = Vec::with_capacity(bheight * 4);
         let mut col_flags: Vec<bool> = Vec::with_capacity(bw * 4);
         if (frame_flags & 0x10000) != 0 {
             if (frame_flags & 0x8000) == 0 {
-                decode_flags(br, &mut row_flags, 1, bheight * 4 - 1)?;
-            } else {
-                row_flags.resize(bheight * 4, false);
+                let len = (height + 15) >> 4;
+                decode_flags(br, &mut row_flags, 1, len * 2 - 1)?;
             }
             if (frame_flags & 0x4000) == 0 {
-                decode_flags(br, &mut col_flags, 1, bw * 4 - 1)?;
-            } else {
-                col_flags.resize(bw * 4, false);
+                let len = (width + 15) >> 4;
+                decode_flags(br, &mut col_flags, 1, len * 2 - 1)?;
             }
-        } else {
-            row_flags.resize(bheight * 4, false);
-            col_flags.resize(bw * 4, false);
         }
+        row_flags.resize(bheight * 4, false);
+        col_flags.resize(bw * 4, false);
         //store frame_flags  * 8 & 0x7F8
 
-        for slice_no in 0..2 {
-            let bh;
-            let yoff;
-            if slice_no == 0 {
-                bh = bheight >> 1;
-                yoff = 0;
-            } else {
-                bh = bheight - (bheight >> 1);
-                br.seek(offset2 * 8)?;
-                off_y = ooff_y + stride_y * (bheight >> 1) * 32;
-                off_u = ooff_u + stride_u * (bheight >> 1) * 16;
-                off_v = ooff_v + stride_v * (bheight >> 1) * 16;
-                yoff = bheight >> 1;
+        let mut start_by = 0;
+        for slice_no in 0..self.num_slices {
+            let end_by = self.slice_h[slice_no];
+            if slice_no != 0 {
+                br.seek(offsets[slice_no - 1] * 8)?;
             }
+            off_y = ooff_y + stride_y * start_by * 32;
+            off_u = ooff_u + stride_u * start_by * 16;
+            off_v = ooff_v + stride_v * start_by * 16;
+            off_a = ooff_a + stride_a * start_by * 32;
 
             let mut row_state = frame_flags & 0x2E000;
             if is_intra {
@@ -1068,34 +1083,39 @@ unimplemented!();
             self.y_dcs.resize(bw);
             self.u_dcs.resize(bw);
             self.v_dcs.resize(bw);
+            self.a_dcs.resize(bw);
             self.mvs.resize(bw);
-            for by in 0..bh {
+            for by in start_by..end_by {
                 let mut cbp_y = 0;
                 let mut cbp_u = 0;
                 let mut cbp_v = 0;
+                let mut cbp_a = 0;
                 let mut cbp_y_p = 0;
                 let mut cbp_u_p = 0;
                 let mut cbp_v_p = 0;
+                let mut cbp_a_p = 0;
                 let mut q_y = 8;
                 let mut q_u = 8;
                 let mut q_v = 8;
+                let mut q_a = 8;
                 let mut q_y_p = 8;
                 let mut q_u_p = 8;
                 let mut q_v_p = 8;
-                let rflags = (row_flags[by + yoff] as u32) * 4;
+                let mut q_a_p = 8;
+                let rflags = (row_flags[by] as u32) * 4;
                 row_state = (row_state & 0x3FFFFFF) | ((row_state >> 4) & 0xC000000) | (rflags << 28);
-                if by == 0 {
+                if by == start_by {
                     row_state |= 0x80;
 //                } else {
 //                    row_state |= 0x8;
                 }
-                if by + 2 >= bh {
+                if by + 2 >= end_by {
                     row_state |= 0x100;
                 }
 
                 let mut btype_lru: [u8; 4] = [ 2, 3, 1, 0 ];
                 let mut edge_state = 0;
-                let is_top = by == 0;
+                let is_top = by == start_by;
                 for bx in 0..bw {
                     let mut blk_state = row_state | (edge_state & 0x3FC0000);
                     if bx == 0 {
@@ -1163,7 +1183,14 @@ unimplemented!();
                                 cbp_y = decode_luma_intra(br, &self.codes, cbp_y, q, &mut yblk, edge_state_y, &mut self.y_dcs, bx)?;
                                 cbp_v = decode_chroma_intra(br, &self.codes, cbp_v, q, &mut vblk, edge_state_c, &mut self.v_dcs, bx)?;
                                 cbp_u = decode_chroma_intra(br, &self.codes, cbp_u, q, &mut ublk, edge_state_c, &mut self.u_dcs, bx)?;
-//if smth decode one more y
+                                if do_alpha {
+                                    let mut ablk: [[[i32; 64]; 4]; 4] = [[[0; 64]; 4]; 4];
+                                    cbp_a = decode_luma_intra(br, &self.codes, cbp_a, q, &mut ablk, edge_state_y, &mut self.a_dcs, bx)?;
+                                    Bink2DSP::put_mb4(dst, off_a + bx * 32 +  0 +  0 * stride_a, stride_a, &mut ablk[0]);
+                                    Bink2DSP::put_mb4(dst, off_a + bx * 32 + 16 +  0 * stride_a, stride_a, &mut ablk[1]);
+                                    Bink2DSP::put_mb4(dst, off_a + bx * 32 +  0 + 16 * stride_a, stride_a, &mut ablk[2]);
+                                    Bink2DSP::put_mb4(dst, off_a + bx * 32 + 16 + 16 * stride_a, stride_a, &mut ablk[3]);
+                                }
 //if smth else decode one more y
                                 Bink2DSP::put_mb4(dst, off_y + bx * 32 +  0 +  0 * stride_y, stride_y, &mut yblk[0]);
                                 Bink2DSP::put_mb4(dst, off_y + bx * 32 + 16 +  0 * stride_y, stride_y, &mut yblk[1]);
@@ -1178,6 +1205,14 @@ unimplemented!();
                                 cbp_y = decode_luma_intra_old(br, &self.codes, cbp_y, &mut yblk, edge_state_y, &mut self.y_dcs, bx, &mut q_y)?;
                                 cbp_v = decode_chroma_intra_old(br, &self.codes, cbp_v, &mut vblk, edge_state_c, &mut self.v_dcs, bx, &mut q_v)?;
                                 cbp_u = decode_chroma_intra_old(br, &self.codes, cbp_u, &mut ublk, edge_state_c, &mut self.u_dcs, bx, &mut q_u)?;
+                                if do_alpha {
+                                    let mut ablk: [[[f32; 64]; 4]; 4] = [[[0.0; 64]; 4]; 4];
+                                    cbp_a = decode_luma_intra_old(br, &self.codes, cbp_a, &mut ablk, edge_state_y, &mut self.a_dcs, bx, &mut q_a)?;
+                                    Bink2DSP::put_mb4_old(dst, off_a + bx * 32 +  0 +  0 * stride_a, stride_a, &mut ablk[0]);
+                                    Bink2DSP::put_mb4_old(dst, off_a + bx * 32 + 16 +  0 * stride_a, stride_a, &mut ablk[1]);
+                                    Bink2DSP::put_mb4_old(dst, off_a + bx * 32 +  0 + 16 * stride_a, stride_a, &mut ablk[2]);
+                                    Bink2DSP::put_mb4_old(dst, off_a + bx * 32 + 16 + 16 * stride_a, stride_a, &mut ablk[3]);
+                                }
                                 Bink2DSP::put_mb4_old(dst, off_y + bx * 32 +  0 +  0 * stride_y, stride_y, &mut yblk[0]);
                                 Bink2DSP::put_mb4_old(dst, off_y + bx * 32 + 16 +  0 * stride_y, stride_y, &mut yblk[1]);
                                 Bink2DSP::put_mb4_old(dst, off_y + bx * 32 +  0 + 16 * stride_y, stride_y, &mut yblk[2]);
@@ -1193,10 +1228,13 @@ unimplemented!();
                             if let Some(ref ref_pic) = self.ips.get_ref() {
                                 for blk_no in 0..4 {
                                     let xoff = bx * 32 + (blk_no & 1) * 16;
-                                    let yoff = slice_no * (bheight >> 1) * 32 + by * 32 + (blk_no & 2) * 8;
+                                    let yoff = by * 32 + (blk_no & 2) * 8;
                                     Bink2DSP::mc_luma(&mut dst[off_y..], stride_y, ref_pic, xoff, yoff, ZERO_MV, 0)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_u..], stride_u, ref_pic, xoff >> 1, yoff >> 1, ZERO_MV, 1)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_v..], stride_v, ref_pic, xoff >> 1, yoff >> 1, ZERO_MV, 2)?;
+                                    if do_alpha {
+                                        Bink2DSP::mc_luma(&mut dst[off_a..], stride_a, ref_pic, xoff, yoff, ZERO_MV, 3)?;
+                                    }
                                 }
                             } else {
                                 return Err(DecoderError::MissingReference);
@@ -1212,11 +1250,14 @@ unimplemented!();
                             if let Some(ref ref_pic) = self.ips.get_ref() {
                                 for blk_no in 0..4 {
                                     let xoff = bx * 32 + (blk_no & 1) * 16;
-                                    let yoff = slice_no * (bheight >> 1) * 32 + by * 32 + (blk_no & 2) * 8;
+                                    let yoff = by * 32 + (blk_no & 2) * 8;
                                     let mv = self.mvs.get_mv(bx, blk_no);
                                     Bink2DSP::mc_luma(&mut dst[off_y..], stride_y, ref_pic, xoff, yoff, mv, 0)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_u..], stride_u, ref_pic, xoff >> 1, yoff >> 1, mv, 1)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_v..], stride_v, ref_pic, xoff >> 1, yoff >> 1, mv, 2)?;
+                                    if do_alpha {
+                                        Bink2DSP::mc_luma(&mut dst[off_a..], stride_a, ref_pic, xoff, yoff, mv, 3)?;
+                                    }
                                 }
                             } else {
                                 return Err(DecoderError::MissingReference);
@@ -1231,11 +1272,14 @@ unimplemented!();
                             if let Some(ref ref_pic) = self.ips.get_ref() {
                                 for blk_no in 0..4 {
                                     let xoff = bx * 32 + (blk_no & 1) * 16;
-                                    let yoff = slice_no * (bheight >> 1) * 32 + by * 32 + (blk_no & 2) * 8;
+                                    let yoff = by * 32 + (blk_no & 2) * 8;
                                     let mv = self.mvs.get_mv(bx, blk_no);
                                     Bink2DSP::mc_luma(&mut dst[off_y..], stride_y, ref_pic, xoff, yoff, mv, 0)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_u..], stride_u, ref_pic, xoff >> 1, yoff >> 1, mv, 1)?;
                                     Bink2DSP::mc_chroma(&mut dst[off_v..], stride_v, ref_pic, xoff >> 1, yoff >> 1, mv, 2)?;
+                                    if do_alpha {
+                                        Bink2DSP::mc_luma(&mut dst[off_a..], stride_a, ref_pic, xoff, yoff, mv, 3)?;
+                                    }
                                 }
                             } else {
                                 return Err(DecoderError::MissingReference);
@@ -1254,6 +1298,14 @@ unimplemented!();
                                     cbp_v_p = 0;
                                     cbp_u_p = 0;
                                 }
+                                if do_alpha {
+                                    let mut ablk: [[[i32; 64]; 4]; 4] = [[[0; 64]; 4]; 4];
+                                    cbp_a_p = decode_luma_inter(br, &self.codes, cbp_a_p, q, &mut ablk, edge_state_y, &mut self.a_dcs)?;
+                                    Bink2DSP::add_mb4(dst, off_a + bx * 32 +  0 +  0 * stride_a, stride_a, &mut ablk[0]);
+                                    Bink2DSP::add_mb4(dst, off_a + bx * 32 + 16 +  0 * stride_a, stride_a, &mut ablk[1]);
+                                    Bink2DSP::add_mb4(dst, off_a + bx * 32 +  0 + 16 * stride_a, stride_a, &mut ablk[2]);
+                                    Bink2DSP::add_mb4(dst, off_a + bx * 32 + 16 + 16 * stride_a, stride_a, &mut ablk[3]);
+                                }
                                 Bink2DSP::add_mb4(dst, off_y + bx * 32 +  0 +  0 * stride_y, stride_y, &mut yblk[0]);
                                 Bink2DSP::add_mb4(dst, off_y + bx * 32 + 16 +  0 * stride_y, stride_y, &mut yblk[1]);
                                 Bink2DSP::add_mb4(dst, off_y + bx * 32 +  0 + 16 * stride_y, stride_y, &mut yblk[2]);
@@ -1267,6 +1319,14 @@ unimplemented!();
                                 cbp_y_p = decode_luma_inter_old(br, &self.codes, cbp_y_p, &mut yblk, edge_state_y, &mut self.y_dcs, &mut q_y_p)?;
                                 cbp_v_p = decode_chroma_inter_old(br, &self.codes, cbp_v_p, &mut vblk, edge_state_y, &mut self.v_dcs, &mut q_v_p)?;
                                 cbp_u_p = decode_chroma_inter_old(br, &self.codes, cbp_u_p, &mut ublk, edge_state_y, &mut self.u_dcs, &mut q_u_p)?;
+                                if do_alpha {
+                                    let mut ablk: [[[f32; 64]; 4]; 4] = [[[0.0; 64]; 4]; 4];
+                                    cbp_a_p = decode_luma_inter_old(br, &self.codes, cbp_a_p, &mut ablk, edge_state_y, &mut self.a_dcs, &mut q_a_p)?;
+                                    Bink2DSP::add_mb4_old(dst, off_a + bx * 32 +  0 +  0 * stride_a, stride_a, &mut ablk[0]);
+                                    Bink2DSP::add_mb4_old(dst, off_a + bx * 32 + 16 +  0 * stride_a, stride_a, &mut ablk[1]);
+                                    Bink2DSP::add_mb4_old(dst, off_a + bx * 32 +  0 + 16 * stride_a, stride_a, &mut ablk[2]);
+                                    Bink2DSP::add_mb4_old(dst, off_a + bx * 32 + 16 + 16 * stride_a, stride_a, &mut ablk[3]);
+                                }
                                 Bink2DSP::add_mb4_old(dst, off_y + bx * 32 +  0 +  0 * stride_y, stride_y, &mut yblk[0]);
                                 Bink2DSP::add_mb4_old(dst, off_y + bx * 32 + 16 +  0 * stride_y, stride_y, &mut yblk[1]);
                                 Bink2DSP::add_mb4_old(dst, off_y + bx * 32 +  0 + 16 * stride_y, stride_y, &mut yblk[2]);
@@ -1297,18 +1357,32 @@ unimplemented!();
                         let dc2 = Bink2DSP::calc_dc(&src[0 + stride_v * 8..], stride_v);
                         let dc3 = Bink2DSP::calc_dc(&src[8 + stride_v * 8..], stride_v);
                         self.v_dcs.set_dcs(bx, dc1, dc2, dc3);
+                        if do_alpha {
+                            let src = &dst[off_a + bx * 32..];
+                            let dc5 = Bink2DSP::calc_dc(&src[24..], stride_a);
+                            let dc7 = Bink2DSP::calc_dc(&src[24 + stride_y * 8..], stride_a);
+                            let dc13 = Bink2DSP::calc_dc(&src[24 + stride_y * 16..], stride_a);
+                            let dc10 = Bink2DSP::calc_dc(&src[ 0 + stride_y * 24..], stride_a);
+                            let dc11 = Bink2DSP::calc_dc(&src[ 8 + stride_y * 24..], stride_a);
+                            let dc14 = Bink2DSP::calc_dc(&src[16 + stride_y * 24..], stride_a);
+                            let dc15 = Bink2DSP::calc_dc(&src[24 + stride_y * 24..], stride_a);
+                            self.a_dcs.set_dcs(bx, dc5, dc7, dc13, dc10, dc11, dc14, dc15);
+                        }
                     }
                 }
                 self.qinfo.update_line();
                 self.y_dcs.update_line();
                 self.u_dcs.update_line();
                 self.v_dcs.update_line();
+                self.a_dcs.update_line();
                 self.mvs.update_line();
                 off_y += stride_y * 32;
                 off_u += stride_u * 16;
                 off_v += stride_v * 16;
+                off_a += stride_a * 32;
                 row_state = (row_state & !0x190) | ((row_state & 4) << 2);
             }
+            start_by = self.slice_h[slice_no];
         }
         Ok(())
     }
@@ -1781,6 +1855,8 @@ fn decode_acs_4blocks_old(br: &mut BitReader, codes: &Bink2Codes, dst: &mut [[f3
     Ok(())
 }
 
+const KB2H_NUM_SLICES: [usize; 4] = [ 2, 3, 4, 8 ];
+
 impl NADecoder for Bink2Decoder {
     fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
@@ -1793,17 +1869,43 @@ impl NADecoder for Bink2Decoder {
             let mut mr = MemoryReader::new_read(&edata);
             let mut br = ByteReader::new(&mut mr);
             let magic                   = br.read_u32be()?;
-            let _flags                  = br.read_u32le()?;
+            let flags                   = br.read_u32le()?;
 
             self.version = magic;
+            self.has_alpha = (flags & 0x100000) != 0;
+
+            let height_a = (h + 31) & !31;
+            if self.version <= mktag!(b"KB2f") {
+                self.num_slices = 2;
+                self.slice_h[0] = (h + 32) >> 6;
+            } else if self.version == mktag!(b"KB2g") {
+                if height_a < 128 {
+                    self.num_slices = 1;
+                } else {
+                    self.num_slices = 2;
+                    self.slice_h[0] = (h + 31) >> 6;
+                }
+            } else {
+                self.num_slices = KB2H_NUM_SLICES[(flags & 3) as usize];
+                let mut start = 0;
+                let mut end = height_a + 32 * self.num_slices - 1;
+                for i in 0..self.num_slices - 1 {
+                    start += ((end - start) / (self.num_slices - i)) & !31;
+                    end -= 32;
+                    self.slice_h[i] = start >> 5;
+                }
+            }
+            self.slice_h[self.num_slices - 1] = height_a >> 5;
 
             let fmt;
+            let aplane = if self.has_alpha { Some(NAPixelChromaton::new(0, 0, false, 8, 0, 3, 1)) } else { None };
             fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
                                            Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
                                            Some(NAPixelChromaton::new(1, 1, false, 8, 0, 1, 1)),
                                            Some(NAPixelChromaton::new(1, 1, false, 8, 0, 2, 1)),
-                                           None, None,
-                                           0, 3);
+                                           aplane, None,
+                                           if self.has_alpha { FORMATON_FLAG_ALPHA } else { 0 },
+                                           if self.has_alpha { 4 } else { 3 });
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
             self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
 
