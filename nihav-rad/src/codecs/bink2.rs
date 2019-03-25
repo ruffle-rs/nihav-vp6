@@ -1832,7 +1832,7 @@ fn decode_acs_4blocks_old(br: &mut BitReader, codes: &Bink2Codes, dst: &mut [[f3
                     level = -level;
                 }
                 let pos = scan[idx];
-                dst[blk_no][pos] = (level as f32) * quant_mat[idx] * quant;
+                dst[blk_no][pos] = (level as f32) * quant_mat[(pos & 7) * 8 + (pos >> 3)] * quant;
             }
             idx += 1;
             if idx >= 64 { break; }
