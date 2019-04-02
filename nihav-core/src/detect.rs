@@ -212,6 +212,12 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[],
     },
     DetectConditions {
+        demux_name: "bmv3",
+        extensions: ".bmv",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"BMVi") },
+                      CheckItem{offs: 32, cond: &CC::Str(b"DATA")}],
+    },
+    DetectConditions {
         demux_name: "vmd",
         extensions: ".vmd",
         conditions: &[],
