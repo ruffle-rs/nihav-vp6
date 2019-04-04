@@ -3,9 +3,515 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use std::str::FromStr;
 
+const BMV_INTRA:    u8 = 0x03;
+const BMV_SCROLL:   u8 = 0x04;
+const BMV_PAL:      u8 = 0x08;
+const BMV_COMMAND:  u8 = 0x10;
+const BMV_PRINT:    u8 = 0x80;
+
+const BMV_MAX_WIDTH: usize = 640;
+const BMV_MAX_HEIGHT: usize = 432;
+const BMV_MAX_SIZE: usize = BMV_MAX_WIDTH * (BMV_MAX_HEIGHT + 1);
+
+enum BMV3Mode {
+    Normal,
+    Copy,
+    Pixfunc,
+    After0,
+    After1,
+    After1C,
+    After4,
+    After5,
+}
+
+struct NibbleReader {
+    nib:        u8,
+    has_nib:    bool,
+}
+
+impl NibbleReader {
+    fn new() -> Self {
+        Self { nib: 0, has_nib: false }
+    }
+    fn get_nib(&mut self, br: &mut ByteReader) -> DecoderResult<u8> {
+        if self.has_nib {
+            self.has_nib = false;
+            Ok(self.nib)
+        } else {
+            let b = br.read_byte()?;
+            self.nib = b >> 4;
+            self.has_nib = true;
+            Ok(b & 0xF)
+        }
+    }
+    fn get_length(&mut self, br: &mut ByteReader, mut len: usize, mut shift: u8) -> DecoderResult<usize> {
+        loop {
+            let nib = self.get_nib(br)? as usize;
+            len |= nib << shift;
+            shift += 2;
+            if (nib & 0xC) != 0 {
+                return Ok(len - 1);
+            }
+        }
+    }
+    fn push(&mut self, val: u8) {
+        if self.has_nib {
+            panic!("nibble already in cache");
+        } else {
+            self.nib = val;
+            self.has_nib = true;
+        }
+    }
+    fn reset(&mut self) {
+        self.nib = 0;
+        self.has_nib = false;
+    }
+}
+
+struct BMV3VideoDecoder {
+    info:       Rc<NACodecInfo>,
+    stride:     usize,
+    height:     usize,
+    frame:      Vec<u16>,
+    prev_frame: Vec<u16>,
+    pixels:     [u16; 256],
+    pixbuf:     [[u16; 256]; 7],
+    mode:       BMV3Mode,
+    pos:        usize,
+    end:        usize,
+    nr:         NibbleReader,
+    is_intra:   bool,
+}
+
+impl BMV3VideoDecoder {
+    fn new() -> Self {
+        let dummy_info = Rc::new(DUMMY_CODEC_INFO);
+        let mut frame1 = Vec::with_capacity(BMV_MAX_SIZE);
+        frame1.resize(BMV_MAX_SIZE, 0);
+        let mut frame2 = Vec::with_capacity(BMV_MAX_SIZE);
+        frame2.resize(BMV_MAX_SIZE, 0);
+
+        let mut pixels = [0u16; 256];
+        for (i, el) in pixels.iter_mut().enumerate() {
+            *el = i as u16;
+        }
+        let mut pixbuf = [[0u16; 256]; 7];
+        for i in 0..7 {
+            for j in 0..256 {
+                pixbuf[i][j] = ((i << 8) + j + 0xF8) as u16;
+            }
+        }
+
+        Self {
+            info:       dummy_info,
+            stride:     0,
+            height:     0,
+            frame:      frame1,
+            prev_frame: frame2,
+            pixels, pixbuf,
+            mode:       BMV3Mode::Normal,
+            pos:        0,
+            end:        0,
+            nr:         NibbleReader::new(),
+            is_intra:   false,
+        }
+    }
+    fn decode_frame(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+        let mut idx = 0;
+        loop {
+            let op                          = br.read_byte()?;
+            let mut len;
+            let skip;
+            if op < 0x90 {
+                let op2                     = br.read_u16le()?;
+                skip = ((op2 >> 12) as usize) | ((op << 4) as usize);
+                len = (op2 & 0xFFF) as usize;
+            } else {
+                len = ((op & 7) + 1) as usize;
+                skip = ((op >> 3) - 0x11) as usize;
+            }
+            while (idx < 0xF8) && (len > 0) {
+                self.pixels[idx]            = br.read_u16le()?;
+                idx += 1;
+                len -= 1;
+            }
+            while (idx < 0x7F8) && (len > 0) {
+                let nidx = idx - 0xF8;
+                self.pixbuf[nidx >> 8][nidx & 0xFF] = br.read_u16le()?;
+                idx += 1;
+                len -= 1;
+            }
+            validate!(len == 0);
+            if skip == 0 { break; }
+            idx += skip;
+        }
+        self.nr.reset();
+        self.mode = BMV3Mode::Normal;
+        while br.left() > 0 && self.pos < self.end {
+            match self.mode {
+                BMV3Mode::Normal => {
+                    let op                  = br.read_byte()?;
+                    self.decode_normal(br, op)?;
+                },
+                BMV3Mode::Copy   => {
+                    let op                  = br.read_byte()?;
+                    if (op & 1) == 0 {
+                        self.decode_normal(br, op + 1)?;
+                    } else {
+                        self.decode_copy(br, op)?;
+                    }
+                },
+                BMV3Mode::Pixfunc => {
+                    let op                  = br.read_byte()?;
+                    if (op & 1) == 0 {
+                        self.decode_copy(br, op + 1)?;
+                    } else {
+                        self.decode_normal(br, op - 1)?;
+                    }
+                },
+                BMV3Mode::After0 => {
+                    let cur_op              = self.nr.get_nib(br)?;
+                    if cur_op < 4 {
+                        let op              = self.nr.get_nib(br)?;
+                        match cur_op {
+                            0 => self.decode_mode5c(br, op | 0x10)?,
+                            1 => self.decode_mode4 (br, op | 0x10)?,
+                            2 => self.decode_mode5c(br, op | 0x30)?,
+                            _ => self.decode_mode4 (br, op | 0x30)?,
+                        };
+                    } else {
+                        let len = (cur_op >> 1) - 1;
+                        if (cur_op & 1) == 0 {
+                            self.pixfunc(br, len as usize)?;
+                        } else {
+                            self.repeat(len as usize)?;
+                        }
+                    }
+                }
+                BMV3Mode::After1 => {
+                    let cur_op              = self.nr.get_nib(br)?;
+                    if cur_op < 4 {
+                        let op              = self.nr.get_nib(br)?;
+                        match cur_op {
+                            0 => self.decode_mode4 (br, op | 0x10)?,
+                            1 => self.decode_mode5c(br, op | 0x00)?,
+                            2 => self.decode_mode4 (br, op | 0x30)?,
+                            _ => self.decode_mode5c(br, op | 0x20)?,
+                        };
+                    } else {
+                        let len = (cur_op >> 1) - 1;
+                        if (cur_op & 1) == 0 {
+                            self.repeat(len as usize)?;
+                        } else {
+                            self.copy(len as usize)?;
+                        }
+                    }
+                },
+                BMV3Mode::After1C => {
+                    let cur_op              = self.nr.get_nib(br)?;
+                    if cur_op < 4 {
+                        let cur_op1         = self.nr.get_nib(br)?;
+                        let m5_op = cur_op1 | (cur_op << 4);
+                        self.decode_mode5c(br, m5_op)?;
+                    } else if (cur_op & 1) == 0 {
+                        let len = (cur_op >> 1) - 1;
+                        self.copy(len as usize)?;
+                    } else {
+                        let len = (cur_op >> 1) - 1;
+                        self.pixfunc(br, len as usize)?;
+                    }
+                },
+                BMV3Mode::After4 => {
+                    let cur_op0             = self.nr.get_nib(br)?;
+                    let cur_op1             = self.nr.get_nib(br)?;
+                    let cur_op = (cur_op0 << 4) | cur_op1;
+                    if (cur_op & 0x10) == 0 {
+                        self.decode_mode5c(br, cur_op | 0x10)?;
+                    } else {
+                        self.decode_mode4(br, cur_op)?;
+                    }
+                },
+                BMV3Mode::After5 => {
+                    let cur_op0             = self.nr.get_nib(br)?;
+                    let cur_op1             = self.nr.get_nib(br)?;
+                    let cur_op = (cur_op0 << 4) | cur_op1;
+                    if (cur_op & 0x10) == 0 {
+                        self.decode_mode4(br, cur_op | 0x10)?;
+                    } else {
+                        self.decode_mode5c(br, cur_op ^ 0x10)?;
+                    }
+                },
+            };
+            if self.pos >= self.end { break; }
+        }
+        Ok(())
+    }
+
+    fn copy(&mut self, len: usize) -> DecoderResult<()> {
+        validate!(len <= self.end - self.pos);
+        if self.is_intra {
+            for _ in 0..len {
+                self.frame[self.pos] = self.frame[self.pos - self.stride];
+                self.pos += 1;
+            }
+        } else {
+            for _ in 0..len {
+                self.frame[self.pos] = self.prev_frame[self.pos];
+                self.pos += 1;
+            }
+        }
+        self.mode = BMV3Mode::Copy;
+        Ok(())
+    }
+    fn pixfunc(&mut self, br: &mut ByteReader, len: usize) -> DecoderResult<()> {
+        validate!(len <= self.end - self.pos);
+        for _ in 0..len {
+            let op                          = BMV_PIXFUNCS_MAP[br.read_byte()? as usize];
+            let val;
+            if op == 0xFF {
+                val                         = br.read_u16le()?;
+            } else if op >= 0xF8 {
+                let tab_idx = (op - 0xF8) as usize;
+                let sub_idx                 = br.read_byte()? as usize;
+                val = self.pixbuf[tab_idx][sub_idx];
+            } else {
+                val = self.pixels[op as usize];
+            }
+            self.frame[self.pos] = val;
+            self.pos += 1;
+        }
+        self.mode = BMV3Mode::Pixfunc;
+        Ok(())
+    }
+    fn repeat(&mut self, len: usize) -> DecoderResult<()> {
+        validate!(self.pos > 0);
+        validate!(len <= self.end - self.pos);
+        let pix = self.frame[self.pos - 1];
+        for _ in 0..len {
+            self.frame[self.pos] = pix;
+            self.pos += 1;
+        }
+        self.mode = BMV3Mode::Normal;
+        Ok(())
+    }
+
+    fn decode_normal(&mut self, br: &mut ByteReader, op: u8) -> DecoderResult<()> {
+        if op < 0x40 {
+            let mode = op & 1;
+            let len = ((op >> 1) & 0x7) as usize;
+            if len < 2 {
+                let mut len = (op >> 3) as usize;
+                if (op & 0xF) >= 2 {
+                    len += 1;
+                }
+                len                         = self.nr.get_length(br, len, 3)?;
+                if (op & 1) == 0 {
+                    self.copy(len)?;
+                    if self.nr.has_nib {
+                        self.mode = BMV3Mode::After0;
+                    }
+                } else {
+                    self.pixfunc(br, len)?;
+                    if self.nr.has_nib {
+                        self.mode = BMV3Mode::After1;
+                    }
+                }
+            } else if mode == 0 {
+                self.copy(len - 1)?;
+                self.nr.push(op >> 4);
+                self.mode = BMV3Mode::After4;
+            } else {
+                self.pixfunc(br, len - 1)?;
+                self.nr.push(op >> 4);
+                self.mode = BMV3Mode::After5;
+            }
+            return Ok(());
+        }
+        let x_op = (op >> 4) as usize;
+        let y_op = ((op >> 1) & 7) as usize;
+        let flag = (op & 1) as usize;
+        if y_op == 0 || y_op == 1 {
+            let len = x_op * 2 - 1 + y_op;
+            if flag == 0 {
+                self.copy(len)?;
+            } else {
+                self.pixfunc(br, len)?;
+            }
+        } else {
+            let len1 = y_op - 1;
+            let len2 = (x_op >> 1) - 1;
+            if flag == 0 {
+                self.copy(len1)?;
+            } else {
+                self.pixfunc(br, len1)?;
+            }
+            match (x_op & 1) * 2 + flag {
+                0 => self.pixfunc(br, len2)?,
+                1 => self.repeat(len2)?,
+                2 => self.repeat(len2)?,
+                _ => self.copy(len2)?,
+            };
+        }
+        Ok(())
+    }
+    fn decode_copy(&mut self, br: &mut ByteReader, op: u8) -> DecoderResult<()> {
+        if op < 0x40 {
+            let len = ((op >> 1) & 0x7) as usize;
+            if len < 2 {
+                let mut len = (op >> 3) as usize;
+                if (op & 0xF) >= 2 {
+                    len += 1;
+                }
+                len                         = self.nr.get_length(br, len, 3)?;
+                self.repeat(len)?;
+                if self.nr.has_nib {
+                    self.mode = BMV3Mode::After1C;
+                }
+            } else {
+                self.repeat(len - 1)?;
+                if br.left() == 0 { return Ok(()); }
+                let op2                     = self.nr.get_nib(br)?;
+                let cur_op = (op & 0xF0) | op2;
+                self.decode_mode5c(br, cur_op)?;
+            }
+            return Ok(());
+        }
+        let x_op = (op >> 4) as usize;
+        let y_op = ((op >> 1) & 7) as usize;
+        if y_op == 0 || y_op == 1 {
+            self.repeat(x_op * 2 - 1 + y_op)?;
+        } else {
+            self.repeat(y_op - 1)?;
+            let len = (x_op >> 1) - 1;
+            if (x_op & 1) == 0 {
+                self.copy(len)?;
+            } else {
+                self.pixfunc(br, len)?;
+            }
+        }
+        Ok(())
+    }
+    fn decode_mode4(&mut self, br: &mut ByteReader, op: u8) -> DecoderResult<()> {
+        if (op & 0xF) < 4 {
+            let mut len = ((op & 3) * 2) as usize;
+            if (op & 0xF0) >= 0x20 {
+                len += 1;
+            }
+            len                         = self.nr.get_length(br, len, 3)?;
+            self.repeat(len)?;
+            if self.nr.has_nib {
+                self.mode = BMV3Mode::After1C;
+            }
+        } else {
+            let len = ((op & 0xF) * 2 - 1 + (op >> 5)) as usize;
+            self.repeat(len)?;
+            self.mode = BMV3Mode::After1C;
+        }
+        Ok(())
+    }
+    fn decode_mode5c(&mut self, br: &mut ByteReader, op: u8) -> DecoderResult<()> {
+        if (op & 0xF) < 4 {
+            let mut len = ((op & 3) * 2) as usize;
+            if (op & 0xF0) >= 0x20 {
+                len += 1;
+            }
+            len                         = self.nr.get_length(br, len, 3)?;
+            if (op & 0x10) == 0 {
+                self.copy(len)?;
+                if self.nr.has_nib {
+                    self.mode = BMV3Mode::After0;
+                }
+            } else {
+                self.pixfunc(br, len)?;
+                if self.nr.has_nib {
+                    self.mode = BMV3Mode::After1;
+                }
+            }
+        } else {
+            let len = ((op & 0xF) * 2 - 1 + (op >> 5)) as usize;
+            if (op & 0x10) == 0 {
+                self.copy(len)?;
+                self.mode = BMV3Mode::After0;
+            } else {
+                self.pixfunc(br, len)?;
+                self.mode = BMV3Mode::After1;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl NADecoder for BMV3VideoDecoder {
+    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+        if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB565_FORMAT));
+            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+
+            self.stride = vinfo.get_width();
+            self.height = vinfo.get_height();
+            self.end    = self.stride * (self.height + 1);
+
+            validate!((self.stride <= 640) && (self.height <= 432));
+
+            Ok(())
+        } else {
+            Err(DecoderError::InvalidData)
+        }
+    }
+    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+        let src = pkt.get_buffer();
+        validate!(src.len() > 1);
+
+        let mut mr = MemoryReader::new_read(&src);
+        let mut br = ByteReader::new(&mut mr);
+        let flags                               = br.read_byte()?;
+
+        if (flags & BMV_COMMAND) != 0 {
+            let size = if (flags & BMV_PRINT) != 0 { 8 } else { 10 };
+            br.read_skip(size)?;
+        }
+        if (flags & BMV_PAL) != 0 {
+            return Err(DecoderError::InvalidData);
+        }
+        let off;
+        if ((flags & 1) == 0) && ((flags & BMV_SCROLL) != 0) {
+            off                                 = br.read_u16le()? as usize;
+        } else {
+            off = 0;
+        }
+        self.pos = off + self.stride;
+        self.is_intra = (flags & BMV_INTRA) == BMV_INTRA;
+
+        let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0);
+        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
+        let bufinfo = bufret.unwrap();
+
+        self.decode_frame(&mut br)?;
+
+        {
+            let mut buf = bufinfo.get_vbuf16().unwrap();
+            let stride = buf.get_stride(0);
+            let mut data = buf.get_data_mut();
+            let dst = data.as_mut_slice();
+
+            let refbuf = &self.frame[self.stride..];
+            for (dst, src) in dst.chunks_mut(stride).zip(refbuf.chunks(self.stride)).take(self.height) {
+                let out = &mut dst[0..self.stride];
+                out.copy_from_slice(src);
+            }
+        }
+        std::mem::swap(&mut self.frame, &mut self.prev_frame);
+
+        let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
+        frm.set_keyframe(self.is_intra);
+        frm.set_frame_type(if self.is_intra { FrameType::I } else { FrameType::P });
+        Ok(Rc::new(RefCell::new(frm)))
+    }
+}
+
 
 pub fn get_decoder_video() -> Box<NADecoder> {
-    unimplemented!();
+    Box::new(BMV3VideoDecoder::new())
 }
 
 struct BMV3AudioDecoder {
@@ -112,7 +618,7 @@ mod test {
         game_register_all_codecs(&mut dec_reg);
 
         let file = "assets/Game/DW3-Loffnote.bmv";
-        test_file_decoding("bmv3", file, Some(40), true, false, None, &dmx_reg, &dec_reg);
+        test_file_decoding("bmv3", file, None, true, false, None, &dmx_reg, &dec_reg);
     }
     #[test]
     fn test_bmv_audio() {
@@ -125,6 +631,73 @@ mod test {
         test_decode_audio("bmv3", file, None, "bmv3", &dmx_reg, &dec_reg);
     }
 }
+
+const BMV_PIXFUNCS_MAP: [u8; 256] = [
+    0x38, 0x78, 0xB8, 0xF9,
+    0x39, 0x79, 0xB9, 0xFA,
+    0x3A, 0x7A, 0xBA, 0xFB,
+    0x3B, 0x7B, 0xBB, 0xFC,
+    0x3C, 0x7C, 0xBC, 0xFD,
+    0x3D, 0x7D, 0xBD, 0xFE,
+    0x3E, 0x7E, 0xBE, 0xFF,
+    0x3F, 0x7F, 0xBF, 0x00,
+    0x40, 0x80, 0xC0, 0x01,
+    0x41, 0x81, 0xC1, 0x02,
+    0x42, 0x82, 0xC2, 0x03,
+    0x43, 0x83, 0xC3, 0x04,
+    0x44, 0x84, 0xC4, 0x05,
+    0x45, 0x85, 0xC5, 0x06,
+    0x46, 0x86, 0xC6, 0x07,
+    0x47, 0x87, 0xC7, 0x08,
+    0x48, 0x88, 0xC8, 0x09,
+    0x49, 0x89, 0xC9, 0x0A,
+    0x4A, 0x8A, 0xCA, 0x0B,
+    0x4B, 0x8B, 0xCB, 0x0C,
+    0x4C, 0x8C, 0xCC, 0x0D,
+    0x4D, 0x8D, 0xCD, 0x0E,
+    0x4E, 0x8E, 0xCE, 0x0F,
+    0x4F, 0x8F, 0xCF, 0x10,
+    0x50, 0x90, 0xD0, 0x11,
+    0x51, 0x91, 0xD1, 0x12,
+    0x52, 0x92, 0xD2, 0x13,
+    0x53, 0x93, 0xD3, 0x14,
+    0x54, 0x94, 0xD4, 0x15,
+    0x55, 0x95, 0xD5, 0x16,
+    0x56, 0x96, 0xD6, 0x17,
+    0x57, 0x97, 0xD7, 0x18,
+    0x58, 0x98, 0xD8, 0x19,
+    0x59, 0x99, 0xD9, 0x1A,
+    0x5A, 0x9A, 0xDA, 0x1B,
+    0x5B, 0x9B, 0xDB, 0x1C,
+    0x5C, 0x9C, 0xDC, 0x1D,
+    0x5D, 0x9D, 0xDD, 0x1E,
+    0x5E, 0x9E, 0xDE, 0x1F,
+    0x5F, 0x9F, 0xDF, 0x20,
+    0x60, 0xA0, 0xE0, 0x21,
+    0x61, 0xA1, 0xE1, 0x22,
+    0x62, 0xA2, 0xE2, 0x23,
+    0x63, 0xA3, 0xE3, 0x24,
+    0x64, 0xA4, 0xE4, 0x25,
+    0x65, 0xA5, 0xE5, 0x26,
+    0x66, 0xA6, 0xE6, 0x27,
+    0x67, 0xA7, 0xE7, 0x28,
+    0x68, 0xA8, 0xE8, 0x29,
+    0x69, 0xA9, 0xE9, 0x2A,
+    0x6A, 0xAA, 0xEA, 0x2B,
+    0x6B, 0xAB, 0xEB, 0x2C,
+    0x6C, 0xAC, 0xEC, 0x2D,
+    0x6D, 0xAD, 0xED, 0x2E,
+    0x6E, 0xAE, 0xEE, 0x2F,
+    0x6F, 0xAF, 0xEF, 0x30,
+    0x70, 0xB0, 0xF0, 0x31,
+    0x71, 0xB1, 0xF1, 0x32,
+    0x72, 0xB2, 0xF2, 0x33,
+    0x73, 0xB3, 0xF3, 0x34,
+    0x74, 0xB4, 0xF4, 0x35,
+    0x75, 0xB5, 0xF5, 0x36,
+    0x76, 0xB6, 0xF6, 0x37,
+    0x77, 0xB7, 0xF7, 0xF8
+];
 
 const BMV_AUDIO_STEPS: [[i16; 32]; 16] = [
     [
