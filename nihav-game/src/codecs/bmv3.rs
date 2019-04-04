@@ -124,7 +124,7 @@ impl BMV3VideoDecoder {
             let skip;
             if op < 0x90 {
                 let op2                     = br.read_u16le()?;
-                skip = ((op2 >> 12) as usize) | ((op << 4) as usize);
+                skip = ((op2 >> 12) as usize) | ((op as usize) << 4);
                 len = (op2 & 0xFFF) as usize;
             } else {
                 len = ((op & 7) + 1) as usize;
