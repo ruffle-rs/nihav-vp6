@@ -15,11 +15,12 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     let (w, h) = buf.get_dimensions(0);
     let (w2, h2) = buf.get_dimensions(1);
     let has_alpha = buf.get_info().get_format().has_alpha();
-    let tot_h;
+    let mut tot_h = h + h2;
     if has_alpha {
-        tot_h = h * 2 + h2;
-    } else {
-        tot_h = h + h2;
+        tot_h += h;
+    }
+    if w2 > w/2 {
+        tot_h += h2;
     }
     let hdr = format!("P5\n{} {}\n255\n", w, tot_h);
     ofile.write_all(hdr.as_bytes()).unwrap();
@@ -27,31 +28,54 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     let ls = buf.get_stride(0);
     let mut idx = 0;
     let mut idx2 = w;
-    let mut pad: Vec<u8> = Vec::with_capacity((w - w2 * 2) / 2);
-    pad.resize((w - w2 * 2) / 2, 0xFF);
     for _ in 0..h {
         let line = &dta[idx..idx2];
         ofile.write_all(line).unwrap();
         idx  += ls;
         idx2 += ls;
     }
-    let mut base1 = buf.get_offset(1);
-    let stride1 = buf.get_stride(1);
-    let mut base2 = buf.get_offset(2);
-    let stride2 = buf.get_stride(2);
-    for _ in 0..h2 {
-        let bend1 = base1 + w2;
-        let line = &dta[base1..bend1];
-        ofile.write_all(line).unwrap();
-        ofile.write_all(pad.as_slice()).unwrap();
+    if w2 <= w/2 {
+        let mut pad: Vec<u8> = Vec::with_capacity((w - w2 * 2) / 2);
+        pad.resize((w - w2 * 2) / 2, 0xFF);
+        let mut base1 = buf.get_offset(1);
+        let stride1 = buf.get_stride(1);
+        let mut base2 = buf.get_offset(2);
+        let stride2 = buf.get_stride(2);
+        for _ in 0..h2 {
+            let bend1 = base1 + w2;
+            let line = &dta[base1..bend1];
+            ofile.write_all(line).unwrap();
+            ofile.write_all(pad.as_slice()).unwrap();
 
-        let bend2 = base2 + w2;
-        let line = &dta[base2..bend2];
-        ofile.write_all(line).unwrap();
-        ofile.write_all(pad.as_slice()).unwrap();
+            let bend2 = base2 + w2;
+            let line = &dta[base2..bend2];
+            ofile.write_all(line).unwrap();
+            ofile.write_all(pad.as_slice()).unwrap();
 
-        base1 += stride1;
-        base2 += stride2;
+            base1 += stride1;
+            base2 += stride2;
+        }
+    } else {
+        let mut pad: Vec<u8> = Vec::with_capacity(w - w2);
+        pad.resize(w - w2, 0xFF);
+        let mut base1 = buf.get_offset(1);
+        let stride1 = buf.get_stride(1);
+        for _ in 0..h2 {
+            let bend1 = base1 + w2;
+            let line = &dta[base1..bend1];
+            ofile.write_all(line).unwrap();
+            ofile.write_all(pad.as_slice()).unwrap();
+            base1 += stride1;
+        }
+        let mut base2 = buf.get_offset(2);
+        let stride2 = buf.get_stride(2);
+        for _ in 0..h2 {
+            let bend2 = base2 + w2;
+            let line = &dta[base2..bend2];
+            ofile.write_all(line).unwrap();
+            ofile.write_all(pad.as_slice()).unwrap();
+            base2 += stride2;
+        }
     }
     if has_alpha {
         let ls = buf.get_stride(3);
