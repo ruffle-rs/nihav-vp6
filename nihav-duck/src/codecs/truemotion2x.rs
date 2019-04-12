@@ -35,6 +35,7 @@ struct Deltas {
     num_vq:     usize,
     vq_idx:     usize,
     vq_pos:     usize,
+    vq_esc:     u8,
 }
 
 impl Deltas {
@@ -57,10 +58,38 @@ impl Deltas {
         }
         Ok(ret)
     }
+    fn remap(val: u16) -> i16 {
+        let hval = (val >> 1) as i16;
+        if (val & 1) == 0 {
+            hval
+        } else {
+            -1 - hval
+        }
+    }
     fn get_int(&mut self, br: &mut ByteReader) -> DecoderResult<i16> {
         let b = self.get_val(br)?;
-        if b > 0 { unimplemented!(); }
-        Ok(b as i16)
+        if b != self.vq_esc - 1 {
+            return Ok(Self::remap(b as u16));
+        }
+        let mut run = 0;
+        let mut val;
+        let mut pow = self.vq_esc as u16;
+        loop {
+            let b = self.get_val(br)?;
+            run += 1;
+            if b != self.vq_esc - 1 {
+                val = (b as u16) * pow;
+                break;
+            }
+            pow *= self.vq_esc as u16;
+        }
+
+        for _ in 0..run {
+            pow /= self.vq_esc as u16;
+            let b = self.get_val(br)? as u16;
+            val += pow * (b as u16);
+        }
+        Ok(Self::remap(val))
     }
     fn get_dy(&mut self, br: &mut ByteReader) -> DecoderResult<i16> {
         let b = self.get_val(br)?;
@@ -81,6 +110,7 @@ impl Default for Deltas {
             num_vq:     0,
             vq_idx:     0,
             vq_pos:     0,
+            vq_esc:     0,
         }
     }
 }
@@ -96,6 +126,7 @@ struct BlkInfo {
 const NUM_CPARAMS: usize = 25;
 const CPARAM_NONE: u8 = 42;
 const CPARAM_MISSING: u8 = 42 * 2;
+const CPARAM_MV: u8 = 42 * 3;
 
 macro_rules! apply_delta {
     ($buf:expr, $off:expr, $stride:expr, $hpred: expr, $delta:expr) => {
@@ -112,50 +143,60 @@ macro_rules! copy_line {
 }
 
 #[derive(Default)]
+struct Frame {
+    ydata:      Vec<i16>,
+    udata:      Vec<i16>,
+    vdata:      Vec<i16>,
+    stride:     usize,
+}
+
+impl Frame {
+    fn resize(&mut self, w: usize, h: usize) {
+        self.stride = w;
+        self.ydata.resize(self.stride * (h + 1), 0x80);
+        self.udata.resize(self.stride * (h + 1), 0x80);
+        self.vdata.resize(self.stride * (h + 1), 0x80);
+    }
+}
+
+#[derive(Default)]
 struct TM2XDecoder {
     info:       Rc<NACodecInfo>,
     width:      usize,
     height:     usize,
     dec_buf:    Vec<u8>,
     version:    u8,
+    is_intra:   bool,
     deltas:     Deltas,
     blk_info:   Vec<BlkInfo>,
     tile_size:  usize,
     cparams:    [[u8; 8]; NUM_CPARAMS],
-    ydata:      Vec<i16>,
-    udata:      Vec<i16>,
-    vdata:      Vec<i16>,
-    ystride:    usize,
-    cstride:    usize,
+    cur_frame:  Frame,
+    ref_frame:  Frame,
 }
 
 impl TM2XDecoder {
     fn new() -> Self { Self::default() }
     fn output_frame(&mut self, buf: &mut NAVideoBuffer<u8>) {
-        let fmt = buf.get_info().get_format();
-        let offs = [fmt.get_chromaton(0).unwrap().get_offset() as usize,
-                    fmt.get_chromaton(1).unwrap().get_offset() as usize,
-                    fmt.get_chromaton(2).unwrap().get_offset() as usize];
-        let stride = buf.get_stride(0);
+        let mut offs = [ buf.get_offset(0), buf.get_offset(1), buf.get_offset(2) ];
+        let strides = [ buf.get_stride(0), buf.get_stride(1), buf.get_stride(2) ];
         let mut data = buf.get_data_mut();
         let dst = data.as_mut_slice();
 
-        let mut off = 0;
-        let mut ysrc = self.ystride;
-        let mut csrc = self.cstride;
+        let mut pos = self.cur_frame.stride;
         for _y in 0..self.height {
-            let out = &mut dst[off..];
-            for (x, pic) in out.chunks_exact_mut(3).take(self.width).enumerate() {
-                let y = self.ydata[ysrc + x];
-                let u = self.udata[csrc + x] - 128;
-                let v = self.vdata[csrc + x] - 128;
-                pic[offs[0]] = (y + v).max(0).min(255) as u8;
-                pic[offs[1]] = y.max(0).min(255) as u8;
-                pic[offs[2]] = (y + u).max(0).min(255) as u8;
+            for x in 0..self.width {
+                let y = self.cur_frame.ydata[pos + x];
+                let u = self.cur_frame.udata[pos + x];
+                let v = self.cur_frame.vdata[pos + x];
+                dst[offs[0] + x] = y.max(0).min(255) as u8;
+                dst[offs[1] + x] = u.max(0).min(255) as u8;
+                dst[offs[2] + x] = v.max(0).min(255) as u8;
             }
-            off += stride;
-            ysrc += self.ystride;
-            csrc += self.cstride;
+            for c in 0..3 {
+                offs[c] += strides[c];
+            }
+            pos += self.cur_frame.stride;
         }
     }
     fn parse_init(&mut self, version: u8) -> DecoderResult<()> {
@@ -176,9 +217,7 @@ impl TM2XDecoder {
         let _nfuncs                     = br.read_byte()? as usize;
         let _smth                       = br.read_u16be()? as usize;
         let has_mv                      = br.read_byte()?;
-        if has_mv != 0 {
-            unimplemented!();
-        }
+        self.is_intra = has_mv == 0;
         if version >= 4 {
             let _flags                  = br.read_u16be()?;
             let id_len                  = br.read_byte()? as usize;
@@ -210,7 +249,8 @@ impl TM2XDecoder {
         let mut br = ByteReader::new(&mut mr);
 
         if version == 0x0A {
-            let _esc_val                = br.read_byte()?;
+            self.deltas.vq_esc          = br.read_byte()?;
+            validate!(self.deltas.vq_esc > 1);
             let _tag                    = br.read_u16be()?;
         }
         let len                         = br.read_u16be()? as usize;
@@ -243,16 +283,20 @@ impl TM2XDecoder {
         let bw = self.width / 8;
         let bh = self.height / 8;
         let ntiles = (bw + self.tile_size - 1) / self.tile_size;
-        let mut ypos = self.ystride;
-        let mut cpos = self.cstride;
-        for _by in 0..bh {
+        let mut pos = self.cur_frame.stride;
+        let ydata = &mut self.cur_frame.ydata;
+        let udata = &mut self.cur_frame.udata;
+        let vdata = &mut self.cur_frame.vdata;
+        let stride = self.cur_frame.stride;
+        for by in 0..bh {
             for tile in 0..ntiles {
                 let xpos = tile * self.tile_size;
                 let len = self.tile_size.min(bw - xpos);
+                let mut last_x = 0;
+                let mut last_y = 0;
                 for el in self.blk_info.iter_mut().take(len) {
                     let t1                      = self.deltas.get_val(&mut br)?;
                     let t2                      = self.deltas.get_val(&mut br)?;
-                    if t2 > 1 { unimplemented!(); }
                     validate!((t1 as usize) < NUM_CPARAMS);
                     validate!(self.cparams[t1 as usize][0] != CPARAM_MISSING);
                     el.btype = t1;
@@ -260,9 +304,11 @@ impl TM2XDecoder {
                     if t2 > 0 {
                         el.mv_x                 = self.deltas.get_int(&mut br)?;
                         el.mv_y                 = self.deltas.get_int(&mut br)?;
+                        last_x = el.mv_x;
+                        last_y = el.mv_y;
                     } else {
-                        el.mv_x = 0;
-                        el.mv_y = 0;
+                        el.mv_x = last_x;
+                        el.mv_y = last_y;
                     }
                 }
                 for line in 0..8 {
@@ -272,16 +318,15 @@ impl TM2XDecoder {
                     for x in 0..len {
                         let bx = xpos + x;
                         let op = self.cparams[self.blk_info[x].btype as usize][line];
-                        let cur_yoff = ypos + bx * 8 + line * self.ystride;
-                        let cur_coff = cpos + bx * 8 + line * self.cstride;
+                        let cur_off = pos + bx * 8 + line * stride;
                         match op {
                             0 => { // y4|y4
                                 for i in 0..8 {
                                     let delta = self.deltas.get_dy(&mut br)?;
-                                    apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                    apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                 }
-                                copy_line!(self.udata, cur_coff, self.cstride);
-                                copy_line!(self.vdata, cur_coff, self.cstride);
+                                copy_line!(udata, cur_off, stride);
+                                copy_line!(vdata, cur_off, stride);
                                 upred = 0;
                                 vpred = 0;
                             },
@@ -289,13 +334,13 @@ impl TM2XDecoder {
                                 for i in 0..8 {
                                     if (i & 1) == 0 {
                                         let delta = self.deltas.get_dy(&mut br)?;
-                                        apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                        apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                     } else {
-                                        self.ydata[cur_yoff + i] = self.ydata[cur_yoff + i - 1];
+                                        ydata[cur_off + i] = ydata[cur_off + i - 1];
                                     }
                                 }
-                                copy_line!(self.udata, cur_coff, self.cstride);
-                                copy_line!(self.vdata, cur_coff, self.cstride);
+                                copy_line!(udata, cur_off, stride);
+                                copy_line!(vdata, cur_off, stride);
                                 upred = 0;
                                 vpred = 0;
                             },
@@ -303,54 +348,54 @@ impl TM2XDecoder {
                                 for i in 0..8 {
                                     if (i & 3) == 0 {
                                         let delta = self.deltas.get_dy(&mut br)?;
-                                        apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                        apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                     } else {
-                                        self.ydata[cur_yoff + i] = self.ydata[cur_yoff + i - 1];
+                                        ydata[cur_off + i] = ydata[cur_off + i - 1];
                                     }
                                 }
-                                copy_line!(self.udata, cur_coff, self.cstride);
-                                copy_line!(self.vdata, cur_coff, self.cstride);
+                                copy_line!(udata, cur_off, stride);
+                                copy_line!(vdata, cur_off, stride);
                                 upred = 0;
                                 vpred = 0;
                             },
                             3 => { // y1|0
                                 let delta = self.deltas.get_dy(&mut br)?;
-                                apply_delta!(self.ydata, cur_yoff, self.ystride, ypred, delta);
+                                apply_delta!(ydata, cur_off, stride, ypred, delta);
                                 for i in 1..8 {
-                                    self.ydata[cur_yoff + i] = self.ydata[cur_yoff];
+                                    ydata[cur_off + i] = ydata[cur_off];
                                 }
-                                copy_line!(self.udata, cur_coff, self.cstride);
-                                copy_line!(self.vdata, cur_coff, self.cstride);
+                                copy_line!(udata, cur_off, stride);
+                                copy_line!(vdata, cur_off, stride);
                                 upred = 0;
                                 vpred = 0;
                             },
                             4 => { // c2y2c2y2|c2y2c2y2
                                 for i in (0..8).step_by(2) {
                                     let delta = self.deltas.get_dc(&mut br)?;
-                                    apply_delta!(self.udata, cur_coff + i + 0, self.cstride, upred, delta);
-                                    self.udata[cur_coff + i + 1] = self.udata[cur_coff + i];
+                                    apply_delta!(udata, cur_off + i + 0, stride, upred, delta);
+                                    udata[cur_off + i + 1] = udata[cur_off + i];
                                     let delta = self.deltas.get_dc(&mut br)?;
-                                    apply_delta!(self.vdata, cur_coff + i + 0, self.cstride, vpred, delta);
-                                    self.vdata[cur_coff + i + 1] = self.vdata[cur_coff + i];
+                                    apply_delta!(vdata, cur_off + i + 0, stride, vpred, delta);
+                                    vdata[cur_off + i + 1] = vdata[cur_off + i];
                                     let delta = self.deltas.get_dy(&mut br)?;
-                                    apply_delta!(self.ydata, cur_yoff + i + 0, self.ystride, ypred, delta);
+                                    apply_delta!(ydata, cur_off + i + 0, stride, ypred, delta);
                                     let delta = self.deltas.get_dy(&mut br)?;
-                                    apply_delta!(self.ydata, cur_yoff + i + 1, self.ystride, ypred, delta);
+                                    apply_delta!(ydata, cur_off + i + 1, stride, ypred, delta);
                                 }
                             },
                             5 => { // c2y1|c2y1
                                 for i in 0..8 {
                                     if (i & 3) == 0 {
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.udata, cur_coff + i, self.cstride, upred, delta);
+                                        apply_delta!(udata, cur_off + i, stride, upred, delta);
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.vdata, cur_coff + i, self.cstride, vpred, delta);
+                                        apply_delta!(vdata, cur_off + i, stride, vpred, delta);
                                         let delta = self.deltas.get_dy(&mut br)?;
-                                        apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                        apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                     } else {
-                                        self.udata[cur_coff + i] = self.udata[cur_coff + i - 1];
-                                        self.vdata[cur_coff + i] = self.vdata[cur_coff + i - 1];
-                                        self.ydata[cur_yoff + i] = self.ydata[cur_yoff + i - 1];
+                                        udata[cur_off + i] = udata[cur_off + i - 1];
+                                        vdata[cur_off + i] = vdata[cur_off + i - 1];
+                                        ydata[cur_off + i] = ydata[cur_off + i - 1];
                                     }
                                 }
                             },
@@ -359,33 +404,33 @@ impl TM2XDecoder {
                                 for i in 0..8 {
                                     if (i & 3) == 0 {
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.udata, cur_coff + i, self.cstride, upred, delta);
+                                        apply_delta!(udata, cur_off + i, stride, upred, delta);
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.vdata, cur_coff + i, self.cstride, vpred, delta);
+                                        apply_delta!(vdata, cur_off + i, stride, vpred, delta);
                                     } else {
-                                        self.udata[cur_coff + i] = self.udata[cur_coff + i - 1];
-                                        self.vdata[cur_coff + i] = self.vdata[cur_coff + i - 1];
+                                        udata[cur_off + i] = udata[cur_off + i - 1];
+                                        vdata[cur_off + i] = vdata[cur_off + i - 1];
                                     }
                                     let delta = self.deltas.get_dy(&mut br)?;
-                                    apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                    apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                 }
                             },
                             9 => { // c2y2|c2y2
                                 for i in 0..8 {
                                     if (i & 3) == 0 {
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.udata, cur_coff + i, self.cstride, upred, delta);
+                                        apply_delta!(udata, cur_off + i, stride, upred, delta);
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.vdata, cur_coff + i, self.cstride, vpred, delta);
+                                        apply_delta!(vdata, cur_off + i, stride, vpred, delta);
                                     } else {
-                                        self.udata[cur_coff + i] = self.udata[cur_coff + i - 1];
-                                        self.vdata[cur_coff + i] = self.vdata[cur_coff + i - 1];
+                                        udata[cur_off + i] = udata[cur_off + i - 1];
+                                        vdata[cur_off + i] = vdata[cur_off + i - 1];
                                     }
                                     if (i & 1) == 0 {
                                         let delta = self.deltas.get_dy(&mut br)?;
-                                        apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                        apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                     } else {
-                                        self.ydata[cur_yoff + i] = self.ydata[cur_yoff + i - 1];
+                                        ydata[cur_off + i] = ydata[cur_off + i - 1];
                                     }
                                 }
                             },
@@ -393,15 +438,15 @@ impl TM2XDecoder {
                                 for i in 0..8 {
                                     if (i & 3) == 0 {
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.udata, cur_coff + i, self.cstride, upred, delta);
+                                        apply_delta!(udata, cur_off + i, stride, upred, delta);
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.vdata, cur_coff + i, self.cstride, vpred, delta);
+                                        apply_delta!(vdata, cur_off + i, stride, vpred, delta);
                                         let delta = self.deltas.get_dy(&mut br)?;
-                                        apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                        apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                     } else {
-                                        self.udata[cur_coff + i] = self.udata[cur_coff + i - 1];
-                                        self.vdata[cur_coff + i] = self.vdata[cur_coff + i - 1];
-                                        self.ydata[cur_yoff + i] = self.ydata[cur_yoff + i - 1];
+                                        udata[cur_off + i] = udata[cur_off + i - 1];
+                                        vdata[cur_off + i] = vdata[cur_off + i - 1];
+                                        ydata[cur_off + i] = ydata[cur_off + i - 1];
                                     }
                                 }
                             },
@@ -410,33 +455,33 @@ impl TM2XDecoder {
                                 for i in 0..8 {
                                     if i == 0 {
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.udata, cur_coff + i, self.cstride, upred, delta);
+                                        apply_delta!(udata, cur_off + i, stride, upred, delta);
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.vdata, cur_coff + i, self.cstride, vpred, delta);
+                                        apply_delta!(vdata, cur_off + i, stride, vpred, delta);
                                     } else {
-                                        self.udata[cur_coff + i] = self.udata[cur_coff + i - 1];
-                                        self.vdata[cur_coff + i] = self.vdata[cur_coff + i - 1];
+                                        udata[cur_off + i] = udata[cur_off + i - 1];
+                                        vdata[cur_off + i] = vdata[cur_off + i - 1];
                                     }
                                     let delta = self.deltas.get_dy(&mut br)?;
-                                    apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                    apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                 }
                             },
                             13 => { // c2y4
                                 for i in 0..8 {
                                     if i == 0 {
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.udata, cur_coff + i, self.cstride, upred, delta);
+                                        apply_delta!(udata, cur_off + i, stride, upred, delta);
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.vdata, cur_coff + i, self.cstride, vpred, delta);
+                                        apply_delta!(vdata, cur_off + i, stride, vpred, delta);
                                     } else {
-                                        self.udata[cur_coff + i] = self.udata[cur_coff + i - 1];
-                                        self.vdata[cur_coff + i] = self.vdata[cur_coff + i - 1];
+                                        udata[cur_off + i] = udata[cur_off + i - 1];
+                                        vdata[cur_off + i] = vdata[cur_off + i - 1];
                                     }
                                     if (i & 1) == 0 {
                                         let delta = self.deltas.get_dy(&mut br)?;
-                                        apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                        apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                     } else {
-                                        self.ydata[cur_yoff + i] = self.ydata[cur_yoff + i - 1];
+                                        ydata[cur_off + i] = ydata[cur_off + i - 1];
                                     }
                                 }
                             },
@@ -444,18 +489,18 @@ impl TM2XDecoder {
                                 for i in 0..8 {
                                     if i == 0 {
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.udata, cur_coff + i, self.cstride, upred, delta);
+                                        apply_delta!(udata, cur_off + i, stride, upred, delta);
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.vdata, cur_coff + i, self.cstride, vpred, delta);
+                                        apply_delta!(vdata, cur_off + i, stride, vpred, delta);
                                     } else {
-                                        self.udata[cur_coff + i] = self.udata[cur_coff + i - 1];
-                                        self.vdata[cur_coff + i] = self.vdata[cur_coff + i - 1];
+                                        udata[cur_off + i] = udata[cur_off + i - 1];
+                                        vdata[cur_off + i] = vdata[cur_off + i - 1];
                                     }
                                     if (i & 3) == 0 {
                                         let delta = self.deltas.get_dy(&mut br)?;
-                                        apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                        apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                     } else {
-                                        self.ydata[cur_yoff + i] = self.ydata[cur_yoff + i - 1];
+                                        ydata[cur_off + i] = ydata[cur_off + i - 1];
                                     }
                                 }
                             },
@@ -463,33 +508,47 @@ impl TM2XDecoder {
                                 for i in 0..8 {
                                     if i == 0 {
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.udata, cur_coff + i, self.cstride, upred, delta);
+                                        apply_delta!(udata, cur_off + i, stride, upred, delta);
                                         let delta = self.deltas.get_dc(&mut br)?;
-                                        apply_delta!(self.vdata, cur_coff + i, self.cstride, vpred, delta);
+                                        apply_delta!(vdata, cur_off + i, stride, vpred, delta);
                                         let delta = self.deltas.get_dy(&mut br)?;
-                                        apply_delta!(self.ydata, cur_yoff + i, self.ystride, ypred, delta);
+                                        apply_delta!(ydata, cur_off + i, stride, ypred, delta);
                                     } else {
-                                        self.udata[cur_coff + i] = self.udata[cur_coff + i - 1];
-                                        self.vdata[cur_coff + i] = self.vdata[cur_coff + i - 1];
-                                        self.ydata[cur_yoff + i] = self.ydata[cur_yoff + i - 1];
+                                        udata[cur_off + i] = udata[cur_off + i - 1];
+                                        vdata[cur_off + i] = vdata[cur_off + i - 1];
+                                        ydata[cur_off + i] = ydata[cur_off + i - 1];
                                     }
                                 }
                             },
                             CPARAM_NONE => {
-                                copy_line!(self.ydata, cur_yoff, self.ystride);
-                                copy_line!(self.udata, cur_coff, self.cstride);
-                                copy_line!(self.vdata, cur_coff, self.cstride);
+                                copy_line!(ydata, cur_off, stride);
+                                copy_line!(udata, cur_off, stride);
+                                copy_line!(vdata, cur_off, stride);
                                 ypred = 0;
                                 upred = 0;
                                 vpred = 0;
+                            },
+                            CPARAM_MV => {
+                                let src_x = (bx as i16) * 8 + self.blk_info[x].mv_x;
+                                let src_y = ((by * 8 + line) as i16) + self.blk_info[x].mv_y;
+                                validate!(src_x >= 0 && (src_x as usize) + 8 <= self.width);
+                                validate!(src_y >= 0 && (src_y as usize) + 1 <= self.height);
+                                let ref_off = (src_x as usize) + ((src_y + 1) as usize) * stride;
+                                for i in 0..8 {
+                                    ydata[cur_off + i] = self.ref_frame.ydata[ref_off + i];
+                                    udata[cur_off + i] = self.ref_frame.udata[ref_off + i];
+                                    vdata[cur_off + i] = self.ref_frame.vdata[ref_off + i];
+                                }
+                                ypred = ydata[cur_off + 7] - ydata[cur_off + 7 - stride];
+                                upred = udata[cur_off + 7] - udata[cur_off + 7 - stride];
+                                vpred = vdata[cur_off + 7] - vdata[cur_off + 7 - stride];
                             },
                             _ => unreachable!(),
                         }
                     }
                 }
             }
-            ypos += 8 * self.ystride;
-            cpos += 8 * self.cstride;
+            pos += 8 * stride;
         }
 
         Ok(())
@@ -499,14 +558,16 @@ impl TM2XDecoder {
 impl NADecoder for TM2XDecoder {
     fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB24_FORMAT));
+            let fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
+                                           Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
+                                           Some(NAPixelChromaton::new(0, 0, false, 8, 0, 1, 1)),
+                                           Some(NAPixelChromaton::new(0, 0, false, 8, 0, 2, 1)),
+                                           None, None, 0, 3);
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, fmt));
             self.width  = vinfo.get_width();
             self.height = vinfo.get_height();
-            self.ystride    = self.width;
-            self.cstride    = self.width;
-            self.ydata.resize(self.ystride * (self.height + 1), 0x80);
-            self.udata.resize(self.cstride * (self.height + 1), 0x80);
-            self.vdata.resize(self.cstride * (self.height + 1), 0x80);
+            self.cur_frame.resize(self.width, self.height);
+            self.ref_frame.resize(self.width, self.height);
             self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
             Ok(())
         } else {
@@ -524,6 +585,7 @@ impl NADecoder for TM2XDecoder {
         let mut got_key = false;
         let mut data_size = 0;
         self.cparams = [[CPARAM_MISSING; 8]; NUM_CPARAMS];
+        self.is_intra = false;
         while br.left() >= 8 {
             let magic                           = br.read_u24be()?;
             let ctype                           = br.read_byte()?;
@@ -577,23 +639,26 @@ impl NADecoder for TM2XDecoder {
                     validate!(self.dec_buf.len() == 4);
                     let idx = self.dec_buf[3] as usize;
                     validate!(idx < NUM_CPARAMS);
-                    validate!(self.dec_buf[0] != 0);
                     validate!((self.dec_buf[0] as usize) < TM2X_CODING_PARAMS.len());
-                    let tab = &TM2X_CODING_PARAMS[self.dec_buf[0] as usize];
-                    let m0 = tab[0] as usize;
-                    let m1 = tab[1] as usize;
-                    let m2 = tab[2] as usize;
-                    let m3 = tab[3] as usize;
-                    let full_mode = (m2 * 4 + m0) as u8;
-                    let lores_mode = m0 as u8;
-                    for i in 0..8 {
-                        if (i % m1) == 0 && (i % m3) == 0 {
-                            self.cparams[idx][i] = full_mode;
-                        } else if (i % m1) == 0 {
-                            self.cparams[idx][i] = lores_mode;
-                        } else {
-                            self.cparams[idx][i] = CPARAM_NONE;
+                    if self.dec_buf[0] != 0 {
+                        let tab = &TM2X_CODING_PARAMS[self.dec_buf[0] as usize];
+                        let m0 = tab[0] as usize;
+                        let m1 = tab[1] as usize;
+                        let m2 = tab[2] as usize;
+                        let m3 = tab[3] as usize;
+                        let full_mode = (m2 * 4 + m0) as u8;
+                        let lores_mode = m0 as u8;
+                        for i in 0..8 {
+                            if (i % m1) == 0 && (i % m3) == 0 {
+                                self.cparams[idx][i] = full_mode;
+                            } else if (i % m1) == 0 {
+                                self.cparams[idx][i] = lores_mode;
+                            } else {
+                                self.cparams[idx][i] = CPARAM_NONE;
+                            }
                         }
+                    } else {
+                        for i in 0..8 { self.cparams[idx][i] = CPARAM_MV; }
                     }
                 },
                 0x02 => {
@@ -607,20 +672,22 @@ impl NADecoder for TM2XDecoder {
                 _ => { unimplemented!(); },
             };
         }
+        if !self.is_intra {
+            std::mem::swap(&mut self.cur_frame, &mut self.ref_frame);
+        }
         self.decode_frame(&src[12..][..data_size])?;
 
-        let myinfo = NAVideoInfo::new(self.width, self.height, false, RGB24_FORMAT);
+        let myinfo = self.info.get_properties().get_video_info().unwrap();
         let bufret = alloc_video_buffer(myinfo, 2);
         if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
         let bufinfo = bufret.unwrap();
         let mut buf = bufinfo.get_vbuf().unwrap();
 
-        let is_intra = true;
         self.output_frame(&mut buf);
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
-        frm.set_keyframe(is_intra);
-        frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
+        frm.set_keyframe(self.is_intra);
+        frm.set_frame_type(if self.is_intra { FrameType::I } else { FrameType::P });
         Ok(Rc::new(RefCell::new(frm)))
     }
 }
