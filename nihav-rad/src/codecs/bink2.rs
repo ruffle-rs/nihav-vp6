@@ -1492,7 +1492,7 @@ fn decode_luma_inter(br: &mut BitReader, codes: &Bink2Codes, prev_cbp: u32, q: u
     let dcs = &dcinfo.dcs;
     for i in 0..4 {
         decode_acs_4blocks(br, codes, &mut dst[i], BINK2_QUANT_INTER, q, cbp >> (i * 4))?;
-        for j in 0..4 { dst[i][j][0] = dcs[i * 4 + j]; }
+        for j in 0..4 { dst[i][j][0] = dcs[i * 4 + j] * 8; }
     }
     Ok(cbp)
 }
@@ -1504,7 +1504,7 @@ fn decode_chroma_inter(br: &mut BitReader, codes: &Bink2Codes, prev_cbp: u32, q:
     dcinfo.predict_inter(min_dc, max_dc);
     let dcs = &dcinfo.dcs;
     decode_acs_4blocks(br, codes, dst, BINK2_QUANT_INTER, q, cbp)?;
-    for i in 0..4 { dst[i][0] = dcs[i]; }
+    for i in 0..4 { dst[i][0] = dcs[i] * 8; }
     Ok(cbp)
 }
 
