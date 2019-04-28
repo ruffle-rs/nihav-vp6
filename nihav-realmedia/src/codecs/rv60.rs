@@ -671,7 +671,7 @@ impl RealVideo60Decoder {
             ypos:       0,
         }
     }
-    fn decode_cu_line(&mut self, buf: &mut NAVideoBuffer<u8>, hdr: &FrameHeader, src: &[u8], cu_y: usize) -> DecoderResult<()> {
+    fn decode_cu_line(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, src: &[u8], cu_y: usize) -> DecoderResult<()> {
         let mut br = BitReader::new(src, src.len(), BitReaderMode::BE);
         let cu_w = hdr.get_width_cu();
         let dqp = hdr.read_line_qp_offset(&mut br)?;
@@ -713,7 +713,7 @@ println!(" left {} bits", br.left());
 }
         Ok(())
     }
-    fn decode_cb_tree(&mut self, buf: &mut NAVideoBuffer<u8>, hdr: &FrameHeader, br: &mut BitReader, xpos: usize, ypos: usize, log_size: u8) -> DecoderResult<()> {
+    fn decode_cb_tree(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, br: &mut BitReader, xpos: usize, ypos: usize, log_size: u8) -> DecoderResult<()> {
         if (xpos >= hdr.width) || (ypos >= hdr.height) { return Ok(()); }
 
         let size = 1 << log_size;
@@ -738,19 +738,17 @@ println!(" left {} bits", br.left());
                 CUType::Intra => {
                         let itype = self.blk_info[self.blk_pos].imode;
                         if !split_i4x4 {
-                            let dstride = buf.get_stride(0);
+                            let dstride = buf.stride[0];
                             let off = xpos + ypos * dstride;
-                            let mut data = buf.get_data_mut().unwrap();
-                            let dst = &mut data;
+                            let dst = &mut buf.data;
                             self.populate_ipred(hdr, dst, 0, dstride, 0, 0, size, true);
                             self.ipred.pred_angle(dst, off, dstride, size, itype as usize, true);
                         }
                         for comp in 1..3 {
-                            let dstride = buf.get_stride(comp);
-                            let soff = buf.get_offset(comp);
+                            let dstride = buf.stride[comp];
+                            let soff = buf.offset[comp];
                             let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                            let mut data = buf.get_data_mut().unwrap();
-                            let mut dst = &mut data;
+                            let mut dst = &mut buf.data;
                             self.populate_ipred(hdr, dst, soff, dstride, 0, 0, size >> 1, false);
                             self.ipred.pred_angle(&mut dst, off, dstride, size >> 1, itype as usize, false);
                         }
@@ -793,7 +791,10 @@ println!(" left {} bits", br.left());
                                         validate!(hdr.ftype == FrameType::B);
                                         if let (Some(ref prevbuf), Some(ref nextbuf)) = (self.ipbs.get_b_fwdref(), self.ipbs.get_b_bwdref()) {
                                             self.dsp.do_mc(buf, prevbuf, bx, by, bw, bh, mv.f_mv, false);
-                                            self.dsp.do_mc(&mut self.avg_buf, nextbuf, bx, by, bw, bh, mv.b_mv, true);
+                                            {
+                                                let mut avg_buf = NASimpleVideoFrame::from_video_buf(&mut self.avg_buf).unwrap();
+                                                self.dsp.do_mc(&mut avg_buf, nextbuf, bx, by, bw, bh, mv.b_mv, true);
+                                            }
                                             self.dsp.do_avg(buf, &self.avg_buf, bx, by, bw, bh);
                                         }
                                     },
@@ -846,10 +847,9 @@ println!(" left {} bits", br.left());
                                         let i = x + y * 4;
                                         if ((cbp16 >> i) & 1) != 0 {
                                             self.dsp.transform4x4(&mut self.y_coeffs[i * 16..][..16]);
-                                            let dstride = buf.get_stride(0);
+                                            let dstride = buf.stride[0];
                                             let off = xpos + x * 4 + (ypos + y * 4) * dstride;
-                                            let mut data = buf.get_data_mut().unwrap();
-                                            let mut dst = &mut data;
+                                            let mut dst = &mut buf.data;
                                             self.dsp.add_block(&mut dst, off, dstride, &self.y_coeffs[i*16..][..16], 4);
                                         }
                                     }
@@ -861,18 +861,16 @@ println!(" left {} bits", br.left());
                                         let yoff = (ypos >> 1) + y * 4;
                                         if ((cbp16 >> (16 + i)) & 1) != 0 {
                                             self.dsp.transform4x4(&mut self.u_coeffs[i * 16..][..16]);
-                                            let dstride = buf.get_stride(1);
-                                            let off = buf.get_offset(1) + xoff + yoff * dstride;
-                                            let mut data = buf.get_data_mut().unwrap();
-                                            let mut dst = &mut data;
+                                            let dstride = buf.stride[1];
+                                            let off = buf.offset[1] + xoff + yoff * dstride;
+                                            let mut dst = &mut buf.data;
                                             self.dsp.add_block(&mut dst, off, dstride, &self.u_coeffs[i * 16..][..16], 4);
                                         }
                                         if ((cbp16 >> (20 + i)) & 1) != 0 {
                                             self.dsp.transform4x4(&mut self.v_coeffs[i * 16..][..16]);
-                                            let dstride = buf.get_stride(2);
-                                            let off = buf.get_offset(2) + xoff + yoff * dstride;
-                                            let mut data = buf.get_data_mut().unwrap();
-                                            let mut dst = &mut data;
+                                            let dstride = buf.stride[2];
+                                            let off = buf.offset[2] + xoff + yoff * dstride;
+                                            let mut dst = &mut buf.data;
                                             self.dsp.add_block(&mut dst, off, dstride, &self.v_coeffs[i * 16..][..16], 4);
                                         }
                                     }
@@ -888,10 +886,9 @@ println!(" left {} bits", br.left());
                                 let xoff = (i & 1) * 4;
                                 let yoff = (i & 2) * 2;
                                 if split_i4x4 {
-                                    let dstride = buf.get_stride(0);
+                                    let dstride = buf.stride[0];
                                     let off = xpos + xoff + (ypos + yoff) * dstride;
-                                    let mut data = buf.get_data_mut().unwrap();
-                                    let mut dst = &mut data;
+                                    let mut dst = &mut buf.data;
                                     self.populate_ipred(hdr, dst, 0, dstride, xoff, yoff, 4, true);
                                     let itype = self.blk_info[self.blk_pos + (i & 1) + (i >> 1) * self.blk_stride].imode;
                                     self.ipred.pred_angle(&mut dst, off, dstride, 4, itype as usize, false);
@@ -899,30 +896,27 @@ println!(" left {} bits", br.left());
                                 if ((cbp8 >> i) & 1) != 0 {
                                     let blk = &mut self.y_coeffs[i * 16..][..16];
                                     self.dsp.transform4x4(blk);
-                                    let dstride = buf.get_stride(0);
-                                    let soff = buf.get_offset(0);
+                                    let dstride = buf.stride[0];
+                                    let soff = buf.offset[0];
                                     let off = soff + xpos + xoff + (ypos + yoff) * dstride;
-                                    let mut data = buf.get_data_mut().unwrap();
-                                    let mut dst = &mut data;
+                                    let mut dst = &mut buf.data;
                                     self.dsp.add_block(&mut dst, off, dstride, blk, 4);
                                 }
                             }
                             if ((cbp8 >> 4) & 1) != 0 {
                                 self.dsp.transform4x4(&mut self.u_coeffs);
-                                let dstride = buf.get_stride(1);
-                                let soff = buf.get_offset(1);
+                                let dstride = buf.stride[1];
+                                let soff = buf.offset[1];
                                 let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                                let mut data = buf.get_data_mut().unwrap();
-                                let mut dst = &mut data;
+                                let mut dst = &mut buf.data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.u_coeffs, 4);
                             }
                             if ((cbp8 >> 5) & 1) != 0 {
                                 self.dsp.transform4x4(&mut self.v_coeffs);
-                                let dstride = buf.get_stride(2);
-                                let soff = buf.get_offset(2);
+                                let dstride = buf.stride[2];
+                                let soff = buf.offset[2];
                                 let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                                let mut data = buf.get_data_mut().unwrap();
-                                let mut dst = &mut data;
+                                let mut dst = &mut buf.data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.v_coeffs, 4);
                             }
                         }
@@ -935,28 +929,25 @@ println!(" left {} bits", br.left());
                             rv6_decode_cu_8x8(br, &self.cbs, is_intra, self.qp, self.sel_qp, &mut self.y_coeffs, &mut self.u_coeffs, &mut self.v_coeffs, cbp8, false)?;
                             if (cbp8 & 0xF) != 0 {
                                 self.dsp.transform8x8(&mut self.y_coeffs);
-                                let dstride = buf.get_stride(0);
+                                let dstride = buf.stride[0];
                                 let off = xpos + ypos * dstride;
-                                let mut data = buf.get_data_mut().unwrap();
-                                let mut dst = &mut data;
+                                let mut dst = &mut buf.data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.y_coeffs, 8);
                             }
                             if ((cbp8 >> 4) & 1) != 0 {
                                 self.dsp.transform4x4(&mut self.u_coeffs);
-                                let dstride = buf.get_stride(1);
-                                let soff = buf.get_offset(1);
+                                let dstride = buf.stride[1];
+                                let soff = buf.offset[1];
                                 let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                                let mut data = buf.get_data_mut().unwrap();
-                                let mut dst = &mut data;
+                                let mut dst = &mut buf.data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.u_coeffs, 4);
                             }
                             if ((cbp8 >> 5) & 1) != 0 {
                                 self.dsp.transform4x4(&mut self.v_coeffs);
-                                let dstride = buf.get_stride(2);
-                                let soff = buf.get_offset(2);
+                                let dstride = buf.stride[2];
+                                let soff = buf.offset[2];
                                 let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                                let mut data = buf.get_data_mut().unwrap();
-                                let mut dst = &mut data;
+                                let mut dst = &mut buf.data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.v_coeffs, 4);
                             }
                         }
@@ -980,28 +971,25 @@ println!(" left {} bits", br.left());
                                     rv6_decode_cu_16x16(br, &self.cbs, is_intra, self.qp, self.sel_qp, &mut self.y_coeffs, &mut self.u_coeffs, &mut self.v_coeffs, super_cbp)?;
                                     if (super_cbp & 0xFFFF) != 0 {
                                         self.dsp.transform16x16(&mut self.y_coeffs);
-                                        let dstride = buf.get_stride(0);
+                                        let dstride = buf.stride[0];
                                         let off = xpos + x * 16 + (ypos + y * 16) * dstride;
-                                        let mut data = buf.get_data_mut().unwrap();
-                                        let mut dst = &mut data;
+                                        let mut dst = &mut buf.data;
                                         self.dsp.add_block(&mut dst, off, dstride, &self.y_coeffs, 16);
                                     }
                                     if ((super_cbp >> 16) & 0xF) != 0 {
                                         self.dsp.transform8x8(&mut self.u_coeffs);
-                                        let dstride = buf.get_stride(1);
-                                        let soff = buf.get_offset(1);
+                                        let dstride = buf.stride[1];
+                                        let soff = buf.offset[1];
                                         let off = soff + (xpos >> 1) + x * 8 + ((ypos >> 1) + y * 8) * dstride;
-                                        let mut data = buf.get_data_mut().unwrap();
-                                        let mut dst = &mut data;
+                                        let mut dst = &mut buf.data;
                                         self.dsp.add_block(&mut dst, off, dstride, &self.u_coeffs, 8);
                                     }
                                     if ((super_cbp >> 20) & 0xF) != 0 {
                                         self.dsp.transform8x8(&mut self.v_coeffs);
-                                        let dstride = buf.get_stride(2);
-                                        let soff = buf.get_offset(2);
+                                        let dstride = buf.stride[2];
+                                        let soff = buf.offset[2];
                                         let off = soff + (xpos >> 1) + x * 8 + ((ypos >> 1) + y * 8) * dstride;
-                                        let mut data = buf.get_data_mut().unwrap();
-                                        let mut dst = &mut data;
+                                        let mut dst = &mut buf.data;
                                         self.dsp.add_block(&mut dst, off, dstride, &self.v_coeffs, 8);
                                     }
                                 }
@@ -1337,7 +1325,7 @@ println!(" left {} bits", br.left());
             skip_cand.list[i] = MVInfo { f_mv: ZERO_MV, b_mv: ZERO_MV, mvref: MVRef::Ref0 };
         }
     }
-    fn deblock_cb_tree(&mut self, buf: &mut NAVideoBuffer<u8>, hdr: &FrameHeader, xpos: usize, ypos: usize, log_size: u8) {
+    fn deblock_cb_tree(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, xpos: usize, ypos: usize, log_size: u8) {
         if (xpos >= hdr.width) || (ypos >= hdr.height) { return; }
         let split = (log_size > 3) && self.cu_splits.pop().unwrap();
         if split {
@@ -1459,8 +1447,9 @@ println!("???");
             self.dblk.reinit(hdr.width, hdr.height);
         }
         let mut off = hsize + ((br.tell() >> 3) as usize);
+        let mut dframe = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
         for (cu_y, size) in slices.into_iter().enumerate() {
-            self.decode_cu_line(&mut buf, &hdr, &src[off..][..size], cu_y)?;
+            self.decode_cu_line(&mut dframe, &hdr, &src[off..][..size], cu_y)?;
             off += size;
         }
         if (hdr.ftype == FrameType::I) || (hdr.ftype == FrameType::P) {

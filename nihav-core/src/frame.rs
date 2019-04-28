@@ -256,6 +256,48 @@ impl NABufferType {
     }
 }
 
+const NA_SIMPLE_VFRAME_COMPONENTS: usize = 4;
+pub struct NASimpleVideoFrame<'a, T: Copy> {
+    pub width:      [usize; NA_SIMPLE_VFRAME_COMPONENTS],
+    pub height:     [usize; NA_SIMPLE_VFRAME_COMPONENTS],
+    pub flip:       bool,
+    pub stride:     [usize; NA_SIMPLE_VFRAME_COMPONENTS],
+    pub offset:     [usize; NA_SIMPLE_VFRAME_COMPONENTS],
+    pub components: usize,
+    pub data:       &'a mut Vec<T>,
+}
+
+impl<'a, T:Copy> NASimpleVideoFrame<'a, T> {
+    pub fn from_video_buf(vbuf: &'a mut NAVideoBuffer<T>) -> Option<Self> {
+        let vinfo = vbuf.get_info();
+        let components = vinfo.format.components as usize;
+        if components > NA_SIMPLE_VFRAME_COMPONENTS {
+            return None;
+        }
+        let mut w: [usize; NA_SIMPLE_VFRAME_COMPONENTS] = [0; NA_SIMPLE_VFRAME_COMPONENTS];
+        let mut h: [usize; NA_SIMPLE_VFRAME_COMPONENTS] = [0; NA_SIMPLE_VFRAME_COMPONENTS];
+        let mut s: [usize; NA_SIMPLE_VFRAME_COMPONENTS] = [0; NA_SIMPLE_VFRAME_COMPONENTS];
+        let mut o: [usize; NA_SIMPLE_VFRAME_COMPONENTS] = [0; NA_SIMPLE_VFRAME_COMPONENTS];
+        for comp in 0..components {
+            let (width, height) = vbuf.get_dimensions(comp);
+            w[comp] = width;
+            h[comp] = height;
+            s[comp] = vbuf.get_stride(comp);
+            o[comp] = vbuf.get_offset(comp);
+        }
+        let flip = vinfo.flipped;
+        Some(NASimpleVideoFrame {
+            width:  w,
+            height: h,
+            flip,
+            stride: s,
+            offset: o,
+            components,
+            data: vbuf.data.as_mut().unwrap(),
+            })
+    }
+}
+
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum AllocatorError {
     TooLargeDimensions,

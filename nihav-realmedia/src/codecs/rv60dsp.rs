@@ -1,4 +1,4 @@
-use nihav_core::frame::NAVideoBuffer;
+use nihav_core::frame::{NAVideoBuffer, NASimpleVideoFrame};
 use nihav_core::codecs::MV;
 use nihav_core::codecs::blockdsp::edge_emu;
 
@@ -450,14 +450,13 @@ impl RV60DSP {
             sidx += sstride;
         }
     }
-    pub fn do_avg(&self, frame: &mut NAVideoBuffer<u8>, prev_frame: &NAVideoBuffer<u8>, x: usize, y: usize, w: usize, h: usize) {
+    pub fn do_avg(&self, frame: &mut NASimpleVideoFrame<u8>, prev_frame: &NAVideoBuffer<u8>, x: usize, y: usize, w: usize, h: usize) {
         for comp in 0..3 {
-            let dstride = frame.get_stride(comp);
+            let dstride = frame.stride[comp];
             let sstride = prev_frame.get_stride(comp);
-            let doff = if comp == 0 { x + y * dstride } else { frame.get_offset(comp) + (x >> 1) + (y >> 1) * dstride };
+            let doff = if comp == 0 { x + y * dstride } else { frame.offset[comp] + (x >> 1) + (y >> 1) * dstride };
             let soff = prev_frame.get_offset(comp);
-            let ddata = frame.get_data_mut().unwrap();
-            let dst: &mut [u8] = ddata.as_mut_slice();
+            let dst = &mut frame.data;
             let sdata = prev_frame.get_data();
             let src: &[u8] = sdata.as_slice();
 
@@ -468,12 +467,11 @@ impl RV60DSP {
             }
         }
     }
-    pub fn do_mc(&self, frame: &mut NAVideoBuffer<u8>, prev_frame: &NAVideoBuffer<u8>, x: usize, y: usize, w: usize, h: usize, mv: MV, avg: bool) {
+    pub fn do_mc(&self, frame: &mut NASimpleVideoFrame<u8>, prev_frame: &NAVideoBuffer<u8>, x: usize, y: usize, w: usize, h: usize, mv: MV, avg: bool) {
         { // luma
-            let dstride = frame.get_stride(0);
-            let doffset = frame.get_offset(0) + (if !avg { x + y * dstride } else { 0 });
-            let data = frame.get_data_mut().unwrap();
-            let dst: &mut [u8] = data.as_mut_slice();
+            let dstride = frame.stride[0];
+            let doffset = frame.offset[0] + (if !avg { x + y * dstride } else { 0 });
+            let dst = &mut frame.data;
 
             let (w_, h_) = prev_frame.get_dimensions(0);
             let fw = (w_ + 15) & !15;
@@ -510,25 +508,23 @@ impl RV60DSP {
         let ch = h >> 1;
 
         for comp in 1..3 { // chroma
-            let dstride = frame.get_stride(comp);
-            let doffset = frame.get_offset(comp) + (if !avg { (x >> 1) + (y >> 1) * dstride } else { 0 });
-            let data = frame.get_data_mut().unwrap();
-            let dst: &mut [u8] = data.as_mut_slice();
+            let dstride = frame.stride[comp];
+            let doffset = frame.offset[comp] + (if !avg { (x >> 1) + (y >> 1) * dstride } else { 0 });
             if check_pos(x >> 1, y >> 1, cw, ch, fw, fh, dx, dy, 0, 1, 0, 1) {
                 let sstride = prev_frame.get_stride(comp);
                 let mut soffset = prev_frame.get_offset(comp) + (x >> 1) + (y >> 1) * sstride;
                 let data = prev_frame.get_data();
                 let src: &[u8] = data.as_slice();
                 soffset = ((soffset as isize) + (dx as isize) + (dy as isize) * (sstride as isize)) as usize;
-                chroma_mc(dst, doffset, dstride, src, soffset, sstride, cw, ch, cx, cy);
+                chroma_mc(frame.data, doffset, dstride, src, soffset, sstride, cw, ch, cx, cy);
             } else {
                 let mut ebuf: [u8; 40*40] = [0; 40*40];
                 edge_emu(prev_frame, ((x >> 1) as isize) + (dx as isize), ((y >> 1) as isize) + (dy as isize), cw+1, ch+1, &mut ebuf, 40, comp);
-                chroma_mc(dst, doffset, dstride, &ebuf, 0, 40, cw, ch, cx, cy);
+                chroma_mc(frame.data, doffset, dstride, &ebuf, 0, 40, cw, ch, cx, cy);
             }
         }
     }
-    fn deblock_edge4_ver(&self, frame: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize,
+    fn deblock_edge4_ver(&self, frame: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize,
                          dblk_l: u8, dblk_r: u8, deblock_chroma: bool) {
         let qp_l  = dblk_l >> 2;
         let str_l = dblk_l & 3;
@@ -541,23 +537,19 @@ impl RV60DSP {
         let lim1 = dl_r[2] as i16;
         let lim2 = (dl_r[3] * 4) as i16;
         {
-            let stride = frame.get_stride(0);
-            let offset = frame.get_offset(0) + xpos + ypos * stride;
-            let data = frame.get_data_mut().unwrap();
-            let dst: &mut [u8] = data.as_mut_slice();
-            filter_luma_edge(dst, offset, 1, stride, mode_l, mode_r, lim1, lim2);
+            let stride = frame.stride[0];
+            let offset = frame.offset[0] + xpos + ypos * stride;
+            filter_luma_edge(frame.data, offset, 1, stride, mode_l, mode_r, lim1, lim2);
         }
         if ((str_l | str_r) >= 2) && deblock_chroma {
             for comp in 1..2 {
-                let stride = frame.get_stride(comp);
-                let offset = frame.get_offset(comp) + (xpos >> 1) + (ypos >> 1) * stride;
-                let data = frame.get_data_mut().unwrap();
-                let dst: &mut [u8] = data.as_mut_slice();
-                filter_chroma_edge(dst, offset, 1, stride, mode_l, mode_r, lim1, lim2);
+                let stride = frame.stride[comp];
+                let offset = frame.offset[comp] + (xpos >> 1) + (ypos >> 1) * stride;
+                filter_chroma_edge(frame.data, offset, 1, stride, mode_l, mode_r, lim1, lim2);
             }
         }
     }
-    fn deblock_edge4_hor(&self, frame: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize,
+    fn deblock_edge4_hor(&self, frame: &mut NASimpleVideoFrame<u8>, xpos: usize, ypos: usize,
                          dblk_t: u8, dblk_d: u8, deblock_chroma: bool) {
         let qp_t  = dblk_t >> 2;
         let str_t = dblk_t & 3;
@@ -570,23 +562,19 @@ impl RV60DSP {
         let lim1 = dl_d[2] as i16;
         let lim2 = (dl_d[3] * 4) as i16;
         {
-            let stride = frame.get_stride(0);
-            let offset = frame.get_offset(0) + xpos + ypos * stride;
-            let data = frame.get_data_mut().unwrap();
-            let dst: &mut [u8] = data.as_mut_slice();
-            filter_luma_edge(dst, offset, stride, 1, mode_t, mode_d, lim1, lim2);
+            let stride = frame.stride[0];
+            let offset = frame.offset[0] + xpos + ypos * stride;
+            filter_luma_edge(frame.data, offset, stride, 1, mode_t, mode_d, lim1, lim2);
         }
         if ((str_t | str_d) >= 2) && deblock_chroma {
             for comp in 1..2 {
-                let stride = frame.get_stride(comp);
-                let offset = frame.get_offset(comp) + (xpos >> 1) + (ypos >> 1) * stride;
-                let data = frame.get_data_mut().unwrap();
-                let dst: &mut [u8] = data.as_mut_slice();
-                filter_chroma_edge(dst, offset, stride, 1, mode_t, mode_d, lim1, lim2);
+                let stride = frame.stride[comp];
+                let offset = frame.offset[comp] + (xpos >> 1) + (ypos >> 1) * stride;
+                filter_chroma_edge(frame.data, offset, stride, 1, mode_t, mode_d, lim1, lim2);
             }
         }
     }
-    fn deblock8x8(&self, dparams: &RV60DeblockParams, frame: &mut NAVideoBuffer<u8>,
+    fn deblock8x8(&self, dparams: &RV60DeblockParams, frame: &mut NASimpleVideoFrame<u8>,
                   xpos: usize, ypos: usize, top_str: &[u8], left_str: &[u8], dblkpos: usize) {
         if xpos > 0 {
             if ypos > 0 {
@@ -635,7 +623,7 @@ impl RV60DSP {
             }
         }
     }
-    pub fn do_deblock(&self, dparams: &RV60DeblockParams, frame: &mut NAVideoBuffer<u8>,
+    pub fn do_deblock(&self, dparams: &RV60DeblockParams, frame: &mut NASimpleVideoFrame<u8>,
                       xpos: usize, ypos: usize, size: usize, top_str: &[u8], left_str: &[u8], dpos: usize) {
         for x in 0..(size >> 3) {
             self.deblock8x8(dparams, frame, xpos + x * 8, ypos,
