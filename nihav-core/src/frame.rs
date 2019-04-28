@@ -4,6 +4,7 @@ use std::fmt;
 pub use std::rc::Rc;
 pub use std::cell::*;
 pub use crate::formats::*;
+pub use crate::refs::*;
 
 #[allow(dead_code)]
 #[derive(Clone,Copy,PartialEq)]
@@ -102,12 +103,10 @@ impl fmt::Display for NACodecTypeInfo {
     }
 }
 
-pub type NABufferRefT<T> = Rc<RefCell<Vec<T>>>;
-
 #[derive(Clone)]
 pub struct NAVideoBuffer<T> {
     info:    NAVideoInfo,
-    data:    NABufferRefT<T>,
+    data:    NABufferRef<Vec<T>>,
     offs:    Vec<usize>,
     strides: Vec<usize>,
 }
@@ -118,16 +117,16 @@ impl<T: Clone> NAVideoBuffer<T> {
         else { self.offs[idx] }
     }
     pub fn get_info(&self) -> NAVideoInfo { self.info }
-    pub fn get_data(&self) -> Ref<Vec<T>> { self.data.borrow() }
-    pub fn get_data_mut(&mut self) -> RefMut<Vec<T>> { self.data.borrow_mut() }
+    pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
+    pub fn get_data_mut(&mut self) -> Option<&mut Vec<T>> { self.data.as_mut() }
     pub fn copy_buffer(&mut self) -> Self {
-        let mut data: Vec<T> = Vec::with_capacity(self.data.borrow().len());
-        data.clone_from(self.data.borrow().as_ref());
+        let mut data: Vec<T> = Vec::with_capacity(self.data.len());
+        data.clone_from(self.data.as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
         offs.clone_from(&self.offs);
         let mut strides: Vec<usize> = Vec::with_capacity(self.strides.len());
         strides.clone_from(&self.strides);
-        NAVideoBuffer { info: self.info, data: Rc::new(RefCell::new(data)), offs: offs, strides: strides }
+        NAVideoBuffer { info: self.info, data: NABufferRef::new(data), offs: offs, strides: strides }
     }
     pub fn get_stride(&self, idx: usize) -> usize {
         if idx >= self.strides.len() { return 0; }
@@ -141,7 +140,7 @@ impl<T: Clone> NAVideoBuffer<T> {
 #[derive(Clone)]
 pub struct NAAudioBuffer<T> {
     info:   NAAudioInfo,
-    data:   NABufferRefT<T>,
+    data:   NABufferRef<Vec<T>>,
     offs:   Vec<usize>,
     chmap:  NAChannelMap,
     len:    usize,
@@ -154,21 +153,21 @@ impl<T: Clone> NAAudioBuffer<T> {
     }
     pub fn get_info(&self) -> NAAudioInfo { self.info }
     pub fn get_chmap(&self) -> NAChannelMap { self.chmap.clone() }
-    pub fn get_data(&self) -> Ref<Vec<T>> { self.data.borrow() }
-    pub fn get_data_mut(&mut self) -> RefMut<Vec<T>> { self.data.borrow_mut() }
+    pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
+    pub fn get_data_mut(&mut self) -> Option<&mut Vec<T>> { self.data.as_mut() }
     pub fn copy_buffer(&mut self) -> Self {
-        let mut data: Vec<T> = Vec::with_capacity(self.data.borrow().len());
-        data.clone_from(self.data.borrow().as_ref());
+        let mut data: Vec<T> = Vec::with_capacity(self.data.len());
+        data.clone_from(self.data.as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
         offs.clone_from(&self.offs);
-        NAAudioBuffer { info: self.info, data: Rc::new(RefCell::new(data)), offs: offs, chmap: self.get_chmap(), len: self.len }
+        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs: offs, chmap: self.get_chmap(), len: self.len }
     }
     pub fn get_length(&self) -> usize { self.len }
 }
 
 impl NAAudioBuffer<u8> {
-    pub fn new_from_buf(info: NAAudioInfo, data: NABufferRefT<u8>, chmap: NAChannelMap) -> Self {
-        let len = data.borrow().len();
+    pub fn new_from_buf(info: NAAudioInfo, data: NABufferRef<Vec<u8>>, chmap: NAChannelMap) -> Self {
+        let len = data.len();
         NAAudioBuffer { info: info, data: data, chmap: chmap, offs: Vec::new(), len: len }
     }
 }
@@ -184,7 +183,7 @@ pub enum NABufferType {
     AudioI32   (NAAudioBuffer<i32>),
     AudioF32   (NAAudioBuffer<f32>),
     AudioPacked(NAAudioBuffer<u8>),
-    Data       (NABufferRefT<u8>),
+    Data       (NABufferRef<Vec<u8>>),
     None,
 }
 
@@ -309,7 +308,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         strides.push(stride);
         let mut data: Vec<u8> = Vec::with_capacity(new_size.unwrap());
         data.resize(new_size.unwrap(), 0);
-        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
+        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
         Ok(NABufferType::Video(buf))
     } else if !all_packed {
         for i in 0..fmt.get_num_comp() {
@@ -334,17 +333,17 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         if max_depth <= 8 {
             let mut data: Vec<u8> = Vec::with_capacity(new_size);
             data.resize(new_size, 0);
-            let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
+            let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
             Ok(NABufferType::Video(buf))
         } else if max_depth <= 16 {
             let mut data: Vec<u16> = Vec::with_capacity(new_size);
             data.resize(new_size, 0);
-            let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
+            let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
             Ok(NABufferType::Video16(buf))
         } else {
             let mut data: Vec<u32> = Vec::with_capacity(new_size);
             data.resize(new_size, 0);
-            let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
+            let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
             Ok(NABufferType::Video32(buf))
         }
     } else if all_bytealigned || unfit_elem_size {
@@ -357,7 +356,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         let mut data: Vec<u8> = Vec::with_capacity(new_size);
         data.resize(new_size, 0);
         strides.push(line_sz.unwrap());
-        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
+        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
         Ok(NABufferType::VideoPacked(buf))
     } else {
         let elem_sz = fmt.get_elem_size();
@@ -369,14 +368,14 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
                     let mut data: Vec<u16> = Vec::with_capacity(new_size);
                     data.resize(new_size, 0);
                     strides.push(width);
-                    let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
+                    let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
                     Ok(NABufferType::Video16(buf))
                 },
             4 => {
                     let mut data: Vec<u32> = Vec::with_capacity(new_size);
                     data.resize(new_size, 0);
                     strides.push(width);
-                    let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: Rc::new(RefCell::new(data)), info: vinfo, offs: offs, strides: strides };
+                    let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
                     Ok(NABufferType::Video32(buf))
                 },
             _ => unreachable!(),
@@ -397,7 +396,7 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
             if ainfo.format.get_bits() == 32 {
                 let mut data: Vec<f32> = Vec::with_capacity(length);
                 data.resize(length, 0.0);
-                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
+                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
                 Ok(NABufferType::AudioF32(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -406,12 +405,12 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
             if ainfo.format.get_bits() == 8 && !ainfo.format.is_signed() {
                 let mut data: Vec<u8> = Vec::with_capacity(length);
                 data.resize(length, 0);
-                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
+                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
                 Ok(NABufferType::AudioU8(buf))
             } else if ainfo.format.get_bits() == 16 && ainfo.format.is_signed() {
                 let mut data: Vec<i16> = Vec::with_capacity(length);
                 data.resize(length, 0);
-                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
+                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
                 Ok(NABufferType::AudioI16(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -423,7 +422,7 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         let length = ainfo.format.get_audio_size(len.unwrap() as u64);
         let mut data: Vec<u8> = Vec::with_capacity(length);
         data.resize(length, 0);
-        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: Rc::new(RefCell::new(data)), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
+        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
         Ok(NABufferType::AudioPacked(buf))
     }
 }
@@ -431,12 +430,58 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
 pub fn alloc_data_buffer(size: usize) -> Result<NABufferType, AllocatorError> {
     let mut data: Vec<u8> = Vec::with_capacity(size);
     data.resize(size, 0);
-    let buf: NABufferRefT<u8> = Rc::new(RefCell::new(data));
+    let buf: NABufferRef<Vec<u8>> = NABufferRef::new(data);
     Ok(NABufferType::Data(buf))
 }
 
 pub fn copy_buffer(buf: NABufferType) -> NABufferType {
     buf.clone()
+}
+
+pub struct NABufferPool {
+    pool:       Vec<NABufferRef<NABufferType>>,
+    max_len:    usize,
+}
+
+impl NABufferPool {
+    pub fn new(max_len: usize) -> Self {
+        Self {
+            pool:       Vec::with_capacity(max_len),
+            max_len,
+        }
+    }
+    pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
+        let nbufs = self.max_len - self.pool.len();
+        for _ in 0..nbufs {
+            let buf = alloc_video_buffer(vinfo.clone(), align)?;
+            self.pool.push(NABufferRef::new(buf));
+        }
+        Ok(())
+    }
+    pub fn prealloc_audio(&mut self, ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelMap) -> Result<(), AllocatorError> {
+        let nbufs = self.max_len - self.pool.len();
+        for _ in 0..nbufs {
+            let buf = alloc_audio_buffer(ainfo.clone(), nsamples, chmap.clone())?;
+            self.pool.push(NABufferRef::new(buf));
+        }
+        Ok(())
+    }
+    pub fn add(&mut self, buf: NABufferType) -> bool {
+        if self.pool.len() < self.max_len {
+            self.pool.push(NABufferRef::new(buf));
+            true
+        } else {
+            false
+        }
+    }
+    pub fn get_free(&mut self) -> Option<NABufferRef<NABufferType>> {
+        for e in self.pool.iter() {
+            if e.get_num_refs() == 1 {
+                return Some(e.clone());
+            }
+        }
+        None
+    }
 }
 
 #[allow(dead_code)]
@@ -690,7 +735,7 @@ impl fmt::Display for NAStream {
 pub struct NAPacket {
     stream:         Rc<NAStream>,
     ts:             NATimeInfo,
-    buffer:         Rc<Vec<u8>>,
+    buffer:         NABufferRef<Vec<u8>>,
     keyframe:       bool,
 //    options:        HashMap<String, NAValue<'a>>,
 }
@@ -699,7 +744,7 @@ impl NAPacket {
     pub fn new(str: Rc<NAStream>, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
-        NAPacket { stream: str, ts: ts, keyframe: kf, buffer: Rc::new(vec) }
+        NAPacket { stream: str, ts: ts, keyframe: kf, buffer: NABufferRef::new(vec) }
     }
     pub fn get_stream(&self) -> Rc<NAStream> { self.stream.clone() }
     pub fn get_time_information(&self) -> NATimeInfo { self.ts }
@@ -707,7 +752,7 @@ impl NAPacket {
     pub fn get_dts(&self) -> Option<u64> { self.ts.get_dts() }
     pub fn get_duration(&self) -> Option<u64> { self.ts.get_duration() }
     pub fn is_keyframe(&self) -> bool { self.keyframe }
-    pub fn get_buffer(&self) -> Rc<Vec<u8>> { self.buffer.clone() }
+    pub fn get_buffer(&self) -> NABufferRef<Vec<u8>> { self.buffer.clone() }
 }
 
 impl Drop for NAPacket {

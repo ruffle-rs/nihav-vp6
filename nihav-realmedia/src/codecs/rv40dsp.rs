@@ -577,7 +577,7 @@ impl RV34DSP for RV40DSP {
             offs[comp] = frame.get_offset(comp) + start * stride[comp];
         }
 
-        let mut data = frame.get_data_mut();
+        let data = frame.get_data_mut().unwrap();
         let dst: &mut [u8] = data.as_mut_slice();
 
         let mut mb_pos: usize = row * mb_w;
@@ -810,7 +810,7 @@ impl RV34DSP for RV40DSP {
         let size: usize = if use16 { 16 } else { 8 };
         let dstride = frame.get_stride(0);
         let doffset = frame.get_offset(0) + (if !avg { x + y * dstride } else { 0 });
-        let mut data = frame.get_data_mut();
+        let data = frame.get_data_mut().unwrap();
         let dst: &mut [u8] = data.as_mut_slice();
 
         let (w_, h_) = prev_frame.get_dimensions(0);
@@ -840,7 +840,7 @@ impl RV34DSP for RV40DSP {
         let size: usize = if use8 { 8 } else { 4 };
         let dstride = frame.get_stride(comp);
         let doffset = frame.get_offset(comp) + (if !avg { x + y * dstride } else { 0 });
-        let mut data = frame.get_data_mut();
+        let data = frame.get_data_mut().unwrap();
         let dst: &mut [u8] = data.as_mut_slice();
 
         let (w_, h_) = prev_frame.get_dimensions(comp);

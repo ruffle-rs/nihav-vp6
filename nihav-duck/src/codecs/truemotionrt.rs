@@ -72,7 +72,7 @@ impl NADecoder for TMRTDecoder {
             let (w, h)  = buf.get_dimensions(plane);
             let off     = buf.get_offset(plane);
             let stride  = buf.get_stride(plane);
-            let mut data = buf.get_data_mut();
+            let data = buf.get_data_mut().unwrap();
             let dst = data.as_mut_slice();
             self.decode_plane(&mut br, dst, off, stride, w, h, hscale, dbits, plane > 0)?;
         }

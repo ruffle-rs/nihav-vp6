@@ -898,7 +898,7 @@ impl NADecoder for IMCDecoder {
 
         let abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
         let mut adata = abuf.get_abuf_f32().unwrap();
-        let mut dst = adata.get_data_mut();
+        let dst = adata.get_data_mut().unwrap();
 
         let mut start: usize = 0;
         let channels = self.ainfo.get_channels() as usize;

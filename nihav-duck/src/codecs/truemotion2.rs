@@ -520,7 +520,7 @@ impl TM2Decoder {
                     fmt.get_chromaton(1).unwrap().get_offset() as usize,
                     fmt.get_chromaton(2).unwrap().get_offset() as usize];
         let stride = buf.get_stride(0);
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let dst = data.as_mut_slice();
 
         let mut off = 0;

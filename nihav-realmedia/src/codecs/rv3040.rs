@@ -735,7 +735,7 @@ fn do_avg(cdsp: &RV34CommonDSP, buf: &mut NAVideoBuffer<u8>, avg_buf: &NAVideoBu
         let csize = if comp == 0 { size } else { size >> 1 };
         let dstride = buf.get_stride(comp);
         let doffset = buf.get_offset(comp) + xoff + yoff * dstride;
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let dst: &mut [u8] = data.as_mut_slice();
 
         let sstride = avg_buf.get_stride(comp);
@@ -839,7 +839,7 @@ impl RV34Decoder {
             }
             let stride = buf.get_stride(0);
             let mut offset = buf.get_offset(0) + sstate.mb_x * 16 + sstate.mb_y * 16 * stride;
-            let mut data = buf.get_data_mut();
+            let data = buf.get_data_mut().unwrap();
             let framebuf: &mut [u8] = data.as_mut_slice();
 
             if is_16 {
@@ -890,7 +890,7 @@ impl RV34Decoder {
         for comp in 1..3 {
             let stride = buf.get_stride(comp);
             let mut offset = buf.get_offset(comp) + sstate.mb_x * 8 + sstate.mb_y * 8 * stride;
-            let mut data = buf.get_data_mut();
+            let data = buf.get_data_mut().unwrap();
             let framebuf: &mut [u8] = data.as_mut_slice();
             if is_16 {
                 let im8 = imode.get_pred8_type(sstate.has_top, sstate.has_left);
@@ -1015,7 +1015,7 @@ impl RV34Decoder {
             }
             let stride = buf.get_stride(0);
             let mut offset = buf.get_offset(0) + sstate.mb_x * 16 + sstate.mb_y * 16 * stride;
-            let mut data = buf.get_data_mut();
+            let data = buf.get_data_mut().unwrap();
             let framebuf: &mut [u8] = data.as_mut_slice();
 
             for y in 0..4 {
@@ -1050,7 +1050,7 @@ impl RV34Decoder {
         for comp in 1..3 {
             let stride = buf.get_stride(comp);
             let mut offset = buf.get_offset(comp) + sstate.mb_x * 8 + sstate.mb_y * 8 * stride;
-            let mut data = buf.get_data_mut();
+            let data = buf.get_data_mut().unwrap();
             let framebuf: &mut [u8] = data.as_mut_slice();
             for _ in 0..2 {
                 for x in 0..2 {

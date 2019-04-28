@@ -1201,7 +1201,7 @@ impl NADecoder for AudioDecoder {
 
         let abuf = alloc_audio_buffer(ainfo, duration, bsi.acmod.get_channel_map(bsi.lfeon))?;
         let mut adata = abuf.get_abuf_f32().unwrap();
-        let mut output = adata.get_data_mut();
+        let output = adata.get_data_mut().unwrap();
 
         self.ablk = AudioBlock::new();
         for blk in 0..NBLOCKS {

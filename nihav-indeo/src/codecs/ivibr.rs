@@ -393,7 +393,7 @@ impl FrameData {
         let (w, h)   = vb.get_dimensions(dplane);
         let mut didx = vb.get_offset(dplane);
         let dstride  = vb.get_stride(dplane);
-        let mut dst  = vb.get_data_mut();
+        let dst      = vb.get_data_mut().unwrap();
         let src      = &self.plane_buf[plane];
         let mut sidx = 0;
         let sstride  = self.plane_stride[plane];
@@ -883,7 +883,7 @@ br.skip(skip_part as u32)?;
                     let (w, h)  = vb.get_dimensions(dplane);
                     let dstride = vb.get_stride(dplane);
                     let off     = vb.get_offset(dplane);
-                    let mut dst = vb.get_data_mut();
+                    let dst = vb.get_data_mut().unwrap();
                     dec.recombine_plane(&frame.plane_buf[plane], frame.plane_stride[plane], &mut dst[off..], dstride, w, h);
                 }
             }

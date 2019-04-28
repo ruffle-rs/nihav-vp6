@@ -49,9 +49,7 @@ impl NADecoder for PCMDecoder {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let duration = get_duration(&ainfo, pkt.get_duration(), pkt.get_buffer().len());
             let pktbuf = pkt.get_buffer();
-            let mut buf: Vec<u8> = Vec::with_capacity(pktbuf.len());
-            buf.clone_from(&pktbuf);
-            let abuf = NAAudioBuffer::new_from_buf(ainfo, Rc::new(RefCell::new(buf)), self.chmap.clone());
+            let abuf = NAAudioBuffer::new_from_buf(ainfo, pktbuf, self.chmap.clone());
             let mut frm = NAFrame::new_from_pkt(pkt, info, NABufferType::AudioPacked(abuf));
             frm.set_duration(Some(duration));
             frm.set_keyframe(true);

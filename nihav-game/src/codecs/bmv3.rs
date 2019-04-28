@@ -491,7 +491,7 @@ impl NADecoder for BMV3VideoDecoder {
         {
             let mut buf = bufinfo.get_vbuf16().unwrap();
             let stride = buf.get_stride(0);
-            let mut data = buf.get_data_mut();
+            let data = buf.get_data_mut().unwrap();
             let dst = data.as_mut_slice();
 
             let refbuf = &self.frame[self.stride..];
@@ -571,7 +571,7 @@ impl NADecoder for BMV3AudioDecoder {
             let abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
             let mut adata = abuf.get_abuf_i16().unwrap();
             let off1 = adata.get_offset(1);
-            let mut dst = adata.get_data_mut();
+            let dst = adata.get_data_mut().unwrap();
             let mut first = pktbuf[0] == 0;
             let psrc = &pktbuf[1..];
             for (n, src) in psrc.chunks_exact(41).enumerate() {

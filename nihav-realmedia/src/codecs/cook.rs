@@ -433,7 +433,7 @@ impl CookChannelPair {
         for ch in 0..self.mode.get_channels() {
             let off = abuf.get_offset(ch + self.start_ch);
             let mut adata = abuf.get_abuf_f32().unwrap();
-            let mut output = adata.get_data_mut();
+            let output = adata.get_data_mut().unwrap();
             let dst = &mut output[off..];
 
             dsp.imdct.imdct(&self.block[ch], &mut dsp.out);

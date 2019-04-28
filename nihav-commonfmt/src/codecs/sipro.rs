@@ -682,7 +682,7 @@ impl NADecoder for SiproDecoder {
 
         let abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
         let mut adata = abuf.get_abuf_f32().unwrap();
-        let mut dst = adata.get_data_mut();
+        let dst = adata.get_data_mut().unwrap();
 
         let frame_len = self.mode.subframe_len * self.mode.subframes;
         for (input, output) in pktbuf.chunks(frm_size).zip(dst.chunks_mut(out_frm_size)) {

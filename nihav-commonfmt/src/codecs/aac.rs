@@ -966,7 +966,7 @@ impl ChannelPair {
     }
     fn synth_audio(&mut self, dsp: &mut DSP, abuf: &mut NABufferType, srate_idx: usize) {
         let mut adata = abuf.get_abuf_f32().unwrap();
-        let mut output = adata.get_data_mut();
+        let output = adata.get_data_mut().unwrap();
         let off0 = abuf.get_offset(self.channel);
         let off1 = abuf.get_offset(self.channel + 1);
         self.ics[0].synth_channel(dsp, &mut output[off0..], srate_idx);

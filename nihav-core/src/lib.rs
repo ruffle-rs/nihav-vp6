@@ -7,6 +7,7 @@ pub mod demuxers;
 pub mod formats;
 pub mod frame;
 pub mod io;
+pub mod refs;
 pub mod register;
 pub mod detect;
 

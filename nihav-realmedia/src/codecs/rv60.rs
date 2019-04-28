@@ -740,7 +740,7 @@ println!(" left {} bits", br.left());
                         if !split_i4x4 {
                             let dstride = buf.get_stride(0);
                             let off = xpos + ypos * dstride;
-                            let mut data = buf.get_data_mut();
+                            let mut data = buf.get_data_mut().unwrap();
                             let dst = &mut data;
                             self.populate_ipred(hdr, dst, 0, dstride, 0, 0, size, true);
                             self.ipred.pred_angle(dst, off, dstride, size, itype as usize, true);
@@ -749,7 +749,7 @@ println!(" left {} bits", br.left());
                             let dstride = buf.get_stride(comp);
                             let soff = buf.get_offset(comp);
                             let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                            let mut data = buf.get_data_mut();
+                            let mut data = buf.get_data_mut().unwrap();
                             let mut dst = &mut data;
                             self.populate_ipred(hdr, dst, soff, dstride, 0, 0, size >> 1, false);
                             self.ipred.pred_angle(&mut dst, off, dstride, size >> 1, itype as usize, false);
@@ -848,7 +848,7 @@ println!(" left {} bits", br.left());
                                             self.dsp.transform4x4(&mut self.y_coeffs[i * 16..][..16]);
                                             let dstride = buf.get_stride(0);
                                             let off = xpos + x * 4 + (ypos + y * 4) * dstride;
-                                            let mut data = buf.get_data_mut();
+                                            let mut data = buf.get_data_mut().unwrap();
                                             let mut dst = &mut data;
                                             self.dsp.add_block(&mut dst, off, dstride, &self.y_coeffs[i*16..][..16], 4);
                                         }
@@ -863,7 +863,7 @@ println!(" left {} bits", br.left());
                                             self.dsp.transform4x4(&mut self.u_coeffs[i * 16..][..16]);
                                             let dstride = buf.get_stride(1);
                                             let off = buf.get_offset(1) + xoff + yoff * dstride;
-                                            let mut data = buf.get_data_mut();
+                                            let mut data = buf.get_data_mut().unwrap();
                                             let mut dst = &mut data;
                                             self.dsp.add_block(&mut dst, off, dstride, &self.u_coeffs[i * 16..][..16], 4);
                                         }
@@ -871,7 +871,7 @@ println!(" left {} bits", br.left());
                                             self.dsp.transform4x4(&mut self.v_coeffs[i * 16..][..16]);
                                             let dstride = buf.get_stride(2);
                                             let off = buf.get_offset(2) + xoff + yoff * dstride;
-                                            let mut data = buf.get_data_mut();
+                                            let mut data = buf.get_data_mut().unwrap();
                                             let mut dst = &mut data;
                                             self.dsp.add_block(&mut dst, off, dstride, &self.v_coeffs[i * 16..][..16], 4);
                                         }
@@ -890,7 +890,7 @@ println!(" left {} bits", br.left());
                                 if split_i4x4 {
                                     let dstride = buf.get_stride(0);
                                     let off = xpos + xoff + (ypos + yoff) * dstride;
-                                    let mut data = buf.get_data_mut();
+                                    let mut data = buf.get_data_mut().unwrap();
                                     let mut dst = &mut data;
                                     self.populate_ipred(hdr, dst, 0, dstride, xoff, yoff, 4, true);
                                     let itype = self.blk_info[self.blk_pos + (i & 1) + (i >> 1) * self.blk_stride].imode;
@@ -902,7 +902,7 @@ println!(" left {} bits", br.left());
                                     let dstride = buf.get_stride(0);
                                     let soff = buf.get_offset(0);
                                     let off = soff + xpos + xoff + (ypos + yoff) * dstride;
-                                    let mut data = buf.get_data_mut();
+                                    let mut data = buf.get_data_mut().unwrap();
                                     let mut dst = &mut data;
                                     self.dsp.add_block(&mut dst, off, dstride, blk, 4);
                                 }
@@ -912,7 +912,7 @@ println!(" left {} bits", br.left());
                                 let dstride = buf.get_stride(1);
                                 let soff = buf.get_offset(1);
                                 let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                                let mut data = buf.get_data_mut();
+                                let mut data = buf.get_data_mut().unwrap();
                                 let mut dst = &mut data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.u_coeffs, 4);
                             }
@@ -921,7 +921,7 @@ println!(" left {} bits", br.left());
                                 let dstride = buf.get_stride(2);
                                 let soff = buf.get_offset(2);
                                 let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                                let mut data = buf.get_data_mut();
+                                let mut data = buf.get_data_mut().unwrap();
                                 let mut dst = &mut data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.v_coeffs, 4);
                             }
@@ -937,7 +937,7 @@ println!(" left {} bits", br.left());
                                 self.dsp.transform8x8(&mut self.y_coeffs);
                                 let dstride = buf.get_stride(0);
                                 let off = xpos + ypos * dstride;
-                                let mut data = buf.get_data_mut();
+                                let mut data = buf.get_data_mut().unwrap();
                                 let mut dst = &mut data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.y_coeffs, 8);
                             }
@@ -946,7 +946,7 @@ println!(" left {} bits", br.left());
                                 let dstride = buf.get_stride(1);
                                 let soff = buf.get_offset(1);
                                 let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                                let mut data = buf.get_data_mut();
+                                let mut data = buf.get_data_mut().unwrap();
                                 let mut dst = &mut data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.u_coeffs, 4);
                             }
@@ -955,7 +955,7 @@ println!(" left {} bits", br.left());
                                 let dstride = buf.get_stride(2);
                                 let soff = buf.get_offset(2);
                                 let off = soff + (xpos >> 1) + (ypos >> 1) * dstride;
-                                let mut data = buf.get_data_mut();
+                                let mut data = buf.get_data_mut().unwrap();
                                 let mut dst = &mut data;
                                 self.dsp.add_block(&mut dst, off, dstride, &self.v_coeffs, 4);
                             }
@@ -982,7 +982,7 @@ println!(" left {} bits", br.left());
                                         self.dsp.transform16x16(&mut self.y_coeffs);
                                         let dstride = buf.get_stride(0);
                                         let off = xpos + x * 16 + (ypos + y * 16) * dstride;
-                                        let mut data = buf.get_data_mut();
+                                        let mut data = buf.get_data_mut().unwrap();
                                         let mut dst = &mut data;
                                         self.dsp.add_block(&mut dst, off, dstride, &self.y_coeffs, 16);
                                     }
@@ -991,7 +991,7 @@ println!(" left {} bits", br.left());
                                         let dstride = buf.get_stride(1);
                                         let soff = buf.get_offset(1);
                                         let off = soff + (xpos >> 1) + x * 8 + ((ypos >> 1) + y * 8) * dstride;
-                                        let mut data = buf.get_data_mut();
+                                        let mut data = buf.get_data_mut().unwrap();
                                         let mut dst = &mut data;
                                         self.dsp.add_block(&mut dst, off, dstride, &self.u_coeffs, 8);
                                     }
@@ -1000,7 +1000,7 @@ println!(" left {} bits", br.left());
                                         let dstride = buf.get_stride(2);
                                         let soff = buf.get_offset(2);
                                         let off = soff + (xpos >> 1) + x * 8 + ((ypos >> 1) + y * 8) * dstride;
-                                        let mut data = buf.get_data_mut();
+                                        let mut data = buf.get_data_mut().unwrap();
                                         let mut dst = &mut data;
                                         self.dsp.add_block(&mut dst, off, dstride, &self.v_coeffs, 8);
                                     }

@@ -8,7 +8,7 @@ pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     let mut idxu = buf.get_offset(1) + xpos *  8 + ypos *  8 * strideu;
     let mut idxv = buf.get_offset(2) + xpos *  8 + ypos *  8 * stridev;
 
-    let mut data = buf.get_data_mut();
+    let data = buf.get_data_mut().unwrap();
     let framebuf: &mut [u8] = data.as_mut_slice();
 
     for j in 0..8 {
@@ -62,7 +62,7 @@ pub fn add_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     let mut idxu = buf.get_offset(1) + xpos *  8 + ypos *  8 * strideu;
     let mut idxv = buf.get_offset(2) + xpos *  8 + ypos *  8 * stridev;
 
-    let mut data = buf.get_data_mut();
+    let data = buf.get_data_mut().unwrap();
     let framebuf: &mut [u8] = data.as_mut_slice();
 
     for j in 0..8 {
@@ -149,7 +149,7 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
         for comp in 0..3 {
             let dstride = dst.get_stride(comp);
             let doff    = dst.get_offset(comp);
-            let mut ddta    = dst.get_data_mut();
+            let ddta    = dst.get_data_mut().unwrap();
             let dbuf: &mut [u8] = ddta.as_mut_slice();
             let x   = if comp > 0 { dx/2 } else { dx };
             let y   = if comp > 0 { dy/2 } else { dy };
@@ -171,7 +171,7 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
             let sbuf: &[u8] = sdta.as_slice();
             let dstride = dst.get_stride(comp);
             let doff    = dst.get_offset(comp);
-            let mut ddta    = dst.get_data_mut();
+            let ddta    = dst.get_data_mut().unwrap();
             let dbuf: &mut [u8] = ddta.as_mut_slice();
             let x   = if comp > 0 { dx/2 } else { dx };
             let y   = if comp > 0 { dy/2 } else { dy };

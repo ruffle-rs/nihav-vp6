@@ -65,7 +65,7 @@ impl Buffers {
             let width  = if planeno == 0 { self.width }  else { self.width >> 2 };
             let height = if planeno == 0 { self.height } else { self.height >> 2 };
             let src = if self.fbuf { &self.buf1[0..] } else { &self.buf2[0..] };
-            let mut dst = fbuf.get_data_mut();
+            let dst = fbuf.get_data_mut().unwrap();
             for _ in 0..height {
                 for x in 0..width {
                     dst[doff + x] = src[soff + x] * 2;

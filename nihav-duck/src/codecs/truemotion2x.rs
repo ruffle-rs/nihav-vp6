@@ -180,7 +180,7 @@ impl TM2XDecoder {
     fn output_frame(&mut self, buf: &mut NAVideoBuffer<u8>) {
         let mut offs = [ buf.get_offset(0), buf.get_offset(1), buf.get_offset(2) ];
         let strides = [ buf.get_stride(0), buf.get_stride(1), buf.get_stride(2) ];
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let dst = data.as_mut_slice();
 
         let mut pos = self.cur_frame.stride;

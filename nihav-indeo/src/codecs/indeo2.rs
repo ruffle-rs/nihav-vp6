@@ -207,7 +207,7 @@ impl Indeo2Decoder {
         let stride = buf.get_stride(planeno);
         let cb = &self.cb;
 
-        let mut data = buf.get_data_mut();
+        let  data = buf.get_data_mut().unwrap();
         let framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];
@@ -270,7 +270,7 @@ impl Indeo2Decoder {
         let stride = buf.get_stride(planeno);
         let cb = &self.cb;
 
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];

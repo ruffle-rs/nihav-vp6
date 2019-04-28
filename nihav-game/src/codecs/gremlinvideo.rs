@@ -141,7 +141,7 @@ impl GremlinVideoDecoder {
         let mut buf = bufo.unwrap();
         let paloff = buf.get_offset(1);
         let stride = buf.get_stride(0);
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let dst = data.as_mut_slice();
         let mut sidx = PREAMBLE_SIZE;
         let mut didx = 0;
@@ -531,7 +531,7 @@ impl NADecoder for GremlinAudioDecoder {
             let abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
             let mut adata = abuf.get_abuf_i16().unwrap();
             let off1 = adata.get_offset(1);
-            let mut buf = adata.get_data_mut();
+            let buf = adata.get_data_mut().unwrap();
             if self.chmap.num_channels() == 2 {
                 for (i, e) in pktbuf.chunks(2).enumerate() {
                     self.state0 = self.state0.wrapping_add(self.delta_tab[e[0] as usize]);

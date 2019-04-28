@@ -303,7 +303,7 @@ impl RALFDecoder {
         let ch0 = abuf.get_offset(0) + self.sample_offset;
         let ch1 = abuf.get_offset(1) + self.sample_offset;
         let mut adata = abuf.get_abuf_i16().unwrap();
-        let mut output = adata.get_data_mut();
+        let output = adata.get_data_mut().unwrap();
         match dmode {
             0 => {
                     for i in 0..length {

@@ -625,7 +625,7 @@ impl NADecoder for TM1Decoder {
             if let Some(mut buf) = self.lastframe.get16() {
                 let stride = buf.get_stride(0);
                 {
-                    let mut data = buf.get_data_mut();
+                    let data = buf.get_data_mut().unwrap();
                     if !is_sprite {
                         self.decode_16bit(data.as_mut_slice(), stride, out_width, height, &mut mask, &mut index)?;
                     } else {
@@ -644,7 +644,7 @@ impl NADecoder for TM1Decoder {
             if let Some(mut buf) = self.lastframe.get24() {
                 let stride = buf.get_stride(0);
                 {
-                    let mut data = buf.get_data_mut();
+                    let data = buf.get_data_mut().unwrap();
                     self.decode_24bit(data.as_mut_slice(), stride, out_width, height, &mut mask, &mut index)?;
                 }
                 bufinfo = NABufferType::VideoPacked(buf);

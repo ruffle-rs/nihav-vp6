@@ -456,7 +456,7 @@ impl RV60DSP {
             let sstride = prev_frame.get_stride(comp);
             let doff = if comp == 0 { x + y * dstride } else { frame.get_offset(comp) + (x >> 1) + (y >> 1) * dstride };
             let soff = prev_frame.get_offset(comp);
-            let mut ddata = frame.get_data_mut();
+            let ddata = frame.get_data_mut().unwrap();
             let dst: &mut [u8] = ddata.as_mut_slice();
             let sdata = prev_frame.get_data();
             let src: &[u8] = sdata.as_slice();
@@ -472,7 +472,7 @@ impl RV60DSP {
         { // luma
             let dstride = frame.get_stride(0);
             let doffset = frame.get_offset(0) + (if !avg { x + y * dstride } else { 0 });
-            let mut data = frame.get_data_mut();
+            let data = frame.get_data_mut().unwrap();
             let dst: &mut [u8] = data.as_mut_slice();
 
             let (w_, h_) = prev_frame.get_dimensions(0);
@@ -512,7 +512,7 @@ impl RV60DSP {
         for comp in 1..3 { // chroma
             let dstride = frame.get_stride(comp);
             let doffset = frame.get_offset(comp) + (if !avg { (x >> 1) + (y >> 1) * dstride } else { 0 });
-            let mut data = frame.get_data_mut();
+            let data = frame.get_data_mut().unwrap();
             let dst: &mut [u8] = data.as_mut_slice();
             if check_pos(x >> 1, y >> 1, cw, ch, fw, fh, dx, dy, 0, 1, 0, 1) {
                 let sstride = prev_frame.get_stride(comp);
@@ -543,7 +543,7 @@ impl RV60DSP {
         {
             let stride = frame.get_stride(0);
             let offset = frame.get_offset(0) + xpos + ypos * stride;
-            let mut data = frame.get_data_mut();
+            let data = frame.get_data_mut().unwrap();
             let dst: &mut [u8] = data.as_mut_slice();
             filter_luma_edge(dst, offset, 1, stride, mode_l, mode_r, lim1, lim2);
         }
@@ -551,7 +551,7 @@ impl RV60DSP {
             for comp in 1..2 {
                 let stride = frame.get_stride(comp);
                 let offset = frame.get_offset(comp) + (xpos >> 1) + (ypos >> 1) * stride;
-                let mut data = frame.get_data_mut();
+                let data = frame.get_data_mut().unwrap();
                 let dst: &mut [u8] = data.as_mut_slice();
                 filter_chroma_edge(dst, offset, 1, stride, mode_l, mode_r, lim1, lim2);
             }
@@ -572,7 +572,7 @@ impl RV60DSP {
         {
             let stride = frame.get_stride(0);
             let offset = frame.get_offset(0) + xpos + ypos * stride;
-            let mut data = frame.get_data_mut();
+            let data = frame.get_data_mut().unwrap();
             let dst: &mut [u8] = data.as_mut_slice();
             filter_luma_edge(dst, offset, stride, 1, mode_t, mode_d, lim1, lim2);
         }
@@ -580,7 +580,7 @@ impl RV60DSP {
             for comp in 1..2 {
                 let stride = frame.get_stride(comp);
                 let offset = frame.get_offset(comp) + (xpos >> 1) + (ypos >> 1) * stride;
-                let mut data = frame.get_data_mut();
+                let data = frame.get_data_mut().unwrap();
                 let dst: &mut [u8] = data.as_mut_slice();
                 filter_chroma_edge(dst, offset, stride, 1, mode_t, mode_d, lim1, lim2);
             }

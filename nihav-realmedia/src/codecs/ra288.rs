@@ -174,7 +174,7 @@ impl NADecoder for RA288Decoder {
 
         let abuf = alloc_audio_buffer(self.ainfo, duration, self.chmap.clone())?;
         let mut adata = abuf.get_abuf_f32().unwrap();
-        let mut dst = adata.get_data_mut();
+        let dst = adata.get_data_mut().unwrap();
 
         for (input, output) in pktbuf.chunks(FRAME_SIZE).zip(dst.chunks_mut(NBLOCKS * BLOCKSIZE)) {
             let mut br = BitReader::new(input, input.len(), BitReaderMode::LE);

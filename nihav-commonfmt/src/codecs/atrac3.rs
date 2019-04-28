@@ -681,7 +681,7 @@ impl NADecoder for Atrac3Decoder {
 
         let abuf = alloc_audio_buffer(ainfo, ATRAC3_FRAME_SIZE, self.chmap.clone())?;
         let mut adata = abuf.get_abuf_f32().unwrap();
-        let mut output = adata.get_data_mut();
+        let output = adata.get_data_mut().unwrap();
 
         for ch in 0..self.channels {
             let dpos = abuf.get_offset(ch);

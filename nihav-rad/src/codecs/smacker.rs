@@ -361,7 +361,7 @@ impl SmackerVideoDecoder {
     }
     fn output_frame(&self, buf: &mut NAVideoBuffer<u8>) {
         let stride = buf.get_stride(0);
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let dst = data.as_mut_slice();
         let is_scaled = (self.flags & SMK_FLAG_SCALED) != 0;
         let is_interlaced = (self.flags & SMK_FLAG_INTERLACED) != 0;
@@ -453,7 +453,7 @@ impl NADecoder for SmackerVideoDecoder {
             is_intra = self.decode_frame(&mut br)?;
             self.output_frame(&mut buf);
             let paloff = buf.get_offset(1);
-            let mut data = buf.get_data_mut();
+            let data = buf.get_data_mut().unwrap();
             let dst = data.as_mut_slice();
             let palout = &mut dst[paloff..][..PAL_SIZE];
             palout.copy_from_slice(&src[0..PAL_SIZE]);
@@ -543,7 +543,7 @@ impl NADecoder for SmackerAudioDecoder {
                 abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
                 let mut adata = abuf.get_abuf_i16().unwrap();
                 let offs: [usize; 2] = [0, adata.get_offset(1)];
-                let mut dst = adata.get_data_mut();
+                let dst = adata.get_data_mut().unwrap();
                 for ch in 0..nch {
                     dst[offs[ch]] = pred[ch];
                 }
@@ -559,7 +559,7 @@ impl NADecoder for SmackerAudioDecoder {
                 samples = unp_size / nch;
                 abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
                 let mut adata = abuf.get_abuf_u8().unwrap();
-                let mut dst = adata.get_data_mut();
+                let dst = adata.get_data_mut().unwrap();
                 if stereo {
                     let mut trees: [SmackerTree8; 2] = [SmackerTree8::new(), SmackerTree8::new()];
                     trees[0].decode(&mut br)?;

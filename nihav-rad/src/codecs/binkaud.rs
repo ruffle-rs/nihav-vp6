@@ -242,7 +242,7 @@ impl NADecoder for BinkAudioDecoder {
             let mut adata = abuf.get_abuf_f32().unwrap();
             let mut off0 = adata.get_offset(0);
             let mut off1 = adata.get_offset(1);
-            let mut dst = adata.get_data_mut();
+            let dst = adata.get_data_mut().unwrap();
 
             let num_subframes = nsamples / self.duration / self.chmap.num_channels() / 2;
 

@@ -81,7 +81,7 @@ impl NADecoder for DuckADPCMDecoder {
             let mut adata = abuf.get_abuf_i16().unwrap();
             let mut off0 = adata.get_offset(0);
             let mut off1 = adata.get_offset(1);
-            let mut dst = adata.get_data_mut();
+            let dst = adata.get_data_mut().unwrap();
 
             for blk in pktbuf.chunks_exact(self.block_len) {
                 let mut mr = MemoryReader::new_read(blk);

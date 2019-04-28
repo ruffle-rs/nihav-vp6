@@ -169,7 +169,7 @@ impl VMDVideoDecoder {
     fn decode_frame(&mut self, br: &mut ByteReader, buf: &mut NAVideoBuffer<u8>) -> DecoderResult<bool> {
         let paloff = buf.get_offset(1);
         let stride = buf.get_stride(0);
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let dst = data.as_mut_slice();
 
         let frame_x                             = br.read_u16le()? as usize;
@@ -398,11 +398,11 @@ impl NADecoder for VMDAudioDecoder {
             if self.is16bit {
                 let mut adata = abuf.get_abuf_i16().unwrap();
                 let off1 = adata.get_offset(1);
-                let mut dst = adata.get_data_mut();
+                let mut dst = adata.get_data_mut().unwrap();
                 self.decode_16bit(&mut dst, off1, &mut br, nblocks, mask)?;
             } else {
                 let mut adata = abuf.get_abuf_u8().unwrap();
-                let mut dst = adata.get_data_mut();
+                let dst = adata.get_data_mut().unwrap();
                 let mut doff = 0;
                 let mut mask = mask;
                 let channels = self.chmap.num_channels();

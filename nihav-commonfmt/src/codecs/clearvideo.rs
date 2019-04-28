@@ -270,7 +270,7 @@ fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i32
     let mut idxu = buf.get_offset(1) + xpos *  8 + ypos *  8 * strideu;
     let mut idxv = buf.get_offset(2) + xpos *  8 + ypos *  8 * stridev;
 
-    let mut data = buf.get_data_mut();
+    let data = buf.get_data_mut().unwrap();
     let framebuf: &mut [u8] = data.as_mut_slice();
 
     for j in 0..8 {
@@ -328,7 +328,7 @@ fn copy_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
     let sbuf: &[u8] = sdta.as_slice();
     let dstride     = dst.get_stride(plane);
     let mut doff    = dst.get_offset(plane) + x + y * dstride;
-    let mut ddta    = dst.get_data_mut();
+    let ddta        = dst.get_data_mut().unwrap();
     let dbuf: &mut [u8] = ddta.as_mut_slice();
     for _ in 0..size {
         let dst = &mut dbuf[doff..][..size];
@@ -351,7 +351,7 @@ fn copyadd_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
     let sbuf: &[u8] = sdta.as_slice();
     let dstride     = dst.get_stride(plane);
     let mut doff    = dst.get_offset(plane) + x + y * dstride;
-    let mut ddta    = dst.get_data_mut();
+    let ddta        = dst.get_data_mut().unwrap();
     let dbuf: &mut [u8] = ddta.as_mut_slice();
     for _ in 0..size {
         let dst = &mut dbuf[doff..][..size];
@@ -404,7 +404,7 @@ fn extend_edges(buf: &mut NAVideoBuffer<u8>, tile_size: usize) {
         let size = if comp == 0 { tile_size } else { tile_size >> 1 };
         let stride = buf.get_stride(comp);
         let planeoff = buf.get_offset(comp);
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let framebuf: &mut [u8] = data.as_mut_slice();
 
         let right  = size - (w & (size - 1));

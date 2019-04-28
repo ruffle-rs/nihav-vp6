@@ -1027,7 +1027,7 @@ impl Bink2Decoder {
         let (mut off_y, mut off_u, mut off_v, mut off_a) = (buf.get_offset(0), buf.get_offset(1), buf.get_offset(2), buf.get_offset(3));
         let (ooff_y, ooff_u, ooff_v, ooff_a) = (off_y, off_u, off_v, off_a);
         let (width, height) = buf.get_dimensions(0);
-        let mut data = buf.get_data_mut();
+        let data = buf.get_data_mut().unwrap();
         let dst = data.as_mut_slice();
         let bw = (width  + 31) >> 5;
         let bheight = (height + 31) >> 5;
