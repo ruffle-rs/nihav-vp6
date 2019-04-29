@@ -136,7 +136,7 @@ impl RMAudioStream {
         }
         RMAudioStream { deint: deint, iinfo: iinfo, buf: buf, sub_packet: 0 }
     }
-    fn read_apackets(&mut self, queued_packets: &mut Vec<NAPacket>, src: &mut ByteReader, stream: Rc<NAStream>, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
+    fn read_apackets(&mut self, queued_packets: &mut Vec<NAPacket>, src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
         let (tb_num, tb_den) = stream.get_timebase();
         let ts = NATimeInfo::new(Some(ts as u64), None, None, tb_num, tb_den);
 
@@ -379,7 +379,7 @@ fn read_14or30(src: &mut ByteReader) -> DemuxerResult<(bool, u32)> {
     }
 }
 
-fn read_video_buf(src: &mut ByteReader, stream: Rc<NAStream>, ts: u32, keyframe: bool, frame_size: usize) -> DemuxerResult<NAPacket> {
+fn read_video_buf(src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: bool, frame_size: usize) -> DemuxerResult<NAPacket> {
     let size = (frame_size as usize) + 9;
     let mut vec: Vec<u8> = Vec::with_capacity(size);
     vec.resize(size, 0);
@@ -392,7 +392,7 @@ fn read_video_buf(src: &mut ByteReader, stream: Rc<NAStream>, ts: u32, keyframe:
     Ok(NAPacket::new(stream, ts, keyframe, vec))
 }
 
-fn read_multiple_frame(src: &mut ByteReader, stream: Rc<NAStream>, keyframe: bool, skip_mtype: bool) -> DemuxerResult<NAPacket> {
+fn read_multiple_frame(src: &mut ByteReader, stream: NAStreamRef, keyframe: bool, skip_mtype: bool) -> DemuxerResult<NAPacket> {
     if !skip_mtype {
         let mtype       = src.read_byte()?;
         validate!(mtype == 0xC0);
@@ -554,7 +554,7 @@ println!(" got ainfo {:?}", ainfo);
         Ok(())
     }
 #[allow(unused_variables)]
-    fn parse_packet_payload(src: &mut ByteReader, rmstream: &mut RMStreamType, stream: Rc<NAStream>, slice_buf: &mut Vec<u8>, queued_pkts: &mut Vec<NAPacket>, keyframe: bool, ts: u32, payload_size: usize) -> DemuxerResult<NAPacket> {
+    fn parse_packet_payload(src: &mut ByteReader, rmstream: &mut RMStreamType, stream: NAStreamRef, slice_buf: &mut Vec<u8>, queued_pkts: &mut Vec<NAPacket>, keyframe: bool, ts: u32, payload_size: usize) -> DemuxerResult<NAPacket> {
         match rmstream {
             RMStreamType::Video(ref mut vstr) => {
 

@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use nihav_core::demuxers::*;
 
 macro_rules! validate {

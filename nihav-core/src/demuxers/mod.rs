@@ -1,4 +1,3 @@
-use std::rc::Rc;
 pub use crate::frame::*;
 pub use crate::io::byteio::*;
 
@@ -23,12 +22,12 @@ pub trait DemuxCore<'a> {
 }
 
 pub trait NAPacketReader {
-    fn read_packet(&mut self, str: Rc<NAStream>, ts: NATimeInfo, keyframe: bool, size: usize) -> DemuxerResult<NAPacket>;
+    fn read_packet(&mut self, str: NAStreamRef, ts: NATimeInfo, keyframe: bool, size: usize) -> DemuxerResult<NAPacket>;
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()>;
 }
 
 impl<'a> NAPacketReader for ByteReader<'a> {
-    fn read_packet(&mut self, str: Rc<NAStream>, ts: NATimeInfo, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
+    fn read_packet(&mut self, str: NAStreamRef, ts: NATimeInfo, kf: bool, size: usize) -> DemuxerResult<NAPacket> {
         let mut buf: Vec<u8> = Vec::with_capacity(size);
         if buf.capacity() < size { return Err(DemuxerError::MemoryError); }
         buf.resize(size, 0);
@@ -47,7 +46,7 @@ impl<'a> NAPacketReader for ByteReader<'a> {
 }
 
 pub struct StreamManager {
-    streams: Vec<Rc<NAStream>>,
+    streams: Vec<NAStreamRef>,
     ignored: Vec<bool>,
     no_ign:  bool,
 }
@@ -66,18 +65,18 @@ impl StreamManager {
         let stream_num = self.streams.len();
         let mut str = stream.clone();
         str.set_num(stream_num);
-        self.streams.push(Rc::new(str));
+        self.streams.push(str.into_ref());
         self.ignored.push(false);
         Some(stream_num)
     }
-    pub fn get_stream(&self, idx: usize) -> Option<Rc<NAStream>> {
+    pub fn get_stream(&self, idx: usize) -> Option<NAStreamRef> {
         if idx < self.streams.len() {
             Some(self.streams[idx].clone())
         } else {
             None
         }
     }
-    pub fn get_stream_by_id(&self, id: u32) -> Option<Rc<NAStream>> {
+    pub fn get_stream_by_id(&self, id: u32) -> Option<NAStreamRef> {
         for i in 0..self.streams.len() {
             if self.streams[i].get_id() == id {
                 return Some(self.streams[i].clone());
@@ -117,18 +116,18 @@ impl StreamManager {
 }
 
 pub struct StreamIter<'a> {
-    streams:    &'a Vec<Rc<NAStream>>,
+    streams:    &'a Vec<NAStreamRef>,
     pos:        usize,
 }
 
 impl<'a> StreamIter<'a> {
-    pub fn new(streams: &'a Vec<Rc<NAStream>>) -> Self {
+    pub fn new(streams: &'a Vec<NAStreamRef>) -> Self {
         StreamIter { streams: streams, pos: 0 }
     }
 }
 
 impl<'a> Iterator for StreamIter<'a> {
-    type Item = Rc<NAStream>;
+    type Item = NAStreamRef;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.streams.len() { return None; }
@@ -150,10 +149,10 @@ impl<'a> Demuxer<'a> {
             streams:    str,
         }
     }
-    pub fn get_stream(&self, idx: usize) -> Option<Rc<NAStream>> {
+    pub fn get_stream(&self, idx: usize) -> Option<NAStreamRef> {
         self.streams.get_stream(idx)
     }
-    pub fn get_stream_by_id(&self, id: u32) -> Option<Rc<NAStream>> {
+    pub fn get_stream_by_id(&self, id: u32) -> Option<NAStreamRef> {
         self.streams.get_stream_by_id(id)
     }
     pub fn get_num_streams(&self) -> usize {

@@ -739,6 +739,8 @@ pub struct NAStream {
     tb_den:         u32,
 }
 
+pub type NAStreamRef = Arc<NAStream>;
+
 pub fn reduce_timebase(tb_num: u32, tb_den: u32) -> (u32, u32) {
     if tb_num == 0 { return (tb_num, tb_den); }
     if (tb_den % tb_num) == 0 { return (1, tb_den / tb_num); }
@@ -769,6 +771,7 @@ impl NAStream {
         self.tb_num = n;
         self.tb_den = d;
     }
+    pub fn into_ref(self) -> NAStreamRef { Arc::new(self) }
 }
 
 impl fmt::Display for NAStream {
@@ -779,7 +782,7 @@ impl fmt::Display for NAStream {
 
 #[allow(dead_code)]
 pub struct NAPacket {
-    stream:         Rc<NAStream>,
+    stream:         NAStreamRef,
     ts:             NATimeInfo,
     buffer:         NABufferRef<Vec<u8>>,
     keyframe:       bool,
@@ -787,12 +790,12 @@ pub struct NAPacket {
 }
 
 impl NAPacket {
-    pub fn new(str: Rc<NAStream>, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
+    pub fn new(str: NAStreamRef, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
         NAPacket { stream: str, ts: ts, keyframe: kf, buffer: NABufferRef::new(vec) }
     }
-    pub fn get_stream(&self) -> Rc<NAStream> { self.stream.clone() }
+    pub fn get_stream(&self) -> NAStreamRef { self.stream.clone() }
     pub fn get_time_information(&self) -> NATimeInfo { self.ts }
     pub fn get_pts(&self) -> Option<u64> { self.ts.get_pts() }
     pub fn get_dts(&self) -> Option<u64> { self.ts.get_dts() }
