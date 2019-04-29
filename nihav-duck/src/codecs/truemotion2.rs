@@ -331,7 +331,7 @@ impl TM2Frame {
 
 #[derive(Default)]
 struct TM2Decoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     streams:    [TM2Stream; TM2StreamType::Num as usize],
     width:      usize,
     height:     usize,
@@ -546,14 +546,14 @@ impl TM2Decoder {
 }
 
 impl NADecoder for TM2Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, YUV410_FORMAT));
             self.width  = vinfo.get_width();
             self.height = vinfo.get_height();
             self.cur_frame  = TM2Frame::alloc(self.width, self.height);
             self.prev_frame = TM2Frame::alloc(self.width, self.height);
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)

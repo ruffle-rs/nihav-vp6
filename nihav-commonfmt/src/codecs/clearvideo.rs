@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::io::byteio::{ByteReader,MemoryReader};
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
@@ -430,7 +428,7 @@ fn extend_edges(buf: &mut NAVideoBuffer<u8>, tile_size: usize) {
 
 #[allow(dead_code)]
 struct ClearVideoDecoder {
-    info:    Rc<NACodecInfo>,
+    info:    NACodecInfoRef,
     dc_cb:   Codebook<i8>,
     ac_cb:   Codebook<u16>,
     frmmgr:  HAMShuffler,
@@ -530,7 +528,7 @@ fn decode_tile_info(br: &mut BitReader, lc: &[LevelCodes], level: usize) -> Deco
 
 impl ClearVideoDecoder {
     fn new(is_rm: bool) -> Self {
-        let dummy_info = Rc::new(DUMMY_CODEC_INFO);
+        let dummy_info = NACodecInfo::new_dummy();
         let mut coderead = CLVDCCodeReader{};
         let dc_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let mut coderead = CLVACCodeReader{};
@@ -683,7 +681,7 @@ impl ClearVideoDecoder {
 }
 
 impl NADecoder for ClearVideoDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if info.get_extradata().is_none() { return Err(DecoderError::InvalidData); }
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
@@ -691,7 +689,7 @@ impl NADecoder for ClearVideoDecoder {
             let f = vinfo.is_flipped();
             let fmt = formats::YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, f, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.frmmgr.clear();
             let edata = info.get_extradata().unwrap();
 //todo detect simply by extradata contents?

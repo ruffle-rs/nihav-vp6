@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
@@ -523,7 +521,7 @@ impl RND {
 }
 
 struct CookDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     chmap:      NAChannelMap,
     src:        [u8; 65536],
     num_pairs:  usize,
@@ -553,7 +551,7 @@ impl CookDecoder {
 }
 
 impl NADecoder for CookDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let edata = info.get_extradata().unwrap();
             validate!(edata.len() >= 4);

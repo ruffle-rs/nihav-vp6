@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::{Ref, RefCell};
 use nihav_core::io::bitreader::*;
 use nihav_core::formats;
 use nihav_core::frame::*;
@@ -493,7 +491,7 @@ impl IndeoXParser for Indeo5Parser {
 }
 
 struct Indeo5Decoder {
-    info:   Rc<NACodecInfo>,
+    info:   NACodecInfoRef,
     dec:    IVIDecoder,
     ip:     Indeo5Parser,
 }
@@ -509,14 +507,14 @@ impl Indeo5Decoder {
 }
 
 impl NADecoder for Indeo5Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
             let f = vinfo.is_flipped();
             let fmt = formats::YUV410_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, f, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)

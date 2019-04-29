@@ -474,7 +474,7 @@ impl Default for QuantMats {
 
 #[derive(Default)]
 struct BinkDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     ips:        IPShuffler,
     hams:       HAMShuffler,
 
@@ -1157,7 +1157,7 @@ const BINK_FLAG_ALPHA:  u32 = 0x00100000;
 const BINK_FLAG_GRAY:   u32 = 0x00020000;
 
 impl NADecoder for BinkDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
@@ -1192,7 +1192,7 @@ impl NADecoder for BinkDecoder {
                                            None, None, None, None, 0, 1);
             }
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             //self.init_bundle_lengths(w.max(8), (w + 7) >> 3);
             self.init_bundle_bufs((w + 7) >> 3, (h + 7) >> 3);

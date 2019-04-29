@@ -2,7 +2,6 @@ use std::fmt;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 pub use crate::frame::*;
-pub use std::rc::Rc;
 use std::mem;
 use crate::io::byteio::ByteIOError;
 use crate::io::bitreader::BitReaderError;
@@ -232,7 +231,7 @@ impl fmt::Display for MV {
 
 
 pub trait NADecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()>;
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()>;
     fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef>;
 }
 

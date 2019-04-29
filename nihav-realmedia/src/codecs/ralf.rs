@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
@@ -246,7 +244,7 @@ struct Block {
 
 const RALF_MAX_PACKET_SIZE: usize = 8192;
 struct RALFDecoder {
-    info:           Rc<NACodecInfo>,
+    info:           NACodecInfoRef,
     chmap:          NAChannelMap,
     channels:       u8,
 
@@ -357,7 +355,7 @@ fn read_block_length(br: &mut BitReader) -> DecoderResult<usize> {
 }
 
 impl NADecoder for RALFDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let edata = info.get_extradata().unwrap();
 

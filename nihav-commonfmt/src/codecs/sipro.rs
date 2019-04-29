@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
@@ -28,7 +26,7 @@ const EXCITATION_OFFSET: usize = 281 + 10 + 1;
 struct SiproDecoder {
     chmap:              NAChannelMap,
     ainfo:              NAAudioInfo,
-    info:               Rc<NACodecInfo>,
+    info:               NACodecInfoRef,
     mode:               &'static SiproModeInfo,
     mode_type:          SiproMode,
 
@@ -640,7 +638,7 @@ fn synth_filter(dst: &mut [f32], doff: usize, filt: &[f32], src: &[f32], len: us
 const CHMAP_MONO: [NAChannelType; 1] = [NAChannelType::C];
 
 impl NADecoder for SiproDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let mut found = false;
             for i in 0..SIPRO_MODES.len() {

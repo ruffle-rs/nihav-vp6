@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::*;
 use nihav_core::codecs::*;
 
@@ -35,7 +33,7 @@ fn get_duration(ainfo: &NAAudioInfo, duration: Option<u64>, data_size: usize) ->
 }
 
 impl NADecoder for PCMDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.chmap = get_default_chmap(ainfo.get_channels());
             if self.chmap.num_channels() == 0 { return Err(DecoderError::InvalidData); }

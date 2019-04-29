@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::formats;
@@ -21,7 +19,7 @@ struct Tables {
 }
 
 struct Intel263Decoder {
-    info:    Rc<NACodecInfo>,
+    info:    NACodecInfoRef,
     dec:     H263BaseDecoder,
     tables:  Tables,
     bdsp:    H263BlockDSP,
@@ -357,7 +355,7 @@ impl Intel263Decoder {
         };
 
         Intel263Decoder{
-            info:           Rc::new(DUMMY_CODEC_INFO),
+            info:           NACodecInfo::new_dummy(),
             dec:            H263BaseDecoder::new(true),
             tables:         tables,
             bdsp:           H263BlockDSP::new(),
@@ -366,13 +364,13 @@ impl Intel263Decoder {
 }
 
 impl NADecoder for Intel263Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
             let fmt = formats::YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)

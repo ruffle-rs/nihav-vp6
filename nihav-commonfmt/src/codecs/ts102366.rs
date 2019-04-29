@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
@@ -116,7 +114,7 @@ fn do_imdct_core(fft: &mut FFT, xsc: &[FFTComplex; BLOCK_LEN/2], size: usize, il
 }
 
 struct AudioDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     ablk:       AudioBlock,
     imdct512:   IMDCTContext,
     imdct256:   IMDCTContext,
@@ -1159,7 +1157,7 @@ impl AudioBlock {
 }
 
 impl NADecoder for AudioDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             self.info = info.clone();
             Ok(())

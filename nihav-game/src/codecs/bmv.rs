@@ -101,16 +101,15 @@ impl<'a> BMVWriter<'a> {
 }
 
 struct BMVVideoDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     pal:        [u8; 768],
     frame:      [u8; FRAME_W * FRAME_H],
 }
 
 impl BMVVideoDecoder {
     fn new() -> Self {
-        let dummy_info = Rc::new(DUMMY_CODEC_INFO);
         Self {
-            info: dummy_info, pal: [0; 768], frame: [0; FRAME_W * FRAME_H],
+            info: NACodecInfoRef::default(), pal: [0; 768], frame: [0; FRAME_W * FRAME_H],
         }
     }
     fn decode_frame(&mut self, src: &[u8], bufinfo: &mut NABufferType, line: i16) -> DecoderResult<()> {
@@ -170,7 +169,7 @@ impl BMVVideoDecoder {
 }
 
 impl NADecoder for BMVVideoDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(_vinfo) = info.get_properties() {
             let fmt = NAPixelFormaton::new(ColorModel::RGB(RGBSubmodel::RGB),
                                            Some(NAPixelChromaton::new(0, 0, true, 8, 0, 0, 3)),
@@ -179,7 +178,7 @@ impl NADecoder for BMVVideoDecoder {
                                            None, None,
                                            FORMATON_FLAG_PALETTE, 3);
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(FRAME_W, FRAME_H, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             Ok(())
         } else {
@@ -258,7 +257,7 @@ fn scale_sample(samp: u8, scale: i32) -> i16 {
 }
 
 impl NADecoder for BMVAudioDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), formats::SND_S16P_FORMAT, 32);
             self.chmap = NAChannelMap::from_str("L,R").unwrap();

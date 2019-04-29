@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
@@ -17,7 +15,7 @@ const GAIN_START: usize = 28;
 struct RA288Decoder {
     chmap:  NAChannelMap,
     ainfo:  NAAudioInfo,
-    info:   Rc<NACodecInfo>,
+    info:   NACodecInfoRef,
 
     speech_lpc:     [f32; SP_LPC_ORDER],
     speech_hist:    [f32; 111],
@@ -153,7 +151,7 @@ impl RA288Decoder {
 }
 
 impl NADecoder for RA288Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.chmap.add_channels(&CHMAP_MONO);
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(),

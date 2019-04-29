@@ -69,7 +69,7 @@ impl NibbleReader {
 }
 
 struct BMV3VideoDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     stride:     usize,
     height:     usize,
     frame:      Vec<u16>,
@@ -85,7 +85,6 @@ struct BMV3VideoDecoder {
 
 impl BMV3VideoDecoder {
     fn new() -> Self {
-        let dummy_info = Rc::new(DUMMY_CODEC_INFO);
         let mut frame1 = Vec::with_capacity(BMV_MAX_SIZE);
         frame1.resize(BMV_MAX_SIZE, 0);
         let mut frame2 = Vec::with_capacity(BMV_MAX_SIZE);
@@ -103,7 +102,7 @@ impl BMV3VideoDecoder {
         }
 
         Self {
-            info:       dummy_info,
+            info:       NACodecInfoRef::default(),
             stride:     0,
             height:     0,
             frame:      frame1,
@@ -442,10 +441,10 @@ impl BMV3VideoDecoder {
 }
 
 impl NADecoder for BMV3VideoDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB565_FORMAT));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             self.stride = vinfo.get_width();
             self.height = vinfo.get_height();
@@ -553,7 +552,7 @@ fn decode_block(mode: u8, src: &[u8], dst: &mut [i16], mut pred: i16) -> i16 {
 }
 
 impl NADecoder for BMV3AudioDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), formats::SND_S16P_FORMAT, 32);
             self.chmap = NAChannelMap::from_str("L,R").unwrap();

@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
@@ -1107,7 +1105,7 @@ impl DSP {
 }
 
 struct AACDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     chmap:      NAChannelMap,
     m4ainfo:    M4AInfo,
     pairs:      Vec<ChannelPair>,
@@ -1205,7 +1203,7 @@ impl AACDecoder {
 }
 
 impl NADecoder for AACDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let edata = info.get_extradata().unwrap();
             validate!(edata.len() >= 2);

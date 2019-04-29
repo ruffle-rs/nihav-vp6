@@ -161,7 +161,7 @@ impl Frame {
 
 #[derive(Default)]
 struct TM2XDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     width:      usize,
     height:     usize,
     dec_buf:    Vec<u8>,
@@ -556,7 +556,7 @@ impl TM2XDecoder {
 }
 
 impl NADecoder for TM2XDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
                                            Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
@@ -568,7 +568,7 @@ impl NADecoder for TM2XDecoder {
             self.height = vinfo.get_height();
             self.cur_frame.resize(self.width, self.height);
             self.ref_frame.resize(self.width, self.height);
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)

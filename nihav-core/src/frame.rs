@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fmt;
 pub use std::rc::Rc;
 pub use std::cell::*;
+use std::sync::Arc;
 pub use crate::formats::*;
 pub use crate::refs::*;
 
@@ -531,22 +532,25 @@ impl NABufferPool {
 pub struct NACodecInfo {
     name:       &'static str,
     properties: NACodecTypeInfo,
-    extradata:  Option<Rc<Vec<u8>>>,
+    extradata:  Option<Arc<Vec<u8>>>,
 }
+
+pub type NACodecInfoRef = Arc<NACodecInfo>;
 
 impl NACodecInfo {
     pub fn new(name: &'static str, p: NACodecTypeInfo, edata: Option<Vec<u8>>) -> Self {
         let extradata = match edata {
             None => None,
-            Some(vec) => Some(Rc::new(vec)),
+            Some(vec) => Some(Arc::new(vec)),
         };
         NACodecInfo { name: name, properties: p, extradata: extradata }
     }
-    pub fn new_ref(name: &'static str, p: NACodecTypeInfo, edata: Option<Rc<Vec<u8>>>) -> Self {
+    pub fn new_ref(name: &'static str, p: NACodecTypeInfo, edata: Option<Arc<Vec<u8>>>) -> Self {
         NACodecInfo { name: name, properties: p, extradata: edata }
     }
+    pub fn into_ref(self) -> NACodecInfoRef { Arc::new(self) }
     pub fn get_properties(&self) -> NACodecTypeInfo { self.properties }
-    pub fn get_extradata(&self) -> Option<Rc<Vec<u8>>> {
+    pub fn get_extradata(&self) -> Option<Arc<Vec<u8>>> {
         if let Some(ref vec) = self.extradata { return Some(vec.clone()); }
         None
     }
@@ -559,11 +563,11 @@ impl NACodecInfo {
         if let NACodecTypeInfo::Audio(_) = self.properties { return true; }
         false
     }
-    pub fn new_dummy() -> Rc<Self> {
-        Rc::new(DUMMY_CODEC_INFO)
+    pub fn new_dummy() -> Arc<Self> {
+        Arc::new(DUMMY_CODEC_INFO)
     }
-    pub fn replace_info(&self, p: NACodecTypeInfo) -> Rc<Self> {
-        Rc::new(NACodecInfo { name: self.name, properties: p, extradata: self.extradata.clone() })
+    pub fn replace_info(&self, p: NACodecTypeInfo) -> Arc<Self> {
+        Arc::new(NACodecInfo { name: self.name, properties: p, extradata: self.extradata.clone() })
     }
 }
 
@@ -592,7 +596,7 @@ pub enum NAValue {
     Int(i32),
     Long(i64),
     String(String),
-    Data(Rc<Vec<u8>>),
+    Data(Arc<Vec<u8>>),
 }
 
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -643,7 +647,7 @@ impl NATimeInfo {
 pub struct NAFrame {
     ts:             NATimeInfo,
     buffer:         NABufferType,
-    info:           Rc<NACodecInfo>,
+    info:           NACodecInfoRef,
     ftype:          FrameType,
     key:            bool,
     options:        HashMap<String, NAValue>,
@@ -664,12 +668,12 @@ impl NAFrame {
     pub fn new(ts:             NATimeInfo,
                ftype:          FrameType,
                keyframe:       bool,
-               info:           Rc<NACodecInfo>,
+               info:           NACodecInfoRef,
                options:        HashMap<String, NAValue>,
                buffer:         NABufferType) -> Self {
         NAFrame { ts: ts, buffer: buffer, info: info, ftype: ftype, key: keyframe, options: options }
     }
-    pub fn get_info(&self) -> Rc<NACodecInfo> { self.info.clone() }
+    pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
     pub fn get_frame_type(&self) -> FrameType { self.ftype }
     pub fn is_keyframe(&self) -> bool { self.key }
     pub fn set_frame_type(&mut self, ftype: FrameType) { self.ftype = ftype; }
@@ -730,7 +734,7 @@ pub struct NAStream {
     media_type:     StreamType,
     id:             u32,
     num:            usize,
-    info:           Rc<NACodecInfo>,
+    info:           NACodecInfoRef,
     tb_num:         u32,
     tb_den:         u32,
 }
@@ -753,12 +757,12 @@ pub fn reduce_timebase(tb_num: u32, tb_den: u32) -> (u32, u32) {
 impl NAStream {
     pub fn new(mt: StreamType, id: u32, info: NACodecInfo, tb_num: u32, tb_den: u32) -> Self {
         let (n, d) = reduce_timebase(tb_num, tb_den);
-        NAStream { media_type: mt, id: id, num: 0, info: Rc::new(info), tb_num: n, tb_den: d }
+        NAStream { media_type: mt, id: id, num: 0, info: info.into_ref(), tb_num: n, tb_den: d }
     }
     pub fn get_id(&self) -> u32 { self.id }
     pub fn get_num(&self) -> usize { self.num }
     pub fn set_num(&mut self, num: usize) { self.num = num; }
-    pub fn get_info(&self) -> Rc<NACodecInfo> { self.info.clone() }
+    pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
     pub fn get_timebase(&self) -> (u32, u32) { (self.tb_num, self.tb_den) }
     pub fn set_timebase(&mut self, tb_num: u32, tb_den: u32) {
         let (n, d) = reduce_timebase(tb_num, tb_den);
@@ -814,12 +818,12 @@ impl fmt::Display for NAPacket {
 }
 
 pub trait FrameFromPacket {
-    fn new_from_pkt(pkt: &NAPacket, info: Rc<NACodecInfo>, buf: NABufferType) -> NAFrame;
+    fn new_from_pkt(pkt: &NAPacket, info: NACodecInfoRef, buf: NABufferType) -> NAFrame;
     fn fill_timestamps(&mut self, pkt: &NAPacket);
 }
 
 impl FrameFromPacket for NAFrame {
-    fn new_from_pkt(pkt: &NAPacket, info: Rc<NACodecInfo>, buf: NABufferType) -> NAFrame {
+    fn new_from_pkt(pkt: &NAPacket, info: NACodecInfoRef, buf: NABufferType) -> NAFrame {
         NAFrame::new(pkt.ts, FrameType::Other, pkt.keyframe, info, HashMap::new(), buf)
     }
     fn fill_timestamps(&mut self, pkt: &NAPacket) {

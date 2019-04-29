@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::formats;
@@ -186,14 +184,14 @@ impl CodebookDescReader<u8> for IR2CodeReader {
 }
 
 struct Indeo2Decoder {
-    info:    Rc<NACodecInfo>,
+    info:    NACodecInfoRef,
     cb:      Codebook<u8>,
     frmmgr:  HAMShuffler,
 }
 
 impl Indeo2Decoder {
     fn new() -> Self {
-        let dummy_info = Rc::new(DUMMY_CODEC_INFO);
+        let dummy_info = NACodecInfo::new_dummy();
         let mut coderead = IR2CodeReader{};
         let cb = Codebook::new(&mut coderead, CodebookMode::LSB).unwrap();
         Indeo2Decoder { info: dummy_info, cb: cb, frmmgr: HAMShuffler::new() }
@@ -309,14 +307,14 @@ impl Indeo2Decoder {
 const IR2_START: usize = 48;
 
 impl NADecoder for Indeo2Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
             let f = vinfo.is_flipped();
             let fmt = formats::YUV410_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, f, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.frmmgr.clear();
             Ok(())
         } else {

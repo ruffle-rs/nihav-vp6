@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
@@ -387,7 +385,7 @@ impl DSP {
 }
 
 struct Atrac3Decoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     channels:   usize,
     chmap:      NAChannelMap,
     samples:    usize,
@@ -555,7 +553,7 @@ fn interp(a: f32, b: f32, pos: usize) -> f32 {
 }
 
 impl NADecoder for Atrac3Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.info = info.clone();
             let edata = info.get_extradata().unwrap();

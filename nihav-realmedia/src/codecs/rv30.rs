@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::intcode::*;
@@ -104,7 +102,7 @@ impl RV34BitstreamDecoder for RealVideo30BR {
 
 struct RealVideo30Decoder {
     bd:         RealVideo30BR,
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     dec:        RV34Decoder,
 }
 
@@ -112,18 +110,18 @@ impl RealVideo30Decoder {
     fn new() -> Self {
         RealVideo30Decoder{
             bd:         RealVideo30BR::new(),
-            info:       Rc::new(DUMMY_CODEC_INFO),
+            info:       NACodecInfoRef::default(),
             dec:        RV34Decoder::new(true, Box::new(RV30DSP::new())),
         }
     }
 }
 
 impl NADecoder for RealVideo30Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let fmt = formats::YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             let edata = info.get_extradata().unwrap();
             let src: &[u8] = &edata;

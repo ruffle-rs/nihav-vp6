@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::formats;
@@ -32,7 +30,7 @@ struct RPRInfo {
 }
 
 struct RealVideo20Decoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     dec:        H263BaseDecoder,
     tables:     Tables,
     w:          usize,
@@ -445,7 +443,7 @@ impl RealVideo20Decoder {
         };
 
         RealVideo20Decoder{
-            info:           Rc::new(DUMMY_CODEC_INFO),
+            info:           NACodecInfoRef::default(),
             dec:            H263BaseDecoder::new_b_frames(false),
             tables:         tables,
             w:              0,
@@ -459,13 +457,13 @@ impl RealVideo20Decoder {
 
 impl NADecoder for RealVideo20Decoder {
 #[allow(unused_variables)]
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
             let fmt = formats::YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.w = w;
             self.h = h;
 

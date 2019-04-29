@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::frame::*;
 use nihav_core::codecs::{NADecoder, MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
@@ -610,7 +608,7 @@ impl DeblockInfo {
 }
 
 struct RealVideo60Decoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     cbs:        RV60Codebooks,
     ipbs:       IPBShuffler,
     dsp:        RV60DSP,
@@ -647,7 +645,7 @@ impl RealVideo60Decoder {
         let vb = vt.get_vbuf();
         let avg_buf = vb.unwrap();
         RealVideo60Decoder{
-            info:       Rc::new(DUMMY_CODEC_INFO),
+            info:       NACodecInfoRef::default(),
             cbs:        RV60Codebooks::init(),
             ipbs:       IPBShuffler::new(),
             ipred:      IntraPredContext::new(),
@@ -1393,11 +1391,11 @@ println!(" left {} bits", br.left());
 }
 
 impl NADecoder for RealVideo60Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(_vinfo) = info.get_properties() {
             let fmt = YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             let edata = info.get_extradata().unwrap();
             let src: &[u8] = &edata;

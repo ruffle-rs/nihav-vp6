@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::formats;
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
@@ -254,7 +252,7 @@ fn fill_block8x8(bufs: &mut Buffers, doff: usize, stride: usize, h: usize, topli
 }
 
 struct Indeo3Decoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     bpos:       u8,
     bbuf:       u8,
     width:      u16,
@@ -330,7 +328,7 @@ const SKIP_OR_TREE: u8 = 2;
 
 impl Indeo3Decoder {
     fn new() -> Self {
-        let dummy_info = Rc::new(DUMMY_CODEC_INFO);
+        let dummy_info = NACodecInfo::new_dummy();
         Indeo3Decoder { info: dummy_info, bpos: 0, bbuf: 0, width: 0, height: 0,
                         mvs: Vec::new(), altquant: [0; 16],
                         vq_offset: 0, bufs: Buffers::new() }
@@ -690,13 +688,13 @@ const FLAG_KEYFRAME: u16 = 1 << 2;
 const FLAG_NONREF:   u16 = 1 << 8;
 
 impl NADecoder for Indeo3Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
             let fmt = formats::YUV410_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.bufs.reset();
             Ok(())
         } else {

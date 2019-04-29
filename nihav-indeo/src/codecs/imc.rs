@@ -1,8 +1,6 @@
 use std::mem;
 use std::ptr;
 use std::f32::consts;
-use std::rc::Rc;
-use std::cell::RefCell;
 
 use nihav_core::formats::*;
 use nihav_core::frame::*;
@@ -323,7 +321,7 @@ struct IMCDecoder {
 
     chmap:  NAChannelMap,
     ainfo:  NAAudioInfo,
-    info:   Rc<NACodecInfo>,
+    info:   NACodecInfoRef,
 
     codes:  [[Codebook<u8>; 4]; 4],
     ch_data: [IMCChannel; 2],
@@ -867,7 +865,7 @@ const CHMAP_MONO: [NAChannelType; 1] = [NAChannelType::C];
 const CHMAP_STEREO: [NAChannelType; 2] = [NAChannelType::L, NAChannelType::R];
 
 impl NADecoder for IMCDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.chmap = NAChannelMap::new();
             match ainfo.get_channels() {

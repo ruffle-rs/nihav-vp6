@@ -996,7 +996,7 @@ impl Default for Bink2Codes {
 
 #[derive(Default)]
 struct Bink2Decoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     ips:        IPShuffler,
 
     version:    u32,
@@ -1858,7 +1858,7 @@ fn decode_acs_4blocks_old(br: &mut BitReader, codes: &Bink2Codes, dst: &mut [[f3
 const KB2H_NUM_SLICES: [usize; 4] = [ 2, 3, 4, 8 ];
 
 impl NADecoder for Bink2Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
@@ -1907,7 +1907,7 @@ impl NADecoder for Bink2Decoder {
                                            if self.has_alpha { FORMATON_FLAG_ALPHA } else { 0 },
                                            if self.has_alpha { 4 } else { 3 });
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             Ok(())
         } else {

@@ -147,7 +147,7 @@ fn decode_frame_data(br: &mut ByteReader, dst: &mut [u8], mut dpos: usize, strid
 }
 
 struct VMDVideoDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     pal:        [u8; 768],
     buf:        Vec<u8>,
     width:      usize,
@@ -158,7 +158,7 @@ struct VMDVideoDecoder {
 impl VMDVideoDecoder {
     fn new() -> Self {
         Self {
-            info:       Rc::new(NACodecInfo::default()),
+            info:       NACodecInfoRef::default(),
             pal:        [0; 768],
             buf:        Vec::new(),
             width:      0,
@@ -215,12 +215,12 @@ impl VMDVideoDecoder {
 }
 
 impl NADecoder for VMDVideoDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             self.width  = vinfo.get_width();
             self.height = vinfo.get_height();
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(self.width, self.height, false, PAL8_FORMAT));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             validate!(info.get_extradata().is_some());
 
             if let Some(ref edata) = info.get_extradata() {
@@ -351,7 +351,7 @@ impl VMDAudioDecoder {
 }
 
 impl NADecoder for VMDAudioDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let fmt;
             if ainfo.get_format().get_bits() == 8 {

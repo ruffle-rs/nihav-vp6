@@ -168,7 +168,7 @@ impl Default for FrameBuf {
 
 #[derive(Default)]
 struct TM1Decoder {
-    info:           Rc<NACodecInfo>,
+    info:           NACodecInfoRef,
     last_delta_set: usize,
     last_table_idx: usize,
     delta_tables:   DeltaTables,
@@ -515,10 +515,10 @@ impl TM1Decoder {
 }
 
 impl NADecoder for TM1Decoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, YUV410_FORMAT));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)

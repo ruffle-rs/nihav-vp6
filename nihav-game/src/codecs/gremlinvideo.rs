@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use nihav_core::frame::*;
 use nihav_core::formats;
 use nihav_core::formats::{NAChannelType, NAChannelMap};
@@ -7,7 +5,7 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 
 struct GremlinVideoDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     pal:        [u8; 768],
     frame:      Vec<u8>,
     scale_v:    bool,
@@ -61,9 +59,8 @@ impl Bits32 {
 
 impl GremlinVideoDecoder {
     fn new() -> Self {
-        let dummy_info = Rc::new(DUMMY_CODEC_INFO);
         GremlinVideoDecoder {
-            info: dummy_info, pal: [0; 768], frame: Vec::new(),
+            info: NACodecInfoRef::default(), pal: [0; 768], frame: Vec::new(),
             scale_v: false, scale_h: false
         }
     }
@@ -374,14 +371,14 @@ impl GremlinVideoDecoder {
 }
 
 impl NADecoder for GremlinVideoDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
             if !vinfo.get_format().is_paletted() { return Err(DecoderError::NotImplemented); }
             let fmt = formats::PAL8_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             self.frame.resize(PREAMBLE_SIZE + w * h, 0);
             for i in 0..2 {
@@ -513,7 +510,7 @@ fn get_default_chmap(nch: u8) -> NAChannelMap {
 }
 
 impl NADecoder for GremlinAudioDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), formats::SND_S16P_FORMAT, ainfo.get_block_len());
             self.chmap = get_default_chmap(ainfo.get_channels());

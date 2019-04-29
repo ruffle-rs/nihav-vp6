@@ -210,7 +210,7 @@ const SMK_BLOCK_RUNS: [usize; 64] = [
 ];
 
 struct SmackerVideoDecoder {
-    info:       Rc<NACodecInfo>,
+    info:       NACodecInfoRef,
     mmap_tree:  SmackerTree16,
     mclr_tree:  SmackerTree16,
     full_tree:  SmackerTree16,
@@ -227,9 +227,8 @@ struct SmackerVideoDecoder {
 
 impl SmackerVideoDecoder {
     fn new() -> Self {
-        let dummy_info = Rc::new(DUMMY_CODEC_INFO);
         Self {
-            info:       dummy_info,
+            info:       NACodecInfoRef::default(),
             mmap_tree:  SmackerTree16::new(),
             mclr_tree:  SmackerTree16::new(),
             full_tree:  SmackerTree16::new(),
@@ -388,7 +387,7 @@ impl SmackerVideoDecoder {
 }
 
 impl NADecoder for SmackerVideoDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
@@ -428,8 +427,7 @@ impl NADecoder for SmackerVideoDecoder {
                 out_h <<= 1;
             }
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, out_h, false, fmt));
-            self.info = Rc::new(NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()));
-
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             Ok(())
         } else {
@@ -494,7 +492,7 @@ impl SmackerAudioDecoder {
 }
 
 impl NADecoder for SmackerAudioDecoder {
-    fn init(&mut self, info: Rc<NACodecInfo>) -> DecoderResult<()> {
+    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.bits = ainfo.get_format().get_bits();
             let fmt = if self.bits == 8 { SND_U8_FORMAT } else { SND_S16P_FORMAT };
