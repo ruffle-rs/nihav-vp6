@@ -51,7 +51,7 @@ impl NADecoder for PCMDecoder {
             let mut frm = NAFrame::new_from_pkt(pkt, info, NABufferType::AudioPacked(abuf));
             frm.set_duration(Some(duration));
             frm.set_keyframe(true);
-            Ok(Rc::new(RefCell::new(frm)))
+            Ok(frm.into_ref())
         } else {
             Err(DecoderError::InvalidData)
         }

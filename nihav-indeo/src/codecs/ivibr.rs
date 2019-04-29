@@ -1,6 +1,6 @@
 use std::mem;
 use std::rc::Rc;
-use std::cell::{Ref,RefCell};
+pub use std::cell::{Ref,RefCell};
 use nihav_core::io::bitreader::*;
 //use io::intcode::*;
 use nihav_core::codecs::*;

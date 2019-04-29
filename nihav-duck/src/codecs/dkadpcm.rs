@@ -158,7 +158,7 @@ impl NADecoder for DuckADPCMDecoder {
             let mut frm = NAFrame::new_from_pkt(pkt, info, abuf);
             frm.set_duration(Some(duration as u64));
             frm.set_keyframe(false);
-            Ok(Rc::new(RefCell::new(frm)))
+            Ok(frm.into_ref())
         } else {
             Err(DecoderError::InvalidData)
         }

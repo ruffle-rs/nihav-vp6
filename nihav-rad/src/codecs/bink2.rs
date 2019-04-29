@@ -1933,7 +1933,7 @@ impl NADecoder for Bink2Decoder {
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_frame_type(if self.key_frame { FrameType::I } else { FrameType::P });
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

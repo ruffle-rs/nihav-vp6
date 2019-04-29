@@ -1458,7 +1458,7 @@ println!("???");
         frm.set_keyframe(hdr.ftype == FrameType::I);
         frm.set_pts(Some(hdr.ts as u64));
         frm.set_frame_type(hdr.ftype);
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

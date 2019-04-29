@@ -80,7 +80,7 @@ impl NADecoder for TMRTDecoder {
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(true);
         frm.set_frame_type(FrameType::I);
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

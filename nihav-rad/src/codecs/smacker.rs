@@ -465,7 +465,7 @@ impl NADecoder for SmackerVideoDecoder {
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(is_intra);
         frm.set_frame_type(ftype);
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 
@@ -514,7 +514,7 @@ impl NADecoder for SmackerAudioDecoder {
             if !br.read_bool()? {
                 let mut frm = NAFrame::new_from_pkt(pkt, info.clone(), NABufferType::None);
                 frm.set_frame_type(FrameType::Skip);
-                return Ok(Rc::new(RefCell::new(frm)));
+                return Ok(frm.into_ref());
             }
             let stereo                          = br.read_bool()?;
             let bits16                          = br.read_bool()?;
@@ -586,7 +586,7 @@ impl NADecoder for SmackerAudioDecoder {
             let mut frm = NAFrame::new_from_pkt(pkt, info, abuf);
             frm.set_duration(Some(samples as u64));
             frm.set_keyframe(false);
-            Ok(Rc::new(RefCell::new(frm)))
+            Ok(frm.into_ref())
         } else {
             Err(DecoderError::InvalidData)
         }

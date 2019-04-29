@@ -346,7 +346,7 @@ println!("???");
         frm.set_keyframe(ftype == FrameType::I);
         frm.set_frame_type(ftype);
         frm.set_pts(Some(ts));
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

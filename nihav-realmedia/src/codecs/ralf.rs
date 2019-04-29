@@ -417,7 +417,7 @@ impl NADecoder for RALFDecoder {
 
                 let mut frm = NAFrame::new_from_pkt(pkt, self.info.replace_info(NACodecTypeInfo::Audio(ainfo)), NABufferType::None);
                 frm.set_frame_type(FrameType::Skip);
-                return Ok(Rc::new(RefCell::new(frm)));
+                return Ok(frm.into_ref());
             }
             src_len = pktbuf.len();
         }
@@ -465,7 +465,7 @@ impl NADecoder for RALFDecoder {
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.replace_info(NACodecTypeInfo::Audio(ainfo)), abuf);
         frm.set_keyframe(true);
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

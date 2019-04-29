@@ -578,7 +578,7 @@ impl NADecoder for TM1Decoder {
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::None);
             frm.set_keyframe(false);
             frm.set_frame_type(FrameType::Skip);
-            return Ok(Rc::new(RefCell::new(frm)));
+            return Ok(frm.into_ref());
         }
         let compr_info = cinfo.unwrap();
         let is_24bit = !is_sprite && compr_info.is_24bit;
@@ -656,7 +656,7 @@ impl NADecoder for TM1Decoder {
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(is_intra || is_sprite);
         frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

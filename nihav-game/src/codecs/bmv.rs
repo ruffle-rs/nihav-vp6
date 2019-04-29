@@ -220,7 +220,7 @@ impl NADecoder for BMVVideoDecoder {
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(is_intra);
         frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 
@@ -294,7 +294,7 @@ impl NADecoder for BMVAudioDecoder {
             let mut frm = NAFrame::new_from_pkt(pkt, info, abuf);
             frm.set_duration(Some(samples as u64));
             frm.set_keyframe(false);
-            Ok(Rc::new(RefCell::new(frm)))
+            Ok(frm.into_ref())
         } else {
             Err(DecoderError::InvalidData)
         }

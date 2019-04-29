@@ -268,7 +268,7 @@ impl NADecoder for BinkAudioDecoder {
             let mut frm = NAFrame::new_from_pkt(pkt, info, abuf);
             frm.set_duration(Some(self.duration as u64));
             frm.set_keyframe(false);
-            Ok(Rc::new(RefCell::new(frm)))
+            Ok(frm.into_ref())
         } else {
             Err(DecoderError::InvalidData)
         }

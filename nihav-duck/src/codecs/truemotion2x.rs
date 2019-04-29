@@ -688,7 +688,7 @@ impl NADecoder for TM2XDecoder {
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(self.is_intra);
         frm.set_frame_type(if self.is_intra { FrameType::I } else { FrameType::P });
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

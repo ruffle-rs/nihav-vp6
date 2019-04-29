@@ -429,12 +429,12 @@ impl NADecoder for GremlinVideoDecoder {
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::None);
             frm.set_keyframe(false);
             frm.set_frame_type(FrameType::Skip);
-            return Ok(Rc::new(RefCell::new(frm)))
+            return Ok(frm.into_ref())
         } else if cmethod == 3 {
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::None);
             frm.set_keyframe(false);
             frm.set_frame_type(FrameType::Skip);
-            return Ok(Rc::new(RefCell::new(frm)))
+            return Ok(frm.into_ref())
         } else if cmethod == 2 {
             self.decode_method2(&mut br)?;
         } else if cmethod == 5 {
@@ -456,7 +456,7 @@ impl NADecoder for GremlinVideoDecoder {
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(is_intra);
         frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 
@@ -545,7 +545,7 @@ impl NADecoder for GremlinAudioDecoder {
             let mut frm = NAFrame::new_from_pkt(pkt, info, abuf);
             frm.set_duration(Some(samples as u64));
             frm.set_keyframe(false);
-            Ok(Rc::new(RefCell::new(frm)))
+            Ok(frm.into_ref())
         } else {
             Err(DecoderError::InvalidData)
         }

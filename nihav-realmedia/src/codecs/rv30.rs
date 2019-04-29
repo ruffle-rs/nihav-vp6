@@ -153,7 +153,7 @@ println!("???");
         frm.set_keyframe(ftype == FrameType::I);
         frm.set_pts(Some(pts));
         frm.set_frame_type(ftype);//if ftype == FrameType::B { FrameType::Skip } else { ftype } );
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

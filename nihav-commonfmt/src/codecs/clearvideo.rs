@@ -726,7 +726,7 @@ impl NADecoder for ClearVideoDecoder {
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::None);
             frm.set_keyframe(false);
             frm.set_frame_type(FrameType::Skip);
-            return Ok(Rc::new(RefCell::new(frm)));
+            return Ok(frm.into_ref());
         }
 
         let is_intra = (src[off] & 2) == 2;
@@ -757,7 +757,7 @@ impl NADecoder for ClearVideoDecoder {
         } else {
             frm.set_frame_type(FrameType::P);
         }
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

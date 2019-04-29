@@ -1260,7 +1260,7 @@ println!("decode frame {} b={} i={}", pkt.get_pts().unwrap(), self.is_ver_b, sel
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_frame_type(FrameType::P);
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

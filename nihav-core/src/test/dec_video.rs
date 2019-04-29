@@ -6,8 +6,7 @@ use crate::demuxers::*;
 //use crate::io::byteio::*;
 use super::wavwriter::WavWriter;
 
-fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
-    let frm = frmref.borrow();
+fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
     if let NABufferType::None = frm.get_buffer() { return; }
     let name = format!("assets/{}out{:02}_{:06}.pgm", pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
@@ -90,8 +89,7 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     }
 }
 
-fn write_palppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
-    let frm = frmref.borrow();
+fn write_palppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
     let name = format!("assets/{}out{:02}_{:06}.ppm", pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
     let buf = frm.get_buffer().get_vbuf().unwrap();
@@ -122,8 +120,7 @@ fn write_palppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
     }
 }
 
-fn write_ppm(pfx: &str, strno: usize, num: u64, frmref: NAFrameRef) {
-    let frm = frmref.borrow();
+fn write_ppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
     let name = format!("assets/{}out{:02}_{:06}.ppm", pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
     if let NABufferType::VideoPacked(ref buf) = frm.get_buffer() {
@@ -237,10 +234,10 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
         let streamno = pkt.get_stream().get_id() as usize;
         if let Some(ref mut dec) = decs[streamno] {
             let frm = dec.decode(&pkt).unwrap();
-            if pkt.get_stream().get_info().is_video() && video_pfx.is_some() && frm.borrow().get_frame_type() != FrameType::Skip {
+            if pkt.get_stream().get_info().is_video() && video_pfx.is_some() && frm.get_frame_type() != FrameType::Skip {
                 let pfx = video_pfx.unwrap();
-		let pts = if let Some(fpts) = frm.borrow().get_pts() { fpts } else { pkt.get_pts().unwrap() };
-                let vinfo = frm.borrow().get_buffer().get_video_info().unwrap();
+		let pts = if let Some(fpts) = frm.get_pts() { fpts } else { pkt.get_pts().unwrap() };
+                let vinfo = frm.get_buffer().get_video_info().unwrap();
                 if vinfo.get_format().is_paletted() {
                     write_palppm(pfx, streamno, pts, frm);
                 } else if vinfo.get_format().get_model().is_yuv() {
@@ -300,8 +297,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
         }
         let streamno = pkt.get_stream().get_id() as usize;
         if let Some(ref mut dec) = decs[streamno] {
-            let frm_ = dec.decode(&pkt).unwrap();
-            let frm = frm_.borrow();
+            let frm = dec.decode(&pkt).unwrap();
             if frm.get_info().is_audio() {
                 if !wrote_header {
                     wwr.write_header(frm.get_info().as_ref().get_properties().get_audio_info().unwrap()).unwrap();

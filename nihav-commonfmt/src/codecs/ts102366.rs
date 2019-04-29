@@ -1235,7 +1235,7 @@ impl NADecoder for AudioDecoder {
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.replace_info(NACodecTypeInfo::Audio(ainfo)), abuf);
         frm.set_keyframe(true);
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

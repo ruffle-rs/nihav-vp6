@@ -528,7 +528,7 @@ impl NADecoder for Indeo5Decoder {
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(self.dec.is_intra());
         frm.set_frame_type(self.dec.get_frame_type());
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

@@ -393,7 +393,7 @@ impl NADecoder for Intel263Decoder {
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), buftype);
             frm.set_keyframe(false);
             frm.set_frame_type(if is_skip { FrameType::Skip } else { FrameType::B });
-            return Ok(Rc::new(RefCell::new(frm)));
+            return Ok(frm.into_ref());
         }
         let mut ibr = Intel263BR::new(&src, &self.tables);
 
@@ -402,7 +402,7 @@ impl NADecoder for Intel263Decoder {
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(self.dec.is_intra());
         frm.set_frame_type(if self.dec.is_intra() { FrameType::I } else { FrameType::P });
-        Ok(Rc::new(RefCell::new(frm)))
+        Ok(frm.into_ref())
     }
 }
 

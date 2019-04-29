@@ -1,8 +1,6 @@
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt;
-pub use std::rc::Rc;
-pub use std::cell::*;
 use std::sync::Arc;
 pub use crate::formats::*;
 pub use crate::refs::*;
@@ -653,7 +651,7 @@ pub struct NAFrame {
     options:        HashMap<String, NAValue>,
 }
 
-pub type NAFrameRef = Rc<RefCell<NAFrame>>;
+pub type NAFrameRef = Arc<NAFrame>;
 
 fn get_plane_size(info: &NAVideoInfo, idx: usize) -> (usize, usize) {
     let chromaton = info.get_format().get_chromaton(idx);
@@ -687,6 +685,8 @@ impl NAFrame {
     pub fn set_duration(&mut self, dur: Option<u64>) { self.ts.set_duration(dur); }
 
     pub fn get_buffer(&self) -> NABufferType { self.buffer.clone() }
+
+    pub fn into_ref(self) -> NAFrameRef { Arc::new(self) }
 }
 
 impl fmt::Display for NAFrame {
