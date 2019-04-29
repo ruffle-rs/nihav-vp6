@@ -85,3 +85,8 @@ impl<T> Drop for NABufferRef<T> {
     }
 }
 
+impl<T:Default> Default for NABufferRef<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
