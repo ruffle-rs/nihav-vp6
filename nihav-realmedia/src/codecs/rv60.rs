@@ -614,7 +614,7 @@ struct RealVideo60Decoder {
     dsp:        RV60DSP,
     ipred:      IntraPredContext,
 
-    avg_buf:    NAVideoBuffer<u8>,
+    avg_buf:    NAVideoBufferRef<u8>,
 
     y_coeffs:   [i16; 16 * 16],
     u_coeffs:   [i16; 8 * 8],

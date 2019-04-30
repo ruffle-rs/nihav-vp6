@@ -1,5 +1,5 @@
 use nihav_core::formats::YUV420_FORMAT;
-use nihav_core::frame::{NABufferType, NAVideoInfo, NAVideoBuffer, FrameType, alloc_video_buffer};
+use nihav_core::frame::{NABufferType, NAVideoInfo, NAVideoBuffer, NAVideoBufferRef, FrameType, alloc_video_buffer};
 use nihav_core::codecs::{MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
 use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 use nihav_core::io::intcode::*;
@@ -767,7 +767,7 @@ pub struct RV34Decoder {
     ratio2:     u32,
     is_b:       bool,
     mbinfo:     Vec<RV34MBInfo>,
-    avg_buf:    NAVideoBuffer<u8>,
+    avg_buf:    NAVideoBufferRef<u8>,
     base_ts:    u64,
 }
 

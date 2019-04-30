@@ -129,27 +129,27 @@ impl Default for DeltaTables {
 }
 
 struct FrameBuf {
-    last16: Option<NAVideoBuffer<u16>>,
-    last24: Option<NAVideoBuffer<u8>>,
+    last16: Option<NAVideoBufferRef<u16>>,
+    last24: Option<NAVideoBufferRef<u8>>,
 }
 
 impl FrameBuf {
-    fn set16(&mut self, buf: NAVideoBuffer<u16>) { self.last16 = Some(buf); }
-    fn set24(&mut self, buf: NAVideoBuffer<u8>)  { self.last24 = Some(buf); }
-    fn get16(&mut self) -> Option<NAVideoBuffer<u16>> {
+    fn set16(&mut self, buf: NAVideoBufferRef<u16>) { self.last16 = Some(buf); }
+    fn set24(&mut self, buf: NAVideoBufferRef<u8>)  { self.last24 = Some(buf); }
+    fn get16(&mut self) -> Option<NAVideoBufferRef<u16>> {
         if let Some(ref mut frm) = self.last16 {
             let newfrm = frm.copy_buffer();
-            *frm = newfrm.clone();
-            Some(newfrm)
+            *frm = newfrm.clone().into_ref();
+            Some(newfrm.into_ref())
         } else {
             None
         }
     }
-    fn get24(&mut self) -> Option<NAVideoBuffer<u8>> {
+    fn get24(&mut self) -> Option<NAVideoBufferRef<u8>> {
         if let Some(ref mut frm) = self.last24 {
             let newfrm = frm.copy_buffer();
-            *frm = newfrm.clone();
-            Some(newfrm)
+            *frm = newfrm.clone().into_ref();
+            Some(newfrm.into_ref())
         } else {
             None
         }

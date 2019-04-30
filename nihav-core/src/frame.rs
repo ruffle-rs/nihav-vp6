@@ -134,7 +134,12 @@ impl<T: Clone> NAVideoBuffer<T> {
     pub fn get_dimensions(&self, idx: usize) -> (usize, usize) {
         get_plane_size(&self.info, idx)
     }
+    pub fn into_ref(self) -> NABufferRef<Self> {
+        NABufferRef::new(self)
+    }
 }
+
+pub type NAVideoBufferRef<T> = NABufferRef<NAVideoBuffer<T>>;
 
 #[derive(Clone)]
 pub struct NAAudioBuffer<T> {
@@ -173,10 +178,10 @@ impl NAAudioBuffer<u8> {
 
 #[derive(Clone)]
 pub enum NABufferType {
-    Video      (NAVideoBuffer<u8>),
-    Video16    (NAVideoBuffer<u16>),
-    Video32    (NAVideoBuffer<u32>),
-    VideoPacked(NAVideoBuffer<u8>),
+    Video      (NAVideoBufferRef<u8>),
+    Video16    (NAVideoBufferRef<u16>),
+    Video32    (NAVideoBufferRef<u32>),
+    VideoPacked(NAVideoBufferRef<u8>),
     AudioU8    (NAAudioBuffer<u8>),
     AudioI16   (NAAudioBuffer<i16>),
     AudioI32   (NAAudioBuffer<i32>),
@@ -209,20 +214,20 @@ impl NABufferType {
             _ => None,
         }
     }
-    pub fn get_vbuf(&self) -> Option<NAVideoBuffer<u8>> {
+    pub fn get_vbuf(&self) -> Option<NAVideoBufferRef<u8>> {
         match *self {
             NABufferType::Video(ref vb)       => Some(vb.clone()),
             NABufferType::VideoPacked(ref vb) => Some(vb.clone()),
             _ => None,
         }
     }
-    pub fn get_vbuf16(&self) -> Option<NAVideoBuffer<u16>> {
+    pub fn get_vbuf16(&self) -> Option<NAVideoBufferRef<u16>> {
         match *self {
             NABufferType::Video16(ref vb)     => Some(vb.clone()),
             _ => None,
         }
     }
-    pub fn get_vbuf32(&self) -> Option<NAVideoBuffer<u32>> {
+    pub fn get_vbuf32(&self) -> Option<NAVideoBufferRef<u32>> {
         match *self {
             NABufferType::Video32(ref vb)     => Some(vb.clone()),
             _ => None,
@@ -350,7 +355,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         let mut data: Vec<u8> = Vec::with_capacity(new_size.unwrap());
         data.resize(new_size.unwrap(), 0);
         let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
-        Ok(NABufferType::Video(buf))
+        Ok(NABufferType::Video(buf.into_ref()))
     } else if !all_packed {
         for i in 0..fmt.get_num_comp() {
             let ochr = fmt.get_chromaton(i);
@@ -375,17 +380,17 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
             let mut data: Vec<u8> = Vec::with_capacity(new_size);
             data.resize(new_size, 0);
             let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
-            Ok(NABufferType::Video(buf))
+            Ok(NABufferType::Video(buf.into_ref()))
         } else if max_depth <= 16 {
             let mut data: Vec<u16> = Vec::with_capacity(new_size);
             data.resize(new_size, 0);
             let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
-            Ok(NABufferType::Video16(buf))
+            Ok(NABufferType::Video16(buf.into_ref()))
         } else {
             let mut data: Vec<u32> = Vec::with_capacity(new_size);
             data.resize(new_size, 0);
             let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
-            Ok(NABufferType::Video32(buf))
+            Ok(NABufferType::Video32(buf.into_ref()))
         }
     } else if all_bytealigned || unfit_elem_size {
         let elem_sz = fmt.get_elem_size();
@@ -398,7 +403,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         data.resize(new_size, 0);
         strides.push(line_sz.unwrap());
         let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
-        Ok(NABufferType::VideoPacked(buf))
+        Ok(NABufferType::VideoPacked(buf.into_ref()))
     } else {
         let elem_sz = fmt.get_elem_size();
         let new_sz = width.checked_mul(height);
@@ -410,14 +415,14 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
                     data.resize(new_size, 0);
                     strides.push(width);
                     let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
-                    Ok(NABufferType::Video16(buf))
+                    Ok(NABufferType::Video16(buf.into_ref()))
                 },
             4 => {
                     let mut data: Vec<u32> = Vec::with_capacity(new_size);
                     data.resize(new_size, 0);
                     strides.push(width);
                     let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
-                    Ok(NABufferType::Video32(buf))
+                    Ok(NABufferType::Video32(buf.into_ref()))
                 },
             _ => unreachable!(),
         }

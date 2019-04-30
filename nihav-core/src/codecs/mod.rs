@@ -45,7 +45,7 @@ impl From<AllocatorError> for DecoderError {
 
 #[allow(dead_code)]
 pub struct HAMShuffler {
-    lastframe: Option<NAVideoBuffer<u8>>,
+    lastframe: Option<NAVideoBufferRef<u8>>,
 }
 
 impl HAMShuffler {
@@ -54,21 +54,21 @@ impl HAMShuffler {
     #[allow(dead_code)]
     pub fn clear(&mut self) { self.lastframe = None; }
     #[allow(dead_code)]
-    pub fn add_frame(&mut self, buf: NAVideoBuffer<u8>) {
+    pub fn add_frame(&mut self, buf: NAVideoBufferRef<u8>) {
         self.lastframe = Some(buf);
     }
     #[allow(dead_code)]
-    pub fn clone_ref(&mut self) -> Option<NAVideoBuffer<u8>> {
+    pub fn clone_ref(&mut self) -> Option<NAVideoBufferRef<u8>> {
         if let Some(ref mut frm) = self.lastframe {
             let newfrm = frm.copy_buffer();
-            *frm = newfrm.clone();
-            Some(newfrm)
+            *frm = newfrm.clone().into_ref();
+            Some(newfrm.into_ref())
         } else {
             None
         }
     }
     #[allow(dead_code)]
-    pub fn get_output_frame(&mut self) -> Option<NAVideoBuffer<u8>> {
+    pub fn get_output_frame(&mut self) -> Option<NAVideoBufferRef<u8>> {
         match self.lastframe {
             Some(ref frm) => Some(frm.clone()),
             None => None,
@@ -82,7 +82,7 @@ impl Default for HAMShuffler {
 
 #[allow(dead_code)]
 pub struct IPShuffler {
-    lastframe: Option<NAVideoBuffer<u8>>,
+    lastframe: Option<NAVideoBufferRef<u8>>,
 }
 
 impl IPShuffler {
@@ -91,11 +91,11 @@ impl IPShuffler {
     #[allow(dead_code)]
     pub fn clear(&mut self) { self.lastframe = None; }
     #[allow(dead_code)]
-    pub fn add_frame(&mut self, buf: NAVideoBuffer<u8>) {
+    pub fn add_frame(&mut self, buf: NAVideoBufferRef<u8>) {
         self.lastframe = Some(buf);
     }
     #[allow(dead_code)]
-    pub fn get_ref(&mut self) -> Option<NAVideoBuffer<u8>> {
+    pub fn get_ref(&mut self) -> Option<NAVideoBufferRef<u8>> {
         if let Some(ref frm) = self.lastframe {
             Some(frm.clone())
         } else {
@@ -110,8 +110,8 @@ impl Default for IPShuffler {
 
 #[allow(dead_code)]
 pub struct IPBShuffler {
-    lastframe: Option<NAVideoBuffer<u8>>,
-    nextframe: Option<NAVideoBuffer<u8>>,
+    lastframe: Option<NAVideoBufferRef<u8>>,
+    nextframe: Option<NAVideoBufferRef<u8>>,
 }
 
 impl IPBShuffler {
@@ -120,12 +120,12 @@ impl IPBShuffler {
     #[allow(dead_code)]
     pub fn clear(&mut self) { self.lastframe = None; self.nextframe = None; }
     #[allow(dead_code)]
-    pub fn add_frame(&mut self, buf: NAVideoBuffer<u8>) {
+    pub fn add_frame(&mut self, buf: NAVideoBufferRef<u8>) {
         mem::swap(&mut self.lastframe, &mut self.nextframe);
         self.lastframe = Some(buf);
     }
     #[allow(dead_code)]
-    pub fn get_lastref(&mut self) -> Option<NAVideoBuffer<u8>> {
+    pub fn get_lastref(&mut self) -> Option<NAVideoBufferRef<u8>> {
         if let Some(ref frm) = self.lastframe {
             Some(frm.clone())
         } else {
@@ -133,7 +133,7 @@ impl IPBShuffler {
         }
     }
     #[allow(dead_code)]
-    pub fn get_nextref(&mut self) -> Option<NAVideoBuffer<u8>> {
+    pub fn get_nextref(&mut self) -> Option<NAVideoBufferRef<u8>> {
         if let Some(ref frm) = self.nextframe {
             Some(frm.clone())
         } else {
@@ -141,7 +141,7 @@ impl IPBShuffler {
         }
     }
     #[allow(dead_code)]
-    pub fn get_b_fwdref(&mut self) -> Option<NAVideoBuffer<u8>> {
+    pub fn get_b_fwdref(&mut self) -> Option<NAVideoBufferRef<u8>> {
         if let Some(ref frm) = self.nextframe {
             Some(frm.clone())
         } else {
@@ -149,7 +149,7 @@ impl IPBShuffler {
         }
     }
     #[allow(dead_code)]
-    pub fn get_b_bwdref(&mut self) -> Option<NAVideoBuffer<u8>> {
+    pub fn get_b_bwdref(&mut self) -> Option<NAVideoBufferRef<u8>> {
         if let Some(ref frm) = self.lastframe {
             Some(frm.clone())
         } else {
