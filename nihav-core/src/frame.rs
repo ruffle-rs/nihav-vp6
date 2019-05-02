@@ -484,49 +484,89 @@ pub fn copy_buffer(buf: NABufferType) -> NABufferType {
     buf.clone()
 }
 
-pub struct NABufferPool {
-    pool:       Vec<NABufferRef<NABufferType>>,
+pub struct NAVideoBufferPool<T:Copy> {
+    pool:       Vec<NAVideoBufferRef<T>>,
     max_len:    usize,
+    add_len:    usize,
 }
 
-impl NABufferPool {
+impl<T:Copy> NAVideoBufferPool<T> {
     pub fn new(max_len: usize) -> Self {
         Self {
             pool:       Vec::with_capacity(max_len),
             max_len,
+            add_len: 0,
         }
     }
-    pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
-        let nbufs = self.max_len - self.pool.len();
-        for _ in 0..nbufs {
-            let buf = alloc_video_buffer(vinfo.clone(), align)?;
-            self.pool.push(NABufferRef::new(buf));
-        }
-        Ok(())
+    pub fn set_dec_bufs(&mut self, add_len: usize) {
+        self.add_len = add_len;
     }
-    pub fn prealloc_audio(&mut self, ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelMap) -> Result<(), AllocatorError> {
-        let nbufs = self.max_len - self.pool.len();
-        for _ in 0..nbufs {
-            let buf = alloc_audio_buffer(ainfo.clone(), nsamples, chmap.clone())?;
-            self.pool.push(NABufferRef::new(buf));
-        }
-        Ok(())
-    }
-    pub fn add(&mut self, buf: NABufferType) -> bool {
-        if self.pool.len() < self.max_len {
-            self.pool.push(NABufferRef::new(buf));
-            true
-        } else {
-            false
-        }
-    }
-    pub fn get_free(&mut self) -> Option<NABufferRef<NABufferType>> {
+    pub fn get_free(&mut self) -> Option<NAVideoBufferRef<T>> {
         for e in self.pool.iter() {
             if e.get_num_refs() == 1 {
                 return Some(e.clone());
             }
         }
         None
+    }
+    pub fn get_copy(&mut self, rbuf: &NAVideoBufferRef<T>) -> Option<NAVideoBufferRef<T>> {
+        let res = self.get_free();
+        if res.is_none() {
+            return None;
+        }
+        let mut dbuf = res.unwrap();
+        dbuf.data.copy_from_slice(&rbuf.data);
+        Some(dbuf)
+    }
+    pub fn reset(&mut self) {
+        self.pool.truncate(0);
+    }
+}
+
+impl NAVideoBufferPool<u8> {
+    pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
+        let nbufs = self.max_len + self.add_len - self.pool.len();
+        for _ in 0..nbufs {
+            let vbuf = alloc_video_buffer(vinfo.clone(), align)?;
+            if let NABufferType::Video(buf) = vbuf {
+                self.pool.push(buf);
+            } else if let NABufferType::VideoPacked(buf) = vbuf {
+                self.pool.push(buf);
+            } else {
+                return Err(AllocatorError::FormatError);
+            }
+        }
+        Ok(())
+    }
+}
+
+impl NAVideoBufferPool<u16> {
+    pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
+        let nbufs = self.max_len + self.add_len - self.pool.len();
+        for _ in 0..nbufs {
+            let vbuf = alloc_video_buffer(vinfo.clone(), align)?;
+            if let NABufferType::Video16(buf) = vbuf {
+                self.pool.push(buf);
+            } else {
+                return Err(AllocatorError::FormatError);
+            }
+        }
+        Ok(())
+    }
+}
+
+impl NAVideoBufferPool<u32> {
+    pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
+        let nbufs = self.max_len + self.add_len - self.pool.len();
+        for _ in 0..nbufs {
+            let vbuf = alloc_video_buffer(vinfo.clone(), align)?;
+            if let NABufferType::Video32(buf) = vbuf {
+                self.pool.push(buf);
+            } else {
+                return Err(AllocatorError::FormatError);
+            }
+        }
+        Ok(())
     }
 }
 

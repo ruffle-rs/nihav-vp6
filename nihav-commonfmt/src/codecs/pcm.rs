@@ -33,7 +33,7 @@ fn get_duration(ainfo: &NAAudioInfo, duration: Option<u64>, data_size: usize) ->
 }
 
 impl NADecoder for PCMDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.chmap = get_default_chmap(ainfo.get_channels());
             if self.chmap.num_channels() == 0 { return Err(DecoderError::InvalidData); }
@@ -42,7 +42,7 @@ impl NADecoder for PCMDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let duration = get_duration(&ainfo, pkt.get_duration(), pkt.get_buffer().len());

@@ -688,7 +688,7 @@ const FLAG_KEYFRAME: u16 = 1 << 2;
 const FLAG_NONREF:   u16 = 1 << 8;
 
 impl NADecoder for Indeo3Decoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
@@ -701,7 +701,7 @@ impl NADecoder for Indeo3Decoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         let mut mr = MemoryReader::new_read(&src);
         let mut br = ByteReader::new(&mut mr);

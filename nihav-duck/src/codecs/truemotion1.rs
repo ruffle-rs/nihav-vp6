@@ -515,7 +515,7 @@ impl TM1Decoder {
 }
 
 impl NADecoder for TM1Decoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, YUV410_FORMAT));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
@@ -524,7 +524,7 @@ impl NADecoder for TM1Decoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 10);
         let hdr_size = (src[0].rotate_left(3) & 0x7F) as usize;

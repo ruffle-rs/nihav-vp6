@@ -1,6 +1,6 @@
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::frame::*;
-use nihav_core::codecs::{NADecoder, MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
+use nihav_core::codecs::{NADecoder, NADecoderSupport, MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
 use nihav_core::io::byteio::{MemoryReader,ByteReader};
 use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 use nihav_core::io::intcode::*;
@@ -1391,7 +1391,7 @@ println!(" left {} bits", br.left());
 }
 
 impl NADecoder for RealVideo60Decoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(_vinfo) = info.get_properties() {
             let fmt = YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, false, fmt));
@@ -1418,7 +1418,7 @@ println!("???");
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
         validate!(src.len() > 9);

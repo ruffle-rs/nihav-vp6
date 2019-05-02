@@ -117,7 +117,7 @@ impl RealVideo30Decoder {
 }
 
 impl NADecoder for RealVideo30Decoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let fmt = formats::YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, false, fmt));
@@ -144,7 +144,7 @@ println!("???");
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
         let (bufinfo, ftype, pts) = self.dec.parse_frame(src.as_slice(), &mut self.bd)?;

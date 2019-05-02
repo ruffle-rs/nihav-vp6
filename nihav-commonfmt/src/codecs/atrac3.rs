@@ -553,7 +553,7 @@ fn interp(a: f32, b: f32, pos: usize) -> f32 {
 }
 
 impl NADecoder for Atrac3Decoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.info = info.clone();
             let edata = info.get_extradata().unwrap();
@@ -607,7 +607,7 @@ impl NADecoder for Atrac3Decoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         validate!(info.get_properties().is_audio());
         let pktbuf = pkt.get_buffer();

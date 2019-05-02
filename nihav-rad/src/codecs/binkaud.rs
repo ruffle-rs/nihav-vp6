@@ -178,7 +178,7 @@ const CRITICAL_FREQS: [usize; MAX_BANDS] = [
 const RUN_TAB: [usize; 16] = [ 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 32, 64 ];
 
 impl NADecoder for BinkAudioDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let srate    = ainfo.get_sample_rate();
             let channels = ainfo.get_channels();
@@ -229,7 +229,7 @@ impl NADecoder for BinkAudioDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();

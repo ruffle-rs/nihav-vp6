@@ -307,7 +307,7 @@ impl Indeo2Decoder {
 const IR2_START: usize = 48;
 
 impl NADecoder for Indeo2Decoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
@@ -321,7 +321,7 @@ impl NADecoder for Indeo2Decoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         if src.len() <= IR2_START { return Err(DecoderError::ShortData); }
         let interframe = src[18];

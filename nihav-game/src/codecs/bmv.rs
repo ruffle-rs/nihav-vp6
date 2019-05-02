@@ -169,7 +169,7 @@ impl BMVVideoDecoder {
 }
 
 impl NADecoder for BMVVideoDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(_vinfo) = info.get_properties() {
             let fmt = NAPixelFormaton::new(ColorModel::RGB(RGBSubmodel::RGB),
                                            Some(NAPixelChromaton::new(0, 0, true, 8, 0, 0, 3)),
@@ -185,7 +185,7 @@ impl NADecoder for BMVVideoDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 1);
 
@@ -257,7 +257,7 @@ fn scale_sample(samp: u8, scale: i32) -> i16 {
 }
 
 impl NADecoder for BMVAudioDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), formats::SND_S16P_FORMAT, 32);
             self.chmap = NAChannelMap::from_str("L,R").unwrap();
@@ -266,7 +266,7 @@ impl NADecoder for BMVAudioDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();

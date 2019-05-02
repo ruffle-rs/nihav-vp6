@@ -51,7 +51,7 @@ impl DuckADPCMDecoder {
 }
 
 impl NADecoder for DuckADPCMDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             validate!(ainfo.get_block_len() > 16);
             self.block_len = ainfo.get_block_len();
@@ -69,7 +69,7 @@ impl NADecoder for DuckADPCMDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();

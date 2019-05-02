@@ -546,7 +546,7 @@ impl TM2Decoder {
 }
 
 impl NADecoder for TM2Decoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, YUV410_FORMAT));
             self.width  = vinfo.get_width();
@@ -559,7 +559,7 @@ impl NADecoder for TM2Decoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 40 + (TM2StreamType::Num as usize) * 4 + 4);
         let mut mr = MemoryReader::new_read(&src);

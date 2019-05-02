@@ -229,10 +229,26 @@ impl fmt::Display for MV {
     }
 }
 
+pub struct NADecoderSupport {
+    pub pool_u8:        NAVideoBufferPool<u8>,
+    pub pool_u16:       NAVideoBufferPool<u16>,
+    pub pool_u32:       NAVideoBufferPool<u32>,
+}
+
+impl NADecoderSupport {
+    pub fn new() -> Self {
+        Self {
+            pool_u8:        NAVideoBufferPool::new(0),
+            pool_u16:       NAVideoBufferPool::new(0),
+            pool_u32:       NAVideoBufferPool::new(0),
+        }
+    }
+}
+
 
 pub trait NADecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()>;
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef>;
+    fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()>;
+    fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef>;
 }
 
 #[derive(Clone,Copy)]

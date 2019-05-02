@@ -161,7 +161,7 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let mut decs: Vec<Option<Box<NADecoder>>> = Vec::new();
+    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<NADecoder>)>> = Vec::new();
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();
@@ -169,8 +169,9 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
         if let Some(df) = decfunc {
             if (decode_video && info.is_video()) || (decode_audio && info.is_audio()) {
                 let mut dec = (df)();
-                dec.init(info).unwrap();
-                decs.push(Some(dec));
+                let mut dsupp = Box::new(NADecoderSupport::new());
+                dec.init(&mut dsupp, info).unwrap();
+                decs.push(Some((dsupp, dec)));
             } else {
                 decs.push(None);
             }
@@ -190,8 +191,8 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
             if pkt.get_pts().unwrap() > limit.unwrap() { break; }
         }
         let streamno = pkt.get_stream().get_id() as usize;
-        if let Some(ref mut dec) = decs[streamno] {
-            let frm = dec.decode(&pkt).unwrap();
+        if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
+            let frm = dec.decode(dsupp, &pkt).unwrap();
             if pkt.get_stream().get_info().is_video() && video_pfx.is_some() && frm.get_frame_type() != FrameType::Skip {
                 let pfx = video_pfx.unwrap();
 		let pts = if let Some(fpts) = frm.get_pts() { fpts } else { pkt.get_pts().unwrap() };
@@ -218,7 +219,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let mut decs: Vec<Option<Box<NADecoder>>> = Vec::new();
+    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<NADecoder>)>> = Vec::new();
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();
@@ -226,8 +227,9 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
         if let Some(df) = decfunc {
             if info.is_audio() {
                 let mut dec = (df)();
-                dec.init(info).unwrap();
-                decs.push(Some(dec));
+                let mut dsupp = Box::new(NADecoderSupport::new());
+                dec.init(&mut dsupp, info).unwrap();
+                decs.push(Some((dsupp, dec)));
             } else {
                 decs.push(None);
             }
@@ -254,8 +256,8 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
             if pkt.get_pts().unwrap() > limit.unwrap() { break; }
         }
         let streamno = pkt.get_stream().get_id() as usize;
-        if let Some(ref mut dec) = decs[streamno] {
-            let frm = dec.decode(&pkt).unwrap();
+        if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
+            let frm = dec.decode(dsupp, &pkt).unwrap();
             if frm.get_info().is_audio() {
                 if !wrote_header {
                     wwr.write_header(frm.get_info().as_ref().get_properties().get_audio_info().unwrap()).unwrap();

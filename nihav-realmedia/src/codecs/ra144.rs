@@ -242,7 +242,7 @@ fn clip_out(sample: i16) -> i16 {
 }
 
 impl NADecoder for RA144Decoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.chmap.add_channels(&CHMAP_MONO);
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(),
@@ -254,7 +254,7 @@ impl NADecoder for RA144Decoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         validate!(info.get_properties().is_audio());
         let pktbuf = pkt.get_buffer();

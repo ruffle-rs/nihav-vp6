@@ -215,7 +215,7 @@ impl VMDVideoDecoder {
 }
 
 impl NADecoder for VMDVideoDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             self.width  = vinfo.get_width();
             self.height = vinfo.get_height();
@@ -239,7 +239,7 @@ impl NADecoder for VMDVideoDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= 10);
 
@@ -351,7 +351,7 @@ impl VMDAudioDecoder {
 }
 
 impl NADecoder for VMDAudioDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let fmt;
             if ainfo.get_format().get_bits() == 8 {
@@ -372,7 +372,7 @@ impl NADecoder for VMDAudioDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();

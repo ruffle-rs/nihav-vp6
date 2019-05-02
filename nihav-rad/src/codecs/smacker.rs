@@ -387,7 +387,7 @@ impl SmackerVideoDecoder {
 }
 
 impl NADecoder for SmackerVideoDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
@@ -434,7 +434,7 @@ impl NADecoder for SmackerVideoDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() >= PAL_SIZE);
 
@@ -492,7 +492,7 @@ impl SmackerAudioDecoder {
 }
 
 impl NADecoder for SmackerAudioDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.bits = ainfo.get_format().get_bits();
             let fmt = if self.bits == 8 { SND_U8_FORMAT } else { SND_S16P_FORMAT };
@@ -504,7 +504,7 @@ impl NADecoder for SmackerAudioDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let src = pkt.get_buffer();

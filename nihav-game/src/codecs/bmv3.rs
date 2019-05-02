@@ -441,7 +441,7 @@ impl BMV3VideoDecoder {
 }
 
 impl NADecoder for BMV3VideoDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, RGB565_FORMAT));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
@@ -457,7 +457,7 @@ impl NADecoder for BMV3VideoDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 1);
 
@@ -552,7 +552,7 @@ fn decode_block(mode: u8, src: &[u8], dst: &mut [i16], mut pred: i16) -> i16 {
 }
 
 impl NADecoder for BMV3AudioDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), formats::SND_S16P_FORMAT, 32);
             self.chmap = NAChannelMap::from_str("L,R").unwrap();
@@ -561,7 +561,7 @@ impl NADecoder for BMV3AudioDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();

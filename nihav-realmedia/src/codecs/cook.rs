@@ -551,7 +551,7 @@ impl CookDecoder {
 }
 
 impl NADecoder for CookDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let edata = info.get_extradata().unwrap();
             validate!(edata.len() >= 4);
@@ -632,7 +632,7 @@ impl NADecoder for CookDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         validate!(info.get_properties().is_audio());
         let pktbuf = pkt.get_buffer();

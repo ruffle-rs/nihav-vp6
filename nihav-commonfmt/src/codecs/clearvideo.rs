@@ -681,7 +681,7 @@ impl ClearVideoDecoder {
 }
 
 impl NADecoder for ClearVideoDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if info.get_extradata().is_none() { return Err(DecoderError::InvalidData); }
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
@@ -711,7 +711,7 @@ impl NADecoder for ClearVideoDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         if src.len() <= 1 { return Err(DecoderError::ShortData); }
         let off = if self.is_rm {

@@ -556,7 +556,7 @@ impl TM2XDecoder {
 }
 
 impl NADecoder for TM2XDecoder {
-    fn init(&mut self, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let fmt = NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
                                            Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
@@ -574,7 +574,7 @@ impl NADecoder for TM2XDecoder {
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 8);
         let mut mr = MemoryReader::new_read(&src);
