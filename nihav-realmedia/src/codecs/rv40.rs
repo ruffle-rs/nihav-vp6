@@ -314,7 +314,7 @@ impl RealVideo40Decoder {
 }
 
 impl NADecoder for RealVideo40Decoder {
-    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
+    fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let fmt = formats::YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, false, fmt));
@@ -331,16 +331,20 @@ for i in 0..src.len() { print!(" {:02X}", src[i]); } println!("");
 
             self.bd.width  = vinfo.get_width();
             self.bd.height = vinfo.get_height();
+
+            supp.pool_u8.set_dec_bufs(3);
+            supp.pool_u8.prealloc_video(NAVideoInfo::new(self.bd.width, self.bd.height, false, fmt), 4)?;
+
             Ok(())
         } else {
 println!("???");
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
-        let (bufinfo, ftype, ts) = self.dec.parse_frame(src.as_slice(), &mut self.bd)?;
+        let (bufinfo, ftype, ts) = self.dec.parse_frame(supp, src.as_slice(), &mut self.bd)?;
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(ftype == FrameType::I);

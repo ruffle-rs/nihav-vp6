@@ -1391,8 +1391,8 @@ println!(" left {} bits", br.left());
 }
 
 impl NADecoder for RealVideo60Decoder {
-    fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
-        if let NACodecTypeInfo::Video(_vinfo) = info.get_properties() {
+    fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
+        if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let fmt = YUV420_FORMAT;
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, false, fmt));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
@@ -1412,13 +1412,17 @@ impl NADecoder for RealVideo60Decoder {
             //self.bd.width  = vinfo.get_width();
             //self.bd.height = vinfo.get_height();
             //self.frmmgr.clear();
+
+            supp.pool_u8.set_dec_bufs(3);
+            supp.pool_u8.prealloc_video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, fmt), 6)?;
+
             Ok(())
         } else {
 println!("???");
             Err(DecoderError::InvalidData)
         }
     }
-    fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
+    fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
         validate!(src.len() > 9);
@@ -1429,10 +1433,21 @@ println!("???");
         hdr.parse_slice_sizes(&mut br, &mut slices)?;
 
         let tmp_vinfo = NAVideoInfo::new(hdr.width, hdr.height, false, YUV420_FORMAT);
-        let res = alloc_video_buffer(tmp_vinfo, 6);
-        if !res.is_ok() { return Err(DecoderError::InvalidData); }
-        let bufinfo = res.unwrap();
-        let mut buf = bufinfo.get_vbuf().unwrap();
+        let ret = supp.pool_u8.get_free();
+        if ret.is_none() {
+            return Err(DecoderError::AllocError);
+        }
+        let mut buf = ret.unwrap();
+        if buf.get_info() != tmp_vinfo {
+            self.ipbs.clear();
+            supp.pool_u8.reset();
+            supp.pool_u8.prealloc_video(tmp_vinfo, 6)?;
+            let ret = supp.pool_u8.get_free();
+            if ret.is_none() {
+                return Err(DecoderError::AllocError);
+            }
+            buf = ret.unwrap();
+        }
 
         let cu_w = hdr.get_width_cu();
         let cu_h = hdr.get_height_cu();
@@ -1451,10 +1466,10 @@ println!("???");
             off += size;
         }
         if (hdr.ftype == FrameType::I) || (hdr.ftype == FrameType::P) {
-            self.ipbs.add_frame(buf);
+            self.ipbs.add_frame(buf.clone());
         }
 
-        let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
+        let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::Video(buf));
         frm.set_keyframe(hdr.ftype == FrameType::I);
         frm.set_pts(Some(hdr.ts as u64));
         frm.set_frame_type(hdr.ftype);

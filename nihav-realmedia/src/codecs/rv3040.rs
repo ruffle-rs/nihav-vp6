@@ -1,6 +1,6 @@
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::frame::{NABufferType, NAVideoInfo, NAVideoBuffer, NAVideoBufferRef, FrameType, alloc_video_buffer};
-use nihav_core::codecs::{MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
+use nihav_core::codecs::{NADecoderSupport, MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
 use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 use nihav_core::io::intcode::*;
 use std::mem;
@@ -1112,7 +1112,7 @@ impl RV34Decoder {
         }
     }
 
-    pub fn parse_frame(&mut self, src: &[u8], bd: &mut RV34BitstreamDecoder) -> DecoderResult<(NABufferType, FrameType, u64)> {
+    pub fn parse_frame(&mut self, supp: &mut NADecoderSupport, src: &[u8], bd: &mut RV34BitstreamDecoder) -> DecoderResult<(NABufferType, FrameType, u64)> {
         let mut slice_offs: Vec<usize> = Vec::new();
         parse_slice_offsets(src, &mut slice_offs)?;
         let ini_off = slice_offs.len() * 8 + 1;
@@ -1157,10 +1157,21 @@ impl RV34Decoder {
         //todo validate against ref frame
 
         let vinfo = NAVideoInfo::new(hdr0.width, hdr0.height, false, YUV420_FORMAT);
-        let bufret = alloc_video_buffer(vinfo, 4);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
-        let mut buf = bufinfo.get_vbuf().unwrap();
+        let ret = supp.pool_u8.get_free();
+        if ret.is_none() {
+            return Err(DecoderError::AllocError);
+        }
+        let mut buf = ret.unwrap();
+        if buf.get_info() != vinfo {
+            self.ipbs.clear();
+            supp.pool_u8.reset();
+            supp.pool_u8.prealloc_video(vinfo, 4)?;
+            let ret = supp.pool_u8.get_free();
+            if ret.is_none() {
+                return Err(DecoderError::AllocError);
+            }
+            buf = ret.unwrap();
+        }
 
         sstate.q = q;
         sstate.has_top = false;
@@ -1269,11 +1280,11 @@ impl RV34Decoder {
             self.dsp.loop_filter(&mut buf, hdr0.ftype, &mbinfo, mb_w, mb_h - 1);
         }
         if !self.is_b {
-            self.ipbs.add_frame(buf);
+            self.ipbs.add_frame(buf.clone());
             mem::swap(&mut self.mvi, &mut self.ref_mvi);
             mem::swap(&mut self.mbinfo, &mut mbinfo);
         }
 
-        Ok((bufinfo, hdr0.ftype, ts))
+        Ok((NABufferType::Video(buf), hdr0.ftype, ts))
     }
 }
