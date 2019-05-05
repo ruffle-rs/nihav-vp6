@@ -19,14 +19,14 @@ fn imdct(src: &[f32], dst: &mut [f32], length: usize) {
 }*/
 
 impl IMDCT {
-    pub fn new(mode: FFTMode, size: usize, scaledown: bool) -> Self {
+    pub fn new(size: usize, scaledown: bool) -> Self {
         let mut twiddle: Vec<FFTComplex> = Vec::with_capacity(size / 4);
         let factor = 2.0 * consts::PI / ((8 * size) as f32);
         let scale = if scaledown { (1.0 / (size as f32)).sqrt() } else { 1.0 };
         for k in 0..size/4 {
             twiddle.push(FFTComplex::exp(factor * ((8 * k + 1) as f32)).scale(scale));
         }
-        let fft = FFTBuilder::new_fft(mode, size/4);
+        let fft = FFTBuilder::new_fft(size/4, false);
         let mut z: Vec<FFTComplex> = Vec::with_capacity(size / 2);
         z.resize(size / 2, FFTC_ZERO);
         IMDCT { twiddle, fft, size, z }
@@ -39,7 +39,7 @@ impl IMDCT {
             let c = FFTComplex { re: src[size2 - 2 * k - 1], im: src[        2 * k] };
             self.z[k] = c * self.twiddle[k];
         }
-        self.fft.do_fft_inplace(&mut self.z, false);
+        self.fft.do_ifft_inplace(&mut self.z);
         for k in 0..size4 {
             self.z[k] *= self.twiddle[k];
         }

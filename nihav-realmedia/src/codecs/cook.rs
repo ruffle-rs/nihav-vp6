@@ -1,7 +1,6 @@
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
-use nihav_core::dsp::fft::FFTMode;
 use nihav_core::dsp::mdct::IMDCT;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::byteio::{ByteReader, MemoryReader};
@@ -112,7 +111,7 @@ impl CookDSP {
             gain_tab[i] = pow_tab[i + 53].powf(8.0 / fsamples);
         }
         let size = samples;
-        CookDSP { imdct: IMDCT::new(FFTMode::SplitRadix, samples*2, false), window: window, out: [0.0; 2048], size, pow_tab, hpow_tab, gain_tab }
+        CookDSP { imdct: IMDCT::new(samples*2, false), window: window, out: [0.0; 2048], size, pow_tab, hpow_tab, gain_tab }
     }
 }
 

@@ -42,7 +42,7 @@ impl IMDCTContext {
             xsincos[k].re = -factor.cos();
             xsincos[k].im = -factor.sin();
         }
-        let fft = FFTBuilder::new_fft(FFTMode::SplitRadix, size/4);
+        let fft = FFTBuilder::new_fft(size/4, false);
         IMDCTContext { xsincos: xsincos, size: size, fft: fft }
     }
     #[allow(non_snake_case)]
@@ -107,7 +107,7 @@ fn do_imdct_core(fft: &mut FFT, xsc: &[FFTComplex; BLOCK_LEN/2], size: usize, il
         let c = FFTComplex { re: c0, im: c1 };
         z[k] = c * xsc[k];
     }
-    fft.do_fft_inplace(z, false);
+    fft.do_ifft_inplace(z);
     for k in 0..N4 {
         y[k] = z[k] * xsc[k];
     }

@@ -4,7 +4,6 @@ use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::byteio::*;
 use nihav_core::io::codebook::*;
-use nihav_core::dsp::fft::FFTMode;
 use nihav_core::dsp::mdct::IMDCT;
 use std::f32::consts;
 
@@ -288,7 +287,7 @@ impl DSP {
         }
 
         Self {
-                imdct:  IMDCT::new(FFTMode::SplitRadix, 512, false),
+                imdct:  IMDCT::new(512, false),
                 tmp:    [0.0; ATRAC3_FRAME_SIZE + 64],
                 gain_tab, gain_tab2, window,
             }

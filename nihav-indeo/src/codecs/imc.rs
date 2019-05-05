@@ -835,7 +835,7 @@ impl IMDCTContext {
             pretwiddle2: pretwiddle2,
             posttwiddle: posttwiddle,
             tmp:         [FFTC_ZERO; COEFFS/2],
-            fft:         FFTBuilder::new_fft(FFTMode::SplitRadix, COEFFS/2),
+            fft:         FFTBuilder::new_fft(COEFFS/2, false),
             window:      window,
         }
     }
@@ -848,7 +848,7 @@ impl IMDCTContext {
             self.tmp[i].re = -(c2 * in1 + c1 * in2);
             self.tmp[i].im =   c1 * in1 - c2 * in2;
         }
-        self.fft.do_fft_inplace(&mut self.tmp, false);
+        self.fft.do_ifft_inplace(&mut self.tmp);
         for i in 0..COEFFS/2 {
             let tmp = !(self.tmp[i] * self.posttwiddle[i]);
             let c1 = self.window[i * 2];

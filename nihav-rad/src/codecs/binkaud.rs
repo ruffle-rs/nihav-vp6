@@ -203,7 +203,7 @@ impl NADecoder for BinkAudioDecoder {
                 self.duration >>= 1;
             }
             self.transform = if !self.use_dct {
-                    Transform::RDFT(RDFTBuilder::new_rdft(FFTMode::SplitRadix, self.len >> 1, false, false))
+                    Transform::RDFT(RDFTBuilder::new_rdft(self.len >> 1, false, false))
                 } else {
                     Transform::DCT(DCT::new(DCTMode::DCT_III, self.len))
                 };

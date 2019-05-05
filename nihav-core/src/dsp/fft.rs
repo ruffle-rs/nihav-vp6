@@ -88,78 +88,174 @@ impl fmt::Display for FFTComplex {
 
 pub const FFTC_ZERO: FFTComplex = FFTComplex { re: 0.0, im: 0.0 };
 
-#[derive(Debug,Clone,Copy,PartialEq)]
-pub enum FFTMode {
-    Matrix,
-    CooleyTukey,
-    SplitRadix,
+pub fn generic_fft(data: &mut [FFTComplex], forward: bool) {
+    let mut tmp = Vec::with_capacity(data.len());
+    tmp.resize(data.len(), FFTC_ZERO);
+    let base = if forward { -consts::PI * 2.0 / (data.len() as f32) }
+               else       {  consts::PI * 2.0 / (data.len() as f32) };
+    for k in 0..data.len() {
+        let mut sum = FFTC_ZERO;
+        for n in 0..data.len() {
+            let w = FFTComplex::exp(base * ((n * k) as f32));
+            sum += data[n] * w;
+        }
+        tmp[k] = sum;
+    }
+    for k in 0..data.len() {
+        data[k] = tmp[k];
+    }
 }
 
-pub struct FFT {
-    table:   Vec<FFTComplex>,
-    perms:   Vec<usize>,
-    swaps:   Vec<usize>,
-    bits:    u32,
-    mode:    FFTMode,
+struct FFTData {
+    table:      Vec<FFTComplex>,
+    tmp:        Vec<FFTComplex>,
+    twiddle:    Vec<FFTComplex>,
+    size:       usize,
+    step:       usize,
+    div:        usize,
 }
 
-impl FFT {
-    fn do_fft_inplace_ct(&mut self, data: &mut [FFTComplex], bits: u32, forward: bool) {
-        if bits == 0 { return; }
-        if bits == 1 {
-            let sum01 = data[0] + data[1];
-            let dif01 = data[0] - data[1];
-            data[0] = sum01;
-            data[1] = dif01;
-            return;
-        }
-        if bits == 2 {
-            let sum01 = data[0] + data[1];
-            let dif01 = data[0] - data[1];
-            let sum23 = data[2] + data[3];
-            let dif23 = data[2] - data[3];
-            if forward {
-                data[0] = sum01 + sum23;
-                data[1] = dif01 - dif23.rotate();
-                data[2] = sum01 - sum23;
-                data[3] = dif01 + dif23.rotate();
-            } else {
-                data[0] = sum01 + sum23;
-                data[1] = dif01 + dif23.rotate();
-                data[2] = sum01 - sum23;
-                data[3] = dif01 - dif23.rotate();
-            }
-            return;
-        }
+struct FFTGeneric {}
 
-        let hsize = (1 << (bits - 1)) as usize;
-        self.do_fft_inplace_ct(&mut data[0..hsize], bits - 1, forward);
-        self.do_fft_inplace_ct(&mut data[hsize..],  bits - 1, forward);
-        let offs = hsize;
-        {
-            let e = data[0];
-            let o = data[hsize];
-            data[0]     = e + o;
-            data[hsize] = e - o;
-        }
+const FFT3_CONST: f32 = 0.86602540378443864677;
+const FFT5_CONST1: FFTComplex = FFTComplex { re: 0.80901699437494742410, im: 0.58778525229247312915 };
+const FFT5_CONST2: FFTComplex = FFTComplex { re: 0.30901699437494742411, im: 0.95105651629515357211 };
+
+fn twiddle5(a: FFTComplex, b: FFTComplex, c: FFTComplex) -> (FFTComplex, FFTComplex) {
+    let re = a.re * c.re;
+    let im = a.im * c.re;
+    let diffre = b.im * c.im;
+    let diffim = b.re * c.im;
+
+    (FFTComplex { re: re - diffre, im: im + diffim }, FFTComplex { re: re + diffre, im: im - diffim })
+}
+
+impl FFTGeneric {
+    fn new_data(size: usize, forward: bool) -> FFTData {
+        let mut table: Vec<FFTComplex> = Vec::with_capacity(size * size);
+        table.resize(size * size, FFTC_ZERO);
+        let base = consts::PI * 2.0 / (size as f32);
         if forward {
-            for k in 1..hsize {
-                let e = data[k];
-                let o = data[k + hsize] * self.table[offs + k];
-                data[k]         = e + o;
-                data[k + hsize] = e - o;
+            for n in 0..size {
+                for k in 0..size {
+                    table[n * size + k] = FFTComplex::exp(-base * ((n * k) as f32));
+                }
             }
         } else {
-            for k in 1..hsize {
-                let e = data[k];
-                let o = data[k + hsize] * !self.table[offs + k];
-                data[k]         = e + o;
-                data[k + hsize] = e - o;
+            for n in 0..size {
+                for k in 0..size {
+                    table[n * size + k] = FFTComplex::exp( base * ((n * k) as f32));
+                }
             }
         }
+        let mut tmp = Vec::with_capacity(size);
+        tmp.resize(size, FFTC_ZERO);
+        FFTData { table, tmp, twiddle: Vec::new(), size, step: 0, div: 0 }
     }
+    fn fft(tbl: &mut FFTData, size: usize, data: &mut [FFTComplex], step: usize) {
+        if size == 3 {
+            let s0 = data[step * 0];
+            let s1 = data[step * 1];
+            let s2 = data[step * 2];
+            let t0 = s1 + s2;
+            data[step * 0] += t0;
+            let t1 = s0 - t0.scale(0.5);
+            let t2 = (s2 - s1).rotate().scale(FFT3_CONST);
+            data[step * 1] = t1 + t2;
+            data[step * 2] = t1 - t2;
+            return;
+        }
+        if size == 5 {
+            let s0 = data[step * 0];
+            let s1 = data[step * 1];
+            let s2 = data[step * 2];
+            let s3 = data[step * 3];
+            let s4 = data[step * 4];
 
-    fn do_fft_inplace_splitradix(&mut self, data: &mut [FFTComplex], bits: u32, forward: bool) {
+            let t0 = s1 + s4;
+            let t1 = s1 - s4;
+            let t2 = s2 + s3;
+            let t3 = s2 - s3;
+            let (t4, t5) = twiddle5(t0, t1, FFT5_CONST2);
+            let (t6, t7) = twiddle5(t2, t3, FFT5_CONST1);
+            let (t8, t9) = twiddle5(t0, t1, FFT5_CONST1);
+            let (ta, tb) = twiddle5(t2, t3, FFT5_CONST2);
+
+            data[step * 0] = s0 + t0 + t2;
+            data[step * 1] = s0 + t5 - t6;
+            data[step * 2] = s0 - t8 + ta;
+            data[step * 3] = s0 - t9 + tb;
+            data[step * 4] = s0 + t4 - t7;
+            return;
+        }
+        for k in 0..tbl.size {
+            tbl.tmp[k] = FFTC_ZERO;
+            for n in 0..tbl.size {
+                tbl.tmp[k] += data[n * step] * tbl.table[k * tbl.size + n];
+            }
+        }
+        for n in 0..tbl.size {
+            data[n * step] = tbl.tmp[n];
+        }
+    }
+    fn ifft(tbl: &mut FFTData, size: usize, data: &mut [FFTComplex], step: usize) {
+        if size == 3 {
+            let s0 = data[step * 0];
+            let s1 = data[step * 1];
+            let s2 = data[step * 2];
+            let t0 = s1 + s2;
+            data[step * 0] += t0;
+            let t1 = s0 - t0.scale(0.5);
+            let t2 = (s2 - s1).rotate().scale(FFT3_CONST);
+            data[step * 1] = t1 - t2;
+            data[step * 2] = t1 + t2;
+            return;
+        }
+        if size == 5 {
+            let s0 = data[step * 0];
+            let s1 = data[step * 1];
+            let s2 = data[step * 2];
+            let s3 = data[step * 3];
+            let s4 = data[step * 4];
+
+            let t0 = s1 + s4;
+            let t1 = s1 - s4;
+            let t2 = s2 + s3;
+            let t3 = s2 - s3;
+            let (t4, t5) = twiddle5(t0, t1, FFT5_CONST2);
+            let (t6, t7) = twiddle5(t2, t3, FFT5_CONST1);
+            let (t8, t9) = twiddle5(t0, t1, FFT5_CONST1);
+            let (ta, tb) = twiddle5(t2, t3, FFT5_CONST2);
+
+            data[step * 0] = s0 + t0 + t2;
+            data[step * 1] = s0 + t4 - t7;
+            data[step * 2] = s0 - t9 + tb;
+            data[step * 3] = s0 - t8 + ta;
+            data[step * 4] = s0 + t5 - t6;
+            return;
+        }
+        Self::fft(tbl, size, data, step);
+    }
+}
+
+struct FFTSplitRadix {}
+
+impl FFTSplitRadix {
+    fn new_data(bits: u8, _forward: bool) -> FFTData {
+        let size = 1 << bits;
+        let mut table = Vec::with_capacity(size);
+        for _ in 0..4 { table.push(FFTC_ZERO); }
+        for b in 3..(bits+1) {
+            let qsize = (1 << (b - 2)) as usize;
+            let base = -consts::PI / ((qsize * 2) as f32);
+            for k in 0..qsize {
+                table.push(FFTComplex::exp(base * ((k * 1) as f32)));
+                table.push(FFTComplex::exp(base * ((k * 3) as f32)));
+            }
+        }
+        FFTData { table, tmp: Vec::new(), twiddle: Vec::new(), size, step: 0, div: 0 }
+    }
+    fn fft(fftdata: &mut FFTData, bits: u8, data: &mut [FFTComplex]) {
         if bits == 0 { return; }
         if bits == 1 {
             let sum01 = data[0] + data[1];
@@ -173,104 +269,276 @@ impl FFT {
             let dif01 = data[0] - data[2];
             let sum23 = data[1] + data[3];
             let dif23 = data[1] - data[3];
-            if forward {
-                data[0] = sum01 + sum23;
-                data[1] = dif01 - dif23.rotate();
-                data[2] = sum01 - sum23;
-                data[3] = dif01 + dif23.rotate();
-            } else {
-                data[0] = sum01 + sum23;
-                data[1] = dif01 + dif23.rotate();
-                data[2] = sum01 - sum23;
-                data[3] = dif01 - dif23.rotate();
-            }
+            data[0] = sum01 + sum23;
+            data[1] = dif01 - dif23.rotate();
+            data[2] = sum01 - sum23;
+            data[3] = dif01 + dif23.rotate();
             return;
         }
         let qsize = (1 << (bits - 2)) as usize;
         let hsize = (1 << (bits - 1)) as usize;
         let q3size = qsize + hsize;
 
-        self.do_fft_inplace_splitradix(&mut data[0     ..hsize],  bits - 1, forward);
-        self.do_fft_inplace_splitradix(&mut data[hsize ..q3size], bits - 2, forward);
-        self.do_fft_inplace_splitradix(&mut data[q3size..],       bits - 2, forward);
+        Self::fft(fftdata, bits - 1, &mut data[0     ..hsize]);
+        Self::fft(fftdata, bits - 2, &mut data[hsize ..q3size]);
+        Self::fft(fftdata, bits - 2, &mut data[q3size..]);
         let off = hsize;
-        if forward {
-            {
-                let t3 =  data[0 + hsize] + data[0 + q3size];
-                let t4 = (data[0 + hsize] - data[0 + q3size]).rotate();
-                let e1 = data[0];
-                let e2 = data[0 + qsize];
-                data[0]          = e1 + t3;
-                data[0 + qsize]  = e2 - t4;
-                data[0 + hsize]  = e1 - t3;
-                data[0 + q3size] = e2 + t4;
-            }
-            for k in 1..qsize {
-                let t1 = self.table[off + k * 2 + 0] * data[k + hsize];
-                let t2 = self.table[off + k * 2 + 1] * data[k + q3size];
-                let t3 =  t1 + t2;
-                let t4 = (t1 - t2).rotate();
-                let e1 = data[k];
-                let e2 = data[k + qsize];
-                data[k]             = e1 + t3;
-                data[k + qsize]     = e2 - t4;
-                data[k + hsize]     = e1 - t3;
-                data[k + qsize * 3] = e2 + t4;
-            }
-        } else {
-            {
-                let t3 =  data[0 + hsize] + data[0 + q3size];
-                let t4 = (data[0 + hsize] - data[0 + q3size]).rotate();
-                let e1 = data[0];
-                let e2 = data[0 + qsize];
-                data[0]          = e1 + t3;
-                data[0 + qsize]  = e2 + t4;
-                data[0 + hsize]  = e1 - t3;
-                data[0 + q3size] = e2 - t4;
-            }
-            for k in 1..qsize {
-                let t1 = !self.table[off + k * 2 + 0] * data[k + hsize];
-                let t2 = !self.table[off + k * 2 + 1] * data[k + q3size];
-                let t3 =  t1 + t2;
-                let t4 = (t1 - t2).rotate();
-                let e1 = data[k];
-                let e2 = data[k + qsize];
-                data[k]             = e1 + t3;
-                data[k + qsize]     = e2 + t4;
-                data[k + hsize]     = e1 - t3;
-                data[k + qsize * 3] = e2 - t4;
-            }
+        {
+            let t3 =  data[0 + hsize] + data[0 + q3size];
+            let t4 = (data[0 + hsize] - data[0 + q3size]).rotate();
+            let e1 = data[0];
+            let e2 = data[0 + qsize];
+            data[0]          = e1 + t3;
+            data[0 + qsize]  = e2 - t4;
+            data[0 + hsize]  = e1 - t3;
+            data[0 + q3size] = e2 + t4;
+        }
+        for k in 1..qsize {
+            let t1 = fftdata.table[off + k * 2 + 0] * data[k + hsize];
+            let t2 = fftdata.table[off + k * 2 + 1] * data[k + q3size];
+            let t3 =  t1 + t2;
+            let t4 = (t1 - t2).rotate();
+            let e1 = data[k];
+            let e2 = data[k + qsize];
+            data[k]             = e1 + t3;
+            data[k + qsize]     = e2 - t4;
+            data[k + hsize]     = e1 - t3;
+            data[k + qsize * 3] = e2 + t4;
         }
     }
+    fn ifft(fftdata: &mut FFTData, bits: u8, data: &mut [FFTComplex]) {
+        if bits == 0 { return; }
+        if bits == 1 {
+            let sum01 = data[0] + data[1];
+            let dif01 = data[0] - data[1];
+            data[0] = sum01;
+            data[1] = dif01;
+            return;
+        }
+        if bits == 2 {
+            let sum01 = data[0] + data[2];
+            let dif01 = data[0] - data[2];
+            let sum23 = data[1] + data[3];
+            let dif23 = data[1] - data[3];
+            data[0] = sum01 + sum23;
+            data[1] = dif01 + dif23.rotate();
+            data[2] = sum01 - sum23;
+            data[3] = dif01 - dif23.rotate();
+            return;
+        }
+        let qsize = (1 << (bits - 2)) as usize;
+        let hsize = (1 << (bits - 1)) as usize;
+        let q3size = qsize + hsize;
 
-    pub fn do_fft(&mut self, src: &[FFTComplex], dst: &mut [FFTComplex], forward: bool) {
-        match self.mode {
-            FFTMode::Matrix => {
-                    let base = if forward { -consts::PI * 2.0 / (src.len() as f32) }
-                               else       {  consts::PI * 2.0 / (src.len() as f32) };
-                    for k in 0..src.len() {
-                        let mut sum = FFTC_ZERO;
-                        for n in 0..src.len() {
-                            let w = FFTComplex::exp(base * ((n * k) as f32));
-                            sum += src[n] * w;
-                        }
-                        dst[k] = sum;
+        Self::ifft(fftdata, bits - 1, &mut data[0     ..hsize]);
+        Self::ifft(fftdata, bits - 2, &mut data[hsize ..q3size]);
+        Self::ifft(fftdata, bits - 2, &mut data[q3size..]);
+        let off = hsize;
+        {
+            let t3 =  data[0 + hsize] + data[0 + q3size];
+            let t4 = (data[0 + hsize] - data[0 + q3size]).rotate();
+            let e1 = data[0];
+            let e2 = data[0 + qsize];
+            data[0]          = e1 + t3;
+            data[0 + qsize]  = e2 + t4;
+            data[0 + hsize]  = e1 - t3;
+            data[0 + q3size] = e2 - t4;
+        }
+        for k in 1..qsize {
+            let t1 = !fftdata.table[off + k * 2 + 0] * data[k + hsize];
+            let t2 = !fftdata.table[off + k * 2 + 1] * data[k + q3size];
+            let t3 =  t1 + t2;
+            let t4 = (t1 - t2).rotate();
+            let e1 = data[k];
+            let e2 = data[k + qsize];
+            data[k]             = e1 + t3;
+            data[k + qsize]     = e2 + t4;
+            data[k + hsize]     = e1 - t3;
+            data[k + qsize * 3] = e2 - t4;
+        }
+    }
+}
+
+struct FFT15 {}
+
+const FFT15_INSWAP:  [usize; 20] = [ 0, 5, 10, 42, 3, 8, 13, 42, 6, 11, 1, 42, 9, 14, 4, 42, 12, 2, 7, 42 ];
+const FFT15_OUTSWAP: [usize; 20] = [ 0, 10, 5, 42, 6, 1, 11, 42, 12, 7, 2, 42, 3, 13, 8, 42, 9, 4, 14, 42 ];
+
+impl FFT15 {
+    fn new_data(size: usize, _forward: bool) -> FFTData {
+        FFTData { table: Vec::new(), tmp: Vec::new(), twiddle: Vec::new(), size, step: 0, div: 0 }
+    }
+    fn fft3(dst: &mut [FFTComplex], src: &[FFTComplex], step: usize, n: usize) {
+        let s0 = src[0];
+        let s1 = src[1];
+        let s2 = src[2];
+
+        let t0 = s1 + s2;
+        let t1 = s0 - t0.scale(0.5);
+        let t2 = (s2 - s1).rotate().scale(FFT3_CONST);
+
+        dst[FFT15_OUTSWAP[n * 4 + 0] * step] = s0 + t0;
+        dst[FFT15_OUTSWAP[n * 4 + 1] * step] = t1 + t2;
+        dst[FFT15_OUTSWAP[n * 4 + 2] * step] = t1 - t2;
+    }
+    fn ifft3(dst: &mut [FFTComplex], src: &[FFTComplex], step: usize, n: usize) {
+        let s0 = src[0];
+        let s1 = src[1];
+        let s2 = src[2];
+
+        let t0 = s1 + s2;
+        let t1 = s0 - t0.scale(0.5);
+        let t2 = (s2 - s1).rotate().scale(FFT3_CONST);
+
+        dst[FFT15_OUTSWAP[n * 4 + 0] * step] = s0 + t0;
+        dst[FFT15_OUTSWAP[n * 4 + 1] * step] = t1 - t2;
+        dst[FFT15_OUTSWAP[n * 4 + 2] * step] = t1 + t2;
+    }
+    fn fft5(dst: &mut [FFTComplex], src: &[FFTComplex], step: usize, n: usize) {
+        let s0 = src[FFT15_INSWAP[n + 0 * 4] * step];
+        let s1 = src[FFT15_INSWAP[n + 1 * 4] * step];
+        let s2 = src[FFT15_INSWAP[n + 2 * 4] * step];
+        let s3 = src[FFT15_INSWAP[n + 3 * 4] * step];
+        let s4 = src[FFT15_INSWAP[n + 4 * 4] * step];
+
+        let t0 = s1 + s4;
+        let t1 = s1 - s4;
+        let t2 = s2 + s3;
+        let t3 = s2 - s3;
+        let (t4, t5) = twiddle5(t0, t1, FFT5_CONST2);
+        let (t6, t7) = twiddle5(t2, t3, FFT5_CONST1);
+        let (t8, t9) = twiddle5(t0, t1, FFT5_CONST1);
+        let (ta, tb) = twiddle5(t2, t3, FFT5_CONST2);
+
+        dst[0 * 3] = s0 + t0 + t2;
+        dst[1 * 3] = s0 + t5 - t6;
+        dst[2 * 3] = s0 - t8 + ta;
+        dst[3 * 3] = s0 - t9 + tb;
+        dst[4 * 3] = s0 + t4 - t7;
+    }
+    fn ifft5(dst: &mut [FFTComplex], src: &[FFTComplex], step: usize, n: usize) {
+        let s0 = src[FFT15_INSWAP[n + 0 * 4] * step];
+        let s1 = src[FFT15_INSWAP[n + 1 * 4] * step];
+        let s2 = src[FFT15_INSWAP[n + 2 * 4] * step];
+        let s3 = src[FFT15_INSWAP[n + 3 * 4] * step];
+        let s4 = src[FFT15_INSWAP[n + 4 * 4] * step];
+
+        let t0 = s1 + s4;
+        let t1 = s1 - s4;
+        let t2 = s2 + s3;
+        let t3 = s2 - s3;
+        let (t4, t5) = twiddle5(t0, t1, FFT5_CONST2);
+        let (t6, t7) = twiddle5(t2, t3, FFT5_CONST1);
+        let (t8, t9) = twiddle5(t0, t1, FFT5_CONST1);
+        let (ta, tb) = twiddle5(t2, t3, FFT5_CONST2);
+
+        dst[0 * 3] = s0 + t0 + t2;
+        dst[1 * 3] = s0 + t4 - t7;
+        dst[2 * 3] = s0 - t9 + tb;
+        dst[3 * 3] = s0 - t8 + ta;
+        dst[4 * 3] = s0 + t5 - t6;
+    }
+    fn fft(_fftdata: &mut FFTData, data: &mut [FFTComplex], step: usize) {
+        let mut tmp = [FFTC_ZERO; 15];
+        for n in 0..3 {
+            Self::fft5(&mut tmp[n..], data, step, n);
+        }
+        for n in 0..5 {
+            Self::fft3(data, &tmp[n * 3..][..3], step, n);
+        }
+    }
+    fn ifft(_fftdata: &mut FFTData, data: &mut [FFTComplex], step: usize) {
+        let mut tmp = [FFTC_ZERO; 15];
+        for n in 0..3 {
+            Self::ifft5(&mut tmp[n..], data, step, n);
+        }
+        for n in 0..5 {
+            Self::ifft3(data, &tmp[n * 3..][..3], step, n);
+        }
+    }
+}
+
+
+enum FFTMode {
+    Generic(usize),
+    SplitRadix(u8),
+    Prime15,
+}
+
+impl FFTMode {
+    fn permute(&self, perms: &mut [usize]) {
+        match *self {
+            FFTMode::Generic(_)         => {},
+            FFTMode::SplitRadix(bits)   => {
+                let div = perms.len() >> bits;
+                gen_sr_perms(perms, 1 << bits);
+                if div > 1 {
+                    for i in 0..(1 << bits) {
+                        perms[i] *= div;
                     }
-                },
-            FFTMode::CooleyTukey => {
-                    let bits = self.bits;
-                    for k in 0..src.len() { dst[k] = src[self.perms[k]]; }
-                    self.do_fft_inplace_ct(dst, bits, forward);
-                },
-            FFTMode::SplitRadix => {
-                    let bits = self.bits;
-                    for k in 0..src.len() { dst[k] = src[self.perms[k]]; }
-                    self.do_fft_inplace_splitradix(dst, bits, forward);
-                },
+                    for i in 1..div {
+                        for j in 0..(1 << bits) {
+                            perms[(i << bits) + j] = perms[j] + i;
+                        }
+                    }
+                }
+            },
+            FFTMode::Prime15            => {},
         };
     }
+    fn do_fft(&self, fftdata: &mut FFTData, data: &mut [FFTComplex]) {
+        match *self {
+            FFTMode::Generic(size)      => FFTGeneric::fft(fftdata, size, data, 1),
+            FFTMode::SplitRadix(bits)   => FFTSplitRadix::fft(fftdata, bits, data),
+            FFTMode::Prime15            => FFT15::fft(fftdata, data, 1),
+        };
+    }
+    fn do_fft2(&self, fftdata: &mut FFTData, data: &mut [FFTComplex], step: usize) {
+        match *self {
+            FFTMode::Generic(size)      => FFTGeneric::fft(fftdata, size, data, step),
+            FFTMode::SplitRadix(_)      => unreachable!(),
+            FFTMode::Prime15            => FFT15::fft(fftdata, data, step),
+        };
+    }
+    fn do_ifft(&self, fftdata: &mut FFTData, data: &mut [FFTComplex]) {
+        match *self {
+            FFTMode::Generic(size)      => FFTGeneric::ifft(fftdata, size, data, 1),
+            FFTMode::SplitRadix(bits)   => FFTSplitRadix::ifft(fftdata, bits, data),
+            FFTMode::Prime15            => FFT15::ifft(fftdata, data, 1),
+        };
+    }
+    fn do_ifft2(&self, fftdata: &mut FFTData, data: &mut [FFTComplex], step: usize) {
+        match *self {
+            FFTMode::Generic(size)      => FFTGeneric::ifft(fftdata, size, data, step),
+            FFTMode::SplitRadix(_)      => unreachable!(),
+            FFTMode::Prime15            => FFT15::ifft(fftdata, data, step),
+        };
+    }
+    fn get_size(&self) -> usize {
+        match *self {
+            FFTMode::Generic(size)      => size,
+            FFTMode::SplitRadix(bits)   => 1 << bits,
+            FFTMode::Prime15            => 15,
+        }
+    }
+}
 
-    pub fn do_fft_inplace(&mut self, data: &mut [FFTComplex], forward: bool) {
+pub struct FFT {
+    perms:  Vec<usize>,
+    swaps:  Vec<usize>,
+    ffts:   Vec<(FFTMode, FFTData)>,
+}
+
+impl FFT {
+    pub fn do_fft(&mut self, src: &[FFTComplex], dst: &mut [FFTComplex]) {
+        for k in 0..src.len() { dst[k] = src[self.perms[k]]; }
+        self.do_fft_core(dst);
+    }
+    pub fn do_ifft(&mut self, src: &[FFTComplex], dst: &mut [FFTComplex]) {
+        for k in 0..src.len() { dst[k] = src[self.perms[k]]; }
+        self.do_ifft_core(dst);
+    }
+    pub fn do_fft_inplace(&mut self, data: &mut [FFTComplex]) {
         for idx in 0..self.swaps.len() {
             let nidx = self.swaps[idx];
             if idx != nidx {
@@ -279,40 +547,73 @@ impl FFT {
                 data[idx]  = t;
             }
         }
-        match self.mode {
-            FFTMode::Matrix => {
-                    let size = (1 << self.bits) as usize;
-                    let base = if forward { -consts::PI * 2.0 / (size as f32) }
-                               else       {  consts::PI * 2.0 / (size as f32) };
-                    let mut res: Vec<FFTComplex> = Vec::with_capacity(size);
-                    for k in 0..size {
-                        let mut sum = FFTC_ZERO;
-                        for n in 0..size {
-                            let w = FFTComplex::exp(base * ((n * k) as f32));
-                            sum += data[n] * w;
-                        }
-                        res.push(sum);
+        self.do_fft_core(data);
+    }
+    pub fn do_ifft_inplace(&mut self, data: &mut [FFTComplex]) {
+        for idx in 0..self.swaps.len() {
+            let nidx = self.swaps[idx];
+            if idx != nidx {
+                let t      = data[nidx];
+                data[nidx] = data[idx];
+                data[idx]  = t;
+            }
+        }
+        self.do_ifft_core(data);
+    }
+    fn do_fft_core(&mut self, data: &mut [FFTComplex]) {
+        for el in self.ffts.iter_mut() {
+            let (mode, ref mut fftdata) = el;
+            let bsize = mode.get_size();
+            let div = fftdata.div;
+            let step = fftdata.step;
+            if step == 1 {
+                mode.do_fft(fftdata, data);
+                for i in 1..div {
+                    mode.do_fft(fftdata, &mut data[i * bsize..]);
+                }
+            } else {
+                mode.do_fft2(fftdata, data, div);
+                let mut toff = bsize;
+                for i in 1..div {
+                    for j in 1..bsize {
+                        data[i + j * div] *= fftdata.twiddle[toff + j];
                     }
-                    for k in 0..size {
-                        data[k] = res[k];
+                    mode.do_fft2(fftdata, &mut data[i..], div);
+                    toff += bsize;
+                }
+            }
+        }
+    }
+    fn do_ifft_core(&mut self, data: &mut [FFTComplex]) {
+        for el in self.ffts.iter_mut() {
+            let (mode, ref mut fftdata) = el;
+            let bsize = mode.get_size();
+            let div = fftdata.div;
+            let step = fftdata.step;
+            if step == 1 {
+                mode.do_ifft(fftdata, data);
+                for i in 1..div {
+                    mode.do_ifft(fftdata, &mut data[i * bsize..]);
+                }
+            } else {
+                mode.do_ifft2(fftdata, data, div);
+                let mut toff = bsize;
+                for i in 1..div {
+                    for j in 1..bsize {
+                        data[i + j * div] *= fftdata.twiddle[toff + j];
                     }
-                },
-            FFTMode::CooleyTukey => {
-                    let bits = self.bits;
-                    self.do_fft_inplace_ct(data, bits, forward);
-                },
-            FFTMode::SplitRadix => {
-                    let bits = self.bits;
-                    self.do_fft_inplace_splitradix(data, bits, forward);
-                },
-        };
+                    mode.do_ifft2(fftdata, &mut data[i..], div);
+                    toff += bsize;
+                }
+            }
+        }
     }
 }
 
 pub struct FFTBuilder {
 }
 
-fn reverse_bits(inval: u32) -> u32 {
+/*fn reverse_bits(inval: u32) -> u32 {
     const REV_TAB: [u8; 16] = [
         0b0000, 0b1000, 0b0100, 0b1100, 0b0010, 0b1010, 0b0110, 0b1110,
         0b0001, 0b1001, 0b0101, 0b1101, 0b0011, 0b1011, 0b0111, 0b1111,
@@ -330,7 +631,7 @@ fn reverse_bits(inval: u32) -> u32 {
 fn swp_idx(idx: usize, bits: u32) -> usize {
     let s = reverse_bits(idx as u32) as usize;
     s >> (32 - bits)
-}
+}*/
 
 fn gen_sr_perms(swaps: &mut [usize], size: usize) {
     if size <= 4 { return; }
@@ -375,54 +676,56 @@ fn gen_swaps_for_perm(swaps: &mut Vec<usize>, perms: &Vec<usize>) {
 }
 
 impl FFTBuilder {
-    pub fn new_fft(mode: FFTMode, size: usize) -> FFT {
-        let mut swaps: Vec<usize>;
-        let mut perms: Vec<usize>;
-        let mut table: Vec<FFTComplex>;
-        let bits = 31 - (size as u32).leading_zeros();
-        match mode {
-            FFTMode::Matrix => {
-                    swaps = Vec::new();
-                    perms = Vec::new();
-                    table = Vec::new();
-                },
-            FFTMode::CooleyTukey => {
-                    perms = Vec::with_capacity(size);
-                    for i in 0..size {
-                        perms.push(swp_idx(i, bits));
-                    }
-                    swaps = Vec::with_capacity(size);
-                    table = Vec::with_capacity(size);
-                    for _ in 0..4 { table.push(FFTC_ZERO); }
-                    for b in 3..(bits+1) {
-                        let hsize = (1 << (b - 1)) as usize;
-                        let base = -consts::PI / (hsize as f32);
-                        for k in 0..hsize {
-                            table.push(FFTComplex::exp(base * (k as f32)));
-                        }
-                    }
-                },
-            FFTMode::SplitRadix => {
-                    perms = Vec::with_capacity(size);
-                    for i in 0..size {
-                        perms.push(i);
-                    }
-                    gen_sr_perms(perms.as_mut_slice(), 1 << bits);
-                    swaps = Vec::with_capacity(size);
-                    table = Vec::with_capacity(size);
-                    for _ in 0..4 { table.push(FFTC_ZERO); }
-                    for b in 3..(bits+1) {
-                        let qsize = (1 << (b - 2)) as usize;
-                        let base = -consts::PI / ((qsize * 2) as f32);
-                        for k in 0..qsize {
-                            table.push(FFTComplex::exp(base * ((k * 1) as f32)));
-                            table.push(FFTComplex::exp(base * ((k * 3) as f32)));
-                        }
-                    }
-                },
-        };
+    fn generate_twiddle(data: &mut FFTData, size: usize, cur_size: usize, forward: bool) {
+        if size == cur_size { return; }
+        data.twiddle = Vec::with_capacity(size);
+        let div = size / cur_size;
+        let base = if forward { -2.0 * consts::PI / (size as f32) } else { 2.0 * consts::PI / (size as f32) };
+        for n in 0..div {
+            for k in 0..cur_size {
+                data.twiddle.push(FFTComplex::exp(base * ((k * n) as f32)));
+            }
+        }
+    }
+    pub fn new_fft(size: usize, forward: bool) -> FFT {
+        let mut ffts: Vec<(FFTMode, FFTData)> = Vec::with_capacity(1);
+        let mut perms: Vec<usize> = Vec::with_capacity(size);
+        let mut swaps: Vec<usize> = Vec::with_capacity(size);
+        let mut rem_size = size;
+        if rem_size.trailing_zeros() > 0 {
+            let bits = rem_size.trailing_zeros() as u8;
+            let mut data = FFTSplitRadix::new_data(bits, forward);
+            Self::generate_twiddle(&mut data, size, 1 << bits, forward);
+            data.step = 1;
+            data.div = rem_size >> bits;
+            ffts.push((FFTMode::SplitRadix(bits), data));
+            rem_size >>= bits;
+        }
+        if (rem_size % 15) == 0 {
+            let mut data = FFT15::new_data(size, forward);
+            Self::generate_twiddle(&mut data, size, 15, forward);
+            data.step = size / rem_size;
+            data.div = size / rem_size;
+            ffts.push((FFTMode::Prime15, data));
+            rem_size /= 15;
+        }
+        if rem_size > 1 {
+            let mut data = FFTGeneric::new_data(rem_size, forward);
+            Self::generate_twiddle(&mut data, size, rem_size, forward);
+            data.step = size / rem_size;
+            data.div  = size / rem_size;
+            ffts.push((FFTMode::Generic(rem_size), data));
+        }
+
+        for i in 0..size {
+            perms.push(i);
+        }
+        for (mode, _) in ffts.iter().rev() {
+            mode.permute(&mut perms);
+        }
         gen_swaps_for_perm(&mut swaps, &perms);
-        FFT { mode: mode, swaps: swaps, perms: perms, bits: bits, table: table }
+
+        FFT { perms, swaps, ffts }
     }
 }
 
@@ -462,7 +765,11 @@ impl RDFT {
             buf[0].re = a - b;
             buf[0].im = a + b;
         }
-        self.fft.do_fft_inplace(buf, self.fwd_fft);
+        if self.fwd_fft {
+            self.fft.do_fft_inplace(buf);
+        } else {
+            self.fft.do_ifft_inplace(buf);
+        }
         if self.fwd {
             for n in 0..self.size/2 {
                 let in0 = buf[n + 1];
@@ -491,13 +798,13 @@ pub struct RDFTBuilder {
 }
 
 impl RDFTBuilder {
-    pub fn new_rdft(mode: FFTMode, size: usize, forward: bool, forward_fft: bool) -> RDFT {
+    pub fn new_rdft(size: usize, forward: bool, forward_fft: bool) -> RDFT {
         let mut table: Vec<FFTComplex> = Vec::with_capacity(size / 4);
         let (base, scale) = if forward { (consts::PI / (size as f32), 0.5) } else { (-consts::PI / (size as f32), 1.0) };
         for i in 0..size/2 {
             table.push(FFTComplex::exp(base * ((i + 1) as f32)).scale(scale));
         }
-        let fft = FFTBuilder::new_fft(mode, size);
+        let fft = FFTBuilder::new_fft(size, forward_fft);
         RDFT { table, fft, size, fwd: forward, fwd_fft: forward_fft }
     }
 }
@@ -507,15 +814,15 @@ impl RDFTBuilder {
 mod test {
     use super::*;
 
-    #[test]
-    fn test_fft() {
-        let mut fin:   [FFTComplex; 128] = [FFTC_ZERO; 128];
-        let mut fout1: [FFTComplex; 128] = [FFTC_ZERO; 128];
-        let mut fout2: [FFTComplex; 128] = [FFTC_ZERO; 128];
-        let mut fout3: [FFTComplex; 128] = [FFTC_ZERO; 128];
-        let mut fft1 = FFTBuilder::new_fft(FFTMode::Matrix,      fin.len());
-        let mut fft2 = FFTBuilder::new_fft(FFTMode::CooleyTukey, fin.len());
-        let mut fft3 = FFTBuilder::new_fft(FFTMode::SplitRadix,  fin.len());
+    fn test_fft(size: usize) {
+        println!("testing FFT {}", size);
+        let mut fin:   Vec<FFTComplex> = Vec::with_capacity(size);
+        let mut fout1: Vec<FFTComplex> = Vec::with_capacity(size);
+        let mut fout2: Vec<FFTComplex> = Vec::with_capacity(size);
+        fin.resize(size, FFTC_ZERO);
+        fout1.resize(size, FFTC_ZERO);
+        fout2.resize(size, FFTC_ZERO);
+        let mut fft = FFTBuilder::new_fft(size, true);
         let mut seed: u32 = 42;
         for i in 0..fin.len() {
             seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
@@ -525,36 +832,43 @@ mod test {
             let val = (seed >> 16) as i16;
             fin[i].im = (val as f32) / 256.0;
         }
-        fft1.do_fft(&fin, &mut fout1, true);
-        fft2.do_fft(&fin, &mut fout2, true);
-        fft3.do_fft(&fin, &mut fout3, true);
+        fft.do_fft(&fin, &mut fout1);
+        fout2.copy_from_slice(&fin);
+        generic_fft(&mut fout2, true);
 
         for i in 0..fin.len() {
             assert!((fout1[i].re - fout2[i].re).abs() < 1.0);
             assert!((fout1[i].im - fout2[i].im).abs() < 1.0);
-            assert!((fout1[i].re - fout3[i].re).abs() < 1.0);
-            assert!((fout1[i].im - fout3[i].im).abs() < 1.0);
         }
-        fft1.do_fft_inplace(&mut fout1, false);
-        fft2.do_fft_inplace(&mut fout2, false);
-        fft3.do_fft_inplace(&mut fout3, false);
+        let mut ifft = FFTBuilder::new_fft(size, false);
+        ifft.do_ifft_inplace(&mut fout1);
+        generic_fft(&mut fout2, false);
 
-        let sc = 1.0 / (fin.len() as f32);
+        let sc = 1.0 / (size as f32);
         for i in 0..fin.len() {
             assert!((fin[i].re - fout1[i].re * sc).abs() < 1.0);
             assert!((fin[i].im - fout1[i].im * sc).abs() < 1.0);
-            assert!((fout1[i].re - fout2[i].re).abs() < 1.0);
-            assert!((fout1[i].im - fout2[i].im).abs() < 1.0);
-            assert!((fout1[i].re - fout3[i].re).abs() < 1.0);
-            assert!((fout1[i].im - fout3[i].im).abs() < 1.0);
+            assert!((fout1[i].re - fout2[i].re).abs() * sc < 1.0);
+            assert!((fout1[i].im - fout2[i].im).abs() * sc < 1.0);
         }
+    }
+
+    #[test]
+    fn test_ffts() {
+        test_fft(3);
+        test_fft(5);
+        test_fft(16);
+        test_fft(15);
+        test_fft(60);
+        test_fft(256);
+        test_fft(240);
     }
 
     #[test]
     fn test_rdft() {
         let mut fin:   [FFTComplex; 128] = [FFTC_ZERO; 128];
         let mut fout1: [FFTComplex; 128] = [FFTC_ZERO; 128];
-        let mut rdft = RDFTBuilder::new_rdft(FFTMode::SplitRadix,  fin.len(), true, true);
+        let mut rdft = RDFTBuilder::new_rdft(fin.len(), true, true);
         let mut seed: u32 = 42;
         for i in 0..fin.len() {
             seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
@@ -565,7 +879,7 @@ mod test {
             fin[i].im = (val as f32) / 256.0;
         }
         rdft.do_rdft(&fin, &mut fout1);
-        let mut irdft = RDFTBuilder::new_rdft(FFTMode::SplitRadix,  fin.len(), false, true);
+        let mut irdft = RDFTBuilder::new_rdft(fin.len(), false, true);
         irdft.do_rdft_inplace(&mut fout1);
 
         for i in 0..fin.len() {

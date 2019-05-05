@@ -1,7 +1,6 @@
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
-use nihav_core::dsp::fft::FFTMode;
 use nihav_core::dsp::mdct::IMDCT;
 use nihav_core::dsp::window::*;
 use nihav_core::io::bitreader::*;
@@ -1001,8 +1000,8 @@ impl DSP {
         Self {
             kbd_long_win, kbd_short_win,
             sine_long_win, sine_short_win,
-            imdct_long: IMDCT::new(FFTMode::SplitRadix, 1024 * 2, true),
-            imdct_short: IMDCT::new(FFTMode::SplitRadix, 128 * 2, true),
+            imdct_long: IMDCT::new(1024 * 2, true),
+            imdct_short: IMDCT::new(128 * 2, true),
             tmp: [0.0; 2048], ew_buf: [0.0; 1152],
         }
     }
