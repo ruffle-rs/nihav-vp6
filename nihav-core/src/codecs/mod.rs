@@ -162,7 +162,7 @@ impl Default for IPBShuffler {
     fn default() -> Self { Self { lastframe: None, nextframe: None } }
 }
 
-#[derive(Debug,Clone,Copy,PartialEq)]
+#[derive(Debug,Clone,Copy,Default,PartialEq)]
 pub struct MV {
     pub x: i16,
     pub y: i16,
