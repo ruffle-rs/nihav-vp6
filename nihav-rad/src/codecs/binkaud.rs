@@ -275,11 +275,11 @@ impl NADecoder for BinkAudioDecoder {
     }
 }
 
-pub fn get_decoder_dct() -> Box<NADecoder> {
+pub fn get_decoder_dct() -> Box<dyn NADecoder> {
     Box::new(BinkAudioDecoder::new(true))
 }
 
-pub fn get_decoder_rdft() -> Box<NADecoder> {
+pub fn get_decoder_rdft() -> Box<dyn NADecoder> {
     Box::new(BinkAudioDecoder::new(false))
 }
 

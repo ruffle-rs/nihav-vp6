@@ -230,7 +230,7 @@ println!(" [intermediate format {}]", df);
     }
 }
 
-pub fn create_rgb2yuv() -> Box<Kernel> {
+pub fn create_rgb2yuv() -> Box<dyn Kernel> {
     Box::new(RgbToYuv::new())
 }
 
@@ -318,6 +318,6 @@ println!(" [intermediate format {}]", df);
     }
 }
 
-pub fn create_yuv2rgb() -> Box<Kernel> {
+pub fn create_yuv2rgb() -> Box<dyn Kernel> {
     Box::new(YuvToRgb::new())
 }

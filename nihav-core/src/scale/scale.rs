@@ -52,7 +52,7 @@ impl Kernel for NNResampler {
     }
 }
 
-pub fn create_scale() -> Box<Kernel> {
+pub fn create_scale() -> Box<dyn Kernel> {
     Box::new(NNResampler::new())
 }
 

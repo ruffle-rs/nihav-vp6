@@ -38,11 +38,11 @@ pub type ScaleResult<T> = Result<T, ScaleError>;
 
 struct KernelDesc {
     name:       &'static str,
-    create:     fn () -> Box<kernel::Kernel>,
+    create:     fn () -> Box<dyn kernel::Kernel>,
 }
 
 impl KernelDesc {
-    fn find(name: &str) -> ScaleResult<Box<kernel::Kernel>> {
+    fn find(name: &str) -> ScaleResult<Box<dyn kernel::Kernel>> {
         for kern in KERNELS.iter() {
             if kern.name == name {
                 return Ok((kern.create)());
@@ -65,7 +65,7 @@ struct Stage {
     fmt_out:    ScaleInfo,
     tmp_pic:    NABufferType,
     next:       Option<Box<Stage>>,
-    worker:     Box<kernel::Kernel>,
+    worker:     Box<dyn kernel::Kernel>,
 }
 
 pub fn get_scale_fmt_from_pic(pic: &NABufferType) -> ScaleInfo {

@@ -171,7 +171,7 @@ impl<'a> VMDDemuxer<'a> {
 pub struct VMDDemuxerCreator { }
 
 impl DemuxerCreator for VMDDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(VMDDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "vmd" }

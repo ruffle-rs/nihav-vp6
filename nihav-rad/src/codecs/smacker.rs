@@ -469,7 +469,7 @@ impl NADecoder for SmackerVideoDecoder {
     }
 }
 
-pub fn get_decoder_video() -> Box<NADecoder> {
+pub fn get_decoder_video() -> Box<dyn NADecoder> {
     Box::new(SmackerVideoDecoder::new())
 }
 
@@ -593,7 +593,7 @@ impl NADecoder for SmackerAudioDecoder {
     }
 }
 
-pub fn get_decoder_audio() -> Box<NADecoder> {
+pub fn get_decoder_audio() -> Box<dyn NADecoder> {
     Box::new(SmackerAudioDecoder::new())
 }
 

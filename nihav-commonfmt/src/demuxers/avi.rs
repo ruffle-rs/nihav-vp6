@@ -385,7 +385,7 @@ fn parse_junk(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
 pub struct AVIDemuxerCreator { }
 
 impl DemuxerCreator for AVIDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(AVIDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "avi" }

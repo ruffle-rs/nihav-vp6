@@ -93,7 +93,7 @@ impl<'a> BMVDemuxer<'a> {
 pub struct BMVDemuxerCreator { }
 
 impl DemuxerCreator for BMVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(BMVDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "bmv" }
@@ -239,7 +239,7 @@ impl<'a> BMV3Demuxer<'a> {
 pub struct BMV3DemuxerCreator { }
 
 impl DemuxerCreator for BMV3DemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(BMV3Demuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "bmv3" }

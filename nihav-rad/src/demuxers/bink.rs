@@ -170,7 +170,7 @@ impl<'a> BinkDemuxer<'a> {
 pub struct BinkDemuxerCreator { }
 
 impl DemuxerCreator for BinkDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(BinkDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "bink" }

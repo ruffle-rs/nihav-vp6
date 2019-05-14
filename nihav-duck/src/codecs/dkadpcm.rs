@@ -165,11 +165,11 @@ impl NADecoder for DuckADPCMDecoder {
     }
 }
 
-pub fn get_decoder_dk3() -> Box<NADecoder> {
+pub fn get_decoder_dk3() -> Box<dyn NADecoder> {
     Box::new(DuckADPCMDecoder::new(true))
 }
 
-pub fn get_decoder_dk4() -> Box<NADecoder> {
+pub fn get_decoder_dk4() -> Box<dyn NADecoder> {
     Box::new(DuckADPCMDecoder::new(false))
 }
 

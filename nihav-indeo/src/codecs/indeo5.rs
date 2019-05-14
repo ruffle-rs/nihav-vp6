@@ -711,7 +711,7 @@ const INDEO5_QSCALE4_INTER: [u8; 24] = [
     0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23
 ];
 
-pub fn get_decoder() -> Box<NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder> {
     Box::new(Indeo5Decoder::new())
 }
 

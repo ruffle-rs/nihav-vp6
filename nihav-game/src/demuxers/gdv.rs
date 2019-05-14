@@ -162,7 +162,7 @@ pktdta: Vec::new(),
 pub struct GDVDemuxerCreator { }
 
 impl DemuxerCreator for GDVDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(GremlinVideoDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "gdv" }

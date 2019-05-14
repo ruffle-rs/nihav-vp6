@@ -1264,7 +1264,7 @@ println!("decode frame {} b={} i={}", pkt.get_pts().unwrap(), self.is_ver_b, sel
     }
 }
 
-pub fn get_decoder() -> Box<NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder> {
     Box::new(BinkDecoder::new())
 }
 

@@ -254,7 +254,7 @@ pub trait NADecoder {
 #[derive(Clone,Copy)]
 pub struct DecoderInfo {
     pub name: &'static str,
-    pub get_decoder: fn () -> Box<NADecoder>,
+    pub get_decoder: fn () -> Box<dyn NADecoder>,
 }
 
 #[cfg(any(feature="h263"))]
@@ -274,7 +274,7 @@ impl RegisteredDecoders {
     pub fn add_decoder(&mut self, dec: DecoderInfo) {
         self.decs.push(dec);
     }
-    pub fn find_decoder(&self, name: &str) -> Option<fn () -> Box<NADecoder>> {
+    pub fn find_decoder(&self, name: &str) -> Option<fn () -> Box<dyn NADecoder>> {
         for &dec in self.decs.iter() {
             if dec.name == name {
                 return Some(dec.get_decoder);

@@ -758,7 +758,7 @@ const INDEO4_Q4_INTER: [&[u16; 16]; 5] = [
     &INDEO4_QUANT4X4_INTER[3], &INDEO4_QUANT4X4_INTER[4]
 ];
 
-pub fn get_decoder() -> Box<NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder> {
     Box::new(Indeo4Decoder::new())
 }
 

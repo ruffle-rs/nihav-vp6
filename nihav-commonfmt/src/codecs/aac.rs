@@ -1254,7 +1254,7 @@ impl NADecoder for AACDecoder {
     }
 }
 
-pub fn get_decoder() -> Box<NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder> {
     Box::new(AACDecoder::new())
 }
 

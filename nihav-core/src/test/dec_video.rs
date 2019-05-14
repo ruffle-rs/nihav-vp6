@@ -161,7 +161,7 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<NADecoder>)>> = Vec::new();
+    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();
@@ -219,7 +219,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
     let mut br = ByteReader::new(&mut fr);
     let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
 
-    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<NADecoder>)>> = Vec::new();
+    let mut decs: Vec<Option<(Box<NADecoderSupport>, Box<dyn NADecoder>)>> = Vec::new();
     for i in 0..dmx.get_num_streams() {
         let s = dmx.get_stream(i).unwrap();
         let info = s.get_info();

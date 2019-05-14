@@ -761,11 +761,11 @@ impl NADecoder for ClearVideoDecoder {
     }
 }
 
-pub fn get_decoder() -> Box<NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder> {
     Box::new(ClearVideoDecoder::new(false))
 }
 
-pub fn get_decoder_rm() -> Box<NADecoder> {
+pub fn get_decoder_rm() -> Box<dyn NADecoder> {
     Box::new(ClearVideoDecoder::new(true))
 }
 

@@ -138,12 +138,12 @@ impl<'a> Iterator for StreamIter<'a> {
 }
 
 pub struct Demuxer<'a> {
-    dmx:        Box<DemuxCore<'a> + 'a>,
+    dmx:        Box<dyn DemuxCore<'a> + 'a>,
     streams:    StreamManager,
 }
 
 impl<'a> Demuxer<'a> {
-    fn new(dmx: Box<DemuxCore<'a> + 'a>, str: StreamManager) -> Self {
+    fn new(dmx: Box<dyn DemuxCore<'a> + 'a>, str: StreamManager) -> Self {
         Demuxer {
             dmx:        dmx,
             streams:    str,
@@ -194,7 +194,7 @@ impl From<ByteIOError> for DemuxerError {
 ///The structure used to create demuxers.
 pub trait DemuxerCreator {
     /// Create new demuxer instance that will use `ByteReader` source as an input.
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a>;
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a>;
     /// Get the name of current demuxer creator.
     fn get_name(&self) -> &'static str;
 }

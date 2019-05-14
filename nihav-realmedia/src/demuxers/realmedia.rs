@@ -1571,7 +1571,7 @@ static RM_AUDIO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
 pub struct RealMediaDemuxerCreator { }
 
 impl DemuxerCreator for RealMediaDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(RealMediaDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "realmedia" }
@@ -1580,7 +1580,7 @@ impl DemuxerCreator for RealMediaDemuxerCreator {
 pub struct RealAudioDemuxerCreator { }
 
 impl DemuxerCreator for RealAudioDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(RealAudioDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "realaudio" }
@@ -1589,7 +1589,7 @@ impl DemuxerCreator for RealAudioDemuxerCreator {
 pub struct RealIVRDemuxerCreator { }
 
 impl DemuxerCreator for RealIVRDemuxerCreator {
-    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<DemuxCore<'a> + 'a> {
+    fn new_demuxer<'a>(&self, br: &'a mut ByteReader<'a>) -> Box<dyn DemuxCore<'a> + 'a> {
         Box::new(RealIVRDemuxer::new(br))
     }
     fn get_name(&self) -> &'static str { "real_ivr" }

@@ -102,7 +102,7 @@ unimplemented!();
     }
 }
 
-pub fn create_pack() -> Box<Kernel> {
+pub fn create_pack() -> Box<dyn Kernel> {
     Box::new(PackKernel::new())
 }
 
@@ -216,7 +216,7 @@ unimplemented!();
     }
 }
 
-pub fn create_unpack() -> Box<Kernel> {
+pub fn create_unpack() -> Box<dyn Kernel> {
     Box::new(UnpackKernel::new())
 }
 
@@ -293,6 +293,6 @@ println!(" [intermediate format {}]", df);
     }
 }
 
-pub fn create_depal() -> Box<Kernel> {
+pub fn create_depal() -> Box<dyn Kernel> {
     Box::new(DepalKernel::new())
 }
