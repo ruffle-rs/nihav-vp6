@@ -223,6 +223,7 @@ fn dct_row(blk: &mut [i32]) {
 }
 
 #[allow(non_snake_case)]
+#[allow(clippy::erasing_op)]
 fn dct_col(blk: &mut [i32; 64], col: usize) {
     let dshift = 8;
     let shift  = 14;

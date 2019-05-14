@@ -20,6 +20,7 @@ mod ivi;
 #[cfg(any(feature="decoder_indeo4", feature="decoder_indeo5"))]
 mod ivibr;
 #[cfg(any(feature="decoder_indeo4", feature="decoder_indeo5"))]
+#[allow(clippy::erasing_op)]
 mod ividsp;
 
 #[cfg(feature="decoder_imc")]

@@ -53,7 +53,7 @@ macro_rules! idct {
     };
     (float; $src: expr, $sstep: expr, $off: expr, $dst: expr, $dstep: expr, $doff: expr, $bias: expr, $shift: expr) => {
         let t00 =  $src[$off + $sstep * 2] + $src[$off + $sstep * 6];
-        let t01 = ($src[$off + $sstep * 2] - $src[$off + $sstep * 6]) * 1.4142135 - t00;
+        let t01 = ($src[$off + $sstep * 2] - $src[$off + $sstep * 6]) * std::f32::consts::SQRT_2 - t00;
         let t02 = $src[$off + $sstep * 0] + $src[$off + $sstep * 4];
         let t03 = $src[$off + $sstep * 0] - $src[$off + $sstep * 4];
         let t04 = $src[$off + $sstep * 3] + $src[$off + $sstep * 5];
@@ -65,7 +65,7 @@ macro_rules! idct {
         let t10 = t03 + t01;
         let t11 = t03 - t01;
         let t12 = t06 + t04;
-        let t13 = (t06 - t04) * 1.4142135;
+        let t13 = (t06 - t04) * std::f32::consts::SQRT_2;
         let t14 = (t07 - t05) * 1.847759;
         let t15 = t05 * 2.613126 + t14 - t12;
         let t16 = t13 - t15;
@@ -82,6 +82,7 @@ macro_rules! idct {
     };
 }
 
+#[allow(clippy::erasing_op)]
 fn bink2_idct(coeffs: &mut [i32; 64]) {
     let mut tmp: [i32; 64] = [0; 64];
     for i in 0..8 {
@@ -92,6 +93,7 @@ fn bink2_idct(coeffs: &mut [i32; 64]) {
     }
 }
 
+#[allow(clippy::erasing_op)]
 fn bink2_idct_old(coeffs: &mut [f32; 64]) {
     let mut tmp: [f32; 64] = [0.0; 64];
     coeffs[0] += 512.5;
@@ -148,6 +150,7 @@ macro_rules! avg_tree {
     ($a: expr, $b: expr, $c: expr, $d: expr) => (avg_tree!(avg_tree!($a, $b), avg_tree!($c, $d)));
 }
 
+#[allow(clippy::erasing_op)]
 impl Bink2DSP {
     fn calc_dc(src: &[u8], stride: usize) -> i32 {
         let mut sums = [0u16; 8];
@@ -1017,6 +1020,7 @@ struct Bink2Decoder {
     codes:      Bink2Codes,
 }
 
+#[allow(clippy::erasing_op)]
 impl Bink2Decoder {
     fn new() -> Self {
         Self::default()

@@ -223,6 +223,7 @@ struct DeltaState {
     dc: [[i32; 2]; 2],
 }
 
+#[allow(clippy::erasing_op)]
 impl DeltaState {
     fn apply_y(&mut self, dst: &mut [u8], mut yoff: usize, ystride: usize, ydeltas: &[i32; 16], last: &mut [i32]) {
         for y in 0..4 {
