@@ -140,7 +140,7 @@ impl Filter {
     }
     fn predict(&self, src: &[i32], bits: u8) -> i32 {
         let mut acc: i32 = 0;
-        for (f, s) in src.iter().rev().take(self.length).zip(self.coeffs.into_iter()) {
+        for (f, s) in src.iter().rev().take(self.length).zip(self.coeffs.iter()) {
             acc += *f * *s;
         }
         let bias = 1 << (self.bits - 1);

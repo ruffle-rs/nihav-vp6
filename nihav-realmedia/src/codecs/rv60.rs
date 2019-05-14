@@ -21,7 +21,7 @@ impl<A:Copy+Default+PartialEq> UniqueList<A> {
     fn add(&mut self, cand: A) {
         if self.fill == self.max_size { return; }
         let mut unique = true;
-        for el in self.list.into_iter().take(self.fill) {
+        for el in self.list.iter().take(self.fill) {
             if *el == cand {
                 unique = false;
                 break;
@@ -1117,7 +1117,7 @@ println!(" left {} bits", br.left());
                 }
             }
         }
-        for el in RV60_CANDIDATE_INTRA_ANGLES.into_iter() {
+        for el in RV60_CANDIDATE_INTRA_ANGLES.iter() {
             ipm_cand.add(*el);
         }
         // actually decode prediction mode
@@ -1129,7 +1129,7 @@ println!(" left {} bits", br.left());
                     let mut imode = mode;
                     let mut ipm_cs: [u8; 3] = [ipm_cand.list[0], ipm_cand.list[1], ipm_cand.list[2]];
                     ipm_cs.sort();
-                    for ic in ipm_cs.into_iter() {
+                    for ic in ipm_cs.iter() {
                         if imode >= *ic {
                             imode += 1;
                         }

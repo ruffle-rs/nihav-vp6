@@ -299,6 +299,7 @@ fn rv40_weak_loop_filter4_h(pix: &mut [u8], off: usize, stride: usize,
                             lim_p0q0: i16, lim_p1: i16, lim_q1: i16) {
     rv40_weak_loop_filter4(pix, off, stride, 1, filter_p1, filter_q1, alpha, beta, lim_p0q0, lim_p1, lim_q1);
 }
+#[allow(clippy::eq_op)]
 fn rv40_weak_loop_filter4_v(pix: &mut [u8], off: usize, stride: usize,
                             filter_p1: bool, filter_q1: bool, alpha: i16, beta: i16,
                             lim_p0q0: i16, lim_p1: i16, lim_q1: i16) {
@@ -457,6 +458,7 @@ fn rv40_loop_strength_h(pix: &[u8], off: usize, stride: usize,
     rv40_loop_strength(pix, off, stride, 1, beta, beta2, edge)
 }
 
+#[allow(clippy::eq_op)]
 fn rv40_loop_strength_v(pix: &[u8], off: usize, stride: usize,
                         beta: i16, beta2: i16, edge: bool) -> (bool, bool, bool) {
     let src = &pix[off - 3..][..stride * 3 + 3 + 3];

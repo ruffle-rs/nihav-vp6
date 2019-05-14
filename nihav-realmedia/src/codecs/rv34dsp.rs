@@ -36,6 +36,7 @@ pub struct RV34CommonDSP {
     pub ipred16x16: [fn(buf: &mut [u8], idx: usize, stride: usize); 7],
 }
 
+#[allow(clippy::erasing_op)]
 fn row_transform(src: &[i16], dst: &mut [i32]) {
     for i in 0..4 {
         let z0 = 13 * ((src[i + 4*0] as i32) + (src[i + 4*2] as i32));
@@ -61,6 +62,7 @@ fn mclip8(a: i32) -> u8 {
     else { a as u8 }
 }
 
+#[allow(clippy::erasing_op)]
 impl RV34CommonDSP {
     pub fn new() -> Self {
         Self {

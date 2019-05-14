@@ -1118,6 +1118,7 @@ const COOK_CPL_BAND: [u8; MAX_SUBBANDS - 1] = [
     19, 19, 19
 ];
 
+#[allow(clippy::approx_constant)]
 const COOK_DITHER_TAB: [f32; 9] = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.176777, 0.25, 0.707107, 1.0 ];
 
 const COOK_QUANT_CENTROID: [[f32; 14]; 7] = [
