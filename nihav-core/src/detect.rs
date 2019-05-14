@@ -275,7 +275,7 @@ mod test {
 
     #[test]
     fn test_avi_detect() {
-        let name = "assets/laser05.avi";
+        let name = "assets/Indeo/laser05.avi";
         let mut file = File::open(name).unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
@@ -286,7 +286,7 @@ mod test {
 
     #[test]
     fn test_gdv_detect() {
-        let name = "assets/intro1.gdv";
+        let name = "assets/Game/intro1.gdv";
         let mut file = File::open(name).unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
