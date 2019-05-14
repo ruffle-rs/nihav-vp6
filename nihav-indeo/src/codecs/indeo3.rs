@@ -223,7 +223,7 @@ fn fill_block8x8(bufs: &mut Buffers, doff: usize, stride: usize, h: usize, topli
     } else if bufs.fbuf {
         for i in 0..8 { buf[i] = bufs.buf1[doff - stride + i]; }
     } else {
-        for i in 0..8 { buf[i] = bufs.buf1[doff - stride + i]; }
+        for i in 0..8 { buf[i] = bufs.buf2[doff - stride + i]; }
     }
     if topline && !firstline {
         for i in 0..4 { buf[i * 2 + 1] = buf[i * 2]; }
