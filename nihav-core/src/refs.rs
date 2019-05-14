@@ -83,7 +83,8 @@ impl<T> Drop for NABufferRef<T> {
     fn drop(&mut self) {
         unsafe {
             if NABufferData::dec_refs(self.ptr.as_mut().unwrap()) {
-                std::ptr::drop_in_place(self.ptr);
+                let data = Box::from_raw(self.ptr);
+                std::mem::drop(data);
             }
         }
     }
