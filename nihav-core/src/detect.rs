@@ -9,8 +9,8 @@ pub enum DetectionScore {
 }
 
 impl DetectionScore {
-    pub fn less(&self, other: DetectionScore) -> bool {
-        (*self as i32) < (other as i32)
+    pub fn less(self, other: DetectionScore) -> bool {
+        (self as i32) < (other as i32)
     }
 }
 
@@ -30,13 +30,13 @@ enum Arg {
 impl Arg {
     fn val(&self) -> u64 {
         match *self {
-            Arg::Byte(b) => { b as u64 }
-            Arg::U16BE(v) => { v as u64 }
-            Arg::U16LE(v) => { v as u64 }
-            Arg::U24BE(v) => { v as u64 }
-            Arg::U24LE(v) => { v as u64 }
-            Arg::U32BE(v) => { v as u64 }
-            Arg::U32LE(v) => { v as u64 }
+            Arg::Byte(b) => { u64::from(b) }
+            Arg::U16BE(v) => { u64::from(v) }
+            Arg::U16LE(v) => { u64::from(v) }
+            Arg::U24BE(v) => { u64::from(v) }
+            Arg::U24LE(v) => { u64::from(v) }
+            Arg::U32BE(v) => { u64::from(v) }
+            Arg::U32LE(v) => { u64::from(v) }
             Arg::U64BE(v) => { v }
             Arg::U64LE(v) => { v }
         }
@@ -45,74 +45,74 @@ impl Arg {
         match *self {
             Arg::Byte(_) => {
                 let res = src.peek_byte();
-                if let Err(_) = res { return None; }
-                Some(res.unwrap() as u64)
+                if res.is_err() { return None; }
+                Some(u64::from(res.unwrap()))
             }
             Arg::U16BE(_) => {
                 let res = src.peek_u16be();
-                if let Err(_) = res { return None; }
-                Some(res.unwrap() as u64)
+                if res.is_err() { return None; }
+                Some(u64::from(res.unwrap()))
             }
             Arg::U16LE(_) => {
                 let res = src.peek_u16le();
-                if let Err(_) = res { return None; }
-                Some(res.unwrap() as u64)
+                if res.is_err() { return None; }
+                Some(u64::from(res.unwrap()))
             }
             Arg::U24BE(_) => {
                 let res = src.peek_u24be();
-                if let Err(_) = res { return None; }
-                Some(res.unwrap() as u64)
+                if res.is_err() { return None; }
+                Some(u64::from(res.unwrap()))
             }
             Arg::U24LE(_) => {
                 let res = src.peek_u24le();
-                if let Err(_) = res { return None; }
-                Some(res.unwrap() as u64)
+                if res.is_err() { return None; }
+                Some(u64::from(res.unwrap()))
             }
             Arg::U32BE(_) => {
                 let res = src.peek_u32be();
-                if let Err(_) = res { return None; }
-                Some(res.unwrap() as u64)
+                if res.is_err() { return None; }
+                Some(u64::from(res.unwrap()))
             }
             Arg::U32LE(_) => {
                 let res = src.peek_u32le();
-                if let Err(_) = res { return None; }
-                Some(res.unwrap() as u64)
+                if res.is_err() { return None; }
+                Some(u64::from(res.unwrap()))
             }
             Arg::U64BE(_) => {
                 let res = src.peek_u64be();
-                if let Err(_) = res { return None; }
+                if res.is_err() { return None; }
                 Some(res.unwrap())
             }
             Arg::U64LE(_) => {
                 let res = src.peek_u64le();
-                if let Err(_) = res { return None; }
+                if res.is_err() { return None; }
                 Some(res.unwrap())
             }
         }
     }
     fn eq(&self, src: &mut ByteReader) -> bool {
         let val = self.read_val(src);
-        if let None = val { false }
+        if val.is_none() { false }
         else { val.unwrap() == self.val() }
     }
     fn ge(&self, src: &mut ByteReader) -> bool {
         let val = self.read_val(src);
-        if let None = val { false }
+        if val.is_none() { false }
         else { val.unwrap() >= self.val() }
     }
     fn gt(&self, src: &mut ByteReader) -> bool {
         let val = self.read_val(src);
-        if let None = val { false }
+        if val.is_none() { false }
         else { val.unwrap() > self.val() }
     }
     fn le(&self, src: &mut ByteReader) -> bool {
         let val = self.read_val(src);
-        if let None = val { false }
+        if val.is_none() { false }
         else { val.unwrap() <= self.val() }
     }
     fn lt(&self, src: &mut ByteReader) -> bool {
         let val = self.read_val(src);
-        if let None = val { false }
+        if val.is_none() { false }
         else { val.unwrap() < self.val() }
     }
 }
@@ -140,10 +140,9 @@ impl<'a> CC<'a> {
             CC::Gt(ref arg)      => { arg.gt(src) },
             CC::Ge(ref arg)      => { arg.ge(src) },
             CC::Str(str) => {
-                let mut val: Vec<u8> = Vec::with_capacity(str.len());
-                val.resize(str.len(), 0);
+                let mut val: Vec<u8> = vec![0; str.len()];
                 let res = src.peek_buf(val.as_mut_slice());
-                if let Err(_) = res { return false; }
+                if res.is_err() { return false; }
                 val == str
             }
         }
@@ -229,7 +228,7 @@ pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, 
     let lname = name.to_lowercase();
     for detector in DETECTORS {
         let mut score = DetectionScore::No;
-        if name.len() > 0 {
+        if !name.is_empty() {
             for ext in detector.extensions.split(',') {
                 if lname.ends_with(ext) {
                     score = DetectionScore::ExtensionMatches;
@@ -237,10 +236,10 @@ pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, 
                 }
             }
         }
-        let mut passed = detector.conditions.len() > 0;
+        let mut passed = !detector.conditions.is_empty();
         for ck in detector.conditions {
-            let ret = src.seek(SeekFrom::Start(ck.offs as u64));
-            if let Err(_) = ret {
+            let ret = src.seek(SeekFrom::Start(u64::from(ck.offs)));
+            if ret.is_err() {
                 passed = false;
                 break;
             }

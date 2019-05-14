@@ -114,7 +114,7 @@ pub const H263_CHROMA_QUANT: [u8; 32] = [
 pub struct H263ShortCodeReader { tab: &'static [(u8, u8)] }
 
 impl H263ShortCodeReader {
-    pub fn new(tab: &'static [(u8, u8)]) -> Self { H263ShortCodeReader { tab: tab } }
+    pub fn new(tab: &'static [(u8, u8)]) -> Self { H263ShortCodeReader { tab } }
 }
 
 impl CodebookDescReader<u8> for H263ShortCodeReader {
@@ -202,7 +202,7 @@ pub const H263_RL_CODES_AIC: &[H263RLCodeDesc] = rlcodes!(
 pub struct H263RLCodeReader { tab: &'static [H263RLCodeDesc] }
 
 impl H263RLCodeReader {
-    pub fn new(tab: &'static [H263RLCodeDesc]) -> Self { H263RLCodeReader { tab: tab } }
+    pub fn new(tab: &'static [H263RLCodeDesc]) -> Self { H263RLCodeReader { tab } }
 }
 
 impl CodebookDescReader<H263RLSym> for H263RLCodeReader {

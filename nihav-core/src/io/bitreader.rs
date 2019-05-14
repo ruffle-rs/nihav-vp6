@@ -27,11 +27,12 @@ pub struct BitReader<'a> {
     mode:  BitReaderMode,
 }
 
+#[allow(clippy::identity_op)]
 impl<'a> BitReader<'a> {
 
     pub fn new(src: &'a [u8], size: usize, mode: BitReaderMode) -> Self {
         if src.len() < size { panic!("size is less than needed"); }
-        BitReader{ cache: 0, pos: 0, bits: 0, end: size, src: src, mode: mode }
+        BitReader{ cache: 0, pos: 0, bits: 0, end: size, src, mode }
     }
 
     pub fn tell(&self) -> usize {
@@ -43,30 +44,30 @@ impl<'a> BitReader<'a> {
     }
 
     fn fill32be(&mut self, src: &[u8]) {
-        let nw = (((src[0] as u32) << 24) |
-                  ((src[1] as u32) << 16) |
-                  ((src[2] as u32) <<  8) |
-                  ((src[3] as u32) <<  0)) as u64;
-        self.cache |= nw << (32 - self.bits);
+        let nw = (u32::from(src[0]) << 24) |
+                 (u32::from(src[1]) << 16) |
+                 (u32::from(src[2]) <<  8) |
+                 (u32::from(src[3]) <<  0);
+        self.cache |= u64::from(nw) << (32 - self.bits);
     }
 
     fn fill32le16(&mut self, src: &[u8]) {
-        let nw = (((src[1] as u32) << 24) |
-                  ((src[0] as u32) << 16) |
-                  ((src[3] as u32) <<  8) |
-                  ((src[2] as u32) <<  0)) as u64;
-        self.cache |= nw << (32 - self.bits);
+        let nw = (u32::from(src[1]) << 24) |
+                 (u32::from(src[0]) << 16) |
+                 (u32::from(src[3]) <<  8) |
+                 (u32::from(src[2]) <<  0);
+        self.cache |= u64::from(nw) << (32 - self.bits);
     }
 
     fn fill32le32(&mut self, src: &[u8], lsb: bool) {
-        let nw = (((src[3] as u32) << 24) |
-                  ((src[2] as u32) << 16) |
-                  ((src[1] as u32) <<  8) |
-                  ((src[0] as u32) <<  0)) as u64;
+        let nw = (u32::from(src[3]) << 24) |
+                 (u32::from(src[2]) << 16) |
+                 (u32::from(src[1]) <<  8) |
+                 (u32::from(src[0]) <<  0);
         if lsb {
-            self.cache |= nw << self.bits;
+            self.cache |= u64::from(nw) << self.bits;
         } else {
-            self.cache |= nw << (32 - self.bits);
+            self.cache |= u64::from(nw) << (32 - self.bits);
         }
     }
 
@@ -87,10 +88,10 @@ impl<'a> BitReader<'a> {
             } else {
                 let mut buf: [u8; 4] = [0, 0, 0, 0];
                 let mut newbits: u8 = 0;
-                for i in 0..3 {
+                for out in buf.iter_mut().take(3) {
                     if self.pos < self.end {
-                        buf[i] = self.src[self.pos];
-                        self.pos = self.pos + 1;
+                        *out = self.src[self.pos];
+                        self.pos += 1;
                         newbits += 8;
                     }
                 }
@@ -111,7 +112,7 @@ impl<'a> BitReader<'a> {
     fn read_cache(&mut self, nbits: u8) -> u32 {
         let res = match self.mode {
             BitReaderMode::LE => ((1u64 << nbits) - 1) & self.cache,
-            _                 => (self.cache as u64) >> (64 - nbits),
+            _                 => self.cache >> (64 - nbits),
         };
         res as u32
     }
@@ -183,14 +184,14 @@ impl<'a> BitReader<'a> {
 
     #[inline(always)]
     pub fn skip(&mut self, nbits: u32) -> BitReaderResult<()> {
-        if self.bits as u32 >= nbits {
+        if u32::from(self.bits) >= nbits {
             self.skip_cache(nbits as u8);
             return Ok(());
         }
-        let mut skip_bits = nbits - (self.bits as u32);
+        let mut skip_bits = nbits - u32::from(self.bits);
         self.reset_cache();
         self.pos += ((skip_bits / 32) * 4) as usize;
-        skip_bits = skip_bits & 0x1F;
+        skip_bits &= 0x1F;
         self.refill()?;
         if skip_bits > 0 {
             self.skip_cache(skip_bits as u8);
@@ -223,8 +224,8 @@ pub fn reverse_bits(inval: u32, len: u8) -> u32 {
     let mut ret = 0;
     let mut val = inval;
     for _ in 0..8 {
-        ret = (ret << 4) | (REV_TAB[(val & 0xF) as usize] as u32);
-        val = val >> 4;
+        ret = (ret << 4) | u32::from(REV_TAB[(val & 0xF) as usize]);
+        val >>= 4;
     }
     ret >> (32 - len)
 }

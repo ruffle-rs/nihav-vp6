@@ -157,17 +157,15 @@ fn build_pipeline(ifmt: &ScaleInfo, ofmt: &ScaleInfo, just_convert: bool) -> Sca
     let outname = ofmt.fmt.get_model().get_short_name();
 
 println!("convert {} -> {}", ifmt, ofmt);
-    let mut needs_scale  = !just_convert;
-    if (ofmt.fmt.get_max_subsampling() > 0) &&
+    let needs_scale = if (ofmt.fmt.get_max_subsampling() > 0) &&
         (ofmt.fmt.get_max_subsampling() != ifmt.fmt.get_max_subsampling()) {
-        needs_scale = true;
-    }
+            true
+        } else {
+            !just_convert
+        };
     let needs_unpack = needs_scale || !ifmt.fmt.is_unpacked();
     let needs_pack = !ofmt.fmt.is_unpacked();
-    let mut needs_convert = false;
-    if inname != outname {
-        needs_convert = true;
-    }
+    let needs_convert = inname != outname;
     let scale_before_cvt = is_better_fmt(&ifmt, &ofmt) && needs_convert
                            && (ofmt.fmt.get_max_subsampling() == 0);
 //todo stages for model and gamma conversion
@@ -177,12 +175,11 @@ println!("convert {} -> {}", ifmt, ofmt);
 
     if needs_unpack {
 println!("[adding unpack]");
-        let new_stage;
-        if !cur_fmt.fmt.is_paletted() {
-            new_stage = Stage::new("unpack", &cur_fmt, &ofmt)?;
-        } else {
-            new_stage = Stage::new("depal", &cur_fmt, &ofmt)?;
-        }
+        let new_stage = if !cur_fmt.fmt.is_paletted() {
+                Stage::new("unpack", &cur_fmt, &ofmt)?
+            } else {
+                Stage::new("depal", &cur_fmt, &ofmt)?
+            };
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }

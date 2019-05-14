@@ -1,4 +1,5 @@
 use std::ops::{Deref, DerefMut};
+use std::convert::AsRef;
 use std::sync::atomic::*;
 
 struct NABufferData<T> {
@@ -9,17 +10,15 @@ struct NABufferData<T> {
 impl<T> NABufferData<T> {
     fn new(data: T) -> Self {
         Self {
-            data:       data,
+            data,
             refs:       AtomicUsize::new(1),
         }
     }
     fn inc_refs(obj: &mut Self) {
         obj.refs.fetch_add(1, Ordering::SeqCst);
     }
-    fn dec_refs(obj: &mut Self) {
-        if obj.refs.fetch_sub(1, Ordering::SeqCst) == 0 {
-            std::mem::forget(obj);
-        }
+    fn dec_refs(obj: &mut Self) -> bool {
+        obj.refs.fetch_sub(1, Ordering::SeqCst) == 0
     }
     fn get_num_refs(obj: &Self) -> usize {
         obj.refs.load(Ordering::Relaxed)
@@ -47,14 +46,17 @@ impl<T> NABufferRef<T> {
             NABufferData::get_num_refs(self.ptr.as_mut().unwrap())
         }
     }
-    pub fn as_ref(&self) -> &T {
-        unsafe {
-            NABufferData::get_read_ptr(self.ptr.as_mut().unwrap())
-        }
-    }
     pub fn as_mut(&mut self) -> Option<&mut T> {
         unsafe {
             NABufferData::get_write_ptr(self.ptr.as_mut().unwrap())
+        }
+    }
+}
+
+impl<T> AsRef<T> for NABufferRef<T> {
+    fn as_ref(&self) -> &T {
+        unsafe {
+            NABufferData::get_read_ptr(self.ptr.as_mut().unwrap())
         }
     }
 }
@@ -80,7 +82,9 @@ impl<T> Clone for NABufferRef<T> {
 impl<T> Drop for NABufferRef<T> {
     fn drop(&mut self) {
         unsafe {
-            NABufferData::dec_refs(self.ptr.as_mut().unwrap());
+            if NABufferData::dec_refs(self.ptr.as_mut().unwrap()) {
+                std::ptr::drop_in_place(self.ptr);
+            }
         }
     }
 }

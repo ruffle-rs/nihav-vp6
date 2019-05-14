@@ -168,8 +168,10 @@ pub struct MV {
     pub y: i16,
 }
 
+#[allow(clippy::many_single_char_names)]
+#[allow(clippy::collapsible_if)]
 impl MV {
-    pub fn new(x: i16, y: i16) -> Self { MV{ x: x, y: y } }
+    pub fn new(x: i16, y: i16) -> Self { MV{ x, y } }
     pub fn pred(a: MV, b: MV, c: MV) -> Self {
         let x;
         if a.x < b.x {
@@ -199,7 +201,7 @@ impl MV {
                 y = b.y;
             }
         }
-        MV { x: x, y: y }
+        MV { x, y }
     }
 }
 
@@ -245,6 +247,10 @@ impl NADecoderSupport {
     }
 }
 
+impl Default for NADecoderSupport {
+    fn default() -> Self { Self::new() }
+}
+
 
 pub trait NADecoder {
     fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()>;
@@ -263,6 +269,7 @@ pub mod blockdsp;
 #[cfg(feature="h263")]
 pub mod h263;
 
+#[derive(Default)]
 pub struct RegisteredDecoders {
     decs:   Vec<DecoderInfo>,
 }

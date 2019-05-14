@@ -22,11 +22,11 @@ impl fmt::Display for CodecType {
     }
 }
 
-const CODEC_CAP_INTRAONLY:u32   = 0x000001;
-const CODEC_CAP_LOSSLESS:u32    = 0x000002;
-const CODEC_CAP_REORDER:u32     = 0x000004;
-const CODEC_CAP_HYBRID:u32      = 0x000008;
-const CODEC_CAP_SCALABLE:u32    = 0x000010;
+const CODEC_CAP_INTRAONLY:u32   = 0x0001;
+const CODEC_CAP_LOSSLESS:u32    = 0x0002;
+const CODEC_CAP_REORDER:u32     = 0x0004;
+const CODEC_CAP_HYBRID:u32      = 0x0008;
+const CODEC_CAP_SCALABLE:u32    = 0x0010;
 
 #[derive(Clone)]
 pub struct CodecDescription {
@@ -49,7 +49,7 @@ impl CodecDescription {
 
 impl fmt::Display for CodecDescription {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut out = format!("{}", self.fname);
+        let mut out = self.fname.to_string();
         if self.caps != 0 {
             let mut capfmt = "".to_string();
             if (self.caps & CODEC_CAP_INTRAONLY) != 0 {
@@ -217,17 +217,15 @@ static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
 ];
 
 pub fn find_codec_from_avi_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
-    for i in 0..AVI_VIDEO_CODEC_REGISTER.len() {
-        let (fourcc, name) = AVI_VIDEO_CODEC_REGISTER[i];
-        if fourcc == fcc { return Some(name); }
+    for (fourcc, name) in AVI_VIDEO_CODEC_REGISTER.iter() {
+        if *fourcc == fcc { return Some(name); }
     }
     None
 }
 
 pub fn find_codec_from_wav_twocc(tcc: u16) -> Option<&'static str> {
-    for i in 0..WAV_CODEC_REGISTER.len() {
-        let (twocc, name) = WAV_CODEC_REGISTER[i];
-        if twocc == tcc { return Some(name); }
+    for (twocc, name) in WAV_CODEC_REGISTER.iter() {
+        if *twocc == tcc { return Some(name); }
     }
     None
 }

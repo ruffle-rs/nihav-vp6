@@ -31,20 +31,19 @@ impl<'a> NAPacketReader for ByteReader<'a> {
         let mut buf: Vec<u8> = Vec::with_capacity(size);
         if buf.capacity() < size { return Err(DemuxerError::MemoryError); }
         buf.resize(size, 0);
-        let res = self.read_buf(buf.as_mut_slice());
-        if let Err(_) = res { return Err(DemuxerError::IOError); }
+        self.read_buf(buf.as_mut_slice())?;
         let pkt = NAPacket::new(str, ts, kf, buf);
         Ok(pkt)
     }
     fn fill_packet(&mut self, pkt: &mut NAPacket) -> DemuxerResult<()> {
         let mut refbuf = pkt.get_buffer();
         let buf = refbuf.as_mut().unwrap();
-        let res = self.read_buf(buf.as_mut_slice());
-        if let Err(_) = res { return Err(DemuxerError::IOError); }
+        self.read_buf(buf.as_mut_slice())?;
         Ok(())
     }
 }
 
+#[derive(Default)]
 pub struct StreamManager {
     streams: Vec<NAStreamRef>,
     ignored: Vec<bool>,
@@ -116,13 +115,13 @@ impl StreamManager {
 }
 
 pub struct StreamIter<'a> {
-    streams:    &'a Vec<NAStreamRef>,
+    streams:    &'a [NAStreamRef],
     pos:        usize,
 }
 
 impl<'a> StreamIter<'a> {
-    pub fn new(streams: &'a Vec<NAStreamRef>) -> Self {
-        StreamIter { streams: streams, pos: 0 }
+    pub fn new(streams: &'a [NAStreamRef]) -> Self {
+        StreamIter { streams, pos: 0 }
     }
 }
 
@@ -145,7 +144,7 @@ pub struct Demuxer<'a> {
 impl<'a> Demuxer<'a> {
     fn new(dmx: Box<dyn DemuxCore<'a> + 'a>, str: StreamManager) -> Self {
         Demuxer {
-            dmx:        dmx,
+            dmx,
             streams:    str,
         }
     }
@@ -206,6 +205,7 @@ pub fn create_demuxer<'a>(dmxcr: &DemuxerCreator, br: &'a mut ByteReader<'a>) ->
     Ok(Demuxer::new(dmx, str))
 }
 
+#[derive(Default)]
 pub struct RegisteredDemuxers {
     dmxs:   Vec<&'static DemuxerCreator>,
 }

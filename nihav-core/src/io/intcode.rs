@@ -29,7 +29,7 @@ fn read_unary(br: &mut BitReader, terminator: u32) -> BitReaderResult<u32> {
     let mut res: u32 = 0;
     loop {
         if br.read(1)? == terminator { return Ok(res); }
-        res = res + 1;
+        res += 1;
     }
 }
 
@@ -37,7 +37,7 @@ fn read_unary_lim(br: &mut BitReader, len: u32, terminator: u32) -> BitReaderRes
     let mut res: u32 = 0;
     loop {
         if br.read(1)? == terminator { return Ok(res); }
-        res = res + 1;
+        res += 1;
         if res == len { return Ok(res); }
     }
 }
@@ -51,15 +51,15 @@ fn read_golomb(br: &mut BitReader, m: u8) -> BitReaderResult<u32> {
     if m == 0 { return Err(BitReaderError::InvalidValue); }
     let nbits = (8 - m.leading_zeros()) as u8;
     if (m & (m - 1)) == 0 { return read_rice(br, nbits); }
-    let cutoff = ((1 << nbits) - m) as u32;
+    let cutoff = u32::from((1 << nbits) - m);
     let pfx = read_unary(br, 0)?;
     let tail = br.read(nbits - 1)?;
     if tail < cutoff {
-        let res = pfx * (m as u32) + tail;
+        let res = pfx * u32::from(m) + tail;
         Ok (res)
     } else {
         let add = br.read(1)?;
-        let res = pfx * (m as u32) + (tail - cutoff) * 2 + add + cutoff;
+        let res = pfx * u32::from(m) + (tail - cutoff) * 2 + add + cutoff;
         Ok (res)
     }
 }

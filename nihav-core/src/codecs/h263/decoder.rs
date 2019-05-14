@@ -162,8 +162,8 @@ impl H263BaseDecoder {
             last_ts: 0, next_ts: 0, tsdiff: 0,
             has_b: false, b_data: Vec::new(),
             pred_coeffs: Vec::new(),
-            is_gob: is_gob, slice_reset: slice_reset,
-            may_have_b_frames: may_have_b_frames,
+            is_gob, slice_reset,
+            may_have_b_frames,
             mv_data: Vec::new(),
         }
     }
@@ -219,9 +219,7 @@ impl H263BaseDecoder {
 
         let fmt = formats::YUV420_FORMAT;
         let vinfo = NAVideoInfo::new(self.w, self.h, false, fmt);
-        let bufret = alloc_video_buffer(vinfo, 4);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
+        let bufinfo = alloc_video_buffer(vinfo, 4)?;
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         let mut slice = if self.is_gob {
@@ -531,9 +529,7 @@ impl H263BaseDecoder {
 
         let fmt = formats::YUV420_FORMAT;
         let vinfo = NAVideoInfo::new(self.w, self.h, false, fmt);
-        let bufret = alloc_video_buffer(vinfo, 4);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
+        let bufinfo = alloc_video_buffer(vinfo, 4)?;
         let mut b_buf = bufinfo.get_vbuf().unwrap();
 
         if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {

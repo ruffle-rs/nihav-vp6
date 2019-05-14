@@ -163,7 +163,7 @@ fn swp_idx(idx: usize, bits: u32) -> usize {
     s >> (32 - bits)
 }
 
-fn gen_swaps_for_perm(swaps: &mut Vec<usize>, perms: &Vec<usize>) {
+fn gen_swaps_for_perm(swaps: &mut Vec<usize>, perms: &[usize]) {
     let mut idx_arr: Vec<usize> = Vec::with_capacity(perms.len());
     for i in 0..perms.len() { idx_arr.push(i); }
     let mut run_size = 0;
@@ -186,12 +186,10 @@ fn gen_swaps_for_perm(swaps: &mut Vec<usize>, perms: &Vec<usize>) {
     }
 }
 
-fn swap_buf(buf: &mut [f32], swaps: &Vec<usize>) {
+fn swap_buf(buf: &mut [f32], swaps: &[usize]) {
     for (idx, nidx) in swaps.iter().enumerate() {
         if idx != *nidx {
-            let t      = buf[*nidx];
-            buf[*nidx] = buf[idx];
-            buf[idx]   = t;
+            buf.swap(*nidx, idx);
         }
     }
 }
@@ -395,9 +393,7 @@ fn dst_II_inplace(buf: &mut [f32], size: usize, step: usize, tab: &[f32], perm_t
     for i in 0..hsize {
         let idx0 = i * step;
         let idx1 = (size - 1 - i) * step;
-        let t = buf[idx1];
-        buf[idx1] = buf[idx0];
-        buf[idx0] = t;
+        buf.swap(idx0, idx1);
     }
 }
 
@@ -408,9 +404,7 @@ fn dct_III_inplace(buf: &mut [f32], size: usize, step: usize, tab: &[f32], perm_
     dct_III_inplace(buf,                   hsize, step, tab, perm_tab);
     dct_IV_inplace(&mut buf[step*hsize..], hsize, step, tab, perm_tab);
     for i in 0..(size >> 2) {
-        let t = buf[(size - 1 - i) * step];
-        buf[(size - 1 - i) * step] = buf[(hsize + i) * step];
-        buf[(hsize + i) * step] = t;
+        buf.swap((size - 1 - i) * step, (hsize + i) * step);
     }
     for i in 0..hsize {
         let i0 = buf[i * step] / consts::SQRT_2;
@@ -427,9 +421,7 @@ fn dst_III_inplace(buf: &mut [f32], size: usize, step: usize, tab: &[f32], perm_
     for i in 0..hsize {
         let idx0 = i * step;
         let idx1 = (size - 1 - i) * step;
-        let t = buf[idx1];
-        buf[idx1] = buf[idx0];
-        buf[idx0] = t;
+        buf.swap(idx0, idx1);
     }
     dct_III_inplace(buf, size, step, tab, perm_tab);
     for i in 0..hsize { buf[i * 2 * step + step] = -buf[i * 2 * step + step]; }
@@ -456,9 +448,7 @@ fn dct_IV_inplace(buf: &mut [f32], size: usize, step: usize, tab: &[f32], perm_t
     dct_II_inplace(buf,              hsize, step * 2, tab, perm_tab);
     dct_II_inplace(&mut buf[step..], hsize, step * 2, tab, perm_tab);
     for i in 0..(size >> 2) {
-        let t = buf[(size - 1 - i * 2) * step];
-        buf[(size - 1 - i * 2) * step] = buf[(i * 2 + 1) * step];
-        buf[(i * 2 + 1) * step] = t;
+        buf.swap((size - 1 - i * 2) * step, (i * 2 + 1) * step);
     }
     for i in (3..size).step_by(4) {
         buf[i] = -buf[i];

@@ -542,9 +542,7 @@ impl FFT {
         for idx in 0..self.swaps.len() {
             let nidx = self.swaps[idx];
             if idx != nidx {
-                let t      = data[nidx];
-                data[nidx] = data[idx];
-                data[idx]  = t;
+                data.swap(nidx, idx);
             }
         }
         self.do_fft_core(data);
@@ -553,9 +551,7 @@ impl FFT {
         for idx in 0..self.swaps.len() {
             let nidx = self.swaps[idx];
             if idx != nidx {
-                let t      = data[nidx];
-                data[nidx] = data[idx];
-                data[idx]  = t;
+                data.swap(nidx, idx);
             }
         }
         self.do_ifft_core(data);

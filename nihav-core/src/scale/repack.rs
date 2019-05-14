@@ -61,7 +61,7 @@ impl Kernel for PackKernel {
                     let ddata = dbuf.get_data_mut().unwrap();
                     for (src, dst) in sdata.chunks(istride).zip(ddata.chunks_mut(dstride)).take(h) {
                         for x in 0..w {
-                            dst[x * step + self.ooff[comp]] = convert_depth(src[x] as u32, self.depths[comp], self.osize[comp]) as u8;
+                            dst[x * step + self.ooff[comp]] = convert_depth(u32::from(src[x]), self.depths[comp], self.osize[comp]) as u8;
                         }
                     }
                 }
@@ -80,7 +80,7 @@ impl Kernel for PackKernel {
                     for x in 0..w {
                         let mut elem: u32 = 0;
                         for comp in 0..self.ncomps {
-                            let c = src[ioff[comp] + x] as u32;
+                            let c = u32::from(src[ioff[comp] + x]);
                             elem |= convert_depth(c, self.depths[comp], self.osize[comp]) << self.shifts[comp];
                         }
                         dst[x] = elem as u16;
@@ -198,7 +198,7 @@ unimplemented!();
                 let dst = dbuf.get_data_mut().unwrap();
                 for src in sdata.chunks(istride).take(h) {
                     for x in 0..w {
-                        let elem = src[x] as u32;
+                        let elem = u32::from(src[x]);
                         for i in 0..self.ncomps {
                             dst[offs[i] + x] = convert_depth((elem >> self.shifts[i]) & self.masks[i], self.depths[i], self.osize[i]) as u8;
                         }
@@ -281,7 +281,7 @@ println!(" [intermediate format {}]", df);
                 for x in 0..w {
                     let palidx = src[x] as usize;
                     for i in 0..self.ncomps {
-                        let elem = pal[palidx * self.palstep + self.coffs[i]] as u32;
+                        let elem = u32::from(pal[palidx * self.palstep + self.coffs[i]]);
                         dst[offs[i] + x] = convert_depth(elem, self.depths[i], 8) as u8;
                     }
                 }

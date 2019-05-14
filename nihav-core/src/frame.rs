@@ -94,7 +94,7 @@ impl NACodecTypeInfo {
 impl fmt::Display for NACodecTypeInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ret = match *self {
-            NACodecTypeInfo::None       => format!(""),
+            NACodecTypeInfo::None       => "".to_string(),
             NACodecTypeInfo::Audio(fmt) => format!("{}", fmt),
             NACodecTypeInfo::Video(fmt) => format!("{}", fmt),
         };
@@ -125,7 +125,7 @@ impl<T: Clone> NAVideoBuffer<T> {
         offs.clone_from(&self.offs);
         let mut strides: Vec<usize> = Vec::with_capacity(self.strides.len());
         strides.clone_from(&self.strides);
-        NAVideoBuffer { info: self.info, data: NABufferRef::new(data), offs: offs, strides: strides }
+        NAVideoBuffer { info: self.info, data: NABufferRef::new(data), offs, strides }
     }
     pub fn get_stride(&self, idx: usize) -> usize {
         if idx >= self.strides.len() { return 0; }
@@ -164,7 +164,7 @@ impl<T: Clone> NAAudioBuffer<T> {
         data.clone_from(self.data.as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
         offs.clone_from(&self.offs);
-        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs: offs, chmap: self.get_chmap(), len: self.len }
+        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap(), len: self.len }
     }
     pub fn get_length(&self) -> usize { self.len }
 }
@@ -172,7 +172,7 @@ impl<T: Clone> NAAudioBuffer<T> {
 impl NAAudioBuffer<u8> {
     pub fn new_from_buf(info: NAAudioInfo, data: NABufferRef<Vec<u8>>, chmap: NAChannelMap) -> Self {
         let len = data.len();
-        NAAudioBuffer { info: info, data: data, chmap: chmap, offs: Vec::new(), len: len }
+        NAAudioBuffer { info, data, chmap, offs: Vec::new(), len }
     }
 }
 
@@ -326,7 +326,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     let mut all_bytealigned = true;
     for i in 0..fmt.get_num_comp() {
         let ochr = fmt.get_chromaton(i);
-        if let None = ochr { continue; }
+        if ochr.is_none() { continue; }
         let chr = ochr.unwrap();
         if !chr.is_packed() {
             all_packed = false;
@@ -352,14 +352,13 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         offs.push(0);
         offs.push(stride * height);
         strides.push(stride);
-        let mut data: Vec<u8> = Vec::with_capacity(new_size.unwrap());
-        data.resize(new_size.unwrap(), 0);
-        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
+        let data: Vec<u8> = vec![0; new_size.unwrap()];
+        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs, strides };
         Ok(NABufferType::Video(buf.into_ref()))
     } else if !all_packed {
         for i in 0..fmt.get_num_comp() {
             let ochr = fmt.get_chromaton(i);
-            if let None = ochr { continue; }
+            if ochr.is_none() { continue; }
             let chr = ochr.unwrap();
             if !vinfo.is_flipped() {
                 offs.push(new_size as usize);
@@ -377,19 +376,16 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
             strides.push(stride);
         }
         if max_depth <= 8 {
-            let mut data: Vec<u8> = Vec::with_capacity(new_size);
-            data.resize(new_size, 0);
-            let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
+            let data: Vec<u8> = vec![0; new_size];
+            let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs, strides };
             Ok(NABufferType::Video(buf.into_ref()))
         } else if max_depth <= 16 {
-            let mut data: Vec<u16> = Vec::with_capacity(new_size);
-            data.resize(new_size, 0);
-            let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
+            let data: Vec<u16> = vec![0; new_size];
+            let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs, strides };
             Ok(NABufferType::Video16(buf.into_ref()))
         } else {
-            let mut data: Vec<u32> = Vec::with_capacity(new_size);
-            data.resize(new_size, 0);
-            let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
+            let data: Vec<u32> = vec![0; new_size];
+            let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs, strides };
             Ok(NABufferType::Video32(buf.into_ref()))
         }
     } else if all_bytealigned || unfit_elem_size {
@@ -399,10 +395,9 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         let new_sz = line_sz.unwrap().checked_mul(height);
         if new_sz == None { return Err(AllocatorError::TooLargeDimensions); }
         new_size = new_sz.unwrap();
-        let mut data: Vec<u8> = Vec::with_capacity(new_size);
-        data.resize(new_size, 0);
+        let data: Vec<u8> = vec![0; new_size];
         strides.push(line_sz.unwrap());
-        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
+        let buf: NAVideoBuffer<u8> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs, strides };
         Ok(NABufferType::VideoPacked(buf.into_ref()))
     } else {
         let elem_sz = fmt.get_elem_size();
@@ -411,17 +406,15 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         new_size = new_sz.unwrap();
         match elem_sz {
             2 => {
-                    let mut data: Vec<u16> = Vec::with_capacity(new_size);
-                    data.resize(new_size, 0);
+                    let data: Vec<u16> = vec![0; new_size];
                     strides.push(width);
-                    let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
+                    let buf: NAVideoBuffer<u16> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs, strides };
                     Ok(NABufferType::Video16(buf.into_ref()))
                 },
             4 => {
-                    let mut data: Vec<u32> = Vec::with_capacity(new_size);
-                    data.resize(new_size, 0);
+                    let data: Vec<u32> = vec![0; new_size];
                     strides.push(width);
-                    let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs: offs, strides: strides };
+                    let buf: NAVideoBuffer<u32> = NAVideoBuffer { data: NABufferRef::new(data), info: vinfo, offs, strides };
                     Ok(NABufferType::Video32(buf.into_ref()))
                 },
             _ => unreachable!(),
@@ -429,6 +422,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     }
 }
 
+#[allow(clippy::collapsible_if)]
 pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelMap) -> Result<NABufferType, AllocatorError> {
     let mut offs: Vec<usize> = Vec::new();
     if ainfo.format.is_planar() || (ainfo.channels == 1 && (ainfo.format.get_bits() % 8) == 0) {
@@ -440,23 +434,20 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         }
         if ainfo.format.is_float() {
             if ainfo.format.get_bits() == 32 {
-                let mut data: Vec<f32> = Vec::with_capacity(length);
-                data.resize(length, 0.0);
-                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
+                let data: Vec<f32> = vec![0.0; length];
+                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples };
                 Ok(NABufferType::AudioF32(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
             }
         } else {
             if ainfo.format.get_bits() == 8 && !ainfo.format.is_signed() {
-                let mut data: Vec<u8> = Vec::with_capacity(length);
-                data.resize(length, 0);
-                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
+                let data: Vec<u8> = vec![0; length];
+                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples };
                 Ok(NABufferType::AudioU8(buf))
             } else if ainfo.format.get_bits() == 16 && ainfo.format.is_signed() {
-                let mut data: Vec<i16> = Vec::with_capacity(length);
-                data.resize(length, 0);
-                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
+                let data: Vec<i16> = vec![0; length];
+                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples };
                 Ok(NABufferType::AudioI16(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -466,16 +457,14 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         let len = nsamples.checked_mul(ainfo.channels as usize);
         if len == None { return Err(AllocatorError::TooLargeDimensions); }
         let length = ainfo.format.get_audio_size(len.unwrap() as u64);
-        let mut data: Vec<u8> = Vec::with_capacity(length);
-        data.resize(length, 0);
-        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs: offs, chmap: chmap, len: nsamples };
+        let data: Vec<u8> = vec![0; length];
+        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples };
         Ok(NABufferType::AudioPacked(buf))
     }
 }
 
 pub fn alloc_data_buffer(size: usize) -> Result<NABufferType, AllocatorError> {
-    let mut data: Vec<u8> = Vec::with_capacity(size);
-    data.resize(size, 0);
+    let data: Vec<u8> = vec![0; size];
     let buf: NABufferRef<Vec<u8>> = NABufferRef::new(data);
     Ok(NABufferType::Data(buf))
 }
@@ -510,11 +499,7 @@ impl<T:Copy> NAVideoBufferPool<T> {
         None
     }
     pub fn get_copy(&mut self, rbuf: &NAVideoBufferRef<T>) -> Option<NAVideoBufferRef<T>> {
-        let res = self.get_free();
-        if res.is_none() {
-            return None;
-        }
-        let mut dbuf = res.unwrap();
+        let mut dbuf = self.get_free()?;
         dbuf.data.copy_from_slice(&rbuf.data);
         Some(dbuf)
     }
@@ -527,7 +512,7 @@ impl NAVideoBufferPool<u8> {
     pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
         let nbufs = self.max_len + self.add_len - self.pool.len();
         for _ in 0..nbufs {
-            let vbuf = alloc_video_buffer(vinfo.clone(), align)?;
+            let vbuf = alloc_video_buffer(vinfo, align)?;
             if let NABufferType::Video(buf) = vbuf {
                 self.pool.push(buf);
             } else if let NABufferType::VideoPacked(buf) = vbuf {
@@ -544,7 +529,7 @@ impl NAVideoBufferPool<u16> {
     pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
         let nbufs = self.max_len + self.add_len - self.pool.len();
         for _ in 0..nbufs {
-            let vbuf = alloc_video_buffer(vinfo.clone(), align)?;
+            let vbuf = alloc_video_buffer(vinfo, align)?;
             if let NABufferType::Video16(buf) = vbuf {
                 self.pool.push(buf);
             } else {
@@ -559,7 +544,7 @@ impl NAVideoBufferPool<u32> {
     pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
         let nbufs = self.max_len + self.add_len - self.pool.len();
         for _ in 0..nbufs {
-            let vbuf = alloc_video_buffer(vinfo.clone(), align)?;
+            let vbuf = alloc_video_buffer(vinfo, align)?;
             if let NABufferType::Video32(buf) = vbuf {
                 self.pool.push(buf);
             } else {
@@ -586,10 +571,10 @@ impl NACodecInfo {
             None => None,
             Some(vec) => Some(Arc::new(vec)),
         };
-        NACodecInfo { name: name, properties: p, extradata: extradata }
+        NACodecInfo { name, properties: p, extradata }
     }
     pub fn new_ref(name: &'static str, p: NACodecTypeInfo, edata: Option<Arc<Vec<u8>>>) -> Self {
-        NACodecInfo { name: name, properties: p, extradata: edata }
+        NACodecInfo { name, properties: p, extradata: edata }
     }
     pub fn into_ref(self) -> NACodecInfoRef { Arc::new(self) }
     pub fn get_properties(&self) -> NACodecTypeInfo { self.properties }
@@ -621,7 +606,7 @@ impl Default for NACodecInfo {
 impl fmt::Display for NACodecInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let edata = match self.extradata.clone() {
-            None => format!("no extradata"),
+            None => "no extradata".to_string(),
             Some(v) => format!("{} byte(s) of extradata", v.len()),
         };
         write!(f, "{}: {} {}", self.name, self.properties, edata)
@@ -675,7 +660,7 @@ pub struct NATimeInfo {
 
 impl NATimeInfo {
     pub fn new(pts: Option<u64>, dts: Option<u64>, duration: Option<u64>, tb_num: u32, tb_den: u32) -> Self {
-        NATimeInfo { pts: pts, dts: dts, duration: duration, tb_num: tb_num, tb_den: tb_den }
+        NATimeInfo { pts, dts, duration, tb_num, tb_den }
     }
     pub fn get_pts(&self) -> Option<u64> { self.pts }
     pub fn get_dts(&self) -> Option<u64> { self.dts }
@@ -700,7 +685,7 @@ pub type NAFrameRef = Arc<NAFrame>;
 
 fn get_plane_size(info: &NAVideoInfo, idx: usize) -> (usize, usize) {
     let chromaton = info.get_format().get_chromaton(idx);
-    if let None = chromaton { return (0, 0); }
+    if chromaton.is_none() { return (0, 0); }
     let (hs, vs) = chromaton.unwrap().get_subsampling();
     let w = (info.get_width()  + ((1 << hs) - 1)) >> hs;
     let h = (info.get_height() + ((1 << vs) - 1)) >> vs;
@@ -714,7 +699,7 @@ impl NAFrame {
                info:           NACodecInfoRef,
                options:        HashMap<String, NAValue>,
                buffer:         NABufferType) -> Self {
-        NAFrame { ts: ts, buffer: buffer, info: info, ftype: ftype, key: keyframe, options: options }
+        NAFrame { ts, buffer, info, ftype, key: keyframe, options }
     }
     pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
     pub fn get_frame_type(&self) -> FrameType { self.ftype }
@@ -736,12 +721,12 @@ impl NAFrame {
 
 impl fmt::Display for NAFrame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut foo = format!("frame type {}", self.ftype);
-        if let Some(pts) = self.ts.pts { foo = format!("{} pts {}", foo, pts); }
-        if let Some(dts) = self.ts.dts { foo = format!("{} dts {}", foo, dts); }
-        if let Some(dur) = self.ts.duration { foo = format!("{} duration {}", foo, dur); }
-        if self.key { foo = format!("{} kf", foo); }
-        write!(f, "[{}]", foo)
+        let mut ostr = format!("frame type {}", self.ftype);
+        if let Some(pts) = self.ts.pts { ostr = format!("{} pts {}", ostr, pts); }
+        if let Some(dts) = self.ts.dts { ostr = format!("{} dts {}", ostr, dts); }
+        if let Some(dur) = self.ts.duration { ostr = format!("{} duration {}", ostr, dur); }
+        if self.key { ostr = format!("{} kf", ostr); }
+        write!(f, "[{}]", ostr)
     }
 }
 
@@ -804,7 +789,7 @@ pub fn reduce_timebase(tb_num: u32, tb_den: u32) -> (u32, u32) {
 impl NAStream {
     pub fn new(mt: StreamType, id: u32, info: NACodecInfo, tb_num: u32, tb_den: u32) -> Self {
         let (n, d) = reduce_timebase(tb_num, tb_den);
-        NAStream { media_type: mt, id: id, num: 0, info: info.into_ref(), tb_num: n, tb_den: d }
+        NAStream { media_type: mt, id, num: 0, info: info.into_ref(), tb_num: n, tb_den: d }
     }
     pub fn get_id(&self) -> u32 { self.id }
     pub fn get_num(&self) -> usize { self.num }
@@ -838,7 +823,7 @@ impl NAPacket {
     pub fn new(str: NAStreamRef, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
-        NAPacket { stream: str, ts: ts, keyframe: kf, buffer: NABufferRef::new(vec) }
+        NAPacket { stream: str, ts, keyframe: kf, buffer: NABufferRef::new(vec) }
     }
     pub fn get_stream(&self) -> NAStreamRef { self.stream.clone() }
     pub fn get_time_information(&self) -> NATimeInfo { self.ts }
@@ -855,13 +840,13 @@ impl Drop for NAPacket {
 
 impl fmt::Display for NAPacket {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut foo = format!("[pkt for {} size {}", self.stream, self.buffer.len());
-        if let Some(pts) = self.ts.pts { foo = format!("{} pts {}", foo, pts); }
-        if let Some(dts) = self.ts.dts { foo = format!("{} dts {}", foo, dts); }
-        if let Some(dur) = self.ts.duration { foo = format!("{} duration {}", foo, dur); }
-        if self.keyframe { foo = format!("{} kf", foo); }
-        foo = foo + "]";
-        write!(f, "{}", foo)
+        let mut ostr = format!("[pkt for {} size {}", self.stream, self.buffer.len());
+        if let Some(pts) = self.ts.pts { ostr = format!("{} pts {}", ostr, pts); }
+        if let Some(dts) = self.ts.dts { ostr = format!("{} dts {}", ostr, dts); }
+        if let Some(dur) = self.ts.duration { ostr = format!("{} duration {}", ostr, dur); }
+        if self.keyframe { ostr = format!("{} kf", ostr); }
+        ostr += "]";
+        write!(f, "{}", ostr)
     }
 }
 

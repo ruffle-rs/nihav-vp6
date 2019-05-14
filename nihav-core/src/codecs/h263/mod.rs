@@ -1,6 +1,7 @@
 use super::{DecoderResult, MV, ZERO_MV};
 use crate::frame::NAVideoBuffer;
 
+#[allow(clippy::many_single_char_names)]
 pub mod code;
 pub mod data;
 pub mod decoder;
@@ -46,7 +47,7 @@ pub struct PBInfo {
 
 impl PBInfo {
     pub fn new(trb: u8, dbquant: u8, improved: bool) -> Self {
-        PBInfo{ trb: trb, dbquant: dbquant, improved: improved }
+        PBInfo{ trb, dbquant, improved }
     }
     pub fn get_trb(&self) -> u8 { self.trb }
     pub fn get_dbquant(&self) -> u8 { self.dbquant }
@@ -72,9 +73,9 @@ pub struct PicInfo {
 impl PicInfo {
     pub fn new(w: usize, h: usize, mode: Type, mvmode: MVMode, umv: bool, apm: bool, quant: u8, ts: u16, pb: Option<PBInfo>, plusinfo: Option<PlusInfo>) -> Self {
         PicInfo {
-            w: w, h: h, mode: mode, mvmode: mvmode,
-            umv: umv, apm: apm, quant: quant,
-            pb: pb, ts: ts, plusinfo: plusinfo
+            w, h, mode, mvmode,
+            umv, apm, quant,
+            pb, ts, plusinfo
         }
     }
     pub fn get_width(&self) -> usize { self.w }
@@ -107,7 +108,7 @@ pub struct PlusInfo {
 
 impl PlusInfo {
     pub fn new(aic: bool, deblock: bool, aiv_mode: bool, mq_mode: bool) -> Self {
-        PlusInfo { aic: aic, deblock: deblock, aiv_mode: aiv_mode, mq_mode: mq_mode }
+        PlusInfo { aic, deblock, aiv_mode, mq_mode }
     }
 }
 
@@ -137,10 +138,10 @@ const SLICE_NO_END: usize = 99999999;
 
 impl SliceInfo {
     pub fn new(mb_x: usize, mb_y: usize, mb_end: usize, quant: u8) -> Self {
-        SliceInfo{ mb_x: mb_x, mb_y: mb_y, mb_end: mb_end, quant: quant }
+        SliceInfo{ mb_x, mb_y, mb_end, quant }
     }
     pub fn new_gob(mb_x: usize, mb_y: usize, quant: u8) -> Self {
-        SliceInfo{ mb_x: mb_x, mb_y: mb_y, mb_end: SLICE_NO_END, quant: quant }
+        SliceInfo{ mb_x, mb_y, mb_end: SLICE_NO_END, quant }
     }
     pub fn get_default_slice(pinfo: &PicInfo) -> Self {
         SliceInfo{ mb_x: 0, mb_y: 0, mb_end: SLICE_NO_END, quant: pinfo.get_quant() }
@@ -153,7 +154,7 @@ impl SliceInfo {
 impl SliceState {
     pub fn new(is_iframe: bool) -> Self {
         SliceState {
-            is_iframe: is_iframe, mb_x: 0, mb_y: 0, first_line: true, first_mb: true,
+            is_iframe, mb_x: 0, mb_y: 0, first_line: true, first_mb: true,
             slice_mb_x: 0, slice_mb_y: 0, quant: 0
         }
     }
@@ -227,9 +228,9 @@ impl BlockInfo {
         BlockInfo {
             intra:   mode == Type::I,
             skip:    (cbp == 0) && (mode != Type::I),
-            mode:    mode,
-            cbp:     cbp,
-            q:       q,
+            mode,
+            cbp,
+            q,
             mv:      [MV::new(0, 0), MV::new(0, 0), MV::new(0, 0), MV::new(0, 0)],
             num_mv:  0,
             bpart:   false,
@@ -279,10 +280,10 @@ impl BlockInfo {
 impl BBlockInfo {
     pub fn new(present: bool, cbp: u8, num_mv: usize, fwd: bool) -> Self {
         BBlockInfo {
-            present: present,
-            cbp:     cbp,
-            num_mv:  num_mv,
-            fwd:     fwd,
+            present,
+            cbp,
+            num_mv,
+            fwd,
         }
     }
     pub fn get_num_mv(&self) -> usize { self.num_mv }
@@ -337,7 +338,7 @@ impl H263MVTrait for MV {
         let bscale = (trb as i32) - (trd as i32);
         let x = if bvec.x != 0 { fwdvec.x - pvec.x } else if trd != 0 { (bscale * (pvec.x as i32) / (trd as i32)) as i16 } else { 0 };
         let y = if bvec.y != 0 { fwdvec.y - pvec.y } else if trd != 0 { (bscale * (pvec.y as i32) / (trd as i32)) as i16 } else { 0 };
-        MV { x: x, y: y }
+        MV { x, y }
     }
 }
 

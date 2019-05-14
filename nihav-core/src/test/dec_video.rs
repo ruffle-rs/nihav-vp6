@@ -35,8 +35,7 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
         idx2 += ls;
     }
     if w2 <= w/2 {
-        let mut pad: Vec<u8> = Vec::with_capacity((w - w2 * 2) / 2);
-        pad.resize((w - w2 * 2) / 2, 0xFF);
+        let pad: Vec<u8> = vec![0xFF; (w - w2 * 2) / 2];
         let mut base1 = buf.get_offset(1);
         let stride1 = buf.get_stride(1);
         let mut base2 = buf.get_offset(2);
@@ -56,8 +55,7 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
             base2 += stride2;
         }
     } else {
-        let mut pad: Vec<u8> = Vec::with_capacity(w - w2);
-        pad.resize(w - w2, 0xFF);
+        let pad: Vec<u8> = vec![0xFF; w - w2];
         let mut base1 = buf.get_offset(1);
         let stride1 = buf.get_stride(1);
         for _ in 0..h2 {
@@ -106,8 +104,7 @@ fn write_palppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
             buf.get_info().get_format().get_chromaton(2).unwrap().get_offset() as usize
         ];
     let mut idx  = 0;
-    let mut line: Vec<u8> = Vec::with_capacity(w * 3);
-    line.resize(w * 3, 0);
+    let mut line: Vec<u8> = vec![0; w * 3];
     for _ in 0..h {
         let src = &dta[idx..(idx+w)];
         for x in 0..w {
@@ -136,8 +133,6 @@ fn write_ppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
         ofile.write_all(hdr.as_bytes()).unwrap();
         let dta = buf.get_data();
         let stride = buf.get_stride(0);
-        let mut line: Vec<u8> = Vec::with_capacity(w * 3);
-        line.resize(w * 3, 0);
         for src in dta.chunks(stride) {
             ofile.write_all(&src[0..w*3]).unwrap();
         }
@@ -187,15 +182,15 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
             panic!("error");
         }
         let pkt = pktres.unwrap();
-        if limit.is_some() && pkt.get_pts().is_some() {
-            if pkt.get_pts().unwrap() > limit.unwrap() { break; }
+        if let (Some(lim), Some(ppts)) = (limit, pkt.get_pts()) {
+            if ppts > lim { break; }
         }
         let streamno = pkt.get_stream().get_id() as usize;
         if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
             let frm = dec.decode(dsupp, &pkt).unwrap();
             if pkt.get_stream().get_info().is_video() && video_pfx.is_some() && frm.get_frame_type() != FrameType::Skip {
                 let pfx = video_pfx.unwrap();
-		let pts = if let Some(fpts) = frm.get_pts() { fpts } else { pkt.get_pts().unwrap() };
+                let pts = if let Some(fpts) = frm.get_pts() { fpts } else { pkt.get_pts().unwrap() };
                 let vinfo = frm.get_buffer().get_video_info().unwrap();
                 if vinfo.get_format().is_paletted() {
                     write_palppm(pfx, streamno, pts, frm);
@@ -252,8 +247,8 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
             panic!("error");
         }
         let pkt = pktres.unwrap();
-        if limit.is_some() && pkt.get_pts().is_some() {
-            if pkt.get_pts().unwrap() > limit.unwrap() { break; }
+        if limit.is_some() && pkt.get_pts().is_some() && pkt.get_pts().unwrap() > limit.unwrap() {
+            break;
         }
         let streamno = pkt.get_stream().get_id() as usize;
         if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {

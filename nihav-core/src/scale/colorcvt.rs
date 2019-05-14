@@ -167,6 +167,7 @@ impl RgbToYuv {
     fn new() -> Self { Self::default() }
 }
 
+#[allow(clippy::many_single_char_names)]
 impl Kernel for RgbToYuv {
     fn init(&mut self, in_fmt: &ScaleInfo, dest_fmt: &ScaleInfo) -> ScaleResult<NABufferType> {
         let mut df = dest_fmt.fmt;
@@ -210,9 +211,9 @@ println!(" [intermediate format {}]", df);
             let dst = dbuf.get_data_mut().unwrap();
             for _y in 0..h {
                 for x in 0..w {
-                    let r = src[roff + x] as f32;
-                    let g = src[goff + x] as f32;
-                    let b = src[boff + x] as f32;
+                    let r = f32::from(src[roff + x]);
+                    let g = f32::from(src[goff + x]);
+                    let b = f32::from(src[boff + x]);
                     let (y, u, v) = matrix_mul(&self.matrix, r, g, b);
 
                     dst[yoff + x] = (y as i16).max(0).min(255) as u8;
@@ -243,6 +244,7 @@ impl YuvToRgb {
     fn new() -> Self { Self::default() }
 }
 
+#[allow(clippy::many_single_char_names)]
 impl Kernel for YuvToRgb {
     fn init(&mut self, in_fmt: &ScaleInfo, dest_fmt: &ScaleInfo) -> ScaleResult<NABufferType> {
         let mut df = dest_fmt.fmt;
@@ -294,9 +296,9 @@ println!(" [intermediate format {}]", df);
             let dst = dbuf.get_data_mut().unwrap();
             for y in 0..h {
                 for x in 0..w {
-                    let y = src[yoff + x] as f32;
-                    let u = ((src[uoff + (x >> sv0)] as i16) - 128) as f32;
-                    let v = ((src[voff + (x >> sv1)] as i16) - 128) as f32;
+                    let y = f32::from(src[yoff + x]);
+                    let u = f32::from(i16::from(src[uoff + (x >> sv0)]) - 128);
+                    let v = f32::from(i16::from(src[voff + (x >> sv1)]) - 128);
 
                     let (r, g, b) = matrix_mul(&self.matrix, y, u, v);
                     dst[roff + x] = (r as i16).max(0).min(255) as u8;

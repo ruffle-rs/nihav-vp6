@@ -14,12 +14,12 @@ pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     for j in 0..8 {
         for k in 0..8 {
             let mut v = blk[0][k + j * 8];
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k] = v as u8;
         }
         for k in 0..8 {
             let mut v = blk[1][k + j * 8];
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k + 8] = v as u8;
         }
         idxy += stridey;
@@ -27,12 +27,12 @@ pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     for j in 0..8 {
         for k in 0..8 {
             let mut v = blk[2][k + j * 8];
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k] = v as u8;
         }
         for k in 0..8 {
             let mut v = blk[3][k + j * 8];
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k + 8] = v as u8;
         }
         idxy += stridey;
@@ -41,12 +41,12 @@ pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     for j in 0..8 {
         for k in 0..8 {
             let mut v = blk[4][k + j * 8];
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxu + k] = v as u8;
         }
         for k in 0..8 {
             let mut v = blk[5][k + j * 8];
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxv + k] = v as u8;
         }
         idxu += strideu;
@@ -67,26 +67,26 @@ pub fn add_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
 
     for j in 0..8 {
         for k in 0..8 {
-            let mut v = blk[0][k + j * 8] + (framebuf[idxy + k] as i16);
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            let mut v = blk[0][k + j * 8] + i16::from(framebuf[idxy + k]);
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k] = v as u8;
         }
         for k in 0..8 {
-            let mut v = blk[1][k + j * 8] + (framebuf[idxy + k + 8] as i16);
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            let mut v = blk[1][k + j * 8] + i16::from(framebuf[idxy + k + 8]);
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k + 8] = v as u8;
         }
         idxy += stridey;
     }
     for j in 0..8 {
         for k in 0..8 {
-            let mut v = blk[2][k + j * 8] + (framebuf[idxy + k] as i16);
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            let mut v = blk[2][k + j * 8] + i16::from(framebuf[idxy + k]);
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k] = v as u8;
         }
         for k in 0..8 {
-            let mut v = blk[3][k + j * 8] + (framebuf[idxy + k + 8] as i16);
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            let mut v = blk[3][k + j * 8] + i16::from(framebuf[idxy + k + 8]);
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k + 8] = v as u8;
         }
         idxy += stridey;
@@ -94,13 +94,13 @@ pub fn add_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
 
     for j in 0..8 {
         for k in 0..8 {
-            let mut v = blk[4][k + j * 8] + (framebuf[idxu + k] as i16);
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            let mut v = blk[4][k + j * 8] + i16::from(framebuf[idxu + k]);
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxu + k] = v as u8;
         }
         for k in 0..8 {
-            let mut v = blk[5][k + j * 8] + (framebuf[idxv + k] as i16);
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            let mut v = blk[5][k + j * 8] + i16::from(framebuf[idxv + k]);
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxv + k] = v as u8;
         }
         idxu += strideu;
@@ -143,8 +143,7 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
     if (sx - pre < 0) || ((sx >> 1) - pre < 0) || (sx + (bw as isize) + post > (w as isize)) ||
        (sy - pre < 0) || ((sy >> 1) - pre < 0) || (sy + (bh as isize) + post > (h as isize)) {
         let ebuf_stride: usize = 32;
-        let mut ebuf: Vec<u8> = Vec::with_capacity(ebuf_stride * (bh + ((pre + post) as usize)));
-        ebuf.resize((((pre + post) as usize) + bh) * ebuf_stride, 0);
+        let mut ebuf: Vec<u8> = vec![0; ebuf_stride * (bh + ((pre + post) as usize))];
 
         for comp in 0..3 {
             let dstride = dst.get_stride(comp);

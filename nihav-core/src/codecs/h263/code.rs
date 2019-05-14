@@ -121,15 +121,16 @@ const W8: i32 =  181;
 const ROW_SHIFT: u8 = 8;
 const COL_SHIFT: u8 = 14;
 
+#[allow(clippy::erasing_op)]
 fn idct_row(row: &mut [i16]) {
-    let in0 = ((row[0] as i32) << 11) + (1 << (ROW_SHIFT - 1));
-    let in1 =  (row[4] as i32) << 11;
-    let in2 =   row[6] as i32;
-    let in3 =   row[2] as i32;
-    let in4 =   row[1] as i32;
-    let in5 =   row[7] as i32;
-    let in6 =   row[5] as i32;
-    let in7 =   row[3] as i32;
+    let in0 = ((i32::from(row[0])) << 11) + (1 << (ROW_SHIFT - 1));
+    let in1 =  (i32::from(row[4])) << 11;
+    let in2 =   i32::from(row[6]);
+    let in3 =   i32::from(row[2]);
+    let in4 =   i32::from(row[1]);
+    let in5 =   i32::from(row[7]);
+    let in6 =   i32::from(row[5]);
+    let in7 =   i32::from(row[3]);
 
     let tmp = W7 * (in4 + in5);
     let a4 = tmp + (W1 - W7) * in4;
@@ -167,15 +168,16 @@ fn idct_row(row: &mut [i16]) {
     row[4] = ((b5 - b6) >> ROW_SHIFT) as i16;
 }
 
+#[allow(clippy::erasing_op)]
 fn idct_col(blk: &mut [i16; 64], off: usize) {
-    let in0 = ((blk[off + 0*8] as i32) << 8) + (1 << (COL_SHIFT - 1));
-    let in1 =  (blk[off + 4*8] as i32) << 8;
-    let in2 =   blk[off + 6*8] as i32;
-    let in3 =   blk[off + 2*8] as i32;
-    let in4 =   blk[off + 1*8] as i32;
-    let in5 =   blk[off + 7*8] as i32;
-    let in6 =   blk[off + 5*8] as i32;
-    let in7 =   blk[off + 3*8] as i32;
+    let in0 = ((i32::from(blk[off + 0*8])) << 8) + (1 << (COL_SHIFT - 1));
+    let in1 =  (i32::from(blk[off + 4*8])) << 8;
+    let in2 =   i32::from(blk[off + 6*8]);
+    let in3 =   i32::from(blk[off + 2*8]);
+    let in4 =   i32::from(blk[off + 1*8]);
+    let in5 =   i32::from(blk[off + 7*8]);
+    let in6 =   i32::from(blk[off + 5*8]);
+    let in7 =   i32::from(blk[off + 3*8]);
 
     let tmp = W7 * (in4 + in5);
     let a4 = (tmp + (W1 - W7) * in4) >> 3;
@@ -345,6 +347,7 @@ impl H263BlockDSP {
     }
 }
 
+#[allow(clippy::erasing_op)]
 fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
     let stride = buf.get_stride(comp);
     let dptr = buf.get_data_mut().unwrap();

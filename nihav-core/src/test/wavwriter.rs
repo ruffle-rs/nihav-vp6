@@ -47,7 +47,7 @@ macro_rules! write_data {
 
 impl<'a> WavWriter<'a> {
     pub fn new(io: &'a mut ByteWriter<'a>) -> Self {
-        WavWriter { io: io, data_pos: 0 }
+        WavWriter { io, data_pos: 0 }
     }
     pub fn write_header(&mut self, ainfo: NAAudioInfo) -> ByteIOResult<()> {
         let bits = ainfo.get_format().get_bits() as usize;
@@ -59,16 +59,16 @@ impl<'a> WavWriter<'a> {
         self.io.write_buf(b"fmt ")?;
         self.io.write_u32le(16)?;
         self.io.write_u16le(0x0001)?; // PCM
-        self.io.write_u16le(ainfo.get_channels() as u16)?;
-        self.io.write_u32le(ainfo.get_sample_rate() as u32)?;
+        self.io.write_u16le(u16::from(ainfo.get_channels()))?;
+        self.io.write_u32le(ainfo.get_sample_rate())?;
 
         if bits < 16 {
-            self.io.write_u32le((ainfo.get_channels() as u32) * (ainfo.get_sample_rate() as u32))?;
-            self.io.write_u16le(ainfo.get_channels() as u16)?; // block align
+            self.io.write_u32le(u32::from(ainfo.get_channels()) * ainfo.get_sample_rate())?;
+            self.io.write_u16le(u16::from(ainfo.get_channels()))?; // block align
             self.io.write_u16le(8)?;
         } else {
-            self.io.write_u32le(2 * (ainfo.get_channels() as u32) * (ainfo.get_sample_rate() as u32))?;
-            self.io.write_u16le((2 * ainfo.get_channels()) as u16)?; // block align
+            self.io.write_u32le(2 * u32::from(ainfo.get_channels()) * ainfo.get_sample_rate())?;
+            self.io.write_u16le(u16::from(2 * ainfo.get_channels()))?; // block align
             self.io.write_u16le(16)?;
         }
 

@@ -30,21 +30,21 @@ impl NASoniton {
         let is_pl = (flags & SONITON_FLAG_PLANAR) != 0;
         let is_fl = (flags & SONITON_FLAG_FLOAT) != 0;
         let is_sg = (flags & SONITON_FLAG_SIGNED) != 0;
-        NASoniton { bits: bits, be: is_be, packed: is_pk, planar: is_pl, float: is_fl, signed: is_sg }
+        NASoniton { bits, be: is_be, packed: is_pk, planar: is_pl, float: is_fl, signed: is_sg }
     }
 
-    pub fn get_bits(&self)  -> u8   { self.bits }
-    pub fn is_be(&self)     -> bool { self.be }
-    pub fn is_packed(&self) -> bool { self.packed }
-    pub fn is_planar(&self) -> bool { self.planar }
-    pub fn is_float(&self)  -> bool { self.float }
-    pub fn is_signed(&self) -> bool { self.signed }
+    pub fn get_bits(self)   -> u8   { self.bits }
+    pub fn is_be(self)      -> bool { self.be }
+    pub fn is_packed(self)  -> bool { self.packed }
+    pub fn is_planar(self)  -> bool { self.planar }
+    pub fn is_float(self)   -> bool { self.float }
+    pub fn is_signed(self)  -> bool { self.signed }
 
-    pub fn get_audio_size(&self, length: u64) -> usize {
+    pub fn get_audio_size(self, length: u64) -> usize {
         if self.packed {
-            ((length * (self.bits as u64) + 7) >> 3) as usize
+            ((length * u64::from(self.bits) + 7) >> 3) as usize
         } else {
-            (length * (((self.bits + 7) >> 3) as u64)) as usize
+            (length * u64::from((self.bits + 7) >> 3)) as usize
         }
     }
 }
@@ -63,8 +63,8 @@ pub enum NAChannelType {
 }
 
 impl NAChannelType {
-    pub fn is_center(&self) -> bool {
-        match *self {
+    pub fn is_center(self) -> bool {
+        match self {
             NAChannelType::C => true,   NAChannelType::Ch => true,
             NAChannelType::Cl => true,  NAChannelType::Ov => true,
             NAChannelType::LFE => true, NAChannelType::LFE2 => true,
@@ -72,8 +72,8 @@ impl NAChannelType {
             _ => false,
         }
     }
-    pub fn is_left(&self) -> bool {
-        match *self {
+    pub fn is_left(self) -> bool {
+        match self {
             NAChannelType::L   => true, NAChannelType::Ls => true,
             NAChannelType::Lss => true, NAChannelType::Lc => true,
             NAChannelType::Lh  => true, NAChannelType::Lw => true,
@@ -82,8 +82,8 @@ impl NAChannelType {
             _ => false,
         }
     }
-    pub fn is_right(&self) -> bool {
-        match *self {
+    pub fn is_right(self) -> bool {
+        match self {
             NAChannelType::R   => true, NAChannelType::Rs => true,
             NAChannelType::Rss => true, NAChannelType::Rc => true,
             NAChannelType::Rh  => true, NAChannelType::Rw => true,
@@ -171,7 +171,7 @@ impl fmt::Display for NAChannelType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Default)]
 pub struct NAChannelMap {
     ids: Vec<NAChannelType>,
 }
@@ -196,8 +196,8 @@ impl NAChannelMap {
         self.ids.push(ch);
     }
     pub fn add_channels(&mut self, chs: &[NAChannelType]) {
-        for i in 0..chs.len() {
-            self.ids.push(chs[i]);
+        for e in chs.iter() {
+            self.ids.push(*e);
         }
     }
     pub fn num_channels(&self) -> usize {
@@ -214,9 +214,9 @@ impl NAChannelMap {
     }
     pub fn from_ms_mapping(chmap: u32) -> Self {
         let mut cm = NAChannelMap::new();
-        for i in 0..MS_CHANNEL_MAP.len() {
+        for (i, ch) in MS_CHANNEL_MAP.iter().enumerate() {
             if ((chmap >> i) & 1) != 0 {
-                cm.add_channel(MS_CHANNEL_MAP[i]);
+                cm.add_channel(*ch);
             }
         }
         cm
@@ -227,7 +227,7 @@ impl fmt::Display for NAChannelMap {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut map = String::new();
         for el in self.ids.iter() {
-            if map.len() > 0 { map.push(','); }
+            if !map.is_empty() { map.push(','); }
             map.push_str(&*el.to_string());
         }
         write!(f, "{}", map)
@@ -291,26 +291,26 @@ pub enum ColorModel {
 }
 
 impl ColorModel {
-    pub fn get_default_components(&self) -> usize {
-        match *self {
+    pub fn get_default_components(self) -> usize {
+        match self {
             ColorModel::CMYK => 4,
             _                => 3,
         }
     }
-    pub fn is_rgb(&self) -> bool {
-        match *self {
+    pub fn is_rgb(self) -> bool {
+        match self {
             ColorModel::RGB(_) => true,
             _ => false,
         }
     }
-    pub fn is_yuv(&self) -> bool {
-        match *self {
+    pub fn is_yuv(self) -> bool {
+        match self {
             ColorModel::YUV(_) => true,
             _ => false,
         }
     }
-    pub fn get_short_name(&self) -> &'static str {
-        match *self {
+    pub fn get_short_name(self) -> &'static str {
+        match self {
             ColorModel::RGB(_)   => "rgb",
             ColorModel::YUV(_)   => "yuv",
             ColorModel::CMYK     => "cmyk",
@@ -430,20 +430,20 @@ impl NAPixelChromaton {
     pub fn new(h_ss: u8, v_ss: u8, packed: bool, depth: u8, shift: u8, comp_offs: u8, next_elem: u8) -> Self {
         Self { h_ss, v_ss, packed, depth, shift, comp_offs, next_elem }
     }
-    pub fn get_subsampling(&self) -> (u8, u8) { (self.h_ss, self.v_ss) }
-    pub fn is_packed(&self) -> bool { self.packed }
-    pub fn get_depth(&self) -> u8   { self.depth }
-    pub fn get_shift(&self) -> u8   { self.shift }
-    pub fn get_offset(&self) -> u8  { self.comp_offs }
-    pub fn get_step(&self)  -> u8   { self.next_elem }
+    pub fn get_subsampling(self) -> (u8, u8) { (self.h_ss, self.v_ss) }
+    pub fn is_packed(self) -> bool { self.packed }
+    pub fn get_depth(self) -> u8   { self.depth }
+    pub fn get_shift(self) -> u8   { self.shift }
+    pub fn get_offset(self) -> u8  { self.comp_offs }
+    pub fn get_step(self)  -> u8   { self.next_elem }
 
-    pub fn get_width(&self, width: usize) -> usize {
+    pub fn get_width(self, width: usize) -> usize {
         (width  + ((1 << self.h_ss) - 1)) >> self.h_ss
     }
-    pub fn get_height(&self, height: usize) -> usize {
+    pub fn get_height(self, height: usize) -> usize {
         (height + ((1 << self.v_ss) - 1)) >> self.v_ss
     }
-    pub fn get_linesize(&self, width: usize) -> usize {
+    pub fn get_linesize(self, width: usize) -> usize {
         let d = self.depth as usize;
         if self.packed {
             (self.get_width(width) * d + d - 1) >> 3
@@ -451,7 +451,7 @@ impl NAPixelChromaton {
             self.get_width(width)
         }
     }
-    pub fn get_data_size(&self, width: usize, height: usize) -> usize {
+    pub fn get_data_size(self, width: usize, height: usize) -> usize {
         let nh = (height + ((1 << self.v_ss) - 1)) >> self.v_ss;
         self.get_linesize(width) * nh
     }
@@ -487,11 +487,11 @@ impl NAPixelFormaton {
         if let Some(c) = comp3 { chromatons[2] = Some(c); ncomp += 1; }
         if let Some(c) = comp4 { chromatons[3] = Some(c); ncomp += 1; }
         if let Some(c) = comp5 { chromatons[4] = Some(c); ncomp += 1; }
-        NAPixelFormaton { model: model,
+        NAPixelFormaton { model,
                           components: ncomp,
                           comp_info: chromatons,
-                          elem_size: elem_size,
-                         be: be, alpha: alpha, palette: palette }
+                          elem_size,
+                          be, alpha, palette }
     }
 
     pub fn get_model(&self) -> ColorModel { self.model }
@@ -500,10 +500,10 @@ impl NAPixelFormaton {
         if idx < self.comp_info.len() { return self.comp_info[idx]; }
         None
     }
-    pub fn is_be(&self) -> bool { self.be }
-    pub fn has_alpha(&self) -> bool { self.alpha }
-    pub fn is_paletted(&self) -> bool { self.palette }
-    pub fn get_elem_size(&self) -> u8 { self.elem_size }
+    pub fn is_be(self) -> bool { self.be }
+    pub fn has_alpha(self) -> bool { self.alpha }
+    pub fn is_paletted(self) -> bool { self.palette }
+    pub fn get_elem_size(self) -> u8 { self.elem_size }
     pub fn is_unpacked(&self) -> bool {
         if self.palette { return false; }
         for chr in self.comp_info.iter() {

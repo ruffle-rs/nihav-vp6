@@ -55,14 +55,14 @@ fn fill_lut_msb(table: &mut Vec<u32>, off: usize,
         let fill_len  = lut_bits - bits;
         let fill_size = 1 << fill_len;
         let fill_code = code << (lut_bits - bits);
-        let lut_value = (symidx << 8) | (bits as u32);
+        let lut_value = (symidx << 8) | u32::from(bits);
         for j in 0..fill_size {
             let idx = (fill_code + j) as usize;
             table[idx + off] = lut_value;
         }
     } else {
         let idx = (code as usize) + off;
-        table[idx] = (symidx << 8) | 0x80 | (bits as u32);
+        table[idx] = (symidx << 8) | 0x80 | u32::from(bits);
     }
 }
 
@@ -75,11 +75,11 @@ fn fill_lut_lsb(table: &mut Vec<u32>, off: usize,
         let step = lut_bits - fill_len;
         for j in 0..fill_size {
             let idx = (fill_code + (j << step)) as usize;
-            table[idx + off] = (symidx << 8) | (bits as u32);
+            table[idx + off] = (symidx << 8) | u32::from(bits);
         }
     } else {
         let idx = (code as usize) + off;
-        table[idx] = (symidx << 8) | 0x80 | (bits as u32);
+        table[idx] = (symidx << 8) | 0x80 | u32::from(bits);
     }
 }
 
@@ -143,10 +143,10 @@ impl CodeBucket {
 type EscapeCodes = HashMap<u32, CodeBucket>;
 
 fn add_esc_code(cc: &mut EscapeCodes, key: u32, code: u32, bits: u8, idx: usize) {
-    if !cc.contains_key(&key) { cc.insert(key, CodeBucket::new()); }
+    cc.entry(key).or_insert_with(CodeBucket::new);
     let b = cc.get_mut(&key);
     if let Some(bucket) = b {
-        bucket.add_code(Code {code: code, bits: bits, idx: idx });
+        bucket.add_code(Code {code, bits, idx });
     } else { panic!("no bucket when expected!"); }
 }
 
@@ -178,7 +178,7 @@ fn build_esc_lut(table: &mut Vec<u32>,
         sec_bucket.offset = new_off as usize;
     }
 
-    for (_, sec_bucket) in &escape_list {
+    for sec_bucket in escape_list.values() {
         build_esc_lut(table, mode, sec_bucket)?;
     }
 
@@ -196,7 +196,7 @@ impl<S: Copy> Codebook<S> {
         for i in 0..cb.len() {
             let bits = cb.bits(i);
             if bits > 0 {
-                nnz = nnz + 1;
+                nnz += 1;
                 if cb.code(i) >= (1 << bits) {
                     return Err(CodebookError::InvalidCodebook);
                 }
@@ -208,7 +208,7 @@ impl<S: Copy> Codebook<S> {
                 let cval = extract_esc_part(code, bits, MAX_LUT_BITS, mode);
                 add_esc_code(&mut escape_list, ckey, cval, bits - MAX_LUT_BITS, symidx);
             }
-            if bits > 0 { symidx = symidx + 1; }
+            if bits > 0 { symidx += 1; }
         }
         if maxbits == 0 { return Err(CodebookError::InvalidCodebook); }
 
@@ -240,10 +240,10 @@ impl<S: Copy> Codebook<S> {
                     }
                 }
             }
-            symidx = symidx + 1;
+            symidx += 1;
         }
 
-        for (_, bucket) in &escape_list {
+        for bucket in escape_list.values() {
             build_esc_lut(&mut table, mode, &bucket)?;
         }
 
@@ -253,7 +253,7 @@ impl<S: Copy> Codebook<S> {
             }
         }
 
-        Ok(Codebook { table: table, syms: syms, lut_bits: maxbits })
+        Ok(Codebook { table, syms, lut_bits: maxbits })
     }
 }
 
@@ -272,8 +272,8 @@ impl<'a, S: Copy> CodebookReader<S> for BitReader<'a> {
             if (bits as isize) > self.left() {
                 return Err(CodebookError::InvalidCode);
             }
-            let skip_bits = if esc { lut_bits as u32 } else { bits };
-            if let Err(_) = self.skip(skip_bits as u32) {}
+            let skip_bits = if esc { u32::from(lut_bits) } else { bits };
+            self.skip(skip_bits as u32).unwrap();
             lut_bits = bits as u8;
         }
         Ok(cb.syms[idx])
@@ -286,7 +286,7 @@ pub struct FullCodebookDescReader<S> {
 
 impl<S> FullCodebookDescReader<S> {
     pub fn new(data: Vec<FullCodebookDesc<S>>) -> Self {
-        FullCodebookDescReader { data: data }
+        FullCodebookDescReader { data }
     }
 }
 
@@ -303,7 +303,7 @@ pub struct ShortCodebookDescReader {
 
 impl ShortCodebookDescReader {
     pub fn new(data: Vec<ShortCodebookDesc<>>) -> Self {
-        ShortCodebookDescReader { data: data }
+        ShortCodebookDescReader { data }
     }
 }
 
