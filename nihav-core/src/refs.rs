@@ -18,7 +18,7 @@ impl<T> NABufferData<T> {
         obj.refs.fetch_add(1, Ordering::SeqCst);
     }
     fn dec_refs(obj: &mut Self) -> bool {
-        obj.refs.fetch_sub(1, Ordering::SeqCst) == 0
+        obj.refs.fetch_sub(1, Ordering::SeqCst) == 1
     }
     fn get_num_refs(obj: &Self) -> usize {
         obj.refs.load(Ordering::Relaxed)
