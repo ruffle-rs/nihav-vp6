@@ -84,11 +84,7 @@ impl<'a> BMVWriter<'a> {
         for _ in 0..len {
             let saddr = (self.pos as isize) + self.off;
             if saddr < 0 { continue; }
-            if self.fwd {
-                self.data[self.pos] = self.data[saddr as usize];
-            } else {
-                self.data[self.pos] = self.data[saddr as usize];
-            }
+            self.data[self.pos] = self.data[saddr as usize];
             self.advance();
         }
     }
