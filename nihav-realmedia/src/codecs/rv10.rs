@@ -57,7 +57,7 @@ struct RV10SliceInfo {
 
 impl RV10SliceInfo {
     fn new(is_p: bool, qscale: u8, mb_x: usize, mb_y: usize, mb_c: usize) -> Self {
-        RV10SliceInfo { is_p: is_p, qscale: qscale, mb_x: mb_x, mb_y: mb_y, mb_c: mb_c }
+        RV10SliceInfo { is_p, qscale, mb_x, mb_y, mb_c }
     }
 }
 
@@ -77,7 +77,7 @@ impl<'a> RealVideo10BR<'a> {
         let soff = nslices * 8 + 1;
         RealVideo10BR {
             br:         BitReader::new(&src[soff..], src.len() - soff, BitReaderMode::BE),
-            tables:     tables,
+            tables,
             num_slices: nslices,
             slice_no:   0,
             slice_off:  slice_offs,
@@ -85,10 +85,10 @@ impl<'a> RealVideo10BR<'a> {
             h:          height,
             mb_w:       (width  + 15) >> 4,
             mb_h:       (height + 15) >> 4,
-            new_ver:    new_ver,
+            new_ver,
             dc_coded:   [false; 3],
             last_dc:    [0; 3],
-            mvmode:     mvmode,
+            mvmode,
         }
     }
 
@@ -379,20 +379,20 @@ impl RealVideo10Decoder {
         let chroma_dc_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
 
         let tables = Tables {
-            intra_mcbpc_cb: intra_mcbpc_cb,
-            inter_mcbpc_cb: inter_mcbpc_cb,
-            cbpy_cb:        cbpy_cb,
-            rl_cb:          rl_cb,
-            aic_rl_cb:      aic_rl_cb,
-            mv_cb:          mv_cb,
-            luma_dc_cb:     luma_dc_cb,
-            chroma_dc_cb:   chroma_dc_cb,
+            intra_mcbpc_cb,
+            inter_mcbpc_cb,
+            cbpy_cb,
+            rl_cb,
+            aic_rl_cb,
+            mv_cb,
+            luma_dc_cb,
+            chroma_dc_cb,
         };
 
         RealVideo10Decoder{
             info:           NACodecInfoRef::default(),
             dec:            H263BaseDecoder::new_with_opts(false, false, false),
-            tables:         tables,
+            tables,
             w:              0,
             h:              0,
             new_ver:        false,
@@ -478,7 +478,7 @@ pub struct CodeReader { codes: &'static [u16], bits: &'static [u8] }
 
 impl CodeReader {
     pub fn new(codes: &'static [u16], bits: &'static [u8]) -> Self {
-        CodeReader { codes: codes, bits: bits }
+        CodeReader { codes, bits }
     }
 }
 

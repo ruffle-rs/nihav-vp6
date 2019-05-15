@@ -220,7 +220,7 @@ fn eval_reflection(coeffs: &[i16; LPC_ORDER]) -> Option<u32> {
         }
         let a = (1 << 12) - ((src[i + 1] * src[i + 1]) >> 12);
         let scale = if a != 0 { (1 << 24) / a } else { (1 << 24) };
-        for j in 0..(i+1) {
+        for j in 0..=i {
             let result = (src[j] - ((tmp3[i + 1] * src[i - j]) >> 12)).checked_mul(scale);
             if let Some(val) = result {
                 dst[j] = val >> 12;
@@ -248,7 +248,7 @@ impl NADecoder for RA144Decoder {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(),
                                           1,
                                           SND_S16_FORMAT, NBLOCKS * BLOCKSIZE);
-            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo.clone()));
+            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo));
             Ok(())
         } else {
             Err(DecoderError::InvalidData)

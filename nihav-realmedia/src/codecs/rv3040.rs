@@ -19,11 +19,11 @@ pub struct GenericCache<T: Copy> {
 impl<T:Copy> GenericCache<T> {
     pub fn new(height: usize, stride: usize, default: T) -> Self {
         let mut ret = Self {
-                stride: stride,
-                height: height,
+                stride,
+                height,
                 xpos:   0,
                 data:   Vec::with_capacity((height + 1) * stride),
-                default: default,
+                default,
             };
         ret.reset();
         ret
@@ -106,17 +106,17 @@ pub enum MBType {
 }
 
 impl MBType {
-    pub fn is_intra(&self) -> bool {
-        (*self == MBType::MBIntra) || (*self == MBType::MBIntra16)
+    pub fn is_intra(self) -> bool {
+        (self == MBType::MBIntra) || (self == MBType::MBIntra16)
     }
-    pub fn is_16(&self) -> bool {
-        (*self == MBType::MBIntra16) || (*self == MBType::MBP16x16Mix)
+    pub fn is_16(self) -> bool {
+        (self == MBType::MBIntra16) || (self == MBType::MBP16x16Mix)
     }
-    pub fn is_intra_or_16(&self) -> bool {
+    pub fn is_intra_or_16(self) -> bool {
         self.is_intra() || self.is_16()
     }
-    pub fn get_num_mvs(&self) -> usize {
-        match *self {
+    pub fn get_num_mvs(self) -> usize {
+        match self {
             MBType::MBIntra | MBType::MBIntra16 |
             MBType::MBSkip | MBType::MBDirect                       => 0,
             MBType::MBP16x16 | MBType::MBP16x16Mix |
@@ -126,42 +126,42 @@ impl MBType {
             MBType::Invalid => unreachable!(),
         }
     }
-    pub fn is_fwd(&self) -> bool {
-        match *self {
+    pub fn is_fwd(self) -> bool {
+        match self {
             MBType::MBP16x16 | MBType::MBP16x16Mix |
             MBType::MBP16x8 | MBType::MBP8x16 | MBType::MBP8x8 |
             MBType::MBForward => true,
             _ => false,
         }
     }
-    pub fn is_bwd(&self) -> bool {
-        match *self {
+    pub fn is_bwd(self) -> bool {
+        match self {
             MBType::MBBidir | MBType::MBBackward => true,
             _                  => false,
         }
     }
-    pub fn has_mv_dir(&self, fwd: bool) -> bool {
-        match *self {
+    pub fn has_mv_dir(self, fwd: bool) -> bool {
+        match self {
             MBType::MBBidir             => true,
             MBType::MBForward  if  fwd  => true,
             MBType::MBBackward if !fwd  => true,
             _ => false,
         }
     }
-    pub fn is_nomv(&self) -> bool {
-        match *self {
+    pub fn is_nomv(self) -> bool {
+        match self {
             MBType::MBIntra | MBType::MBIntra16 | MBType::MBSkip | MBType::MBDirect => true,
             _                  => false,
         }
     }
-    /*pub fn is_16x16(&self) -> bool {
-        match *self {
+    /*pub fn is_16x16(self) -> bool {
+        match self {
             MBType::MBP16x8 | MBType::MBP8x16 | MBType::MBP8x8 => false,
             _ => true,
         }
     }*/
-    fn get_weight(&self) -> usize {
-        match *self {
+    fn get_weight(self) -> usize {
+        match self {
             MBType::MBIntra     => 0,
             MBType::MBIntra16   => 1,
             MBType::MBSkip      => unreachable!(),
@@ -535,7 +535,7 @@ pub trait RV34BitstreamDecoder {
     fn decode_intra_pred(&mut self, br: &mut BitReader, types: &mut [i8], pos: usize, tstride: usize, has_top: bool) -> DecoderResult<()>;
     fn quant_dc(&self, is_intra: bool, q: u8) -> u8;
     fn decode_inter_mb_hdr(&mut self, br: &mut BitReader, ftype: FrameType, mbtype: MBType) -> DecoderResult<MBInfo>;
-    fn predict_b_mv(&self, sstate: &SState, mvi: &MVInfo, mbtype: MBType, mvs: &[MV], mbinfo: &Vec<RV34MBInfo>) -> (MV, MV);
+    fn predict_b_mv(&self, sstate: &SState, mvi: &MVInfo, mbtype: MBType, mvs: &[MV], mbinfo: &[RV34MBInfo]) -> (MV, MV);
 }
 
 pub trait RV34DSP {
@@ -568,7 +568,7 @@ fn parse_slice_offsets(src: &[u8], offsets: &mut Vec<usize>) -> DecoderResult<()
     Ok(())
 }
 
-fn decode_slice_header(br: &mut BitReader, bd: &mut RV34BitstreamDecoder, slice_no: usize, slice_offs: &Vec<usize>, old_width: usize, old_height: usize) -> DecoderResult<RV34SliceHeader> {
+fn decode_slice_header(br: &mut BitReader, bd: &mut RV34BitstreamDecoder, slice_no: usize, slice_offs: &[usize], old_width: usize, old_height: usize) -> DecoderResult<RV34SliceHeader> {
     validate!(slice_no < slice_offs.len());
     br.seek((slice_offs[slice_no] * 8) as u32)?;
     let mut shdr = bd.decode_slice_header(br, old_width, old_height)?;
@@ -713,7 +713,7 @@ impl MBHist {
 fn decode_mv(br: &mut BitReader) -> DecoderResult<MV> {
     let x = br.read_code_signed(IntCodeType::Gamma)? as i16;
     let y = br.read_code_signed(IntCodeType::Gamma)? as i16;
-    Ok(MV{ x: x, y: y })
+    Ok(MV{ x, y })
 }
 
 fn do_mc_16x16(dsp: &Box<dyn RV34DSP>, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, mb_y: usize, mv: MV, avg: bool) {
@@ -778,9 +778,9 @@ impl RV34Decoder {
         let vb = vt.get_vbuf();
         let avg_buf = vb.unwrap();
         RV34Decoder {
-            is_rv30:    is_rv30,
+            is_rv30,
             coderead:   RV34Codes::new(),
-            dsp:        dsp,
+            dsp,
             cdsp:       RV34CommonDSP::new(),
             ipbs:       IPBShuffler::new(),
             mvi:        MVInfo::new(),
@@ -790,7 +790,7 @@ impl RV34Decoder {
             last_ts: 0, next_ts: 0,
             ratio1: 0, ratio2: 0,
             is_b:       false,
-            avg_buf:    avg_buf,
+            avg_buf,
             base_ts:    0,
         }
     }
@@ -798,7 +798,7 @@ impl RV34Decoder {
         if is_i16 {
             let imode = br.read(2)? as i8;
             im.fill_block(imode);
-            return Ok(MBInfo { mbtype: MBType::MBIntra16, skip_run: 0, dquant: false });
+            Ok(MBInfo { mbtype: MBType::MBIntra16, skip_run: 0, dquant: false })
         } else {
             let dq = if !has_dq {
                     if !self.is_rv30 { !br.read_bool()? } else { false }
@@ -807,7 +807,7 @@ impl RV34Decoder {
                 decode_dquant(br, q)?;
             }
             bd.decode_intra_pred(br, im.cache.data.as_mut_slice(), im.cache.xpos, im.cache.stride, has_top)?;
-            return Ok(MBInfo { mbtype: MBType::MBIntra, skip_run: 0, dquant: dq });
+            Ok(MBInfo { mbtype: MBType::MBIntra, skip_run: 0, dquant: dq })
         }
     }
     fn decode_mb_header_inter(&mut self, bd: &mut RV34BitstreamDecoder, br: &mut BitReader, ftype: FrameType, mbtype: MBType, im: &mut IntraModeState, q: u8, has_top: bool) -> DecoderResult<MBInfo> {
@@ -819,7 +819,7 @@ impl RV34Decoder {
         if hdr.mbtype.is_intra() {
             return self.decode_mb_header_intra(bd, br, hdr.mbtype.is_16(), im, q, has_top, true);
         }
-        return Ok(hdr);
+        Ok(hdr)
     }
 
     fn decode_mb_intra(&mut self, sstate: &SState, imode: &IntraModeState, buf: &mut NAVideoBuffer<u8>, br: &mut BitReader, is_16: bool) -> DecoderResult<()> {
@@ -1118,7 +1118,7 @@ impl RV34Decoder {
         let ini_off = slice_offs.len() * 8 + 1;
 
         let mut br = BitReader::new(&src[ini_off..], src.len() - ini_off, BitReaderMode::BE);
-        let hdr0 = decode_slice_header(&mut br, bd, 0, &slice_offs, self.width, self.height)?;
+        let hdr0 = decode_slice_header(&mut br, bd, 0, slice_offs.as_slice(), self.width, self.height)?;
         validate!((hdr0.width != 0) && (hdr0.height != 0));
         self.width  = hdr0.width;
         self.height = hdr0.height;
@@ -1232,7 +1232,7 @@ impl RV34Decoder {
                     if !self.is_b {
                         self.mvi.set_mb(mb_x, mb_y, mbh.mbtype, &self.ref_mvi, &mvs, &sstate);
                     } else {
-                        let (mv_f, mv_b) = bd.predict_b_mv(&sstate, &self.mvi, mbh.mbtype, &mvs, &mbinfo);
+                        let (mv_f, mv_b) = bd.predict_b_mv(&sstate, &self.mvi, mbh.mbtype, &mvs, mbinfo.as_slice());
                         self.mvi.fill(mb_x, mb_y, true,  mv_f);
                         self.mvi.fill(mb_x, mb_y, false, mv_b);
                     }
@@ -1260,7 +1260,7 @@ impl RV34Decoder {
                     self.decode_mb_inter(&sstate, &mbh, &mut buf, &mut br, is_16)?;
                 }
 
-                let mi = RV34MBInfo { cbp: cbp, q: q, mbtype: mbh.mbtype, deblock: 0, cbp_c: 0 };
+                let mi = RV34MBInfo { cbp, q, mbtype: mbh.mbtype, deblock: 0, cbp_c: 0 };
                 mbinfo.push(mi);
                 if is_intra {
                     mbinfo[mb_pos].deblock = 0xFFFF;

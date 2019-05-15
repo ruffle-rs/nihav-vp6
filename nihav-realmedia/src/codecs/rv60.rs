@@ -257,58 +257,58 @@ const RV60_PU_TYPES: [PUType; 8] = [
 ];
 
 impl PUType {
-    fn get_num_mvs(&self) -> usize {
-        match *self {
+    fn get_num_mvs(self) -> usize {
+        match self {
             PUType::Full        => 1,
             PUType::Quarters    => 4,
             _                   => 2,
         }
     }
-    fn get_mv_size(&self, part_no: usize, size: usize) -> (usize, usize) {
+    fn get_mv_size(self, part_no: usize, size: usize) -> (usize, usize) {
         let mv_size = size >> 2;
-        match *self {
+        match self {
             PUType::Full        => (mv_size, mv_size),
             PUType::N2Hor       => (mv_size, mv_size >> 1),
             PUType::N2Ver       => (mv_size >> 1, mv_size),
             PUType::Quarters    => (mv_size >> 1, mv_size >> 1),
             PUType::N4Hor       => {
                     if part_no == 0 {
-                        (mv_size,     mv_size >> 2)
+                        (mv_size,      mv_size  >> 2)
                     } else {
-                        (mv_size, 3 * mv_size >> 2)
+                        (mv_size, (3 * mv_size) >> 2)
                     }
                 },
             PUType::N34Hor      => {
                     if part_no == 0 {
-                        (mv_size, 3 * mv_size >> 2)
+                        (mv_size, (3 * mv_size) >> 2)
                     } else {
-                        (mv_size,     mv_size >> 2)
+                        (mv_size,      mv_size  >> 2)
                     }
                 },
             PUType::N4Ver       => {
                     if part_no == 0 {
-                        (    mv_size >> 2, mv_size)
+                        (     mv_size  >> 2, mv_size)
                     } else {
-                        (3 * mv_size >> 2, mv_size)
+                        ((3 * mv_size) >> 2, mv_size)
                     }
                 },
             PUType::N34Ver      => {
                     if part_no == 0 {
-                        (3 * mv_size >> 2, mv_size)
+                        ((3 * mv_size) >> 2, mv_size)
                     } else {
-                        (    mv_size >> 2, mv_size)
+                        (     mv_size  >> 2, mv_size)
                     }
                 },
         }
     }
-    fn has_hor_split(&self) -> bool {
-        match *self {
+    fn has_hor_split(self) -> bool {
+        match self {
             PUType::N2Hor | PUType::N4Hor | PUType::N34Hor | PUType::Quarters => true,
             _ => false,
         }
     }
-    fn has_ver_split(&self) -> bool {
-        match *self {
+    fn has_ver_split(self) -> bool {
+        match self {
             PUType::N2Ver | PUType::N4Ver | PUType::N34Ver | PUType::Quarters => true,
             _ => false,
         }
@@ -355,28 +355,28 @@ enum MVRef {
 const SKIP_MV_REF: [MVRef; 4] = [ MVRef::Skip0,  MVRef::Skip1, MVRef::Skip2,  MVRef::Skip3 ];
 
 impl MVRef {
-    fn get_skip_mv_num(&self) -> usize {
-        match *self {
+    fn get_skip_mv_num(self) -> usize {
+        match self {
             MVRef::Skip1    => 1,
             MVRef::Skip2    => 2,
             MVRef::Skip3    => 3,
             _               => 0,
         }
     }
-    fn is_ref0(&self) -> bool {
-        match *self {
+    fn is_ref0(self) -> bool {
+        match self {
             MVRef::Ref0 | MVRef::Ref0AndBRef => true,
             _ => false,
         }
     }
-    fn is_fwd(&self) -> bool {
-        match *self {
+    fn is_fwd(self) -> bool {
+        match self {
             MVRef::Ref0 | MVRef::Ref1 | MVRef::Ref0AndBRef => true,
             _ => false,
         }
     }
-    fn is_bwd(&self) -> bool {
-        match *self {
+    fn is_bwd(self) -> bool {
+        match self {
             MVRef::BRef | MVRef::Ref0AndBRef => true,
             _ => false,
         }
@@ -550,7 +550,7 @@ struct PUInfo {
 }
 
 impl PUInfo {
-    fn is_intra(&self) -> bool { self.cu_type == CUType::Intra }
+    fn is_intra(self) -> bool { self.cu_type == CUType::Intra }
 }
 
 const RV60_CANDIDATE_INTRA_ANGLES: [u8; 6] = [ 0, 1, 10, 26, 18, 2 ];
@@ -650,7 +650,7 @@ impl RealVideo60Decoder {
             ipbs:       IPBShuffler::new(),
             ipred:      IntraPredContext::new(),
             dsp:        RV60DSP::new(),
-            avg_buf:    avg_buf,
+            avg_buf,
             y_coeffs:   [0; 16 * 16],
             u_coeffs:   [0; 8 * 8],
             v_coeffs:   [0; 8 * 8],

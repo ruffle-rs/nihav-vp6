@@ -30,8 +30,10 @@ pub enum PredType8x8 {
     DC128
 }
 
+type IPred4x4Func = fn(buf: &mut [u8], idx: usize, stride: usize, tr: &[u8]);
+
 pub struct RV34CommonDSP {
-    pub ipred4x4:   [fn(buf: &mut [u8], idx: usize, stride: usize, tr: &[u8]); 15],
+    pub ipred4x4:   [IPred4x4Func; 15],
     pub ipred8x8:   [fn(buf: &mut [u8], idx: usize, stride: usize); 7],
     pub ipred16x16: [fn(buf: &mut [u8], idx: usize, stride: usize); 7],
 }
@@ -547,7 +549,7 @@ fn ipred_16x16_plane(buf: &mut [u8], mut idx: usize, stride: usize) {
     }
 }
 
-const IPRED_FUNCS4X4: [fn(buf: &mut [u8], idx: usize, stride: usize, tr: &[u8]); 15] = [
+const IPRED_FUNCS4X4: [IPred4x4Func; 15] = [
     ipred_4x4_ver, ipred_4x4_hor, ipred_4x4_dc,
     ipred_4x4_diag_down_left, ipred_4x4_diag_down_right,
     ipred_4x4_ver_right, ipred_4x4_hor_down, ipred_4x4_ver_left, ipred_4x4_hor_up,

@@ -123,8 +123,7 @@ impl RMAudioStream {
                 Deinterleaver::Generic |
                 Deinterleaver::Sipro    => {
                         let bsize = (info.frame_size as usize) * (info.factor as usize);
-                        buf = Vec::with_capacity(bsize);
-                        buf.resize(bsize, 0u8);
+                        buf = vec![0; bsize];
                     },
                 Deinterleaver::VBR      => {
                         buf = Vec::new();
@@ -134,7 +133,7 @@ impl RMAudioStream {
             deint = Deinterleaver::None;
             buf = Vec::new();
         }
-        RMAudioStream { deint: deint, iinfo: iinfo, buf: buf, sub_packet: 0 }
+        RMAudioStream { deint, iinfo, buf, sub_packet: 0 }
     }
     fn read_apackets(&mut self, queued_packets: &mut Vec<NAPacket>, src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: bool, payload_size: usize) -> DemuxerResult<NAPacket> {
         let (tb_num, tb_den) = stream.get_timebase();
@@ -381,8 +380,7 @@ fn read_14or30(src: &mut ByteReader) -> DemuxerResult<(bool, u32)> {
 
 fn read_video_buf(src: &mut ByteReader, stream: NAStreamRef, ts: u32, keyframe: bool, frame_size: usize) -> DemuxerResult<NAPacket> {
     let size = (frame_size as usize) + 9;
-    let mut vec: Vec<u8> = Vec::with_capacity(size);
-    vec.resize(size, 0);
+    let mut vec: Vec<u8> = vec![0; size];
     //v[0] = 0; // 1 slice
     vec[4] = 1;
     src.read_buf(&mut vec[9..])?;
@@ -420,7 +418,7 @@ impl RMDemuxCommon {
         } else if ((tag2 == mktag!('V', 'I', 'D', 'O')) || (tag2 == mktag!('I', 'M', 'A', 'G'))) && ((tag as usize) <= edata.len()) {
             Self::parse_video_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata.as_slice(), tag2)?;
         } else if tag == mktag!(b"LSD:") {
-            let extradata = Some(edata.clone());
+            let extradata = Some(edata.to_owned());
 
             src.read_skip(4)?; //version
             let channels    = src.read_u16be()?;
@@ -809,10 +807,10 @@ fn parse_aformat3(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
     validate!(end - start <= (header_len as u64) + 2);
 
     Ok(RealAudioInfo {
-        fcc: fcc, flavor: flavor,
+        fcc, flavor,
         sample_rate: 8000, sample_size: 16, channels: 1, channel_mask: 0,
-        granularity: granularity, bytes_per_minute: bytes_per_minute,
-        total_bytes: total_bytes, edata_size: 0,
+        granularity, bytes_per_minute,
+        total_bytes, edata_size: 0,
         ileave_info: None,
     })
 }
@@ -862,11 +860,11 @@ fn parse_aformat4(src: &mut ByteReader) -> DemuxerResult<RealAudioInfo> {
         };
 
     Ok(RealAudioInfo {
-        fcc: fcc, flavor: flavor,
-        sample_rate: sample_rate, sample_size: sample_size as u16, channels: channels, channel_mask: 0,
-        granularity: granularity, bytes_per_minute: bytes_per_minute,
+        fcc, flavor,
+        sample_rate, sample_size: sample_size as u16, channels, channel_mask: 0,
+        granularity, bytes_per_minute,
         total_bytes: total_bytes & 0xFFFFFF, edata_size: 0,
-        ileave_info: ileave_info,
+        ileave_info,
     })
 }
 
@@ -912,7 +910,7 @@ unimplemented!("ra5 interleave pattern");
 
     let ileave_info = if is_interleaved != 0 {
             Some(InterleaveInfo {
-                    id: interleaver_id, factor: ileave_factor, block_size: ileave_block_size, frame_size: frame_size,
+                    id: interleaver_id, factor: ileave_factor, block_size: ileave_block_size, frame_size,
                 })
         } else {
             None
@@ -924,11 +922,11 @@ unimplemented!("ra5 interleave pattern");
     }
 
     Ok(RealAudioInfo {
-        fcc: fcc, flavor: flavor,
-        sample_rate: sample_rate, sample_size: sample_size as u16, channels: channels, channel_mask: 0,
-        granularity: granularity, bytes_per_minute: bytes_per_minute,
-        total_bytes: total_bytes & 0xFFFFFF, edata_size: edata_size,
-        ileave_info: ileave_info,
+        fcc, flavor,
+        sample_rate, sample_size: sample_size as u16, channels, channel_mask: 0,
+        granularity, bytes_per_minute,
+        total_bytes: total_bytes & 0xFFFFFF, edata_size,
+        ileave_info,
     })
 }
 
@@ -1067,8 +1065,7 @@ impl<'a> RealMediaDemuxer<'a> {
 //println!("mime = {}", mime);
         let edata_size      = self.src.read_u32be()? as usize;
         let edata: Option<Vec<u8>> = if edata_size == 0 { None } else {
-            let mut edvec: Vec<u8> = Vec::with_capacity(edata_size);
-            edvec.resize(edata_size, 0);
+            let mut edvec: Vec<u8> = vec![0; edata_size];
             self.src.read_buf(&mut edvec)?;
             Some(edvec)
         };
@@ -1146,8 +1143,7 @@ println!(" got ainfo {:?}", ainfo);
         let extradata = if ainfo.edata_size == 0 {
                 None
             } else {
-                let mut dta: Vec<u8> = Vec::with_capacity(ainfo.edata_size as usize);
-                dta.resize(ainfo.edata_size as usize, 0);
+                let mut dta: Vec<u8> = vec![0; ainfo.edata_size as usize];
                 self.src.read_buf(dta.as_mut_slice())?;
                 Some(dta)
             };
@@ -1220,8 +1216,7 @@ enum IVRRecord {
 impl IVRRecord {
     fn read_string(src: &mut ByteReader) -> DemuxerResult<Vec<u8>> {
         let len                     = src.read_u32be()? as usize;
-        let mut val = Vec::with_capacity(len);
-        val.resize(len, 0);
+        let mut val = vec![0; len];
         src.read_buf(val.as_mut_slice())?;
         Ok(val)
     }
@@ -1252,8 +1247,7 @@ impl IVRRecord {
             4 => {
                     let name = Self::read_string(src)?;
                     let len  = src.read_u32be()? as usize;
-                    let mut val = Vec::with_capacity(len);
-                    val.resize(len, 0);
+                    let mut val = vec![0; len];
                     src.read_buf(val.as_mut_slice())?;
                     Ok(IVRRecord::BinaryData(name, val))
                 },
@@ -1315,7 +1309,7 @@ impl RecordDemuxer {
         RecordDemuxer {
             start_pos:      pos,
             cur_pos:        pos,
-            start_str:      start_str,
+            start_str,
             remap_ids:      Vec::new(),
         }
     }
@@ -1405,7 +1399,7 @@ impl RecordDemuxer {
         loop {
             let rec = IVRRecord::read(src)?;
             match rec {
-                IVRRecord::Packet { ts, str, flags, len, checksum: _ } => {
+                IVRRecord::Packet { ts, str, flags, len, .. } => {
                         let payload_size = len;
                         let sr = self.remap_ids.iter().position(|x| *x == str);
                         validate!(sr.is_some());

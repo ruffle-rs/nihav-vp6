@@ -7,7 +7,7 @@ macro_rules! validate {
 #[cfg(feature="demuxer_real")]
 mod realmedia;
 
-const RM_DEMUXERS: &[&'static DemuxerCreator] = &[
+const RM_DEMUXERS: &[&DemuxerCreator] = &[
 #[cfg(feature="demuxer_real")]
     &realmedia::RealMediaDemuxerCreator {},
 #[cfg(feature="demuxer_real")]
@@ -17,7 +17,7 @@ const RM_DEMUXERS: &[&'static DemuxerCreator] = &[
 ];
 
 pub fn realmedia_register_all_demuxers(rd: &mut RegisteredDemuxers) {
-    for demuxer in RM_DEMUXERS.into_iter() {
+    for demuxer in RM_DEMUXERS.iter() {
         rd.add_demuxer(*demuxer);
     }
 }

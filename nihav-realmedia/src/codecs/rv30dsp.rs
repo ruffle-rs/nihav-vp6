@@ -34,7 +34,7 @@ macro_rules! mc_matrix {
             ($c1 * 6) * ($s[$o] as i32) + ($c1 * 9) * ($s[$o + 1] as i32) + ($c1) * ($s[$o + 2] as i32)
         );
     ($s: ident, $o: expr, $c1: expr, $d1: expr, $d2: expr) => (
-            (-$c1) * ($s[$o - 1] as i32) + ($c1 * $d1) * ($s[$o] as i32) + ($c1 * $d2) * ($s[$o + 1] as i32) + (-$c1) * ($s[$o + 2] as i32)
+            -($c1) * ($s[$o - 1] as i32) + ($c1 * $d1) * ($s[$o] as i32) + ($c1 * $d2) * ($s[$o + 1] as i32) + -($c1) * ($s[$o + 2] as i32)
         );
     ($s: ident, $o: expr, $ss: expr, $c1: expr, $c2: expr, $d1: expr, $d2: expr) => (
         ((mc_matrix!($s, $o -     $ss,  -1, $d1, $d2) +

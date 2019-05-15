@@ -50,7 +50,7 @@ impl RV34CodeReader {
             syms.push(i as u16);
         }
 
-        RV34CodeReader { codes: codes, lengths: lengths, syms: syms }
+        RV34CodeReader { codes, lengths, syms }
     }
 }
 
@@ -97,7 +97,7 @@ impl RV34CBPCodeReader {
             syms.push(RV34_CBP_SYMS[i]);
         }
 
-        RV34CBPCodeReader { codes: codes, lengths: lengths, syms: syms }
+        RV34CBPCodeReader { codes, lengths, syms }
     }
 }
 
@@ -197,14 +197,14 @@ impl FullSet {
             let cset = CoefSet::new(intra, set);
             let mut coderead = RV34CodeReader::new(&RV34_INTRA_COEFFS[set]);
             let coeffs = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-            FullSet { cbp: cbp, cset: cset, coeffs: coeffs }
+            FullSet { cbp, cset, coeffs }
         } else {
             let cbp0 = CBPSet::new(intra, set, 0);
             let cbp: Vec<CBPSet> = vec![cbp0];
             let cset = CoefSet::new(intra, set);
             let mut coderead = RV34CodeReader::new(&RV34_INTER_COEFFS[set]);
             let coeffs = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-            FullSet { cbp: cbp, cset: cset, coeffs: coeffs }
+            FullSet { cbp, cset, coeffs }
         }
     }
 }
@@ -392,7 +392,7 @@ const RV34_MODULO_THREE_TABLE: [u8; 108] = [
     0xE0, 0xE1, 0xE2, 0xE4, 0xE5, 0xE6, 0xE8, 0xE9, 0xEA,
 ];
 
-const RV34_INTRA_CBPPAT: &'static [[[u8; 1296]; 2]; 5] = &[
+const RV34_INTRA_CBPPAT: &[[[u8; 1296]; 2]; 5] = &[
   [
     [
        8, 10, 10, 10, 10, 10, 11, 10, 10, 11, 10, 10, 10, 10, 10,  6,
@@ -1226,7 +1226,7 @@ const RV34_INTRA_CBPPAT: &'static [[[u8; 1296]; 2]; 5] = &[
   ],
 ];
 
-const RV34_INTRA_CBP: &'static [[[u8; 16]; 8]; 5] = &[
+const RV34_INTRA_CBP: &[[[u8; 16]; 8]; 5] = &[
   [
     [ 0,  3,  3,  4,  3,  5,  5,  5,  2,  5,  4,  6,  4,  6,  6,  6, ],
     [ 0,  2,  3,  4,  2,  5,  6,  7,  3,  6,  5,  7,  4,  7,  8,  8, ],
@@ -1275,7 +1275,7 @@ const RV34_INTRA_CBP: &'static [[[u8; 16]; 8]; 5] = &[
   ],
 ];
 
-const RV34_INTRA_FIRSTPAT: &'static [[[u8; 864]; 4]; 5] = &[
+const RV34_INTRA_FIRSTPAT: &[[[u8; 864]; 4]; 5] = &[
   [
     [
        0, 10,  5, 10,  7, 12,  9, 11,  8, 13,  9, 12, 10, 13, 11, 12,
@@ -2389,7 +2389,7 @@ const RV34_INTRA_FIRSTPAT: &'static [[[u8; 864]; 4]; 5] = &[
   ],
 ];
 
-const RV34_INTRA_SECONDPAT: &'static [[[u8; 108]; 2]; 5] = &[
+const RV34_INTRA_SECONDPAT: &[[[u8; 108]; 2]; 5] = &[
   [
     [
        0,  5, 10,  3,  6, 10,  7,  8,  9,  4,  6, 10,  6,  7,  9,  8,
@@ -2483,7 +2483,7 @@ const RV34_INTRA_SECONDPAT: &'static [[[u8; 108]; 2]; 5] = &[
   ],
 ];
 
-const RV34_INTRA_THIRDPAT: &'static [[[u8; 108]; 2]; 5] = &[
+const RV34_INTRA_THIRDPAT: &[[[u8; 108]; 2]; 5] = &[
   [
     [
        0,  5, 10,  3,  6, 10,  7,  8, 10,  4,  7, 10,  6,  7, 10,  8,
@@ -2577,7 +2577,7 @@ const RV34_INTRA_THIRDPAT: &'static [[[u8; 108]; 2]; 5] = &[
   ],
 ];
 
-const RV34_INTRA_COEFFS: &'static [[u8; 32]; 5] = &[
+const RV34_INTRA_COEFFS: &[[u8; 32]; 5] = &[
   [
     1,  3,  3,  4,  4,  5,  6,  6,  6,  7,  7,  7,  8,  8,  9,  9,
     9,  9, 10, 10, 10, 11, 11, 11, 10, 10, 10, 12, 13, 14, 15, 15,
@@ -2596,7 +2596,7 @@ const RV34_INTRA_COEFFS: &'static [[u8; 32]; 5] = &[
   ]
 ];
 
-const RV34_INTER_CBPPAT: &'static [[u8; 1296]; 7] = &[
+const RV34_INTER_CBPPAT: &[[u8; 1296]; 7] = &[
 [
   7,  9,  9,  8,  9,  8,  9,  8,  9,  9,  8,  8,  8,  8,  8,  4,
   7, 10, 11, 10, 11, 10, 12, 10, 12, 11, 11, 10, 11, 10, 10,  7,
@@ -3211,7 +3211,7 @@ const RV34_INTER_CBP: &[[[u8; 16]; 4]; 7] = &[
  [ 0,  4,  4,  3,  5,  4,  5,  4,  5,  5,  4,  4,  3,  4,  4,  3 ]
 ]];
 
-const RV34_INTER_FIRSTPAT: &'static [[[u8; 864]; 2]; 7] = &[
+const RV34_INTER_FIRSTPAT: &[[[u8; 864]; 2]; 7] = &[
   [
     [
        0,  7,  5,  7,  5,  7,  6,  6,  7, 10,  7,  9,  8,  9,  8,  7,
@@ -3999,7 +3999,7 @@ const RV34_INTER_FIRSTPAT: &'static [[[u8; 864]; 2]; 7] = &[
   ],
 ];
 
-const RV34_INTER_SECONDPAT: &'static [[[u8; 108]; 2]; 7] = &[
+const RV34_INTER_SECONDPAT: &[[[u8; 108]; 2]; 7] = &[
   [
     [
        0,  4,  8,  3,  6,  8,  6,  7,  8,  4,  6,  8,  6,  7,  8,  7,
@@ -4129,7 +4129,7 @@ const RV34_INTER_SECONDPAT: &'static [[[u8; 108]; 2]; 7] = &[
   ],
 ];
 
-const RV34_INTER_THIRDPAT: &'static [[[u8; 108]; 2]; 7] = &[
+const RV34_INTER_THIRDPAT: &[[[u8; 108]; 2]; 7] = &[
   [
     [
        0,  5,  8,  3,  6,  9,  6,  7,  9,  4,  6,  9,  6,  7,  9,  8,

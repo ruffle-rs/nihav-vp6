@@ -38,14 +38,14 @@ fn backfilter(hist: &mut [f32], rec: &mut [f32], filt: &mut [f32], win: &[f32], 
     for i in 0..(order + start + non_rec) {
         work[i] = win[i] * hist[i];
     }
-    for i in (0..order + 1).rev() {
+    for i in (0..=order).rev() {
         let src1 = &work[(order - i)..];
         let src2 = &work[order + start - i..];
         tmp1[i] = scalarprod(&work[order..],         src1, start);
         tmp2[i] = scalarprod(&work[order + start..], src2, non_rec);
     }
 
-    for i in 0..(order + 1) {
+    for i in 0..=order {
         rec[i]  = rec[i] * 0.5625 + tmp1[i];
         temp[i] = rec[i]          + tmp2[i];
     }
@@ -157,7 +157,7 @@ impl NADecoder for RA288Decoder {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(),
                                           1,
                                           SND_F32P_FORMAT, NBLOCKS * BLOCKSIZE);
-            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo.clone()));
+            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo));
             Ok(())
         } else {
             Err(DecoderError::InvalidData)

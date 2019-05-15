@@ -49,7 +49,7 @@ impl RV34BitstreamDecoder for RealVideo30BR {
         let start               = br.read(get_slice_start_offset_bits(w, h))? as usize;
                                   br.skip(1)?;
 
-        Ok(RV34SliceHeader{ ftype: ftype, quant: q, deblock: deblock, pts: pts, width: w, height: h, start: start, end: 0, set_idx: 0 })
+        Ok(RV34SliceHeader{ ftype, quant: q, deblock, pts, width: w, height: h, start, end: 0, set_idx: 0 })
     }
     fn decode_intra_pred(&mut self, br: &mut BitReader, types: &mut [i8], mut pos: usize, tstride: usize, _has_top: bool) -> DecoderResult<()> {
         for _ in 0..4 {
@@ -79,7 +79,7 @@ impl RV34BitstreamDecoder for RealVideo30BR {
         let idx = if ftype == FrameType::P { 0 } else { 1 };
         Ok(MBInfo { mbtype: RV30_MB_TYPES[idx][code], skip_run: 0, dquant: dq })
     }
-    fn predict_b_mv(&self, sstate: &SState, mvi: &MVInfo, mbtype: MBType, mvs: &[MV], _mbinfo: &Vec<RV34MBInfo>) -> (MV, MV) {
+    fn predict_b_mv(&self, sstate: &SState, mvi: &MVInfo, mbtype: MBType, mvs: &[MV], _mbinfo: &[RV34MBInfo]) -> (MV, MV) {
         let mb_x = sstate.mb_x;
         let mb_y = sstate.mb_y;
         let mv_f;
@@ -131,7 +131,7 @@ impl NADecoder for RealVideo30Decoder {
             if src.len() < num_rpr * 2 + 8 { return Err(DecoderError::ShortData); }
             self.bd.rpr_bits  = ((num_rpr >> 1) + 1) as u8;
             if self.bd.rpr_bits > 3 { self.bd.rpr_bits = 3; }
-            for i in 0..num_rpr+1 {
+            for i in 0..=num_rpr {
                 self.bd.widths.push ((src[6 + i * 2] as usize) << 2);
                 self.bd.heights.push((src[7 + i * 2] as usize) << 2);
             }

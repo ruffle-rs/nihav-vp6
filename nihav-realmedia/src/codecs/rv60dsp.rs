@@ -826,10 +826,10 @@ impl IntraPredContext {
             let inv_angle  = RV60_IPRED_INV_ANGLE[angle - 10];
             let add_size = (size * (ang_weight as usize) + 31) >> 5;
             if size <= 16 {
-                for i in 0..size+1 {
+                for i in 0..=size {
                     filtered1[32-1 + i] = self.l[i];
                 }
-                for i in 0..size+1 {
+                for i in 0..=size {
                     filtered2[32-1 + i] = self.t[i];
                 }
             } else {
@@ -852,10 +852,10 @@ impl IntraPredContext {
             let inv_angle  = RV60_IPRED_INV_ANGLE[26 - angle];
             let add_size = (size * (ang_weight as usize) + 31) >> 5;
             if size <= 16 {
-                for i in 0..size+1 {
+                for i in 0..=size {
                     filtered1[32-1 + i] = self.t[i];
                 }
-                for i in 0..size+1 {
+                for i in 0..=size {
                     filtered2[32-1 + i] = self.l[i];
                 }
             } else {

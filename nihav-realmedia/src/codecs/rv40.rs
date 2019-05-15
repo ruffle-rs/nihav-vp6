@@ -97,15 +97,15 @@ impl RealVideo40BR {
         RealVideo40BR {
             width:          0,
             height:         0,
-            aic_top_cb:     aic_top_cb,
-            aic_mode1_cb:   aic_mode1_cb,
-            aic_mode2_cb:   aic_mode2_cb,
-            ptype_cb:       ptype_cb,
-            btype_cb:       btype_cb,
+            aic_top_cb,
+            aic_mode1_cb,
+            aic_mode2_cb,
+            ptype_cb,
+            btype_cb,
             had_skip_run:   false,
         }
     }
-    fn predict_b_mv_component(&self, sstate: &SState, mvi: &MVInfo, mbinfo: &Vec<RV34MBInfo>, mbtype: MBType, fwd: bool) -> MV {
+    fn predict_b_mv_component(&self, sstate: &SState, mvi: &MVInfo, mbinfo: &[RV34MBInfo], mbtype: MBType, fwd: bool) -> MV {
         let mut pred_mvs: [MV; 3] = [ZERO_MV; 3];
         let mut mv_count: usize = 0;
         let mb_x = sstate.mb_x;
@@ -192,7 +192,7 @@ impl RV34BitstreamDecoder for RealVideo40BR {
 
         self.had_skip_run = false;
 
-        Ok(RV34SliceHeader{ ftype: ftype, quant: q, deblock: deblock, pts: pts, width: w, height: h, start: start, end: 0, set_idx: set_idx })
+        Ok(RV34SliceHeader{ ftype, quant: q, deblock, pts, width: w, height: h, start, end: 0, set_idx })
     }
     fn decode_intra_pred(&mut self, br: &mut BitReader, types: &mut [i8], mut pos: usize, tstride: usize, has_top: bool) -> DecoderResult<()> {
         let start;
@@ -276,9 +276,9 @@ impl RV34BitstreamDecoder for RealVideo40BR {
             mbtype = if ftype == FrameType::P { br.read_cb(&self.ptype_cb[idx])? }
                      else { br.read_cb(&self.btype_cb[idx])? };
         }
-        Ok(MBInfo { mbtype: mbtype, skip_run: 0, dquant: dquant })
+        Ok(MBInfo { mbtype, skip_run: 0, dquant })
     }
-    fn predict_b_mv(&self, sstate: &SState, mvi: &MVInfo, mbtype: MBType, mvs: &[MV], mbinfo: &Vec<RV34MBInfo>) -> (MV, MV) {
+    fn predict_b_mv(&self, sstate: &SState, mvi: &MVInfo, mbtype: MBType, mvs: &[MV], mbinfo: &[RV34MBInfo]) -> (MV, MV) {
         let mut mv_f = self.predict_b_mv_component(sstate, mvi, mbinfo, mbtype, true);
         let mut mv_b = self.predict_b_mv_component(sstate, mvi, mbinfo, mbtype, false);
 
@@ -325,7 +325,7 @@ impl NADecoder for RealVideo40Decoder {
 
 {
 println!("edata:");
-for i in 0..src.len() { print!(" {:02X}", src[i]); } println!("");
+for i in 0..src.len() { print!(" {:02X}", src[i]); } println!();
 }
             if src.len() < 2 { return Err(DecoderError::InvalidData); }
 

@@ -402,7 +402,7 @@ impl NADecoder for RALFDecoder {
             let table_bytes = table_bits >> 3;
             validate!((table_bytes + 3 <= pktbuf.len()) && (pktbuf.len() <= RALF_MAX_PACKET_SIZE));
             let cmp_len = table_bytes + 2;
-            validate!(&pktbuf[..cmp_len] == &self.pkt_buf[..cmp_len]);
+            validate!(pktbuf[..cmp_len] == self.pkt_buf[..cmp_len]);
             {
                 let copy_size = pktbuf.len() - cmp_len;
                 let dst = &mut self.pkt_buf[RALF_MAX_PACKET_SIZE..][..copy_size];
@@ -429,7 +429,7 @@ impl NADecoder for RALFDecoder {
         self.blocks.truncate(0);
         {
             let mut br = BitReader::new(&self.pkt_buf[2..], table_bytes, BitReaderMode::BE);
-            while br.tell() < table_bits.into() {
+            while br.tell() < table_bits {
                 let size                                = br.read(13 + self.channels).unwrap() as usize;
                 let pts;
                 if br.read_bool().unwrap() {

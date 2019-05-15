@@ -17,8 +17,8 @@ enum Mode {
 }
 
 impl Mode {
-    fn get_channels(&self) -> usize {
-        match *self {
+    fn get_channels(self) -> usize {
+        match self {
             Mode::Mono  => 1,
             _           => 2,
         }
@@ -74,9 +74,9 @@ impl Codebooks {
                      Codebook::new(&mut vq5, CodebookMode::MSB).unwrap(),
                      Codebook::new(&mut vq6, CodebookMode::MSB).unwrap()];
         Codebooks {
-            cpl_cb:     cpl_cb,
-            quant_cb:   quant_cb,
-            vq_cb:      vq_cb,
+            cpl_cb,
+            quant_cb,
+            vq_cb,
         }
     }
 }
@@ -111,7 +111,7 @@ impl CookDSP {
             gain_tab[i] = pow_tab[i + 53].powf(8.0 / fsamples);
         }
         let size = samples;
-        CookDSP { imdct: IMDCT::new(samples*2, false), window: window, out: [0.0; 2048], size, pow_tab, hpow_tab, gain_tab }
+        CookDSP { imdct: IMDCT::new(samples*2, false), window, out: [0.0; 2048], size, pow_tab, hpow_tab, gain_tab }
     }
 }
 
@@ -337,11 +337,11 @@ impl CookChannelPair {
             let cend   = COOK_CPL_BAND[self.subbands - 1] as usize;
             if br.read_bool()? {
                 let cb = &codebooks.cpl_cb[(self.js_bits - 2) as usize];
-                for i in cstart..cend+1 {
+                for i in cstart..=cend {
                     self.decouple[i]                    = br.read_cb(cb)? as u8;
                 }
             } else {
-                for i in cstart..cend+1 {
+                for i in cstart..=cend {
                     self.decouple[i]                    = br.read(self.js_bits)? as u8;
                 }
             }

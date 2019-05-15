@@ -68,7 +68,7 @@ struct RV20SliceInfo {
 
 impl RV20SliceInfo {
     fn new(ftype: Type, seq: u32, qscale: u8, mb_x: usize, mb_y: usize, mb_pos: usize, w: usize, h: usize) -> Self {
-        RV20SliceInfo { ftype: ftype, seq: seq, qscale: qscale, mb_x: mb_x, mb_y: mb_y, mb_pos: mb_pos, w: w, h: h }
+        RV20SliceInfo { ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h }
     }
 }
 
@@ -98,17 +98,17 @@ impl<'a> RealVideo20BR<'a> {
         }
         RealVideo20BR {
             br:         BitReader::new(&src[soff..], src.len() - soff, BitReaderMode::BE),
-            tables:     tables,
+            tables,
             num_slices: nslices,
             slice_no:   0,
             slice_off:  slice_offs,
             w:          width,
             h:          height,
-            mb_w:       mb_w,
-            mb_h:       mb_h,
+            mb_w,
+            mb_h,
             mb_pos_bits: mbpb,
-            minor_ver:  minor_ver,
-            rpr:        rpr,
+            minor_ver,
+            rpr,
         }
     }
 
@@ -432,20 +432,20 @@ impl RealVideo20Decoder {
         let mv_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
 
         let tables = Tables {
-            intra_mcbpc_cb: intra_mcbpc_cb,
-            inter_mcbpc_cb: inter_mcbpc_cb,
-            mbtype_b_cb:    mbtype_b_cb,
-            cbpy_cb:        cbpy_cb,
-            cbpc_b_cb:      cbpc_b_cb,
-            rl_cb:          rl_cb,
-            aic_rl_cb:      aic_rl_cb,
-            mv_cb:          mv_cb,
+            intra_mcbpc_cb,
+            inter_mcbpc_cb,
+            mbtype_b_cb,
+            cbpy_cb,
+            cbpc_b_cb,
+            rl_cb,
+            aic_rl_cb,
+            mv_cb,
         };
 
         RealVideo20Decoder{
             info:           NACodecInfoRef::default(),
             dec:            H263BaseDecoder::new_b_frames(false),
-            tables:         tables,
+            tables,
             w:              0,
             h:              0,
             minor_ver:      0,
