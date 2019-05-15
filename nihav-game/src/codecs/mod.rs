@@ -33,7 +33,7 @@ const GAME_CODECS: &[DecoderInfo] = &[
 ];
 
 pub fn game_register_all_codecs(rd: &mut RegisteredDecoders) {
-    for decoder in GAME_CODECS.into_iter() {
+    for decoder in GAME_CODECS.iter() {
         rd.add_decoder(decoder.clone());
     }
 }

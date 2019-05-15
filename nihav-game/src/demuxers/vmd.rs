@@ -53,7 +53,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         let vinfo = NACodecInfo::new(if !self.is_indeo { "vmd-video" } else { "indeo3" }, vci, Some(edata));
         self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 12)).unwrap();
 
-        let srate = read_u16le(&header[804..])? as u32;
+        let srate = u32::from(read_u16le(&header[804..])?);
         let block_size;
         if srate > 0 {
             let bsize = read_u16le(&header[806..])? as usize;
@@ -74,8 +74,8 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
             block_size = 0;
         }
 
-        let adelay  = read_u16le(&header[808..])? as u32;
-        let idx_off = read_u32le(&header[812..])? as u64;
+        let adelay  = u32::from(read_u16le(&header[808..])?);
+        let idx_off = u64::from(read_u32le(&header[812..])?);
                                                 src.seek(SeekFrom::Start(idx_off))?;
         let mut offs: Vec<u32> = Vec::with_capacity(nframes);
         for i in 0..nframes {
@@ -122,7 +122,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         if self.fno >= self.frames.len() { return Err(DemuxerError::EOF); }
         let cur_frame = &self.frames[self.fno];
 //println!("fno {} -> type {} size {} @ {:X} ts {}", self.fno, cur_frame.chtype, cur_frame.size, cur_frame.off, cur_frame.ts);
-        let next_pos = cur_frame.off as u64;
+        let next_pos = u64::from(cur_frame.off);
         if self.src.tell() != next_pos {
             self.src.seek(SeekFrom::Start(next_pos))?;
         }
@@ -143,7 +143,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         let str_id = if is_video { self.vid_id } else { self.aud_id };
         let str = strmgr.get_stream(str_id).unwrap();
         let (tb_num, tb_den) = str.get_timebase();
-        let ts = NATimeInfo::new(Some(cur_frame.ts as u64), None, None, tb_num, tb_den);
+        let ts = NATimeInfo::new(Some(u64::from(cur_frame.ts)), None, None, tb_num, tb_den);
         let pkt = NAPacket::new(str, ts, false, buf);
 
         Ok(pkt)

@@ -30,7 +30,7 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
     }
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if self.pkt_buf.len() > 0 {
+        if !self.pkt_buf.is_empty() {
             return Ok(self.pkt_buf.pop().unwrap());
         }
 
@@ -51,13 +51,12 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
                 let (tb_num, tb_den) = str.get_timebase();
                 let ts = NATimeInfo::new(Some(self.apos), None, None, tb_num, tb_den);
                 let apkt = self.src.read_packet(str, ts, false, asize)?;
-                self.apos += (nblocks as u64) * 32;
+                self.apos += u64::from(nblocks) * 32;
                 self.pkt_buf.push(apkt);
             } else {
                 asize = 0;
             }
-            let mut buf: Vec<u8> = Vec::with_capacity(size - asize + 1);
-            buf.resize(size - asize + 1, 0);
+            let mut buf: Vec<u8> = vec![0; size - asize + 1];
             buf[0] = ctype;
             self.src.read_buf(&mut buf[1..])?;
 
@@ -158,7 +157,7 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
     }
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if self.pkt_buf.len() > 0 {
+        if !self.pkt_buf.is_empty() {
             return Ok(self.pkt_buf.pop().unwrap());
         }
 
@@ -178,8 +177,7 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
                     asize = self.asize;
                 }
                 validate!(asize <= size);
-                let mut buf: Vec<u8> = Vec::with_capacity(asize + 1);
-                buf.resize(asize + 1, 0);
+                let mut buf: Vec<u8> = vec![0; asize + 1];
                 buf[0] = (self.src.tell() & 1) as u8;
                 self.src.read_buf(&mut buf[1..])?;
 
@@ -194,14 +192,13 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
                 asize = 0;
             }
             if size == asize {
-                if self.pkt_buf.len() > 0 {
+                if !self.pkt_buf.is_empty() {
                     return Ok(self.pkt_buf.pop().unwrap());
                 } else {
                     continue;
                 }
             }
-            let mut buf: Vec<u8> = Vec::with_capacity(size - asize + 1);
-            buf.resize(size - asize + 1, 0);
+            let mut buf: Vec<u8> = vec![0; size - asize + 1];
             buf[0] = ctype;
             self.src.read_buf(&mut buf[1..])?;
 

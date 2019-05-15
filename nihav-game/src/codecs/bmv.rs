@@ -206,9 +206,7 @@ impl NADecoder for BMVVideoDecoder {
         }
         let pos = br.tell() as usize;
 
-        let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = bufret.unwrap();
+        let mut bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0)?;
 
         self.decode_frame(&src[pos..], &mut bufinfo, line)?;
 
@@ -242,7 +240,7 @@ impl BMVAudioDecoder {
 }
 
 fn scale_sample(samp: u8, scale: i32) -> i16 {
-    let val = (((samp as i8) as i32) * scale) >> 5;
+    let val = (i32::from(samp as i8) * scale) >> 5;
     if val < -32768 {
         -32768
     } else if val > 32767 {

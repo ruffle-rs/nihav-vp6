@@ -80,18 +80,18 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
             }
             let vhdr = NAVideoInfo::new(width as usize, height as usize, false, PAL8_FORMAT);
             let vci = NACodecTypeInfo::Video(vhdr);
-            let vinfo = NACodecInfo::new("gdv-video", vci, if edata.len() == 0 { None } else { Some(edata) });
-            self.v_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps as u32));
+            let vinfo = NACodecInfo::new("gdv-video", vci, if edata.is_empty() { None } else { Some(edata) });
+            self.v_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, u32::from(fps)));
         }
         if (aflags & 1) != 0 {
             let channels = if (aflags & 2) != 0 { 2 } else { 1 };
             let packed   = if (aflags & 8) != 0 { 1 } else { 0 };
             let depth    = if (aflags & 4) != 0 { 16 } else { 8 };
 
-            let ahdr = NAAudioInfo::new(rate as u32, channels as u8, if depth == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
+            let ahdr = NAAudioInfo::new(u32::from(rate), channels as u8, if depth == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
             let ainfo = NACodecInfo::new(if packed != 0 { "gdv-audio" } else { "pcm" },
                                          NACodecTypeInfo::Audio(ahdr), None);
-            self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, rate as u32));
+            self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, u32::from(rate)));
 
             self.asize = (((rate / fps) * channels * (depth / 8)) >> packed) as usize;
             self.apacked = (aflags & 8) != 0;
@@ -139,7 +139,7 @@ pktdta: Vec::new(),
         self.state = GDVState::AudioRead;
         let str = strmgr.get_stream(self.a_id.unwrap()).unwrap();
         let (tb_num, tb_den) = str.get_timebase();
-        let ts = NATimeInfo::new(Some(self.cur_frame as u64), None, None, tb_num, tb_den);
+        let ts = NATimeInfo::new(Some(u64::from(self.cur_frame)), None, None, tb_num, tb_den);
         self.src.read_packet(str, ts, true, self.asize)
     }
 
@@ -152,10 +152,10 @@ pktdta: Vec::new(),
         let tmp = src.peek_u32le()?;
         let flags = (tmp & 0xFF) as usize;
         self.state = GDVState::NewFrame;
-        self.cur_frame = self.cur_frame + 1;
+        self.cur_frame += 1;
         let (tb_num, tb_den) = str.get_timebase();
-        let ts = NATimeInfo::new(Some((self.cur_frame - 1) as u64), None, None, tb_num, tb_den);
-        src.read_packet(str, ts, if (flags & 64) != 0 { true } else { false }, size)
+        let ts = NATimeInfo::new(Some(u64::from(self.cur_frame - 1)), None, None, tb_num, tb_den);
+        src.read_packet(str, ts, (flags & 64) != 0, size)
     }
 }
 

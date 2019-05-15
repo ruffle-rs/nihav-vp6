@@ -12,7 +12,7 @@ mod gdv;
 #[cfg(feature="demuxer_vmd")]
 mod vmd;
 
-const GAME_DEMUXERS: &[&'static DemuxerCreator] = &[
+const GAME_DEMUXERS: &[&DemuxerCreator] = &[
 #[cfg(feature="demuxer_bmv")]
     &bmv::BMVDemuxerCreator {},
 #[cfg(feature="demuxer_bmv3")]
@@ -24,7 +24,7 @@ const GAME_DEMUXERS: &[&'static DemuxerCreator] = &[
 ];
 
 pub fn game_register_all_demuxers(rd: &mut RegisteredDemuxers) {
-    for demuxer in GAME_DEMUXERS.into_iter() {
+    for demuxer in GAME_DEMUXERS.iter() {
         rd.add_demuxer(*demuxer);
     }
 }

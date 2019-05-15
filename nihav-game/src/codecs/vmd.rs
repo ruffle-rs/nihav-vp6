@@ -142,7 +142,7 @@ fn decode_frame_data(br: &mut ByteReader, dst: &mut [u8], mut dpos: usize, strid
             }
             Ok(false)
         },
-        _ => return Err(DecoderError::InvalidData),
+        _ => Err(DecoderError::InvalidData),
     }
 }
 
@@ -202,7 +202,7 @@ impl VMDVideoDecoder {
         let method                              = br.read_byte()?;
         let is_intra;
         if (method & 0x80) != 0 {
-            validate!(self.buf.len() > 0);
+            validate!(!self.buf.is_empty());
             lz_unpack(br, &mut self.buf)?;
             let mut mr = MemoryReader::new_read(&self.buf);
             let mut buf_br = ByteReader::new(&mut mr);
@@ -251,9 +251,7 @@ impl NADecoder for VMDVideoDecoder {
         if let Some(bbuf) = bufret {
             buf = bbuf;
         } else {
-            let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4);
-            if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-            let bufinfo = bufret.unwrap();
+            let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4)?;
             buf = bufinfo.get_vbuf().unwrap();
             self.hams.add_frame(buf);
             buf = self.hams.get_output_frame().unwrap();
@@ -324,7 +322,7 @@ impl VMDAudioDecoder {
             } else {
                 let mut pred: [i32; 2] = [0; 2];
                 for ch in 0..channels {
-                    pred[ch]                        = br.read_u16le()? as i32;
+                    pred[ch]                        = i32::from(br.read_u16le()?);
                     dst[off[ch]] = pred[ch] as i16;
                     off[ch] += 1;
                 }
@@ -333,9 +331,9 @@ impl VMDAudioDecoder {
                 for _ in channels..self.blk_align*channels {
                     let b                           = br.read_byte()? as usize;
                     if (b & 0x80) != 0 {
-                        pred[ch] -= SOL_AUD_STEPS16[b & 0x7F] as i32;
+                        pred[ch] -= i32::from(SOL_AUD_STEPS16[b & 0x7F]);
                     } else {
-                        pred[ch] += SOL_AUD_STEPS16[b & 0x7F] as i32;
+                        pred[ch] += i32::from(SOL_AUD_STEPS16[b & 0x7F]);
                     }
                     //pred[ch] = pred[ch].max(-32768).min(32767);
                     dst[off[ch]] = pred[ch] as i16;

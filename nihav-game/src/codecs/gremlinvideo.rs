@@ -50,7 +50,7 @@ impl Bits32 {
         self.queue >>= nbits;
         self.fill   -= nbits;
         if self.fill <= 16 {
-            self.queue |= (br.read_u16le()? as u32) << self.fill;
+            self.queue |= u32::from(br.read_u16le()?) << self.fill;
             self.fill  += 16;
         }
         Ok(res)
@@ -447,9 +447,7 @@ impl NADecoder for GremlinVideoDecoder {
             return Err(DecoderError::NotImplemented);
         }
 
-        let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let mut bufinfo = bufret.unwrap();
+        let mut bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0)?;
 
         self.output_frame(&mut bufinfo, w, h);
 

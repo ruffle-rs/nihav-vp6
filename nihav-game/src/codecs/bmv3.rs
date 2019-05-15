@@ -85,11 +85,6 @@ struct BMV3VideoDecoder {
 
 impl BMV3VideoDecoder {
     fn new() -> Self {
-        let mut frame1 = Vec::with_capacity(BMV_MAX_SIZE);
-        frame1.resize(BMV_MAX_SIZE, 0);
-        let mut frame2 = Vec::with_capacity(BMV_MAX_SIZE);
-        frame2.resize(BMV_MAX_SIZE, 0);
-
         let mut pixels = [0u16; 256];
         for (i, el) in pixels.iter_mut().enumerate() {
             *el = i as u16;
@@ -105,8 +100,8 @@ impl BMV3VideoDecoder {
             info:       NACodecInfoRef::default(),
             stride:     0,
             height:     0,
-            frame:      frame1,
-            prev_frame: frame2,
+            frame:      vec![0; BMV_MAX_SIZE],
+            prev_frame: vec![0; BMV_MAX_SIZE],
             pixels, pixbuf,
             mode:       BMV3Mode::Normal,
             pos:        0,
@@ -481,9 +476,7 @@ impl NADecoder for BMV3VideoDecoder {
         self.pos = off + self.stride;
         self.is_intra = (flags & BMV_INTRA) == BMV_INTRA;
 
-        let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
+        let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0)?;
 
         self.decode_frame(&mut br)?;
 
