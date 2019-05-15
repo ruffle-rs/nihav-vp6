@@ -3,8 +3,6 @@ use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::formats;
 use nihav_core::codecs::*;
-use std::fmt;
-use std::ops::{Add, Sub};
 
 struct CLVDCCodeReader { }
 struct CLVACCodeReader { }
@@ -13,28 +11,28 @@ struct CLVSym16CodeReader { codes: &'static [u16], bits: &'static [u8], syms: &'
 
 impl CodebookDescReader<i8> for CLVDCCodeReader {
     fn bits(&mut self, idx: usize) -> u8  { CLV_DC_BITS[idx] }
-    fn code(&mut self, idx: usize) -> u32 { CLV_DC_CODES[idx] as u32 }
+    fn code(&mut self, idx: usize) -> u32 { u32::from(CLV_DC_CODES[idx]) }
     fn sym (&mut self, idx: usize) -> i8 { (idx as i8) - 63 }
     fn len(&mut self) -> usize { CLV_DC_BITS.len() }
 }
 
 impl CodebookDescReader<u16> for CLVACCodeReader {
     fn bits(&mut self, idx: usize) -> u8  { CLV_AC_BITS[idx] }
-    fn code(&mut self, idx: usize) -> u32 { CLV_AC_CODES[idx] as u32 }
+    fn code(&mut self, idx: usize) -> u32 { u32::from(CLV_AC_CODES[idx]) }
     fn sym (&mut self, idx: usize) -> u16 { CLV_AC_SYMS[idx] }
     fn len(&mut self) -> usize { CLV_AC_BITS.len() }
 }
 
 impl CodebookDescReader<u8> for CLVFlagsCodeReader {
     fn bits(&mut self, idx: usize) -> u8  { self.bits[idx] }
-    fn code(&mut self, idx: usize) -> u32 { self.codes[idx] as u32 }
+    fn code(&mut self, idx: usize) -> u32 { u32::from(self.codes[idx]) }
     fn sym (&mut self, idx: usize) -> u8 { idx as u8 }
     fn len(&mut self) -> usize { self.bits.len() }
 }
 
 impl CodebookDescReader<u16> for CLVSym16CodeReader {
     fn bits(&mut self, idx: usize) -> u8  { self.bits[idx] }
-    fn code(&mut self, idx: usize) -> u32 { self.codes[idx] as u32 }
+    fn code(&mut self, idx: usize) -> u32 { u32::from(self.codes[idx]) }
     fn sym (&mut self, idx: usize) -> u16 { self.syms[idx] }
     fn len(&mut self) -> usize { self.bits.len() }
 }
@@ -53,83 +51,24 @@ impl LevelCodes {
            mvd:  Option<(&'static [u8], &'static [u16], &'static [u16])>, mv_esc: u16,
            bias: Option<(&'static [u8], &'static [u16], &'static [u16])>, bias_esc: u16) -> Self {
         let flags_cb = if let Some((bits, codes)) = flgd {
-                let mut coderead = CLVFlagsCodeReader { bits: bits, codes: codes };
+                let mut coderead = CLVFlagsCodeReader { bits, codes };
                 Some(Codebook::new(&mut coderead, CodebookMode::MSB).unwrap())
             } else {
                 None
             };
         let mv_cb = if let Some((bits, codes, syms)) = mvd {
-                let mut coderead = CLVSym16CodeReader { bits: bits, codes: codes, syms: syms };
+                let mut coderead = CLVSym16CodeReader { bits, codes, syms };
                 Some(Codebook::new(&mut coderead, CodebookMode::MSB).unwrap())
             } else {
                 None
             };
         let bias_cb = if let Some((bits, codes, syms)) = bias {
-                let mut coderead = CLVSym16CodeReader { bits: bits, codes: codes, syms: syms };
+                let mut coderead = CLVSym16CodeReader { bits, codes, syms };
                 Some(Codebook::new(&mut coderead, CodebookMode::MSB).unwrap())
             } else {
                 None
             };
-        LevelCodes { flags_cb: flags_cb, mv_cb: mv_cb, mv_esc: mv_esc, bias_cb: bias_cb, bias_esc: bias_esc }
-    }
-}
-
-#[derive(Debug,Clone,Copy)]
-pub struct MV {
-    x: i16,
-    y: i16,
-}
-
-impl MV {
-    pub fn new(x: i16, y: i16) -> Self { MV{ x: x, y: y } }
-    pub fn pred(a: MV, b: MV, c: MV) -> Self {
-        let x;
-        if a.x < b.x {
-            if b.x < c.x {
-                x = b.x;
-            } else {
-                if a.x < c.x { x = c.x; } else { x = a.x; }
-            }
-        } else {
-            if b.x < c.x {
-                if a.x < c.x { x = a.x; } else { x = c.x; }
-            } else {
-                x = b.x;
-            }
-        }
-        let y;
-        if a.y < b.y {
-            if b.y < c.y {
-                y = b.y;
-            } else {
-                if a.y < c.y { y = c.y; } else { y = a.y; }
-            }
-        } else {
-            if b.y < c.y {
-                if a.y < c.y { y = a.y; } else { y = c.y; }
-            } else {
-                y = b.y;
-            }
-        }
-        MV { x: x, y: y }
-    }
-}
-
-pub const ZERO_MV: MV = MV { x: 0, y: 0 };
-
-impl Add for MV {
-    type Output = MV;
-    fn add(self, other: MV) -> MV { MV { x: self.x + other.x, y: self.y + other.y } }
-}
-
-impl Sub for MV {
-    type Output = MV;
-    fn sub(self, other: MV) -> MV { MV { x: self.x - other.x, y: self.y - other.y } }
-}
-
-impl fmt::Display for MV {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{},{}", self.x, self.y)
+        LevelCodes { flags_cb, mv_cb, mv_esc, bias_cb, bias_esc }
     }
 }
 
@@ -208,8 +147,8 @@ fn dct_row(blk: &mut [i32]) {
     let t7 = ((blk[0] - blk[4]) << dshift) + (1 << (shift - 1));
     let t8 = t0 + t2;
     let t9 = t0 - t2;
-    let tA = 181 * (t9 + (t1 - t3)) + 0x80 >> 8;
-    let tB = 181 * (t9 - (t1 - t3)) + 0x80 >> 8;
+    let tA = (181 * (t9 + (t1 - t3)) + 0x80) >> 8;
+    let tB = (181 * (t9 - (t1 - t3)) + 0x80) >> 8;
     let tC = t1 + t3;
 
     blk[0] = (t6 + t5 + t8) >> shift;
@@ -224,6 +163,7 @@ fn dct_row(blk: &mut [i32]) {
 
 #[allow(non_snake_case)]
 #[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 fn dct_col(blk: &mut [i32; 64], col: usize) {
     let dshift = 8;
     let shift  = 14;
@@ -237,8 +177,8 @@ fn dct_col(blk: &mut [i32; 64], col: usize) {
     let t7 = ((blk[0*8 + col] - blk[4*8 + col]) << dshift) + (1 << (shift - 1));
     let t8 = t0 + t2;
     let t9 = t0 - t2;
-    let tA = 181 * (t9 + (t1 - t3)) + 0x80 >> 8;
-    let tB = 181 * (t9 - (t1 - t3)) + 0x80 >> 8;
+    let tA = (181 * (t9 + (t1 - t3)) + 0x80) >> 8;
+    let tB = (181 * (t9 - (t1 - t3)) + 0x80) >> 8;
     let tC = t1 + t3;
 
     blk[0*8 + col] = (t6 + t5 + t8) >> shift;
@@ -258,7 +198,7 @@ fn clv_dct(blk: &mut [i32; 64]) {
 
 fn clv_dct_dc(blk: &mut [i32; 64]) {
     let dval = blk[0] >> 3;
-    for i in 0..64 { blk[i] = dval; }
+    for el in blk.iter_mut() { *el = dval; }
 }
 
 fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i32;64]; 6]) {
@@ -275,12 +215,12 @@ fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i32
     for j in 0..8 {
         for k in 0..8 {
             let mut v = blk[0][k + j * 8] + 128;
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k] = v as u8;
         }
         for k in 0..8 {
             let mut v = blk[1][k + j * 8] + 128;
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k + 8] = v as u8;
         }
         idxy += stridey;
@@ -288,12 +228,12 @@ fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i32
     for j in 0..8 {
         for k in 0..8 {
             let mut v = blk[2][k + j * 8] + 128;
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k] = v as u8;
         }
         for k in 0..8 {
             let mut v = blk[3][k + j * 8] + 128;
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxy + k + 8] = v as u8;
         }
         idxy += stridey;
@@ -302,12 +242,12 @@ fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i32
     for j in 0..8 {
         for k in 0..8 {
             let mut v = blk[4][k + j * 8] + 128;
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxu + k] = v as u8;
         }
         for k in 0..8 {
             let mut v = blk[5][k + j * 8] + 128;
-            if v < 0 { v = 0; } if v > 255 { v = 255; }
+            if v < 0 { v = 0; } else if v > 255 { v = 255; }
             framebuf[idxv + k] = v as u8;
         }
         idxu += strideu;
@@ -356,7 +296,7 @@ fn copyadd_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
         let dst = &mut dbuf[doff..][..size];
         let src = &sbuf[soff..][..size];
         for i in 0..size {
-            let val = (src[i] as i16) + bias;
+            let val = i16::from(src[i]) + bias;
             if      val < 0x00 { dst[i] = 0x00; }
             else if val > 0xFF { dst[i] = 0xFF; }
             else               { dst[i] = val as u8; }
@@ -445,7 +385,7 @@ fn decode_dct_block(br: &mut BitReader, blk: &mut [i32; 64], ac_quant: i32, has_
     let mut idx = 1;
     let mut eob = false;
 
-    blk[0] = br.read_cb(dc_cb)? as i32;
+    blk[0] = i32::from(br.read_cb(dc_cb)?);
 
     if !has_ac { return Ok(()); }
 
@@ -454,7 +394,7 @@ fn decode_dct_block(br: &mut BitReader, blk: &mut [i32; 64], ac_quant: i32, has_
         let (level, skip) = if val != CLV_AC_ESCAPE {
                 eob = ((val >> 12) & 1) != 0;
                 let run = ((val >> 4) & 0xFF) as usize;
-                let lev = (val & 0xF) as i32;
+                let lev = i32::from(val & 0xF);
                 if br.read_bool()? {
                     (-lev, run)
                 } else {
@@ -496,7 +436,7 @@ fn decode_tile_info(br: &mut BitReader, lc: &[LevelCodes], level: usize) -> Deco
     let mv = if let Some(ref cb) = lc[level].mv_cb {
             let mv_code = br.read_cb(cb)?;
             if mv_code != lc[level].mv_esc {
-                MV::new(((mv_code & 0xFF) as i8) as i16, (mv_code as i16) >> 8)
+                MV::new(i16::from((mv_code & 0xFF) as i8), (mv_code as i16) >> 8)
             } else {
                 let x = br.read_s(8)? as i16;
                 let y = br.read_s(8)? as i16;
@@ -515,7 +455,7 @@ fn decode_tile_info(br: &mut BitReader, lc: &[LevelCodes], level: usize) -> Deco
         } else {
             0
         };
-    let mut ti = TileInfo { flags: flags, mv: mv, bias: bias, child: [None, None, None, None] };
+    let mut ti = TileInfo { flags, mv, bias, child: [None, None, None, None] };
     if ti.flags != 0 {
         for i in 0..4 {
             if (ti.flags & (1 << i)) != 0 {
@@ -537,9 +477,9 @@ impl ClearVideoDecoder {
 
         ClearVideoDecoder {
             info: dummy_info,
-            dc_cb: dc_cb, ac_cb: ac_cb,
+            dc_cb, ac_cb,
             frmmgr: HAMShuffler::new(),
-            is_rm: is_rm,
+            is_rm,
             ylev: [
                     LevelCodes::new(Some((CLV_FLAGSY_0_BITS, CLV_FLAGSY_0_CODES)),
                                     Some((CLV_MVY_0_BITS, CLV_MVY_0_CODES, CLV_MVY_0_SYMS)), CLV_MVY_0_ESCAPE,
@@ -594,7 +534,7 @@ impl ClearVideoDecoder {
                 let mut blks: [[i32; 64]; 6] = [[0; 64]; 6];
                 let mut has_ac: [bool; 6] = [false; 6];
 
-                for i in 0..6 { has_ac[i] = br.read_bool()? }
+                for flag in has_ac.iter_mut() { *flag = br.read_bool()?; }
 
                 for i in 0..4 {
                     decode_dct_block(br, &mut blks[i], ac_quant, has_ac[i], &self.dc_cb, &self.ac_cb)?;
@@ -734,9 +674,7 @@ impl NADecoder for ClearVideoDecoder {
         let mut br = BitReader::new(&src[(off + 1)..], src.len() - (off + 1), BitReaderMode::BE);
 
         let vinfo = self.info.get_properties().get_video_info().unwrap();
-        let bufret = alloc_video_buffer(vinfo, self.tsize);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
+        let bufinfo = alloc_video_buffer(vinfo, self.tsize)?;
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         if is_intra {

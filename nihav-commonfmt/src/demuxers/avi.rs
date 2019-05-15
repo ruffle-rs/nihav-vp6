@@ -92,7 +92,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             }
             let stream_no = (tag[0] - b'0') * 10 + (tag[1] - b'0');
             let str = strmgr.get_stream(stream_no as usize);
-            if let None = str { return Err(InvalidData); }
+            if str.is_none() { return Err(InvalidData); }
             let stream = str.unwrap();
             if size == 0 {
                 self.movi_size -= 8;
@@ -145,26 +145,24 @@ impl<'a> AVIDemuxer<'a> {
             return Ok((size, true));
         }
 
-        for i in 0..CHUNKS.len() {
-            if RIFFTag::Chunk(tag) == CHUNKS[i].tag {
-                let psize = (CHUNKS[i].parse)(self, strmgr, size)?;
+        for chunk in CHUNKS.iter() {
+            if RIFFTag::Chunk(tag) == chunk.tag {
+                let psize = (chunk.parse)(self, strmgr, size)?;
                 if psize != size { return Err(InvalidData); }
                 if (psize & 1) == 1 { self.src.read_skip(1)?; }
                 return Ok((size + 8, false));
             }
-            if RIFFTag::List(tag, ltag) == CHUNKS[i].tag {
+            if RIFFTag::List(tag, ltag) == chunk.tag {
                 let mut rest_size = size - 4;
-                let psize = (CHUNKS[i].parse)(self, strmgr, rest_size)?;
+                let psize = (chunk.parse)(self, strmgr, rest_size)?;
                 if psize > rest_size { return Err(InvalidData); }
                 rest_size -= psize;
                 while rest_size > 0 {
                     let (psize, _) = self.parse_chunk(strmgr, end_tag, rest_size, depth+1)?;
                     if psize > rest_size { return Err(InvalidData); }
                     rest_size -= psize;
-                    if (psize & 1) == 1 {
-                        if rest_size > 0 {
-                            rest_size -= 1;
-                        }
+                    if ((psize & 1) == 1) && (rest_size > 0) {
+                        rest_size -= 1;
                     }
                 }
 
@@ -178,7 +176,7 @@ impl<'a> AVIDemuxer<'a> {
             self.src.read_skip(size - 4)?;
         }
         if (size & 1) == 1 { self.src.read_skip(1)?; }
-        return Ok((size + 8, false));
+        Ok((size + 8, false))
     }
 
     fn read_header(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
@@ -203,8 +201,7 @@ impl<'a> AVIDemuxer<'a> {
 
     fn read_extradata(&mut self, size: usize) -> DemuxerResult<Option<Vec<u8>>> {
         if size == 0 { return Ok(None); }
-        let mut edvec: Vec<u8> = Vec::with_capacity(size);
-        edvec.resize(size, 0);
+        let mut edvec: Vec<u8> = vec![0; size];
         self.src.read_buf(&mut edvec)?;
         Ok(Some(edvec))
     }
@@ -220,8 +217,8 @@ const CHUNKS: [RIFFParser; 6] = [
 ];
 
 fn is_list_tag(tag: u32) -> bool {
-    for i in 0..CHUNKS.len() {
-        if let RIFFTag::List(ltag, _) = CHUNKS[i].tag {
+    for chunk in CHUNKS.iter() {
+        if let RIFFTag::List(ltag, _) = chunk.tag {
             if tag == ltag {
                 return true;
             }
@@ -279,7 +276,7 @@ fn parse_strh(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
 }
 
 fn parse_strf(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
-    if let None = dmx.sstate.strm_type { return Err(InvalidData); }
+    if dmx.sstate.strm_type.is_none() { return Err(InvalidData); }
     match dmx.sstate.strm_type.unwrap() {
         StreamType::Video    => parse_strf_vids(dmx, strmgr, size),
         StreamType::Audio    => parse_strf_auds(dmx, strmgr, size),
@@ -314,8 +311,8 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
                     Some(name) => name,
                 };
     let vinfo = NACodecInfo::new(cname, vci, edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Video, dmx.sstate.strm_no as u32, vinfo, dmx.tb_num, dmx.tb_den));
-    if let None = res { return Err(MemoryError); }
+    let res = strmgr.add_stream(NAStream::new(StreamType::Video, u32::from(dmx.sstate.strm_no), vinfo, dmx.tb_num, dmx.tb_den));
+    if res.is_none() { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)
 }
@@ -338,8 +335,8 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
                     Some(name) => name,
                 };
     let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, dmx.sstate.strm_no as u32, ainfo, dmx.tb_num, dmx.tb_den));
-    if let None = res { return Err(MemoryError); }
+    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, u32::from(dmx.sstate.strm_no), ainfo, dmx.tb_num, dmx.tb_den));
+    if res.is_none() { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)
 }
@@ -347,8 +344,8 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
 fn parse_strf_xxxx(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     let edata = dmx.read_extradata(size)?;
     let info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Data, dmx.sstate.strm_no as u32, info, dmx.tb_num, dmx.tb_den));
-    if let None = res { return Err(MemoryError); }
+    let res = strmgr.add_stream(NAStream::new(StreamType::Data, u32::from(dmx.sstate.strm_no), info, dmx.tb_num, dmx.tb_den));
+    if res.is_none() { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)
 }

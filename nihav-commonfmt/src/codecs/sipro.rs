@@ -6,6 +6,7 @@ use nihav_core::io::bitreader::*;
 use std::f32::consts::PI;
 
 #[derive(Clone,Copy,PartialEq)]
+#[allow(clippy::enum_variant_names)]
 enum SiproMode {
     Mode16k,
     Mode8_5k,
@@ -14,7 +15,7 @@ enum SiproMode {
 }
 
 impl SiproMode {
-    fn is16k(&self) -> bool { *self == SiproMode::Mode16k }
+    fn is16k(self) -> bool { self == SiproMode::Mode16k }
 }
 
 const SIPRO_MODE_FROM_IDX: [SiproMode; 4] = [
@@ -391,9 +392,9 @@ impl SiproDecoder {
     fn update_gain_16k(&mut self, sf: usize) {
         let mut energy: f64 = 0.0;
         for i in 0..80 {
-            energy += (self.fix_vec[i] as f64) * (self.fix_vec[i] as f64);
+            energy += f64::from(self.fix_vec[i]) * f64::from(self.fix_vec[i]);
         }
-        let ehist = ((0.8 * self.energy_hist[0] + 0.6 * self.energy_hist[1]) as f64) - 71.30899869919435856603;
+        let ehist = f64::from(0.8 * self.energy_hist[0] + 0.6 * self.energy_hist[1]) - 71.30899869919435856603;
         let rms = 8.94427190999915878559 * (10.0f64.ln() / 20.0 * ehist).exp() / (0.01 + energy).sqrt();
         let gain = SIPRO_GAIN_CB_16K[self.gc_index[sf]] * (rms as f32);
 
@@ -425,7 +426,7 @@ impl SiproDecoder {
         }
         self.energy_hist[3] = 20.0 * gain1.log10();
 
-        let gain = ((gain1 as f64) * ((sum as f64) * (10.0f64).ln() * 0.05).exp() / (self.avg_energy as f64).sqrt()) as f32;
+        let gain = (f64::from(gain1) * (f64::from(sum) * (10.0f64).ln() * 0.05).exp() / f64::from(self.avg_energy).sqrt()) as f32;
         let exc = &mut self.excitation[EXCITATION_OFFSET + sf * 48..][..48];
         for i in 0..48 {
             exc[i] = exc[i] * gain0 + self.fix_vec[i] * gain;
@@ -586,13 +587,13 @@ impl SiproDecoder {
 
 fn lsp2poly(lsp: &[f32], poly: &mut [f64], order: usize) {
     poly[0] = 1.0;
-    poly[1] = -2.0 * (lsp[0] as f64);
+    poly[1] = -2.0 * f64::from(lsp[0]);
     for i in 1..order {
-        poly[i + 1] = -2.0 * (lsp[2 * i] as f64) * poly[i] + 2.0 * poly[i - 1];
+        poly[i + 1] = -2.0 * f64::from(lsp[2 * i]) * poly[i] + 2.0 * poly[i - 1];
         for j in (2..i+1).rev() {
-            poly[j] += -2.0 * (lsp[2 * i] as f64) * poly[j - 1] + poly[j - 2];
+            poly[j] += -2.0 * f64::from(lsp[2 * i]) * poly[j - 1] + poly[j - 2];
         }
-        poly[1] += -2.0 * (lsp[2 * i] as f64);
+        poly[1] += -2.0 * f64::from(lsp[2 * i]);
     }
 }
 
@@ -614,8 +615,8 @@ fn lsp2lpc_lbr(lpc: &mut [f32], lsp: &[f32]) {
     lsp2poly(&lsp[0..], &mut a[0..], 5);
     lsp2poly(&lsp[1..], &mut b[1..], 4);
 
-    let ascale = (1.0 + lsp[9]) as f64;
-    let bscale = (1.0 - lsp[9]) as f64;
+    let ascale = f64::from(1.0 + lsp[9]);
+    let bscale = f64::from(1.0 - lsp[9]);
     for i in 1..5 {
         let ta = ascale * a[i];
         let tb = bscale * (b[i + 1] - b[i - 1]);
@@ -662,7 +663,7 @@ impl NADecoder for SiproDecoder {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(),
                                           1,
                                           SND_F32P_FORMAT, 0);
-            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo.clone()));
+            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo));
             Ok(())
         } else {
             Err(DecoderError::InvalidData)

@@ -43,7 +43,7 @@ impl IMDCTContext {
             xsincos[k].im = -factor.sin();
         }
         let fft = FFTBuilder::new_fft(size/4, false);
-        IMDCTContext { xsincos: xsincos, size: size, fft: fft }
+        IMDCTContext { xsincos, size, fft }
     }
     #[allow(non_snake_case)]
     fn do_imdct(&mut self, coeffs: &[i32; BLOCK_LEN], tmp: &mut IMDCTWorkspace) {
@@ -181,11 +181,11 @@ struct Syncinfo {
 impl Syncinfo {
     fn read(br: &mut BitReader) -> DecoderResult<Self> {
         let syncword        = br.read(16)?;
-        validate!(syncword == ((MAGIC_BYTE0 as u32) * 256) + (MAGIC_BYTE1 as u32));
+        validate!(syncword == (u32::from(MAGIC_BYTE0) * 256) + u32::from(MAGIC_BYTE1));
         let crc1            = br.read(16)? as u16;
         let fscod           = br.read(2)? as usize;
         let frmsizecod      = br.read(6)? as usize;
-        Ok(Syncinfo { crc1: crc1, fscod: fscod as u8, frmsizecod: frmsizecod as u8,
+        Ok(Syncinfo { crc1, fscod: fscod as u8, frmsizecod: frmsizecod as u8,
                       samplerate: SAMPLE_RATES[fscod], frame_size: FRAME_SIZES[fscod][frmsizecod] * 2 })
     }
     fn is_valid(&self) -> bool {
@@ -228,8 +228,8 @@ enum ACMode {
 }
 
 impl ACMode {
-    fn get_num_channels(&self) -> usize {
-        match *self {
+    fn get_num_channels(self) -> usize {
+        match self {
             ACMode::DualMono    => 2,
             ACMode::Mono        => 1,
             ACMode::Stereo      => 2,
@@ -240,8 +240,8 @@ impl ACMode {
             ACMode::Mode3_2     => 5,
         }
     }
-    fn get_channel_map_str(&self) -> &'static str {
-        match *self {
+    fn get_channel_map_str(self) -> &'static str {
+        match self {
             ACMode::DualMono    => "C,C",
             ACMode::Mono        => "C",
             ACMode::Stereo      => "L,R",
@@ -252,23 +252,23 @@ impl ACMode {
             ACMode::Mode3_2     => "L,C,R,Ls,Rs",
         }
     }
-    fn get_channel_map(&self, has_lfe: bool) -> NAChannelMap {
+    fn get_channel_map(self, has_lfe: bool) -> NAChannelMap {
         let mut chmap = NAChannelMap::from_str(self.get_channel_map_str()).unwrap();
         if has_lfe {
             chmap.add_channel(NAChannelType::LFE);
         }
         chmap
     }
-    fn is_3_x(&self) -> bool {
-        match *self {
+    fn is_3_x(self) -> bool {
+        match self {
             ACMode::Mode3_0 |
             ACMode::Mode3_1 |
             ACMode::Mode3_2     => true,
             _                   => false,
         }
     }
-    fn is_surround(&self) -> bool {
-        match *self {
+    fn is_surround(self) -> bool {
+        match self {
             ACMode::Mode2_1 |
             ACMode::Mode3_1 |
             ACMode::Mode2_2 |
@@ -369,7 +369,7 @@ impl BSI {
         Ok(BSI{
             bsid, shift, bsmod, acmod, lfeon,
             cmixlev, surmixlev, dsurmod,
-            mixinfo: mixinfo, mixinfo2: mixinfo2,
+            mixinfo, mixinfo2,
             copysmth, origbs, timecod1, timecod2, has_addb,
             })
     }
@@ -557,7 +557,7 @@ impl ChannelData {
         let bndpsd      = &mut self.bndpsd;
 
         for bin in start..end {
-            psd[bin] = 3072 - ((exps[bin] as i16) << 7);
+            psd[bin] = 3072 - (i16::from(exps[bin]) << 7);
         }
 
         let mut bin = start;
@@ -565,10 +565,10 @@ impl ChannelData {
         let mut lastbin;
         loop {
             lastbin = ((TS102366_BAND_START[band] as usize) + (TS102366_BAND_SIZE[band] as usize)).min(end);
-            bndpsd[band] = psd[bin] as i32;
+            bndpsd[band] = i32::from(psd[bin]);
             bin += 1;
             while bin < lastbin {
-                bndpsd[band] = logadd(bndpsd[band], psd[bin] as i32);
+                bndpsd[band] = logadd(bndpsd[band], i32::from(psd[bin]));
                 bin += 1;
             }
             band += 1;
@@ -577,7 +577,7 @@ impl ChannelData {
     }
     fn compute_mask(&mut self, mask: &mut [i32; MAX_BANDS], fscod: usize, sgain: u16, fdecay: u8, sdecay: u8,
                     dbknee: u16, cplfleak: u16, cplsleak: u16, shift: u8) {
-        let fgain = TS102366_FAST_GAIN[self.fgaincod] as i32;
+        let fgain = i32::from(TS102366_FAST_GAIN[self.fgaincod]);
 
         let bndstart = TS102366_BIN_TO_BAND[self.startmant] as usize;
         let bndend   = (TS102366_BIN_TO_BAND[self.endmant - 1] as usize) + 1;
@@ -602,39 +602,37 @@ impl ChannelData {
                     lowcomp = calc_lowcomp(lowcomp, self.bndpsd[band], self.bndpsd[band + 1], band);
                 }
                 fast_leak = self.bndpsd[band] - fgain;
-                slow_leak = self.bndpsd[band] - (sgain as i32);
+                slow_leak = self.bndpsd[band] - i32::from(sgain);
                 excite[band] = fast_leak - lowcomp;
-                if not_lfe_case {
-                    if self.bndpsd[band] <= self.bndpsd[band + 1] {
-                        sband = band + 1;
-                        break;
-                    }
+                if not_lfe_case && (self.bndpsd[band] <= self.bndpsd[band + 1]) {
+                    sband = band + 1;
+                    break;
                 }
             }
             for band in sband..bndend.min(22) {
                 if (bndend != 7) || (band != 6) {
                     lowcomp = calc_lowcomp(lowcomp, self.bndpsd[band], self.bndpsd[band + 1], band);
                 }
-                fast_leak = (fast_leak - (fdecay as i32)).max(self.bndpsd[band] - (fgain as i32));
-                slow_leak = (slow_leak - (sdecay as i32)).max(self.bndpsd[band] - (sgain as i32));
+                fast_leak = (fast_leak - i32::from(fdecay)).max(self.bndpsd[band] - fgain);
+                slow_leak = (slow_leak - i32::from(sdecay)).max(self.bndpsd[band] - i32::from(sgain));
                 excite[band] = slow_leak.max(fast_leak - lowcomp);
             }
             begin = 22;
         } else {
             begin = bndstart;
-            fast_leak = cplfleak as i32;
-            slow_leak = cplsleak as i32;
+            fast_leak = i32::from(cplfleak);
+            slow_leak = i32::from(cplsleak);
         }
         for band in begin..bndend {
-            fast_leak = (fast_leak - (fdecay as i32)).max(self.bndpsd[band] - (fgain as i32));
-            slow_leak = (slow_leak - (sdecay as i32)).max(self.bndpsd[band] - (sgain as i32));
+            fast_leak = (fast_leak - i32::from(fdecay)).max(self.bndpsd[band] - fgain);
+            slow_leak = (slow_leak - i32::from(sdecay)).max(self.bndpsd[band] - i32::from(sgain));
             excite[band] = fast_leak.max(slow_leak);
         }
         for band in bndstart..bndend {
-            if self.bndpsd[band] < (dbknee as i32) {
-                excite[band] += ((dbknee as i32) - self.bndpsd[band]) >> 2;
+            if self.bndpsd[band] < i32::from(dbknee) {
+                excite[band] += (i32::from(dbknee) - self.bndpsd[band]) >> 2;
             }
-            mask[band] = excite[band].max(TS102366_HTH[fscod][band >> shift] as i32);
+            mask[band] = excite[band].max(i32::from(TS102366_HTH[fscod][band >> shift]));
         }
     }
     fn apply_delta_info(&mut self, mask: &mut [i32; MAX_BANDS]) {
@@ -643,9 +641,9 @@ impl ChannelData {
             for seg in 0..self.deltnseg {
                 band += self.deltoffst[seg] as usize;
                 let delta = if self.deltba[seg] >= 4 {
-                        ((self.deltba[seg] as i32) - 3) << 7
+                        (i32::from(self.deltba[seg]) - 3) << 7
                     } else {
-                        ((self.deltba[seg] as i32) - 4) << 7
+                        (i32::from(self.deltba[seg]) - 4) << 7
                     };
                 if band + self.deltlen[seg] > MAX_BANDS { break; }
                 for _ in 0..self.deltlen[seg] {
@@ -656,7 +654,7 @@ impl ChannelData {
         }
     }
     fn calc_snr_offset(&mut self, csnroffst: u8) {
-        self.snroffset = ((((csnroffst as i32) - 15) << 4) + (self.fsnroffst as i32)) << 2;
+        self.snroffset = (((i32::from(csnroffst) - 15) << 4) + i32::from(self.fsnroffst)) << 2;
     }
     fn compute_bap(&mut self, mask: &mut [i32; MAX_BANDS], floor: u16) {
         let end = self.endmant;
@@ -665,10 +663,10 @@ impl ChannelData {
         let mut lastbin;
         loop {
             lastbin = ((TS102366_BAND_START[band] as usize) + (TS102366_BAND_SIZE[band] as usize)).min(end);
-            mask[band] = (mask[band] - self.snroffset - (floor as i32)).max(0) & 0x1FE0;
-            mask[band] += floor as i32;
+            mask[band] = (mask[band] - self.snroffset - i32::from(floor)).max(0) & 0x1FE0;
+            mask[band] += i32::from(floor);
             while bin < lastbin {
-                let addr = (((self.psd[bin] as i32) - mask[band]) >> 5).min(63).max(0) as usize;
+                let addr = ((i32::from(self.psd[bin]) - mask[band]) >> 5).min(63).max(0) as usize;
                 self.bap[bin] = TS102366_BAPTAB[addr];
                 bin += 1;
             }
@@ -696,7 +694,7 @@ impl ChannelData {
                             validate!(self.bap[bin] < 15);
                             let nbits = TS102366_BAP_BITS[(self.bap[bin] as usize) - 6];
                             let val                     = br.read(nbits)? as i16;
-                            ((val << (16 - nbits)) as i32) << 9
+                            i32::from(val << (16 - nbits)) << 9
                         },
                 };
             self.mant[bin] >>= self.exps[bin];
@@ -718,9 +716,9 @@ fn logadd(acc: i32, add: i32) -> i32 {
     let c = acc - add;
     let addr = (c.abs() >> 1).min(255);
     if c >= 0 {
-        acc + (TS102366_LATAB[addr as usize] as i32)
+        acc + i32::from(TS102366_LATAB[addr as usize])
     } else {
-        add + (TS102366_LATAB[addr as usize] as i32)
+        add + i32::from(TS102366_LATAB[addr as usize])
     }
 }
 
@@ -749,7 +747,7 @@ fn calc_lowcomp(a: i32, b0: i32, b1: i32, band: usize) -> i32 {
 fn overlap(delay: &mut [f32; BLOCK_LEN], src: &[f32; BLOCK_LEN * 2], out: &mut [f32]) {
     {
         let dly = &delay;
-        for ((d, s), o) in dly.into_iter().zip(src.into_iter()).zip(out.iter_mut()) {
+        for ((d, s), o) in dly.iter().zip(src.iter()).zip(out.iter_mut()) {
             *o = (*d + *s) * 2.0;
         }
     }
@@ -1063,7 +1061,7 @@ impl AudioBlock {
         if self.cplinu {
             self.chdata[CPL_CHANNEL].compute_bndpsd();
             self.chdata[CPL_CHANNEL].compute_mask(&mut mask, fscod, sgain, fdecay, sdecay, dbknee,
-                                                  ((self.cplfleak as u16) << 8) + 768, ((self.cplsleak as u16) << 8) + 768, bsi.shift);
+                                                  (u16::from(self.cplfleak) << 8) + 768, (u16::from(self.cplsleak) << 8) + 768, bsi.shift);
             self.chdata[CPL_CHANNEL].apply_delta_info(&mut mask);
             self.chdata[CPL_CHANNEL].calc_snr_offset(self.csnroffst);
             self.chdata[CPL_CHANNEL].compute_bap(&mut mask, floor);
@@ -1093,7 +1091,7 @@ impl AudioBlock {
             for band in self.cplbegf..self.cplendf {
                 let cband = band - self.cplbegf;
                 let comant = self.chdata[ch].cplcomant[cband];
-                let mut cotemp = (if self.chdata[ch].cplcoexp[cband] == 15 { comant << 1 } else { comant + 16 }) as i32;
+                let mut cotemp = i32::from(if self.chdata[ch].cplcoexp[cband] == 15 { comant << 1 } else { comant + 16 });
                 if (acmod == ACMode::Stereo) && (ch == 1) && self.phsflginu && self.phsflg[pband] {
                     cotemp = -cotemp;
                 }
@@ -1103,7 +1101,7 @@ impl AudioBlock {
                 let exp = self.chdata[ch].cplcoexp[cband] + 3 * self.chdata[ch].mstrcplco + 5 - 3;
                 let start = band * 12 + 37;
                 for bin in 0..12 {
-                    self.chdata[ch].mant[start + bin] = self.chdata[CPL_CHANNEL].mant[start + bin] * cotemp >> exp;
+                    self.chdata[ch].mant[start + bin] = (self.chdata[CPL_CHANNEL].mant[start + bin] * cotemp) >> exp;
                 }
 //todo dither
             }
@@ -1185,7 +1183,7 @@ impl NADecoder for AudioDecoder {
 
         let bsi = BSI::read(&mut br)?;
         if bsi.has_addb {
-            let len                 = br.read(6)? as u32;
+            let len                 = br.read(6)?;
             br.skip((len + 1) * 8)?;
         }
 
@@ -1216,7 +1214,7 @@ impl NADecoder for AudioDecoder {
                     self.ablk.synth_audio_block(&mut self.imdct512, &mut self.imdct256, &mut self.tmp, ch, &mut self.delay[ch], dst);
                 } else {
                     self.delay[ch] = [0.0; BLOCK_LEN];
-                    for i in 0..BLOCK_LEN { dst[i] = 0.0; }
+                    for el in dst.iter_mut().take(BLOCK_LEN) { *el = 0.0; }
                 }
             }
             if bsi.lfeon {
@@ -1226,7 +1224,7 @@ impl NADecoder for AudioDecoder {
                     self.ablk.synth_audio_block(&mut self.imdct512, &mut self.imdct256, &mut self.tmp, LFE_CHANNEL, &mut self.delay[LFE_CHANNEL], dst);
                 } else {
                     self.delay[LFE_CHANNEL] = [0.0; BLOCK_LEN];
-                    for i in 0..BLOCK_LEN { dst[i] = 0.0; }
+                    for el in dst.iter_mut().take(BLOCK_LEN) { *el = 0.0; }
                 }
             }
         }

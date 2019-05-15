@@ -156,8 +156,7 @@ impl Channel {
     }
     fn synth(&mut self, dsp: &mut DSP) {
         let mut flag = 0;
-        let mut band = 0;
-        for (data, delay) in self.data.chunks_mut(256).zip(self.delay.chunks_mut(256)) {
+        for (band, (data, delay)) in self.data.chunks_mut(256).zip(self.delay.chunks_mut(256)).enumerate() {
             if (flag & 1) != 0 {
                 for i in 0..128 {
                     let t0 = data[i];
@@ -170,7 +169,6 @@ impl Channel {
             dsp.apply_gains(data, delay, &mut self.gain_data, self.block_no, band);
             delay.copy_from_slice(&dsp.tmp[256..512]);
             flag ^= 1;
-            band += 1;
         }
         self.block_no ^= 1;
     }
@@ -209,15 +207,15 @@ const ATRAC3_MODE0_BITS: [u8; 8] = [ 0, 4, 3, 3, 4, 4, 5, 6 ];
 fn read_coeffs_mode0(br: &mut BitReader, dst: &mut [f32], quant: usize, scale: f32) -> DecoderResult<()> {
     let bits = ATRAC3_MODE0_BITS[quant];
     if bits > 0 {
-        for i in 0..dst.len() {
+        for el in dst.iter_mut() {
             let val                                     = br.read_s(bits)? as f32;
-            dst[i] = val * scale;
+            *el = val * scale;
         }
     } else {
-        for i in (0..dst.len()).step_by(2) {
+        for out in dst.chunks_mut(2) {
             let val                                     = br.read(4)? as usize;
-            dst[i + 0] = ATRAC3_MODE0_CB[val >> 2] * scale;
-            dst[i + 1] = ATRAC3_MODE0_CB[val &  3] * scale;
+            out[0] = ATRAC3_MODE0_CB[val >> 2] * scale;
+            out[1] = ATRAC3_MODE0_CB[val &  3] * scale;
         }
     }
     Ok(())
@@ -236,20 +234,20 @@ const ATRAC3_MODE1_CB: [f32; 9 * 2] = [
 ];
 
 fn read_coeffs_mode1(br: &mut BitReader, cb: &Codebook<u8>, dst: &mut [f32], scale: f32) -> DecoderResult<()> {
-    for i in (0..dst.len()).step_by(2) {
+    for out in dst.chunks_mut(2) {
         let val                                         = br.read_cb(cb)? as usize;
-        dst[i + 0] = ATRAC3_MODE1_CB[val * 2 + 0] * scale;
-        dst[i + 1] = ATRAC3_MODE1_CB[val * 2 + 1] * scale;
+        out[0] = ATRAC3_MODE1_CB[val * 2 + 0] * scale;
+        out[1] = ATRAC3_MODE1_CB[val * 2 + 1] * scale;
     }
     Ok(())
 }
 
 fn read_coeffs_other(br: &mut BitReader, cb: &Codebook<u8>, dst: &mut [f32], scale: f32) -> DecoderResult<()> {
-    for i in 0..dst.len() {
+    for el in dst.iter_mut() {
         let val                                         = (br.read_cb(cb)? as i8) + 1;
         let sign = (val & 1) != 0;
-        let coef = (if sign { -(val >> 1) } else { val >> 1 }) as f32;
-        dst[i] = coef * scale;
+        let coef = f32::from(if sign { -(val >> 1) } else { val >> 1 });
+        *el = coef * scale;
     }
     Ok(())
 }
@@ -512,7 +510,7 @@ impl Atrac3Decoder {
         if self.weighting_delay[1] == 7 {
             pw = [1.0; 2];
         } else {
-            let w = (self.weighting_delay[1] as f32) / 7.0;
+            let w = f32::from(self.weighting_delay[1]) / 7.0;
             let iw = (2.0 - w * w).sqrt();
             if self.weighting_delay[0] == 0 {
                 pw = [w, iw];
@@ -524,7 +522,7 @@ impl Atrac3Decoder {
         if self.weighting_delay[3] == 7 {
             cw = [1.0; 2];
         } else {
-            let w = (self.weighting_delay[3] as f32) / 7.0;
+            let w = f32::from(self.weighting_delay[3]) / 7.0;
             let iw = (2.0 - w * w).sqrt();
             if self.weighting_delay[2] == 0 {
                 cw = [w, iw];

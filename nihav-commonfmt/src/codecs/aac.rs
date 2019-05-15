@@ -462,14 +462,14 @@ impl TNSCoeffs {
             let iqfac   = (fac_base - 0.5) / (consts::PI / 2.0);
             let iqfac_m = (fac_base + 0.5) / (consts::PI / 2.0);
             let mut tmp: [f32; TNS_MAX_ORDER] = [0.0; TNS_MAX_ORDER];
-            for i in 0..self.order {
+            for el in tmp.iter_mut().take(self.order) {
                 let val                                 = br.read(coef_bits)? as i8;
-                let c = if (val & sign_mask) != 0 { val | neg_mask } else { val } as f32;
-                tmp[i] = (if c >= 0.0 { c / iqfac } else { c / iqfac_m }).sin();
+                let c = f32::from(if (val & sign_mask) != 0 { val | neg_mask } else { val });
+                *el = (if c >= 0.0 { c / iqfac } else { c / iqfac_m }).sin();
             }
             // convert to LPC coefficients
             let mut b: [f32; TNS_MAX_ORDER + 1] = [0.0; TNS_MAX_ORDER + 1];
-            for m in 1..(self.order + 1) {
+            for m in 1..=self.order {
                 for i in 1..m {
                     b[i] = self.coef[i - 1] + tmp[m - 1] * self.coef[m - i - 1];
                 }
@@ -638,32 +638,30 @@ impl ICS {
     }
     fn decode_scale_factor_data(&mut self, br: &mut BitReader, codebooks: &Codebooks) -> DecoderResult<()> {
         let mut noise_pcm_flag = true;
-        let mut scf_normal = self.global_gain as i16;
+        let mut scf_normal = i16::from(self.global_gain);
         let mut scf_intensity = 0i16;
         let mut scf_noise  = 0i16;
         for g in 0..self.info.window_groups {
             for sfb in 0..self.info.max_sfb {
                 if self.sfb_cb[g][sfb] != ZERO_HCB {
                     if self.is_intensity(g, sfb) {
-                        let diff                        = br.read_cb(&codebooks.scale_cb)? as i16;
+                        let diff                        = i16::from(br.read_cb(&codebooks.scale_cb)?);
                         scf_intensity += diff;
                         validate!((scf_intensity >= INTENSITY_SCALE_MIN) && (scf_intensity < INTENSITY_SCALE_MIN + 256));
                         self.scales[g][sfb] = (scf_intensity - INTENSITY_SCALE_MIN) as u8;
-                    } else {
-                        if self.sfb_cb[g][sfb] == NOISE_HCB {
-                            if noise_pcm_flag {
-                                noise_pcm_flag = false;
-                                scf_noise               = (br.read(9)? as i16) - 256 + (self.global_gain as i16) - 90;
-                            } else {
-                                scf_noise              += br.read_cb(&codebooks.scale_cb)? as i16;
-                            }
-                            validate!((scf_noise >= NOISE_SCALE_MIN) && (scf_noise < NOISE_SCALE_MIN + 256));
-                            self.scales[g][sfb] = (scf_noise - NOISE_SCALE_MIN) as u8;
+                    } else if self.sfb_cb[g][sfb] == NOISE_HCB {
+                        if noise_pcm_flag {
+                            noise_pcm_flag = false;
+                            scf_noise                   = (br.read(9)? as i16) - 256 + i16::from(self.global_gain) - 90;
                         } else {
-                            scf_normal                 += br.read_cb(&codebooks.scale_cb)? as i16;
-                            validate!((scf_normal >= 0) && (scf_normal < 255));
-                            self.scales[g][sfb] = scf_normal as u8;
+                            scf_noise                  += i16::from(br.read_cb(&codebooks.scale_cb)?);
                         }
+                        validate!((scf_noise >= NOISE_SCALE_MIN) && (scf_noise < NOISE_SCALE_MIN + 256));
+                        self.scales[g][sfb] = (scf_noise - NOISE_SCALE_MIN) as u8;
+                    } else {
+                        scf_normal                     += i16::from(br.read_cb(&codebooks.scale_cb)?);
+                        validate!((scf_normal >= 0) && (scf_normal < 255));
+                        self.scales[g][sfb] = scf_normal as u8;
                     }
                 }
             }
@@ -731,9 +729,9 @@ impl ICS {
                     base = requant(self.coeffs[k], scale);
                 }
                 if base > 0.0 {
-                    base += pdata.pulse_amp[pno] as f32;
+                    base += f32::from(pdata.pulse_amp[pno]);
                 } else {
-                    base -= pdata.pulse_amp[pno] as f32;
+                    base -= f32::from(pdata.pulse_amp[pno]);
                 }
                 self.coeffs[k] = iquant(base) * scale;
             }
@@ -805,7 +803,7 @@ impl ICS {
 }
 
 fn get_scale(scale: u8) -> f32 {
-    2.0f32.powf(0.25 * ((scale as f32) - 100.0 - 56.0))
+    2.0f32.powf(0.25 * (f32::from(scale) - 100.0 - 56.0))
 }
 fn iquant(val: f32) -> f32 {
     if val < 0.0 {
@@ -831,15 +829,15 @@ fn decode_quads(br: &mut BitReader, cb: &Codebook<u16>, unsigned: bool, scale: f
                 let val = AAC_QUADS[cw][i];
                 if val != 0 {
                     if br.read_bool()? {
-                        out[i] = iquant(-val as f32) * scale;
+                        out[i] = iquant(-f32::from(val)) * scale;
                     } else {
-                        out[i] = iquant( val as f32) * scale;
+                        out[i] = iquant( f32::from(val)) * scale;
                     }
                 }
             }
         } else {
             for i in 0..4 {
-                out[i] = iquant((AAC_QUADS[cw][i] - 1) as f32) * scale;
+                out[i] = iquant(f32::from(AAC_QUADS[cw][i] - 1)) * scale;
             }
         }
     }
@@ -869,8 +867,8 @@ fn decode_pairs(br: &mut BitReader, cb: &Codebook<u16>, unsigned: bool, escape: 
                 y += read_escape(br, y > 0)?;
             }
         }
-        out[0] = iquant(x as f32) * scale;
-        out[1] = iquant(y as f32) * scale;
+        out[0] = iquant(f32::from(x)) * scale;
+        out[1] = iquant(f32::from(y)) * scale;
     }
     Ok(())
 }
@@ -939,7 +937,7 @@ impl ChannelPair {
                     if self.ics[0].is_intensity(g, sfb) {
                         let invert = (self.ms_mask_present == 1) && self.ms_used[g][sfb];
                         let dir = self.ics[0].get_intensity_dir(g, sfb) ^ invert;
-                        let scale = 0.5f32.powf(0.25 * ((self.ics[0].scales[g][sfb] as f32) + (INTENSITY_SCALE_MIN as f32)));
+                        let scale = 0.5f32.powf(0.25 * (f32::from(self.ics[0].scales[g][sfb]) + f32::from(INTENSITY_SCALE_MIN)));
                         if !dir {
                             for i in start..end {
                                 self.ics[1].coeffs[i] = scale * self.ics[0].coeffs[i];
@@ -1224,7 +1222,7 @@ impl NADecoder for AACDecoder {
                 return Err(DecoderError::NotImplemented);
             }
             let chmap_str = DEFAULT_CHANNEL_MAP[self.m4ainfo.channels];
-            if chmap_str.len() == 0 { return Err(DecoderError::NotImplemented); }
+            if chmap_str.is_empty() { return Err(DecoderError::NotImplemented); }
             self.chmap = NAChannelMap::from_str(chmap_str).unwrap();
 
             Ok(())
@@ -1743,16 +1741,16 @@ struct GASubbandInfo {
 
 impl GASubbandInfo {
     fn find(srate: u32) -> GASubbandInfo {
-        for i in 0..AAC_SUBBAND_INFO.len() {
-            if srate >= AAC_SUBBAND_INFO[i].min_srate {
-                return AAC_SUBBAND_INFO[i];
+        for sbi in AAC_SUBBAND_INFO.iter() {
+            if srate >= sbi.min_srate {
+                return *sbi;
             }
         }
         unreachable!("")
     }
     fn find_idx(srate: u32) -> usize {
-        for i in 0..AAC_SUBBAND_INFO.len() {
-            if srate >= AAC_SUBBAND_INFO[i].min_srate {
+        for (i, sbi) in AAC_SUBBAND_INFO.iter().enumerate() {
+            if srate >= sbi.min_srate {
                 return i;
             }
         }

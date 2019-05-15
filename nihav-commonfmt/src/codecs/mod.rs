@@ -37,7 +37,7 @@ const DECODERS: &[DecoderInfo] = &[
 ];
 
 pub fn generic_register_all_codecs(rd: &mut RegisteredDecoders) {
-    for decoder in DECODERS.into_iter() {
+    for decoder in DECODERS.iter() {
         rd.add_decoder(decoder.clone());
     }
 }

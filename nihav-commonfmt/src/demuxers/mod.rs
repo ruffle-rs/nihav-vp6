@@ -7,15 +7,16 @@ macro_rules! validate {
 }
 
 #[cfg(feature="demuxer_avi")]
+#[allow(clippy::cast_lossless)]
 mod avi;
 
-const DEMUXERS: &[&'static DemuxerCreator] = &[
+const DEMUXERS: &[&DemuxerCreator] = &[
 #[cfg(feature="demuxer_avi")]
     &avi::AVIDemuxerCreator {},
 ];
 
 pub fn generic_register_all_demuxers(rd: &mut RegisteredDemuxers) {
-    for demuxer in DEMUXERS.into_iter() {
+    for demuxer in DEMUXERS.iter() {
         rd.add_demuxer(*demuxer);
     }
 }
