@@ -69,25 +69,25 @@ impl Deltas {
     fn get_int(&mut self, br: &mut ByteReader) -> DecoderResult<i16> {
         let b = self.get_val(br)?;
         if b != self.vq_esc - 1 {
-            return Ok(Self::remap(b as u16));
+            return Ok(Self::remap(u16::from(b)));
         }
         let mut run = 0;
         let mut val;
-        let mut pow = self.vq_esc as u16;
+        let mut pow = u16::from(self.vq_esc);
         loop {
             let b = self.get_val(br)?;
             run += 1;
             if b != self.vq_esc - 1 {
-                val = (b as u16) * pow;
+                val = u16::from(b) * pow;
                 break;
             }
-            pow *= self.vq_esc as u16;
+            pow *= u16::from(self.vq_esc);
         }
 
         for _ in 0..run {
-            pow /= self.vq_esc as u16;
-            let b = self.get_val(br)? as u16;
-            val += pow * (b as u16);
+            pow /= u16::from(self.vq_esc);
+            let b = u16::from(self.get_val(br)?);
+            val += pow * b;
         }
         Ok(Self::remap(val))
     }
@@ -678,9 +678,7 @@ impl NADecoder for TM2XDecoder {
         self.decode_frame(&src[12..][..data_size])?;
 
         let myinfo = self.info.get_properties().get_video_info().unwrap();
-        let bufret = alloc_video_buffer(myinfo, 2);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
+        let bufinfo = alloc_video_buffer(myinfo, 2)?;
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         self.output_frame(&mut buf);

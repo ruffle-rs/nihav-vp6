@@ -55,7 +55,7 @@ const DUCK_CODECS: &[DecoderInfo] = &[
 ];
 
 pub fn duck_register_all_codecs(rd: &mut RegisteredDecoders) {
-    for decoder in DUCK_CODECS.into_iter() {
+    for decoder in DUCK_CODECS.iter() {
         rd.add_decoder(decoder.clone());
     }
 }

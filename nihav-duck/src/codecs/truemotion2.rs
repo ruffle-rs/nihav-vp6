@@ -288,20 +288,20 @@ impl DeltaState {
     }
     fn recalc_y(&mut self, dst: &[u8], yoff: usize, ystride: usize, last: &mut [i32]) {
         let src = &dst[yoff+3..];
-        self.dy[0] = (src[ystride * 0] as i32) - last[3];
-        self.dy[1] = (src[ystride * 1] as i32) - (src[ystride * 0] as i32);
-        self.dy[2] = (src[ystride * 2] as i32) - (src[ystride * 1] as i32);
-        self.dy[3] = (src[ystride * 3] as i32) - (src[ystride * 2] as i32);
+        self.dy[0] = i32::from(src[ystride * 0]) - last[3];
+        self.dy[1] = i32::from(src[ystride * 1]) - i32::from(src[ystride * 0]);
+        self.dy[2] = i32::from(src[ystride * 2]) - i32::from(src[ystride * 1]);
+        self.dy[3] = i32::from(src[ystride * 3]) - i32::from(src[ystride * 2]);
         let src = &dst[yoff + 3 * ystride..];
         for x in 0..4 {
-            last[x] = src[x] as i32;
+            last[x] = i32::from(src[x]);
         }
     }
     fn recalc_c(&mut self, dst: &[i16], coff: usize, cstride: usize, idx: usize, last: &mut [i32]) {
-        self.dc[idx][0] = (dst[coff + 1] as i32) - last[1];
-        self.dc[idx][1] = (dst[coff + 1 + cstride] as i32) - (dst[coff + 1] as i32);
-        last[0] = dst[coff + cstride + 0] as i32;
-        last[1] = dst[coff + cstride + 1] as i32;
+        self.dc[idx][0] = i32::from(dst[coff + 1]) - last[1];
+        self.dc[idx][1] = i32::from(dst[coff + 1 + cstride]) - i32::from(dst[coff + 1]);
+        last[0] = i32::from(dst[coff + cstride + 0]);
+        last[1] = i32::from(dst[coff + cstride + 1]);
     }
 }
 
@@ -318,15 +318,9 @@ impl TM2Frame {
     fn alloc(width: usize, height: usize) -> Self {
         let ystride = (width + 3) & !3;
         let ysize = ystride * ((height + 3) & !3);
-        let mut ydata = Vec::with_capacity(ysize);
-        ydata.resize(ysize, 0);
         let cstride = ystride >> 1;
         let csize = cstride * (((height + 3) & !3) >> 1);
-        let mut udata = Vec::with_capacity(csize);
-        udata.resize(csize, 0);
-        let mut vdata = Vec::with_capacity(csize);
-        vdata.resize(csize, 0);
-        Self { ydata, udata, vdata, ystride, cstride }
+        Self { ydata: vec![0; ysize], udata: vec![0; csize], vdata: vec![0; csize], ystride, cstride }
     }
 }
 
@@ -357,12 +351,9 @@ impl TM2Decoder {
 
         let mut ydeltas: [i32; 16] = [0; 16];
         let mut cdeltas: [[i32; 4]; 2] = [[0; 4]; 2];
-        let mut lasty: Vec<i32> = Vec::with_capacity(self.width + 1);
-        lasty.resize(self.width + 1, 0);
-        let mut lastu: Vec<i32> = Vec::with_capacity(self.width/2 + 1);
-        lastu.resize(self.width/2 + 1, 0);
-        let mut lastv: Vec<i32> = Vec::with_capacity(self.width/2 + 1);
-        lastv.resize(self.width/2 + 1, 0);
+        let mut lasty: Vec<i32> = vec![0; self.width + 1];
+        let mut lastu: Vec<i32> = vec![0; self.width/2 + 1];
+        let mut lastv: Vec<i32> = vec![0; self.width/2 + 1];
         for by in 0..bh {
             let mut dstate = DeltaState::default();
             for bx in 0..bw {
@@ -530,7 +521,7 @@ impl TM2Decoder {
         for y in 0..self.height {
             let out = &mut dst[off..];
             for (x, pic) in out.chunks_exact_mut(3).take(self.width).enumerate() {
-                let y = self.cur_frame.ydata[ysrc + x] as i16;
+                let y = i16::from(self.cur_frame.ydata[ysrc + x]);
                 let u = self.cur_frame.udata[csrc + (x >> 1)];
                 let v = self.cur_frame.vdata[csrc + (x >> 1)];
                 pic[offs[0]] = (y + u).max(0).min(255) as u8;
@@ -574,9 +565,7 @@ impl NADecoder for TM2Decoder {
         }
 
         let myinfo = NAVideoInfo::new(self.width, self.height, false, RGB24_FORMAT);
-        let bufret = alloc_video_buffer(myinfo, 2);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
+        let bufinfo = alloc_video_buffer(myinfo, 2)?;
         let mut buf = bufinfo.get_vbuf().unwrap();
 
         let is_intra = self.decode_blocks()?;

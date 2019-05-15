@@ -16,15 +16,15 @@ impl IMAState {
         }
     }
     fn reset(&mut self, predictor: i16, step: u8) {
-        self.predictor  = predictor as i32;
+        self.predictor  = i32::from(predictor);
         self.step       = step.min(IMA_MAX_STEP) as usize;
     }
     fn expand_sample(&mut self, nibble: u8) -> i16 {
         let istep = (self.step as isize) + (IMA_STEPS[nibble as usize] as isize);
         let sign = (nibble & 8) != 0;
-        let diff = (((2 * (nibble & 7) + 1) as i32) * IMA_STEP_TABLE[self.step]) >> 3;
+        let diff = (i32::from(2 * (nibble & 7) + 1) * IMA_STEP_TABLE[self.step]) >> 3;
         let sample = if !sign { self.predictor + diff } else { self.predictor - diff };
-        self.predictor = sample.max(std::i16::MIN as i32).min(std::i16::MAX as i32);
+        self.predictor = sample.max(i32::from(std::i16::MIN)).min(i32::from(std::i16::MAX));
         self.step = istep.max(0).min(IMA_MAX_STEP as isize) as usize;
         self.predictor as i16
     }
@@ -100,7 +100,7 @@ impl NADecoder for DuckADPCMDecoder {
                     self.ch_state[0].reset(sumpred,  sumstep);
                     self.ch_state[1].reset(diffpred, diffstep);
                     let mut last_nib = 0;
-                    let mut diff_val: i32 = diffpred as i32;
+                    let mut diff_val: i32 = i32::from(diffpred);
                     for x in (0..out_block_len).step_by(2) {
                         let nib0;
                         let nib1;
@@ -118,9 +118,9 @@ impl NADecoder for DuckADPCMDecoder {
                             nib1 = b0 & 0xF;
                             nib2 = b0 >> 4;
                         }
-                        let sum0 = self.ch_state[0].expand_sample(nib0) as i32;
-                        let diff = self.ch_state[1].expand_sample(nib1) as i32;
-                        let sum1 = self.ch_state[0].expand_sample(nib2) as i32;
+                        let sum0 = i32::from(self.ch_state[0].expand_sample(nib0));
+                        let diff = i32::from(self.ch_state[1].expand_sample(nib1));
+                        let sum1 = i32::from(self.ch_state[0].expand_sample(nib2));
                         diff_val = (diff_val + diff) >> 1;
                         dst[off0 + x + 0] = (sum0 + diff_val) as i16;
                         dst[off1 + x + 0] = (sum0 - diff_val) as i16;

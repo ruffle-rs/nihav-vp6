@@ -203,7 +203,7 @@ impl TM1Decoder {
         let cfdt = DUCK_C_FAT_DELTAS[delta_set];
         let vec  = DUCK_VECTABLES[table_idx - 1];
 
-        let mut vec_iter = vec.into_iter();
+        let mut vec_iter = vec.iter();
         for i in 0..256 {
             let len = (*vec_iter.next().unwrap() as usize) >> 1;
             for j in 0..len {
@@ -315,9 +315,9 @@ impl TM1Decoder {
                         _ => unreachable!(),
                     };
                 } else {
-                    let cur = (dst[off + x + 0] as u32) | ((dst[off + x + 1] as u32) << 16);
+                    let cur = u32::from(dst[off + x + 0]) | (u32::from(dst[off + x + 1]) << 16);
                     self.vert_pred[(x >> 1) + 0] = cur;
-                    let cur = (dst[off + x + 2] as u32) | ((dst[off + x + 3] as u32) << 16);
+                    let cur = u32::from(dst[off + x + 2]) | (u32::from(dst[off + x + 3]) << 16);
                     hor_pred = cur.wrapping_sub(self.vert_pred[(x >> 1) + 1]);
                     self.vert_pred[(x >> 1) + 1] = cur;
                 }
@@ -490,15 +490,15 @@ impl TM1Decoder {
                         _ => unreachable!(),
                     };
                 } else {
-                    let cur =   (dst[off + x*4 + 0] as u32)
-                             | ((dst[off + x*4 + 1] as u32) << 8)
-                             | ((dst[off + x*4 + 2] as u32) << 16)
-                             | ((dst[off + x*4 + 3] as u32) << 24);
+                    let cur =   u32::from(dst[off + x*4 + 0])
+                             | (u32::from(dst[off + x*4 + 1]) << 8)
+                             | (u32::from(dst[off + x*4 + 2]) << 16)
+                             | (u32::from(dst[off + x*4 + 3]) << 24);
                     self.vert_pred[x + 0] = cur;
-                    let cur =   (dst[off + x*4 + 4] as u32)
-                             | ((dst[off + x*4 + 5] as u32) << 8)
-                             | ((dst[off + x*4 + 6] as u32) << 16)
-                             | ((dst[off + x*4 + 7] as u32) << 24);
+                    let cur =   u32::from(dst[off + x*4 + 4])
+                             | (u32::from(dst[off + x*4 + 5]) << 8)
+                             | (u32::from(dst[off + x*4 + 6]) << 16)
+                             | (u32::from(dst[off + x*4 + 7]) << 24);
                     hor_pred = cur.wrapping_sub(self.vert_pred[x + 1]);
                     self.vert_pred[x + 1] = cur;
                 }
@@ -605,9 +605,7 @@ impl NADecoder for TM1Decoder {
         if is_intra || is_sprite {
             let fmt = if is_24bit { BGR0_FORMAT } else { RGB555_FORMAT };
             let myinfo = NAVideoInfo::new(out_width, height, false, fmt);
-            let bufret = alloc_video_buffer(myinfo, 2);
-            if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-            let bufinfo = bufret.unwrap();
+            let bufinfo = alloc_video_buffer(myinfo, 2)?;
             self.lastframe.reset();
             if !is_24bit {
                 self.lastframe.set16(bufinfo.get_vbuf16().unwrap());
@@ -640,17 +638,15 @@ impl NADecoder for TM1Decoder {
             } else {
                 return Err(DecoderError::MissingReference);
             }
-        } else {
-            if let Some(mut buf) = self.lastframe.get24() {
-                let stride = buf.get_stride(0);
-                {
-                    let data = buf.get_data_mut().unwrap();
-                    self.decode_24bit(data.as_mut_slice(), stride, out_width, height, &mut mask, &mut index)?;
-                }
-                bufinfo = NABufferType::VideoPacked(buf);
-            } else {
-                return Err(DecoderError::MissingReference);
+        } else if let Some(mut buf) = self.lastframe.get24() {
+            let stride = buf.get_stride(0);
+            {
+                let data = buf.get_data_mut().unwrap();
+                self.decode_24bit(data.as_mut_slice(), stride, out_width, height, &mut mask, &mut index)?;
             }
+            bufinfo = NABufferType::VideoPacked(buf);
+        } else {
+            return Err(DecoderError::MissingReference);
         }
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
