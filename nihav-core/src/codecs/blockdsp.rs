@@ -131,10 +131,12 @@ pub fn edge_emu(src: &NAVideoBuffer<u8>, xpos: isize, ypos: isize, bw: usize, bh
     }
 }
 
+pub type BlkInterpFunc = fn(&mut [u8], usize, &[u8], usize, usize, usize);
+
 pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
                    dx: usize, dy: usize, sx: isize, sy: isize, bw: usize, bh: usize,
                    preborder: usize, postborder: usize,
-                   mode: usize, interp: &[fn(&mut [u8], usize, &[u8], usize, usize, usize)])
+                   mode: usize, interp: &[BlkInterpFunc])
 {
     let pre  = if mode != 0 { preborder  as isize } else { 0 };
     let post = if mode != 0 { postborder as isize } else { 0 };

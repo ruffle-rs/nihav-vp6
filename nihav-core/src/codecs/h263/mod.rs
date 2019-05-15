@@ -4,6 +4,7 @@ use crate::frame::NAVideoBuffer;
 #[allow(clippy::many_single_char_names)]
 pub mod code;
 pub mod data;
+#[allow(clippy::needless_range_loop)]
 pub mod decoder;
 
 pub trait BlockDecoder {
@@ -29,8 +30,8 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn is_ref(&self) -> bool {
-        match *self {
+    pub fn is_ref(self) -> bool {
+        match self {
             Type::I | Type::P | Type::PB => true,
             _                            => false,
         }
@@ -49,9 +50,9 @@ impl PBInfo {
     pub fn new(trb: u8, dbquant: u8, improved: bool) -> Self {
         PBInfo{ trb, dbquant, improved }
     }
-    pub fn get_trb(&self) -> u8 { self.trb }
-    pub fn get_dbquant(&self) -> u8 { self.dbquant }
-    pub fn is_improved(&self) -> bool { self.improved }
+    pub fn get_trb(self) -> u8 { self.trb }
+    pub fn get_dbquant(self) -> u8 { self.dbquant }
+    pub fn is_improved(self) -> bool { self.improved }
 }
 
 #[allow(dead_code)]
@@ -253,7 +254,7 @@ impl BlockInfo {
     pub fn get_num_mvs2(&self) -> usize { self.num_mv2 }
     pub fn get_mv2(&self, idx: usize) -> MV { self.mv2[idx] }
     pub fn set_mv(&mut self, mvs: &[MV]) {
-        if mvs.len() > 0 { self.skip = false; }
+        if !mvs.is_empty() { self.skip = false; }
         let mut mv_arr: [MV; 4] = [MV::new(0, 0), MV::new(0, 0), MV::new(0, 0), MV::new(0, 0)];
         for i in 0..mvs.len() { mv_arr[i] = mvs[i]; }
         self.mv     = mv_arr;
@@ -266,7 +267,7 @@ impl BlockInfo {
         self.num_mv2 = bbinfo.get_num_mv();
     }
     pub fn set_b_mv(&mut self, mvs: &[MV]) {
-        if mvs.len() > 0 { self.skip = false; }
+        if !mvs.is_empty() { self.skip = false; }
         let mut mv_arr: [MV; 2] = [ZERO_MV, ZERO_MV];
         for i in 0..mvs.len() { mv_arr[i] = mvs[i]; }
         self.mv2     = mv_arr;

@@ -127,10 +127,10 @@ impl CodebookDescReader<u8> for H263ShortCodeReader {
 #[derive(Clone,Copy)]
 pub struct H263RLSym { run: u8, level: i8 }
 impl H263RLSym {
-    pub fn get_run(&self)   -> u8 { self.run }
-    pub fn is_last(&self)   -> bool { self.level < 0 }
-    pub fn is_escape(&self) -> bool { (self.run == 0) && (self.level == 0) }
-    pub fn get_level(&self) -> i16 { if self.level < 0 { -self.level as i16 } else { self.level as i16 } }
+    pub fn get_run(self)   -> u8 { self.run }
+    pub fn is_last(self)   -> bool { self.level < 0 }
+    pub fn is_escape(self) -> bool { (self.run == 0) && (self.level == 0) }
+    pub fn get_level(self) -> i16 { if self.level < 0 { -self.level as i16 } else { self.level as i16 } }
 }
 
 pub struct H263RLCodeDesc { code: u8, bits: u8, sym: H263RLSym }

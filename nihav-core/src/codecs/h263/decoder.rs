@@ -522,7 +522,7 @@ impl H263BaseDecoder {
     }
 
     pub fn get_bframe(&mut self, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
-        if !self.has_b || !self.ipbs.get_lastref().is_some() || !self.ipbs.get_nextref().is_some() {
+        if !self.has_b || self.ipbs.get_lastref().is_none() || self.ipbs.get_nextref().is_none() {
             return Err(DecoderError::MissingReference);
         }
         self.has_b = false;
@@ -533,7 +533,7 @@ impl H263BaseDecoder {
         let mut b_buf = bufinfo.get_vbuf().unwrap();
 
         if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
-            recon_b_frame(&mut b_buf, fwd_buf, bck_buf, self.mb_w, self.mb_h, &self.b_data, bdsp);
+            recon_b_frame(&mut b_buf, fwd_buf, bck_buf, self.mb_w, self.mb_h, self.b_data.as_slice(), bdsp);
         }
 
         self.b_data.truncate(0);
@@ -542,7 +542,7 @@ impl H263BaseDecoder {
 }
 
 fn recon_b_frame(b_buf: &mut NAVideoBuffer<u8>, bck_buf: &NAVideoBuffer<u8>, fwd_buf: &NAVideoBuffer<u8>,
-                 mb_w: usize, mb_h: usize, b_data: &Vec<BMB>, bdsp: &BlockDSP) {
+                 mb_w: usize, mb_h: usize, b_data: &[BMB], bdsp: &BlockDSP) {
     let mut cbpi = CBPInfo::new();
     let mut cur_mb = 0;
     cbpi.reset(mb_w);

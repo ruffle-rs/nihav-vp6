@@ -270,7 +270,7 @@ fn h263_interp11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw:
     }
 }
 
-pub const H263_INTERP_FUNCS: &[fn(&mut [u8], usize, &[u8], usize, usize, usize)] = &[
+pub const H263_INTERP_FUNCS: &[blockdsp::BlkInterpFunc] = &[
         h263_interp00, h263_interp01, h263_interp10, h263_interp11 ];
 
 fn h263_interp00_avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
@@ -336,7 +336,7 @@ fn h263_interp11_avg(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize,
     }
 }
 
-pub const H263_INTERP_AVG_FUNCS: &[fn(&mut [u8], usize, &[u8], usize, usize, usize)] = &[
+pub const H263_INTERP_AVG_FUNCS: &[blockdsp::BlkInterpFunc] = &[
         h263_interp00_avg, h263_interp01_avg, h263_interp10_avg, h263_interp11_avg ];
 
 pub struct H263BlockDSP { }

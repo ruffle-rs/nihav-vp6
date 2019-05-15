@@ -245,7 +245,7 @@ impl FFTSplitRadix {
         let size = 1 << bits;
         let mut table = Vec::with_capacity(size);
         for _ in 0..4 { table.push(FFTC_ZERO); }
-        for b in 3..(bits+1) {
+        for b in 3..=bits {
             let qsize = (1 << (b - 2)) as usize;
             let base = -consts::PI / ((qsize * 2) as f32);
             for k in 0..qsize {
@@ -648,7 +648,7 @@ fn gen_sr_perms(swaps: &mut [usize], size: usize) {
     gen_sr_perms(&mut swaps[3*size/4..],       size/4);
 }
 
-fn gen_swaps_for_perm(swaps: &mut Vec<usize>, perms: &Vec<usize>) {
+fn gen_swaps_for_perm(swaps: &mut Vec<usize>, perms: &[usize]) {
     let mut idx_arr: Vec<usize> = Vec::with_capacity(perms.len());
     for i in 0..perms.len() { idx_arr.push(i); }
     let mut run_size = 0;
@@ -719,7 +719,7 @@ impl FFTBuilder {
         for (mode, _) in ffts.iter().rev() {
             mode.permute(&mut perms);
         }
-        gen_swaps_for_perm(&mut swaps, &perms);
+        gen_swaps_for_perm(&mut swaps, perms.as_slice());
 
         FFT { perms, swaps, ffts }
     }
@@ -733,7 +733,7 @@ pub struct RDFT {
     fwd_fft:    bool,
 }
 
-fn crossadd(a: &FFTComplex, b: &FFTComplex) -> FFTComplex {
+fn crossadd(a: FFTComplex, b: FFTComplex) -> FFTComplex {
     FFTComplex { re: a.re + b.re, im: a.im - b.im }
 }
 
@@ -748,7 +748,7 @@ impl RDFT {
                 let in0 = buf[n + 1];
                 let in1 = buf[self.size - n - 1];
 
-                let t0 = crossadd(&in0, &in1);
+                let t0 = crossadd(in0, in1);
                 let t1 = FFTComplex { re: in1.im + in0.im, im: in1.re - in0.re };
                 let tab = self.table[n];
                 let t2 = FFTComplex { re: t1.im * tab.im + t1.re * tab.re, im: t1.im * tab.re - t1.re * tab.im };
@@ -771,11 +771,11 @@ impl RDFT {
                 let in0 = buf[n + 1];
                 let in1 = buf[self.size - n - 1];
 
-                let t0 = crossadd(&in0, &in1).scale(0.5);
+                let t0 = crossadd(in0, in1).scale(0.5);
                 let t1 = FFTComplex { re: in0.im + in1.im, im: in0.re - in1.re };
                 let t2 = t1 * self.table[n];
 
-                buf[n + 1] = crossadd(&t0, &t2);
+                buf[n + 1] = crossadd(t0, t2);
                 buf[self.size - n - 1] = FFTComplex { re: t0.re - t2.re, im: -(t0.im + t2.im) }; 
             }
             let a = buf[0].re;

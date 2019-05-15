@@ -48,7 +48,7 @@ impl DCT {
             perm_tab.push(0); // size = 1
             perm_tab.push(0); // size = 2
             perm_tab.push(1);
-            for blen in 2..bits+1 {
+            for blen in 2..=bits {
                 let ssize = 1 << blen;
                 for i in 0..ssize { perm_tab.push(swp_idx(i, blen)); }
             }
@@ -66,7 +66,7 @@ impl DCT {
                     tab.push((consts::PI / 8.0).sin()); // size = 1
                     tab.push((consts::PI / 8.0).cos());
                     if bits > 1 {
-                        for blen in 1..bits+1 {
+                        for blen in 1..=bits {
                             let tsize = 1 << blen;
                             let base = consts::PI / ((tsize * 8) as f32);
                             for i in 0..tsize {
@@ -153,7 +153,7 @@ fn reverse_bits(inval: u32) -> u32 {
     let mut val = inval;
     for _ in 0..8 {
         ret = (ret << 4) | (REV_TAB[(val & 0xF) as usize] as u32);
-        val = val >> 4;
+        val >>= 4;
     }
     ret
 }
