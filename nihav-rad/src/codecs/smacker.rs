@@ -444,9 +444,7 @@ impl NADecoder for SmackerVideoDecoder {
         if src.len() > PAL_SIZE {
             let mut br = BitReader::new(&src[PAL_SIZE..], src.len() - PAL_SIZE, BitReaderMode::LE);
 
-            let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 2);
-            if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-            bufinfo = bufret.unwrap();
+            bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 2)?;
             let mut buf = bufinfo.get_vbuf().unwrap();
             is_intra = self.decode_frame(&mut br)?;
             self.output_frame(&mut buf);

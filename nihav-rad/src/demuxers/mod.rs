@@ -10,7 +10,7 @@ mod smacker;
 #[cfg(feature="demuxer_bink")]
 mod bink;
 
-const RAD_DEMUXERS: &[&'static DemuxerCreator] = &[
+const RAD_DEMUXERS: &[&DemuxerCreator] = &[
 #[cfg(feature="demuxer_smk")]
     &smacker::SMKDemuxerCreator {},
 #[cfg(feature="demuxer_bink")]
@@ -18,7 +18,7 @@ const RAD_DEMUXERS: &[&'static DemuxerCreator] = &[
 ];
 
 pub fn rad_register_all_demuxers(rd: &mut RegisteredDemuxers) {
-    for demuxer in RAD_DEMUXERS.into_iter() {
+    for demuxer in RAD_DEMUXERS.iter() {
         rd.add_demuxer(*demuxer);
     }
 }

@@ -68,8 +68,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         validate!((self.frames > 0) && (tb_num > 0) && (tb_den > 0) && (max_size < fsize));
         let mut flags: [u8; 4] = [0; 4];
                                               src.read_buf(&mut flags)?;
-        let mut edata: Vec<u8> = Vec::with_capacity(8);
-        edata.resize(8, 0);
+        let mut edata: Vec<u8> = vec![0; 8];
         let p0 = &mut edata[0..4];
         p0.copy_from_slice(&magic);
         let p1 = &mut edata[4..][..4];
@@ -99,7 +98,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         }
 
         self.frame_pos = Vec::with_capacity(self.frames + 1);
-        for _ in 0..self.frames+1 {
+        for _ in 0..=self.frames {
             let pos                         = src.read_u32le()?;
             self.frame_pos.push(pos);
         }

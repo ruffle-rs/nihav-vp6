@@ -71,7 +71,7 @@ impl BinkAudioDecoder {
             transform:  Transform::None,
             version_b:  false,
             len:        0,
-            quants:     quants,
+            quants,
             bands:      [MAX_BANDS + 1; 26],
             num_bands:  0,
             duration:   0,

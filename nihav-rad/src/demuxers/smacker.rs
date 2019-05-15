@@ -178,7 +178,7 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
             validate!(chunk_size > 0);
             validate!(payload_size >= chunk_size);
             payload_size -= chunk_size;
-            let oldpal = self.pal.clone();
+            let oldpal = self.pal;
             let mut idx = 0;
             let endpos = self.src.tell() + (chunk_size as u64) - 1;
             while idx < 256 {

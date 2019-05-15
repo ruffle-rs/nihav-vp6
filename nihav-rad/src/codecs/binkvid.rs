@@ -30,7 +30,7 @@ impl Tree {
             if br.read_bool()? {
                 let len                         = br.read(3)? as usize;
                 let mut present: [bool; 16] = [false; 16];
-                for i in 0..len+1 {
+                for i in 0..=len {
                     self.syms[i]                = br.read(4)? as u8;
                     present[self.syms[i] as usize] = true;
                 }
@@ -44,7 +44,7 @@ impl Tree {
                 let len                         = br.read(2)? as usize;
                 let mut syms: [u8; 16] = [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
                 let mut tmp: [u8; 16] = [0; 16];
-                for bits in 0..len+1 {
+                for bits in 0..=len {
                     let size = 1 << bits;
                     for arr in syms.chunks_mut(size * 2) {
                         let mut ptr0 = 0;
@@ -1053,7 +1053,7 @@ fn read_dct_coefficients(br: &mut BitReader, block: &mut [i32; 64], scan: &[usiz
     let q_index = if let Some(qidx) = q { qidx } else { br.read(4)? as usize };
     let qmat = &quant_matrices[q_index];
     block[0] = block[0].wrapping_mul(qmat[0]) >> 11;
-    for idx in coef_idx.into_iter().take(coef_count) {
+    for idx in coef_idx.iter().take(coef_count) {
         block[scan[*idx]] = block[scan[*idx]].wrapping_mul(qmat[*idx]) >> 11;
     }
 
@@ -1218,18 +1218,14 @@ impl NADecoder for BinkDecoder {
             if let Some(bbuf) = bufret {
                 buf = bbuf;
             } else {
-                let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4);
-                if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-                let bufinfo = bufret.unwrap();
+                let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4)?;
                 buf = bufinfo.get_vbuf().unwrap();
                 self.key_frame = true;
                 self.hams.add_frame(buf);
                 buf = self.hams.get_output_frame().unwrap();
             }
         } else {
-            let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4);
-            if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-            let bufinfo = bufret.unwrap();
+            let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4)?;
             buf = bufinfo.get_vbuf().unwrap();
         }
 

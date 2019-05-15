@@ -1713,11 +1713,11 @@ fn decode_cbp_luma_old(br: &mut BitReader, prev_cbp: u32) -> DecoderResult<u32> 
         if !br.read_bool()? {
             nib1                                = br.read(4)?;
         }
-        new_cbp = new_cbp | (nib1 << 4);
+        new_cbp |= nib1 << 4;
         if !br.read_bool()? {
             nib1                                = br.read(4)?;
         }
-        new_cbp = new_cbp | (nib1 << 8);
+        new_cbp |= nib1 << 8;
         if !br.read_bool()? {
             nib1                                = br.read(4)?;
         }
@@ -1926,9 +1926,7 @@ impl NADecoder for Bink2Decoder {
         let mut buf;
         self.key_frame = pkt.is_keyframe();
 
-        let bufret = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 5);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
+        let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 5)?;
         buf = bufinfo.get_vbuf().unwrap();
 
         self.decode_frame_new(&mut br, &mut buf, pkt.is_keyframe())?;

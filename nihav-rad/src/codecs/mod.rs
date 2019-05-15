@@ -29,7 +29,7 @@ const RAD_CODECS: &[DecoderInfo] = &[
 ];
 
 pub fn rad_register_all_codecs(rd: &mut RegisteredDecoders) {
-    for decoder in RAD_CODECS.into_iter() {
+    for decoder in RAD_CODECS.iter() {
         rd.add_decoder(decoder.clone());
     }
 }
