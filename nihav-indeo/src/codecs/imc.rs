@@ -186,7 +186,7 @@ impl BitAlloc {
             let mut tmp: [f32; BANDS] = [BITALLOC_LIMIT; BANDS];
             for band in 0..BANDS {
                 if self.band_bits[band] != 6 {
-                    tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.bit_est[band] - 0.415;
+                    tmp[band] = f32::from(self.band_bits[band]) * -2.0 + ch_data.bit_est[band] - 0.415;
                 }
             }
             let mut peak = 0.0;
@@ -220,7 +220,7 @@ impl BitAlloc {
             let mut tmp: [f32; BANDS] = [BITALLOC_TOP_LIMIT; BANDS];
             for band in start..BANDS {
                 if self.band_bits[band] != 0 {
-                    tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.bit_est[band] - 0.415 + 2.0;
+                    tmp[band] = f32::from(self.band_bits[band]) * -2.0 + ch_data.bit_est[band] - 0.415 + 2.0;
                 }
             }
             while free_bits < cur_bits {
@@ -256,7 +256,7 @@ impl BitAlloc {
         let mut tmp: [f32; BANDS] = [BITALLOC_LIMIT; BANDS];
         for band in 0..BANDS {
             if self.band_bits[band] != 6 {
-                tmp[band] = (self.band_bits[band] as f32) * -2.0 + ch_data.bit_est[band] - 0.415;
+                tmp[band] = f32::from(self.band_bits[band]) * -2.0 + ch_data.bit_est[band] - 0.415;
             }
         }
         let mut used_bits: i32 = 0;
@@ -312,7 +312,7 @@ impl LUTs {
             sqrt_tab[i] = (i as f32).sqrt();
         }
 
-        LUTs { exp_lev: exp_lev, exp_10: exp_10, sqrt_tab: sqrt_tab }
+        LUTs { exp_lev, exp_10, sqrt_tab }
     }
 }
 
@@ -368,21 +368,21 @@ impl IMCDecoder {
             }
         }
         IMCDecoder {
-            is_imc:     is_imc,
+            is_imc,
             chmap:      NAChannelMap::new(),
             ainfo:      NAAudioInfo::new(0, 0, SND_F32P_FORMAT, 0),
             info:       NACodecInfo::new_dummy(),
 
-            codes:      codes,
+            codes,
             ch_data:    [IMCChannel::new(), IMCChannel::new()],
             ba:         BitAlloc::new(),
             imdct:      IMDCTContext::new(),
             luts:       LUTs::new(),
 
-            cycle1:     cycle1,
-            cycle2:     cycle2,
-            weights1:   weights1,
-            weights2:   weights2,
+            cycle1,
+            cycle2,
+            weights1,
+            weights2,
         }
     }
 
@@ -438,7 +438,7 @@ impl IMCDecoder {
         let maxc_pos = br.read(5)? as usize;
         let max_coef = br.read(7)? as u8;
 
-        let (c1, c2) = calc_maxcoef(max_coef as f32);
+        let (c1, c2) = calc_maxcoef(f32::from(max_coef));
         for i in 0..BANDS {
             if i != maxc_pos {
                 let level = br.read(4)?;
@@ -466,7 +466,7 @@ impl IMCDecoder {
             ch_data.mask_wght[band] = 0.0;
             let val;
             if self.ba.band_width[band] > 0 {
-                val = (ch_data.new_floor[band] as f64).powi(2);
+                val = f64::from(ch_data.new_floor[band]).powi(2);
                 ch_data.log_floor2[band] = 2.0 * ch_data.log_floor[band];
             } else {
                 val = 0.0;
@@ -527,7 +527,7 @@ impl IMCDecoder {
         }
         if reset {
             let ch_data = &mut self.ch_data[ch];
-            let (mut c1, mut c2) = calc_maxcoef(level[0] as f32);
+            let (mut c1, mut c2) = calc_maxcoef(f32::from(level[0]));
             ch_data.new_floor[0] = c1;
             ch_data.log_floor[0] = c2;
             for i in 1..BANDS {
@@ -544,7 +544,7 @@ impl IMCDecoder {
                         lval = level[i] - 16;
                     }
                     c1 *= self.luts.exp_10[(lval + 16) as usize];
-                    c2 += 0.83048 * (lval as f32);
+                    c2 += 0.83048 * f32::from(lval);
                     ch_data.new_floor[i] = c1;
                     ch_data.log_floor[i] = c2;
                 }
@@ -555,7 +555,7 @@ impl IMCDecoder {
                 if level[i] < 16 {
                     let lval = level[i] - 7;
                     ch_data.new_floor[i]  = self.luts.exp_10[(lval + 16) as usize] * ch_data.old_floor[i];
-                    ch_data.log_floor[i] += (lval as f32) * 0.83048;
+                    ch_data.log_floor[i] += f32::from(lval) * 0.83048;
                 } else {
                     ch_data.new_floor[i] = ch_data.old_floor[i];
                 }
@@ -666,11 +666,11 @@ impl IMCDecoder {
             if !self.ba.band_present[band] { continue; }
             for i in IMC_BANDS[band]..IMC_BANDS[band + 1] {
                 if self.ba.skip_flag[i] {
-                    bits_freed += self.ba.cw_len[i] as i32;
+                    bits_freed += i32::from(self.ba.cw_len[i]);
                     self.ba.cw_len[i] = 0;
                 }
             }
-            bits_freed -= self.ba.skip_flag_bits[band] as i32;
+            bits_freed -= i32::from(self.ba.skip_flag_bits[band]);
         }
 
         if bits_freed < 0 { return Err(DecoderError::Bug); }
@@ -831,12 +831,12 @@ impl IMDCTContext {
             posttwiddle[i] = FFTComplex::exp(consts::PI / 256.0 * n).scale(1.0/32768.0);
         }
         IMDCTContext {
-            pretwiddle1: pretwiddle1,
-            pretwiddle2: pretwiddle2,
-            posttwiddle: posttwiddle,
+            pretwiddle1,
+            pretwiddle2,
+            posttwiddle,
             tmp:         [FFTC_ZERO; COEFFS/2],
             fft:         FFTBuilder::new_fft(COEFFS/2, false),
-            window:      window,
+            window,
         }
     }
     fn imdct(&mut self, coeffs: &[f32; COEFFS], dst: &mut [f32], last_im: &mut [f32; COEFFS/2]) {
@@ -876,7 +876,7 @@ impl NADecoder for IMCDecoder {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(),
                                           ainfo.get_channels(),
                                           SND_F32P_FORMAT, 0);
-            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo.clone()));
+            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo));
 
             if !self.is_imc {
                 self.generate_iac_tables(ainfo.get_sample_rate() as f32);
@@ -935,12 +935,12 @@ pub fn get_decoder_iac() -> Box<dyn NADecoder> {
 struct IMCCodeReader { sel1: usize, sel2: usize }
 
 impl IMCCodeReader {
-    fn new(sel1: usize, sel2: usize) -> Self { IMCCodeReader { sel1: sel1, sel2: sel2 } }
+    fn new(sel1: usize, sel2: usize) -> Self { IMCCodeReader { sel1, sel2 } }
 }
 
 impl CodebookDescReader<u8> for IMCCodeReader {
     fn bits(&mut self, idx: usize) -> u8  { IMC_CODE_LENGTHS[self.sel1][self.sel2][idx] }
-    fn code(&mut self, idx: usize) -> u32 { IMC_CODE_CODES[self.sel1][self.sel2][idx] as u32 }
+    fn code(&mut self, idx: usize) -> u32 { u32::from(IMC_CODE_CODES[self.sel1][self.sel2][idx]) }
     fn sym (&mut self, idx: usize) -> u8 { idx as u8 }
     fn len(&mut self) -> usize { IMC_CODE_LENGTHS[0][0].len() }
 }

@@ -276,7 +276,7 @@ struct IV3Cell {
 
 impl IV3Cell {
     fn new(w: u16, h: u16) -> Self {
-        IV3Cell { x: 0, y: 0, w: w, h: h, d: 20, vqt: false, mv: None }
+        IV3Cell { x: 0, y: 0, w, h, d: 20, vqt: false, mv: None }
     }
     fn split_h(&self) -> (Self, Self) {
         let h1 = if self.h > 2 { ((self.h + 2) >> 2) << 1 } else { 1 };
@@ -306,7 +306,7 @@ impl IV3Cell {
         cell2.d -= 1;
         (cell1, cell2)
     }
-    fn no_mv(&self) -> bool { match self.mv { None => true, Some(_) => false } }
+    fn no_mv(&self) -> bool { self.mv.is_none() }
 }
 
 struct CellDecParams {
@@ -365,8 +365,8 @@ impl Indeo3Decoder {
             sidx = 0;
         } else {
             let mv = cell.mv.unwrap();
-            let mx = mv.x as i16;
-            let my = mv.y as i16;
+            let mx = i16::from(mv.x);
+            let my = i16::from(mv.y);
             let l = (cell.x as i16) * 4 + mx;
             let t = (cell.y as i16) * 4 + my;
             let r = ((cell.x + cell.w) as i16) * 4 + mx;
@@ -473,7 +473,7 @@ impl Indeo3Decoder {
                                 tocopy = 4 - line;
                             }
                             if c >= 0xFD {
-                                let nl = 257 - (c as i16) - (line as i16);
+                                let nl = 257 - i16::from(c) - (line as i16);
                                 validate!(nl > 0);
                                 tocopy = nl as usize;
                             }
@@ -513,8 +513,8 @@ impl Indeo3Decoder {
     fn copy_cell(&mut self, cell: IV3Cell, off: usize, stride: usize) -> DecoderResult<()> {
         if cell.no_mv() { return Err(DecoderError::InvalidData); }
         let mv = cell.mv.unwrap();
-        let mx = mv.x as i16;
-        let my = mv.y as i16;
+        let mx = i16::from(mv.x);
+        let my = i16::from(mv.y);
         let l = (cell.x as i16) * 4 + mx;
         let t = (cell.y as i16) * 4 + my;
         let r = ((cell.x + cell.w) as i16) * 4 + mx;
@@ -646,7 +646,7 @@ impl Indeo3Decoder {
         for _ in 0..nvec {
             let x = br.read_byte()? as i8;
             let y = br.read_byte()? as i8;
-            self.mvs.push(MV{ x: x, y: y });
+            self.mvs.push(MV{ x, y });
         }
 
         let shift = if planeno == 0 { 2 } else { 4 };
@@ -671,7 +671,7 @@ impl Indeo3Decoder {
         for _ in 0..nvec {
             let y = br.read_byte()? as i8;
             let x = br.read_byte()? as i8;
-            self.mvs.push(MV{ x: x, y: y });
+            self.mvs.push(MV{ x, y });
         }
 
         let shift = if planeno == 0 { 2 } else { 4 };
@@ -715,7 +715,7 @@ impl NADecoder for Indeo3Decoder {
         if (frameno ^ hdr_2 ^ size ^ FRMH_TAG) != check {
             return Err(DecoderError::InvalidData);
         }
-        if (size as i64) > br.left() { return Err(DecoderError::InvalidData); }
+        if i64::from(size) > br.left() { return Err(DecoderError::InvalidData); }
         let ver     = br.read_u16le()?;
         if ver != 32 { return Err(DecoderError::NotImplemented); }
         let flags   = br.read_u16le()?;
@@ -759,16 +759,14 @@ impl NADecoder for Indeo3Decoder {
         let vinfo = self.info.get_properties().get_video_info().unwrap();
         validate!((vinfo.get_width() & !3) == (self.width & !3).into());
         validate!((vinfo.get_height() & !3) == (self.height & !3).into());
-        let bufret = alloc_video_buffer(vinfo, 4);
-        if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-        let bufinfo = bufret.unwrap();
+        let bufinfo = alloc_video_buffer(vinfo, 4)?;
         let mut buf = bufinfo.get_vbuf().unwrap();
-        let ystart  = data_start + (yoff as u64);
-        let ustart  = data_start + (uoff as u64);
-        let vstart  = data_start + (voff as u64);
-        let yendpos = data_start + (yend as u64);
-        let uendpos = data_start + (uend as u64);
-        let vendpos = data_start + (vend as u64);
+        let ystart  = data_start + u64::from(yoff);
+        let ustart  = data_start + u64::from(uoff);
+        let vstart  = data_start + u64::from(voff);
+        let yendpos = data_start + u64::from(yend);
+        let uendpos = data_start + u64::from(uend);
+        let vendpos = data_start + u64::from(vend);
         if intraframe {
             self.decode_plane_intra(&mut br, 0, ystart, yendpos)?;
             self.decode_plane_intra(&mut br, 1, ustart, uendpos)?;

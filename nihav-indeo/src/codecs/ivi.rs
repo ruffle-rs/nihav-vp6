@@ -46,16 +46,16 @@ pub struct PictureHeader {
 impl PictureHeader {
     pub fn new(ftype: IVIFrameType, width: usize, height: usize, slice_w: usize, slice_h: usize, transparent: bool, luma_bands: usize, chroma_bands: usize, in_q: bool) -> Self {
         PictureHeader {
-            ftype: ftype,
-            width: width, height: height, slice_w: slice_w, slice_h: slice_h,
-            transparent: transparent,
-            luma_bands: luma_bands, chroma_bands: chroma_bands,
-            in_q: in_q,
+            ftype,
+            width, height, slice_w, slice_h,
+            transparent,
+            luma_bands, chroma_bands,
+            in_q,
         }
     }
     pub fn new_null(ftype: IVIFrameType) -> Self {
         PictureHeader {
-            ftype: ftype,
+            ftype,
             width: 0, height: 0, slice_w: 0, slice_h: 0,
             transparent: false,
             luma_bands: 0, chroma_bands: 0,
@@ -89,16 +89,16 @@ pub type TrFunc   = fn (&mut [i32; 64]);
 pub type TrFuncDC = fn (&mut [i32; 64], i32);
 
 impl IVITransformType {
-    pub fn is_8x8(&self) -> bool {
-        match *self {
+    pub fn is_8x8(self) -> bool {
+        match self {
             IVITransformType::Haar (ref sz, _) => { *sz == TSize::T8x8 },
             IVITransformType::Slant(ref sz, _) => { *sz == TSize::T8x8 },
             IVITransformType::DCT  (ref sz, _) => { *sz == TSize::T8x8 },
             IVITransformType::None (ref sz)    => { *sz == TSize::T8x8 },
         }
     }
-    pub fn is_2d(&self) -> bool {
-        match *self {
+    pub fn is_2d(self) -> bool {
+        match self {
             IVITransformType::Haar (_, ref dir) => { *dir == TDir::TwoD },
             IVITransformType::Slant(_, ref dir) => { *dir == TDir::TwoD },
             IVITransformType::DCT  (_, ref dir) => { *dir == TDir::TwoD },
@@ -118,7 +118,7 @@ pub struct TxParams4x4 {
 impl TxParams4x4 {
     pub fn new(quant_intra: &'static [u16; 16], quant_inter: &'static [u16; 16], scan: &'static [usize; 16]) -> Self {
         TxParams4x4 {
-            quant_intra: quant_intra, quant_inter: quant_inter, scan: scan,
+            quant_intra, quant_inter, scan,
         }
     }
 }
@@ -134,7 +134,7 @@ pub struct TxParams8x8 {
 impl TxParams8x8 {
     pub fn new(quant_intra: &'static [u16; 64], quant_inter: &'static [u16; 64], scan: &'static [usize; 64]) -> Self {
         TxParams8x8 {
-            quant_intra: quant_intra, quant_inter: quant_inter, scan: scan,
+            quant_intra, quant_inter, scan,
         }
     }
 }
@@ -172,26 +172,22 @@ impl BandHeader {
         for i in 0..num_corr {
             let pos1 = corr_map[i * 2 + 0] as usize;
             let pos2 = corr_map[i * 2 + 1] as usize;
-            let t              = rvmap.runtab[pos1];
-            rvmap.runtab[pos1] = rvmap.runtab[pos2];
-            rvmap.runtab[pos2] = t;
-            let t              = rvmap.valtab[pos1];
-            rvmap.valtab[pos1] = rvmap.valtab[pos2];
-            rvmap.valtab[pos2] = t;
+            rvmap.runtab.swap(pos1, pos2);
+            rvmap.valtab.swap(pos1, pos2);
         }
         BandHeader {
-            plane_no: plane_no, band_no: band_no,
-            empty: false, halfpel: halfpel,
-            inherit_mv: inherit_mv,
-            has_qdelta: has_qdelta, inherit_qd: inherit_qd, quant: quant,
-            mb_size: mb_size, blk_size: blk_size,
-            rvmap: rvmap, blk_cb: blk_cb,
-            tr: tr, ttype: ttype,
+            plane_no, band_no,
+            empty: false, halfpel,
+            inherit_mv,
+            has_qdelta, inherit_qd, quant,
+            mb_size, blk_size,
+            rvmap, blk_cb,
+            tr, ttype,
         }
     }
     pub fn new_empty(plane_no: usize, band_no: usize) -> Self {
         BandHeader {
-            plane_no: plane_no, band_no: band_no,
+            plane_no, band_no,
             empty: true, halfpel: true,
             inherit_mv: false, has_qdelta: false, inherit_qd: false, quant: 0,
             mb_size: 0, blk_size: 0,
@@ -248,7 +244,7 @@ pub struct IVITile {
 impl IVITile {
     pub fn new(pos_x: usize, pos_y: usize, w: usize, h: usize) -> Self {
         IVITile {
-            pos_x: pos_x, pos_y: pos_y, w: w, h: h,
+            pos_x, pos_y, w, h,
             mb_w: 0, mb_h: 0, mb: Vec::new(),
         }
     }

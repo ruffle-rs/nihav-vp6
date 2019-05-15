@@ -370,10 +370,10 @@ impl IndeoXParser for Indeo4Parser {
             let hh = (h / 2) as isize;
             let mut band0 = src.as_ptr();
             let mut band1 = band0.offset(hw);
-            let mut band2 = band0.offset(((h / 2) * sstride) as isize);
+            let mut band2 = band0.add((h / 2) * sstride);
             let mut band3 = band2.offset(hw);
             let mut dst0 = dst.as_mut_ptr();
-            let mut dst1 = dst0.offset(dstride as isize);
+            let mut dst1 = dst0.add(dstride);
             for _ in 0..hh {
                 let mut b0_ptr = band0;
                 let mut b1_ptr = band1;
@@ -382,10 +382,10 @@ impl IndeoXParser for Indeo4Parser {
                 let mut d0_ptr = dst0;
                 let mut d1_ptr = dst1;
                 for _ in 0..hw {
-                    let p0 = *b0_ptr as i32;
-                    let p1 = *b1_ptr as i32;
-                    let p2 = *b2_ptr as i32;
-                    let p3 = *b3_ptr as i32;
+                    let p0 = i32::from(*b0_ptr);
+                    let p1 = i32::from(*b1_ptr);
+                    let p2 = i32::from(*b2_ptr);
+                    let p3 = i32::from(*b3_ptr);
                     let s0 = p0.wrapping_add(p2);
                     let s1 = p1.wrapping_add(p3);
                     let d0 = p0.wrapping_sub(p2);
@@ -405,12 +405,12 @@ impl IndeoXParser for Indeo4Parser {
                     d0_ptr = d0_ptr.offset(2);
                     d1_ptr = d1_ptr.offset(2);
                 }
-                band0 = band0.offset(sstride as isize);
-                band1 = band1.offset(sstride as isize);
-                band2 = band2.offset(sstride as isize);
-                band3 = band3.offset(sstride as isize);
-                dst0 = dst0.offset((dstride * 2) as isize);
-                dst1 = dst1.offset((dstride * 2) as isize);
+                band0 = band0.add(sstride);
+                band1 = band1.add(sstride);
+                band2 = band2.add(sstride);
+                band3 = band3.add(sstride);
+                dst0 = dst0.add(dstride * 2);
+                dst1 = dst1.add(dstride * 2);
             }
         }
     }

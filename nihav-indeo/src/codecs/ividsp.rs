@@ -333,12 +333,12 @@ pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, 
                 for _ in 0..h {
                     let mut last = *sptr;
                     for x in 0..w {
-                        let nv = *sptr.offset((x + 1) as isize);
-                        *dptr.offset(x as isize) = nv.wrapping_add(last) >> 1;
+                        let nv = *sptr.add(x + 1);
+                        *dptr.add(x) = nv.wrapping_add(last) >> 1;
                         last = nv;
                     }
-                    sptr = sptr.offset(sstride as isize);
-                    dptr = dptr.offset(dstride as isize);
+                    sptr = sptr.add(sstride);
+                    dptr = dptr.add(dstride);
                 }
             }
         },
@@ -353,17 +353,17 @@ pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, 
             }*/
             unsafe {
                 let mut sptr0 = src.as_ptr();
-                let mut sptr1 = sptr0.offset(sstride as isize);
+                let mut sptr1 = sptr0.add(sstride);
                 let mut dptr = dst.as_mut_ptr();
                 for _ in 0..h {
                     for x in 0..w {
-                        let a = *sptr0.offset(x as isize);
-                        let b = *sptr1.offset(x as isize);
-                        *dptr.offset(x as isize) = a.wrapping_add(b) >> 1;
+                        let a = *sptr0.add(x);
+                        let b = *sptr1.add(x);
+                        *dptr.add(x) = a.wrapping_add(b) >> 1;
                     }
-                    sptr0 = sptr0.offset(sstride as isize);
-                    sptr1 = sptr1.offset(sstride as isize);
-                    dptr = dptr.offset(sstride as isize);
+                    sptr0 = sptr0.add(sstride);
+                    sptr1 = sptr1.add(sstride);
+                    dptr = dptr.add(sstride);
                 }
             }
         },
@@ -379,23 +379,23 @@ pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, 
             }*/
             unsafe {
                 let mut sptr0 = src.as_ptr();
-                let mut sptr1 = sptr0.offset(sstride as isize);
+                let mut sptr1 = sptr0.add(sstride);
                 let mut dptr = dst.as_mut_ptr();
                 let mut la = *sptr0;
                 let mut lb = *sptr1;
                 for _ in 0..h {
                     for x in 0..w {
-                        let a = *sptr0.offset((x + 1) as isize);
-                        let b = *sptr1.offset((x + 1) as isize);
+                        let a = *sptr0.add(x + 1);
+                        let b = *sptr1.add(x + 1);
                         let aas = a.wrapping_add(la);
                         let bbs = b.wrapping_add(lb);
-                        *dptr.offset(x as isize) = aas.wrapping_add(bbs) >> 2;
+                        *dptr.add(x) = aas.wrapping_add(bbs) >> 2;
                         la = a;
                         lb = b;
                     }
-                    sptr0 = sptr0.offset(sstride as isize);
-                    sptr1 = sptr1.offset(sstride as isize);
-                    dptr = dptr.offset(dstride as isize);
+                    sptr0 = sptr0.add(sstride);
+                    sptr1 = sptr1.add(sstride);
+                    dptr = dptr.add(dstride);
                 }
             }
         },

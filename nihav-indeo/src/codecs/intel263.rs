@@ -44,7 +44,7 @@ impl<'a> Intel263BR<'a> {
     fn new(src: &'a [u8], tables: &'a Tables) -> Self {
         Intel263BR {
             br:     BitReader::new(src, src.len(), BitReaderMode::BE),
-            tables: tables,
+            tables,
             gob_no: 0,
             mb_w:   0,
             is_pb:  false,
@@ -64,8 +64,8 @@ impl<'a> Intel263BR<'a> {
         if !coded { return Ok(()); }
 
         let rl_cb = &self.tables.rl_cb; // could be aic too
-        let q_add = if quant == 0 { 0i16 } else { ((quant - 1) | 1) as i16 };
-        let q = (quant * 2) as i16;
+        let q_add = if quant == 0 { 0i16 } else { i16::from((quant - 1) | 1) };
+        let q = i16::from(quant * 2);
         while idx < 64 {
             let code = br.read_cb(rl_cb)?;
             let run;
@@ -102,7 +102,7 @@ impl<'a> Intel263BR<'a> {
 }
 
 fn decode_mv_component(br: &mut BitReader, mv_cb: &Codebook<u8>) -> DecoderResult<i16> {
-    let code = br.read_cb(mv_cb)? as i16;
+    let code = i16::from(br.read_cb(mv_cb)?);
     if code == 0 { return Ok(0) }
     if !br.read_bool()? {
         Ok(code)
@@ -249,7 +249,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
                     let dquant = (cbpc & 4) != 0;
                     if dquant {
                         let idx = br.read(2)? as usize;
-                        q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                        q = (i16::from(q) + i16::from(H263_DQUANT_TAB[idx])) as u8;
                     }
                     Ok(BlockInfo::new(Type::I, cbp, q))
                 },
@@ -267,7 +267,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
                         let cbp = (cbpy << 2) | (cbpc & 3);
                         if dquant {
                             let idx = br.read(2)? as usize;
-                            q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                            q = (i16::from(q) + i16::from(H263_DQUANT_TAB[idx])) as u8;
                         }
                         let mut binfo = BlockInfo::new(Type::I, cbp, q);
                         binfo.set_bpart(bbinfo);
@@ -288,7 +288,7 @@ impl<'a> BlockDecoder for Intel263BR<'a> {
                     let cbp = (cbpy << 2) | (cbpc & 3);
                     if dquant {
                         let idx = br.read(2)? as usize;
-                        q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                        q = (i16::from(q) + i16::from(H263_DQUANT_TAB[idx])) as u8;
                     }
                     let mut binfo = BlockInfo::new(Type::P, cbp, q);
                     binfo.set_bpart(bbinfo);
@@ -346,18 +346,18 @@ impl Intel263Decoder {
         let mut coderead = H263ShortCodeReader::new(H263_MV);
         let mv_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
         let tables = Tables {
-            intra_mcbpc_cb: intra_mcbpc_cb,
-            inter_mcbpc_cb: inter_mcbpc_cb,
-            cbpy_cb:        cbpy_cb,
-            rl_cb:          rl_cb,
-            aic_rl_cb:      aic_rl_cb,
-            mv_cb:          mv_cb,
+            intra_mcbpc_cb,
+            inter_mcbpc_cb,
+            cbpy_cb,
+            rl_cb,
+            aic_rl_cb,
+            mv_cb,
         };
 
         Intel263Decoder{
             info:           NACodecInfo::new_dummy(),
             dec:            H263BaseDecoder::new(true),
-            tables:         tables,
+            tables,
             bdsp:           H263BlockDSP::new(),
         }
     }

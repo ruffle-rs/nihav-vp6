@@ -176,7 +176,7 @@ struct IR2CodeReader { }
 
 impl CodebookDescReader<u8> for IR2CodeReader {
     fn bits(&mut self, idx: usize) -> u8  { INDEO2_CODE_LENGTHS[idx] }
-    fn code(&mut self, idx: usize) -> u32 { INDEO2_CODE_CODES[idx] as u32 }
+    fn code(&mut self, idx: usize) -> u32 { u32::from(INDEO2_CODE_CODES[idx]) }
     fn sym (&mut self, idx: usize) -> u8 {
         if idx < 0x7F { (idx + 1) as u8 } else { (idx + 2) as u8 }
     }
@@ -194,7 +194,7 @@ impl Indeo2Decoder {
         let dummy_info = NACodecInfo::new_dummy();
         let mut coderead = IR2CodeReader{};
         let cb = Codebook::new(&mut coderead, CodebookMode::LSB).unwrap();
-        Indeo2Decoder { info: dummy_info, cb: cb, frmmgr: HAMShuffler::new() }
+        Indeo2Decoder { info: dummy_info, cb, frmmgr: HAMShuffler::new() }
     }
 
     fn decode_plane_intra(&self, br: &mut BitReader,
@@ -205,7 +205,7 @@ impl Indeo2Decoder {
         let stride = buf.get_stride(planeno);
         let cb = &self.cb;
 
-        let  data = buf.get_data_mut().unwrap();
+        let data = buf.get_data_mut().unwrap();
         let framebuf: &mut [u8] = data.as_mut_slice();
 
         let table = &INDEO2_DELTA_TABLE[tableno];
@@ -240,10 +240,10 @@ impl Indeo2Decoder {
                     }
                     x += run;
                 } else {
-                    let delta0 = (table[idx * 2 + 0] as i16) - 0x80;
-                    let delta1 = (table[idx * 2 + 1] as i16) - 0x80;
-                    let mut pix0 = framebuf[base + x + 0 - stride] as i16;
-                    let mut pix1 = framebuf[base + x + 1 - stride] as i16;
+                    let delta0 = i16::from(table[idx * 2 + 0]) - 0x80;
+                    let delta1 = i16::from(table[idx * 2 + 1]) - 0x80;
+                    let mut pix0 = i16::from(framebuf[base + x + 0 - stride]);
+                    let mut pix1 = i16::from(framebuf[base + x + 1 - stride]);
                     pix0 += delta0;
                     pix1 += delta1;
                     if pix0 < 0 { pix0 = 0; }
@@ -283,12 +283,12 @@ impl Indeo2Decoder {
                     if x + run > w { return Err(DecoderError::InvalidData); }
                     x += run;
                 } else {
-                    let delta0 = (table[idx * 2 + 0] as i16) - 0x80;
-                    let delta1 = (table[idx * 2 + 1] as i16) - 0x80;
-                    let mut pix0 = framebuf[base + x + 0] as i16;
-                    let mut pix1 = framebuf[base + x + 1] as i16;
-                    pix0 += delta0 * 3 >> 2;
-                    pix1 += delta1 * 3 >> 2;
+                    let delta0 = i16::from(table[idx * 2 + 0]) - 0x80;
+                    let delta1 = i16::from(table[idx * 2 + 1]) - 0x80;
+                    let mut pix0 = i16::from(framebuf[base + x + 0]);
+                    let mut pix1 = i16::from(framebuf[base + x + 1]);
+                    pix0 += (delta0 * 3) >> 2;
+                    pix1 += (delta1 * 3) >> 2;
                     if pix0 < 0 { pix0 = 0; }
                     if pix1 < 0 { pix1 = 0; }
                     if pix0 > 255 { pix0 = 255; }
@@ -331,9 +331,7 @@ impl NADecoder for Indeo2Decoder {
         let chroma_tab = (tabs >> 2) & 3;
         if interframe != 0 {
             let vinfo = self.info.get_properties().get_video_info().unwrap();
-            let bufret = alloc_video_buffer(vinfo, 2);
-            if let Err(_) = bufret { return Err(DecoderError::InvalidData); }
-            let bufinfo = bufret.unwrap();
+            let bufinfo = alloc_video_buffer(vinfo, 2)?;
             let mut buf = bufinfo.get_vbuf().unwrap();
             for plane in 0..3 {
                 let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;
@@ -346,7 +344,7 @@ impl NADecoder for Indeo2Decoder {
             Ok(frm.into_ref())
         } else {
             let bufret = self.frmmgr.clone_ref();
-            if let None = bufret { return Err(DecoderError::MissingReference); }
+            if bufret.is_none() { return Err(DecoderError::MissingReference); }
             let mut buf = bufret.unwrap();
 
             for plane in 0..3 {

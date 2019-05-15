@@ -24,6 +24,8 @@ mod ivibr;
 mod ividsp;
 
 #[cfg(feature="decoder_imc")]
+#[allow(clippy::excessive_precision)]
+#[allow(clippy::unreadable_literal)]
 mod imc;
 
 const INDEO_CODECS: &[DecoderInfo] = &[
@@ -45,7 +47,7 @@ const INDEO_CODECS: &[DecoderInfo] = &[
 ];
 
 pub fn indeo_register_all_codecs(rd: &mut RegisteredDecoders) {
-    for decoder in INDEO_CODECS.into_iter() {
+    for decoder in INDEO_CODECS.iter() {
         rd.add_decoder(decoder.clone());
     }
 }

@@ -8,7 +8,7 @@ use super::ivi::*;
 use super::ividsp::*;
 
 pub fn scale_mv(val: i32, scale: u8) -> i32 {
-    (val + (if val > 0 { 1 } else { 0 }) + (scale as i32) - 1) >> scale
+    (val + (if val > 0 { 1 } else { 0 }) + i32::from(scale) - 1) >> scale
 }
 
 #[derive(Clone,Copy)]
@@ -103,7 +103,7 @@ impl<'a> IVICodebookReader for BitReader<'a> {
             Ok(base + add)
         } else {
             let nbits = cb.bits[0];
-            return Ok(IVI_REVS[nbits as usize][self.read(nbits)? as usize]);
+            Ok(IVI_REVS[nbits as usize][self.read(nbits)? as usize])
         }
     }
     #[inline(always)]
@@ -146,6 +146,7 @@ pub const IVI_BLK_CB: &[IVICodebook; 8] = &[
 ];
 
 #[allow(unused_variables)]
+#[allow(clippy::many_single_char_names)]
 fn read_trans_band_header(br: &mut BitReader, w: usize, h: usize, dst: &mut [i16], dstride: usize) -> DecoderResult<()> {
     let color_plane     = br.read(2)?;
     let bit_depth       = br.read(3)?;
@@ -259,7 +260,7 @@ fn decode_block8x8(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
         validate!((idx >= 0) && (idx < 64));
 
         let spos = tables.scan[idx as usize];
-        let q = ((quant_mat[spos] as u32) * (quant as u32)) >> 9;
+        let q = (u32::from(quant_mat[spos]) * u32::from(quant)) >> 9;
         if q > 1 {
             let qq = q as i32;
             let bias = (((q ^ 1) - 1) >> 1) as i32;
@@ -308,7 +309,7 @@ fn decode_block4x4(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
         validate!((idx >= 0) && (idx < 16));
 
         let spos = tables.scan[idx as usize];
-        let q = ((quant_mat[spos] as u32) * (quant as u32)) >> 9;
+        let q = (u32::from(quant_mat[spos]) * u32::from(quant)) >> 9;
         if q > 1 {
             let qq = q as i32;
             let bias = (((q ^ 1) - 1) >> 1) as i32;
@@ -329,24 +330,24 @@ fn decode_block4x4(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
 
 fn put_block(frame: &mut [i16], offs: usize, stride: usize, blk: &[i32], blk_size: usize) {
     unsafe {
-        let mut dptr = frame.as_mut_ptr().offset(offs as isize);
+        let mut dptr = frame.as_mut_ptr().add(offs);
         for y in 0..blk_size {
             for x in 0..blk_size {
-                *dptr.offset(x as isize) = blk[x + y * blk_size] as i16;
+                *dptr.add(x) = blk[x + y * blk_size] as i16;
             }
-            dptr = dptr.offset(stride as isize);
+            dptr = dptr.add(stride);
         }
     }
 }
 
 fn add_block(frame: &mut [i16], offs: usize, stride: usize, blk: &[i32], blk_size: usize) {
     unsafe {
-        let mut dptr = frame.as_mut_ptr().offset(offs as isize);
+        let mut dptr = frame.as_mut_ptr().add(offs);
         for y in 0..blk_size {
             for x in 0..blk_size {
-                *dptr.offset(x as isize) = (*dptr.offset(x as isize)).wrapping_add(blk[x + y * blk_size] as i16);
+                *dptr.add(x) = (*dptr.add(x)).wrapping_add(blk[x + y * blk_size] as i16);
             }
-            dptr = dptr.offset(stride as isize);
+            dptr = dptr.add(stride);
         }
     }
 }
@@ -407,6 +408,7 @@ impl FrameData {
     }
 }
 
+#[allow(clippy::many_single_char_names)]
 fn do_mc(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, x: usize, y: usize, l: usize, r: usize, t: usize, b: usize, mv_x: i32, mv_y: i32, is_hpel: bool, blk_size: usize) {
     let (xoff, yoff, mv_mode) = if is_hpel {
             (mv_x >> 1, mv_y >> 1, ((mv_x & 1) + (mv_y & 1) * 2) as u8)
@@ -428,6 +430,7 @@ fn do_mc(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, x: usize,
     }
 }
 
+#[allow(clippy::many_single_char_names)]
 fn do_mc_b(dst: &mut [i16], dstride: usize, src1: &[i16], sstride1: usize, src2: &[i16], sstride2: usize, x: usize, y: usize, l: usize, r: usize, t: usize, b: usize, mv_x: i32, mv_y: i32, mv2_x: i32, mv2_y: i32, is_hpel: bool, blk_size: usize) {
     let (xoff1, yoff1, mv_mode1) = if is_hpel {
             (mv_x >> 1, mv_y >> 1, ((mv_x & 1) + (mv_y & 1) * 2) as u8)
@@ -497,7 +500,7 @@ impl IVIDecoder {
             vinfoa: NAVideoInfo::new(0, 0, false, YUVA410_FORMAT),
             bref: None,
 
-            bands: bands,
+            bands,
             tiles: Vec::new(), tile_start: [[0; 4]; 4], num_tiles: [[0; 4]; 4],
         }
     }
@@ -857,12 +860,7 @@ br.skip(skip_part as u32)?;
             _ => {},
         };
 
-        let mut vinfo;
-        if pic_hdr.transparent {
-            vinfo = self.vinfoa.clone();
-        } else {
-            vinfo = self.vinfo.clone();
-        }
+        let mut vinfo = if pic_hdr.transparent { self.vinfoa } else { self.vinfo };
         vinfo.set_width(pic_hdr.width);
         vinfo.set_height(pic_hdr.height);
         let mut buftype = alloc_video_buffer(vinfo, 0)?;
@@ -947,10 +945,10 @@ br.skip(skip_part as u32)?;
         res
     }
 
-    pub fn is_intra(&mut self) -> bool {
+    pub fn is_intra(&self) -> bool {
         self.ftype.is_intra()
     }
-    pub fn get_frame_type(&mut self) -> FrameType {
+    pub fn get_frame_type(&self) -> FrameType {
         match self.ftype {
             IVIFrameType::Intra             => { FrameType::I },
             IVIFrameType::Intra1            => { FrameType::I },
@@ -976,7 +974,7 @@ impl Clone for RVMap {
         let mut valtab: [i8; 256] = [0; 256];
         runtab.copy_from_slice(&self.runtab);
         valtab.copy_from_slice(&self.valtab);
-        RVMap { eob_sym: self.eob_sym, esc_sym: self.esc_sym, runtab: runtab, valtab: valtab }
+        RVMap { eob_sym: self.eob_sym, esc_sym: self.esc_sym, runtab, valtab }
     }
 }
 
