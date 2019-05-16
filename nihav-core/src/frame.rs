@@ -268,7 +268,7 @@ pub struct NASimpleVideoFrame<'a, T: Copy> {
     pub stride:     [usize; NA_SIMPLE_VFRAME_COMPONENTS],
     pub offset:     [usize; NA_SIMPLE_VFRAME_COMPONENTS],
     pub components: usize,
-    pub data:       &'a mut Vec<T>,
+    pub data:       &'a mut [T],
 }
 
 impl<'a, T:Copy> NASimpleVideoFrame<'a, T> {
@@ -297,7 +297,7 @@ impl<'a, T:Copy> NASimpleVideoFrame<'a, T> {
             stride: s,
             offset: o,
             components,
-            data: vbuf.data.as_mut().unwrap(),
+            data: vbuf.data.as_mut_slice(),
             })
     }
 }
