@@ -360,9 +360,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
             let ochr = fmt.get_chromaton(i);
             if ochr.is_none() { continue; }
             let chr = ochr.unwrap();
-            if !vinfo.is_flipped() {
-                offs.push(new_size as usize);
-            }
+            offs.push(new_size as usize);
             let stride = chr.get_linesize(width);
             let cur_h = chr.get_height(height);
             let cur_sz = stride.checked_mul(cur_h);
@@ -370,9 +368,6 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
             let new_sz = new_size.checked_add(cur_sz.unwrap());
             if new_sz == None { return Err(AllocatorError::TooLargeDimensions); }
             new_size = new_sz.unwrap();
-            if vinfo.is_flipped() {
-                offs.push(new_size as usize);
-            }
             strides.push(stride);
         }
         if max_depth <= 8 {
