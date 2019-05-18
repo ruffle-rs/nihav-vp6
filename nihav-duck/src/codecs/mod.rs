@@ -18,6 +18,8 @@ mod vp3;
 mod vp56;
 #[cfg(feature="decoder_vp7")]
 mod vp7;
+#[cfg(any(feature="decoder_vp3", feature="decoder_vp4", feature="decoder_vp5", feature="decoder_vp6", feature="decoder_vp7"))]
+mod vpcommon;
 
 #[cfg(any(feature="decoder_dk3_adpcm", feature="decoder_dk4_adpcm"))]
 mod dkadpcm;
