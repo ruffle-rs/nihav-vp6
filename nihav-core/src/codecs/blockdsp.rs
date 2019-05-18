@@ -184,3 +184,39 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
         }
     }
 }
+
+pub fn copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>, comp: usize,
+                  dx: usize, dy: usize, mv_x: i16, mv_y: i16, bw: usize, bh: usize,
+                  preborder: usize, postborder: usize,
+                  mode: usize, interp: &[BlkInterpFunc])
+{
+    let pre  = if mode != 0 { preborder  as isize } else { 0 };
+    let post = if mode != 0 { postborder as isize } else { 0 };
+    let (w, h) = src.get_dimensions(comp);
+    let sx = (dx as isize) + (mv_x as isize);
+    let sy = (dy as isize) + (mv_y as isize);
+
+    if (sx - pre < 0) || (sx + (bw as isize) + post > (w as isize)) ||
+       (sy - pre < 0) || (sy + (bh as isize) + post > (h as isize)) {
+        let ebuf_stride: usize = 32;
+        let mut ebuf: Vec<u8> = vec![0; ebuf_stride * (bh + ((pre + post) as usize))];
+
+        let dstride = dst.stride[comp];
+        let doff    = dst.offset[comp];
+        let edge = (pre + post) as usize;
+        edge_emu(&src, sx - pre, sy - pre, bw + edge, bh + edge,
+                 ebuf.as_mut_slice(), ebuf_stride, comp);
+        (interp[mode])(&mut dst.data[doff + dx + dy * dstride..], dstride,
+                       ebuf.as_slice(), ebuf_stride, bw, bh);
+    } else {
+        let sstride = src.get_stride(comp);
+        let soff    = src.get_offset(comp);
+        let sdta    = src.get_data();
+        let sbuf: &[u8] = sdta.as_slice();
+        let dstride = dst.stride[comp];
+        let doff    = dst.offset[comp];
+        let saddr = soff + ((sx - pre) as usize) + ((sy - pre) as usize) * sstride;
+        (interp[mode])(&mut dst.data[doff + dx + dy * dstride..], dstride,
+                       &sbuf[saddr..], sstride, bw, bh);
+    }
+}
