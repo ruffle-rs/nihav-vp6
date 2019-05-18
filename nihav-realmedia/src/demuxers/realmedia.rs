@@ -106,7 +106,7 @@ const RM_ILEAVE_VBRS: u32 = mktag!(b"vbrs");
 impl RMAudioStream {
     fn new(iinfo: Option<InterleaveInfo>) -> Self {
         let deint;
-        let mut buf: Vec<u8>;
+        let buf: Vec<u8>;
         if let Some(info) = iinfo {
             deint = match info.id {
                     RM_ILEAVE_INT0 => Deinterleaver::None,
