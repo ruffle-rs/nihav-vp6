@@ -263,7 +263,7 @@ pub struct DecoderInfo {
     pub get_decoder: fn () -> Box<dyn NADecoder>,
 }
 
-#[cfg(any(feature="h263"))]
+#[cfg(any(feature="blockdsp"))]
 pub mod blockdsp;
 
 #[cfg(feature="h263")]

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies.nihav_core]
 path = "../nihav-core"
-features = ["h263", "mdct"]
+features = ["h263", "mdct", "blockdsp"]
 
 [features]
 default = ["all_decoders", "all_demuxers"]

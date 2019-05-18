@@ -10,7 +10,8 @@ default = ["decoders", "demuxers"]
 decoders = []
 demuxers = []
 
-h263 = []
+blockdsp = []
+h263 = ["blockdsp"]
 
 dsp = []
 dct = ["dsp"]
