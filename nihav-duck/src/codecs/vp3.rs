@@ -851,7 +851,7 @@ unimplemented!();
                 copy_block(frm, src.clone(), 1, bx * 4, by * 4, mx >> 1, my >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
                 copy_block(frm, src.clone(), 2, bx * 4, by * 4, mx >> 1, my >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
             }
-            blk_idx += bstride;
+            blk_idx += bstride * 2;
         }
 
         let mut biter = self.blocks.iter_mut();
