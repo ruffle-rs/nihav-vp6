@@ -213,11 +213,11 @@ fn read_mv_raw(br: &mut BitReader) -> DecoderResult<MV> {
     Ok(MV{ x, y })
 }
 
-fn rescale_qmat(dst_qmat: &mut [i16; 64], base_qmat: &[i16; 64], dc_quant: i16, ac_quant: i16) {
+fn rescale_qmat(dst_qmat: &mut [i16; 64], base_qmat: &[i16; 64], dc_quant: i16, ac_quant: i16, minval: i16) {
     for (dst, src) in dst_qmat.iter_mut().zip(base_qmat.iter()) {
-        *dst = (src.wrapping_mul(ac_quant) / 100).max(2) << 2;
+        *dst = (src.wrapping_mul(ac_quant) / 100).max(minval) << 2;
     }
-    dst_qmat[0] = (base_qmat[0] * dc_quant / 100).max(4) << 2;
+    dst_qmat[0] = (base_qmat[0] * dc_quant / 100).max(minval * 2) << 2;
 }
 
 fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, coef_no: usize, token: u8) -> DecoderResult<()> {
@@ -699,9 +699,9 @@ println!("intra, ver {} (self {})", version, self.version);
         }
         let dc_quant = VP31_DC_SCALES[self.quant];
         let ac_quant = VP31_AC_SCALES[self.quant];
-        rescale_qmat(&mut self.qmat_y, VP3_QMAT_Y, dc_quant, ac_quant);
-        rescale_qmat(&mut self.qmat_c, VP3_QMAT_C, dc_quant, ac_quant);
-        rescale_qmat(&mut self.qmat_inter, VP3_QMAT_INTER, dc_quant, ac_quant);
+        rescale_qmat(&mut self.qmat_y, VP3_QMAT_Y, dc_quant, ac_quant, 2);
+        rescale_qmat(&mut self.qmat_c, VP3_QMAT_C, dc_quant, ac_quant, 2);
+        rescale_qmat(&mut self.qmat_inter, VP3_QMAT_INTER, dc_quant, ac_quant, 4);
 
         self.eob_run = 0;
         let dc_table_y                          = br.read(4)? as usize;
