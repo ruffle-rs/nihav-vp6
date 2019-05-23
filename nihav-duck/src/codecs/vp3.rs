@@ -18,6 +18,44 @@ fn map_idx(idx: usize) -> u8 {
     idx as u8
 }
 
+struct VP30Codes {
+    dc_cb:      [Codebook<u8>; 5],
+    ac_i_cb:    [Codebook<u8>; 5],
+    ac_p_cb:    [Codebook<u8>; 5],
+    mbtype_cb:  Codebook<VPMBType>,
+}
+
+fn map_mbt(idx: usize) -> VPMBType {
+    VP30_MBTYPE_SYMS[idx]
+}
+
+impl VP30Codes {
+    fn new() -> Self {
+        let mut dc_cb:   [Codebook<u8>; 5];
+        let mut ac_i_cb: [Codebook<u8>; 5];
+        let mut ac_p_cb: [Codebook<u8>; 5];
+        let mut cr = TableCodebookDescReader::new(&VP30_MBTYPE_CODES, &VP30_MBTYPE_BITS, map_mbt);
+        let mbtype_cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
+        unsafe {
+            dc_cb = mem::uninitialized();
+            ac_i_cb = mem::uninitialized();
+            ac_p_cb = mem::uninitialized();
+            for i in 0..5 {
+                let mut cr = TableCodebookDescReader::new(&VP30_DC_CODES[i], &VP30_DC_BITS[i], map_idx);
+                let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
+                ptr::write(&mut dc_cb[i], cb);
+                let mut cr = TableCodebookDescReader::new(&VP30_AC_INTRA_CODES[i], &VP30_AC_INTRA_BITS[i], map_idx);
+                let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
+                ptr::write(&mut ac_i_cb[i], cb);
+                let mut cr = TableCodebookDescReader::new(&VP30_AC_INTER_CODES[i], &VP30_AC_INTER_BITS[i], map_idx);
+                let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
+                ptr::write(&mut ac_p_cb[i], cb);
+            }
+        }
+        Self { dc_cb, ac_i_cb, ac_p_cb, mbtype_cb }
+    }
+}
+
 struct VP31Codes {
     dc_cb:      [Codebook<u8>; 16],
     ac0_cb:     [Codebook<u8>; 16],
@@ -64,7 +102,7 @@ impl VP31Codes {
 
 enum Codes {
     None,
-//    VP30(VP30Codes),
+    VP30(VP30Codes),
     VP31(VP31Codes),
 }
 
@@ -129,6 +167,63 @@ impl BitRunDecoder {
     }
 }
 
+const VP30_NE0_BITS: [u8; 5] = [ 2, 2, 3, 4, 8 ];
+const VP30_NE0_BASE: [usize; 5] = [ 1, 5, 9, 17, 33 ];
+fn vp30_read_ne_run0(br: &mut BitReader) -> DecoderResult<usize> {
+    let len                                     = br.read_code(UintCodeType::LimitedUnary(4, 0))? as usize;
+    Ok(VP30_NE0_BASE[len] + (br.read(VP30_NE0_BITS[len])? as usize))
+}
+fn vp30_read_ne_run1(br: &mut BitReader) -> DecoderResult<usize> {
+    let len                                     = br.read_code(UintCodeType::LimitedUnary(6, 0))? as usize;
+    if len == 0 {
+        Ok((br.read(1)? as usize) + 1)
+    } else if len < 6 {
+        Ok(len + 2)
+    } else {
+        Ok((br.read(8)? as usize) + 8)
+    }
+}
+fn vp30_read_coded_run0(br: &mut BitReader) -> DecoderResult<usize> {
+    let len                                     = br.read_code(UintCodeType::LimitedUnary(5, 0))? as usize;
+    Ok(len + 1)
+}
+/*
+ 0           - 1
+ 11          - 2
+ 1000        - 3
+ 1010        - 4
+ 10011       - 5
+ 10111       - 6
+ 10010       - 7 + get_bits(3)
+ 101100      - 15 + get_bits(5)
+ 1011010     - 47 + get_bits(8)
+ 1011011     - 303 + get_bits(16)
+ */
+const VP30_CRUN1_LUT: [u8; 32] = [
+    0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
+    0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
+    0x34, 0x34, 0x75, 0x55, 0x44, 0x44, 0x85, 0x65,
+    0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22
+];
+fn vp30_read_coded_run1(br: &mut BitReader) -> DecoderResult<usize> {
+    let idx                                     = br.peek(5) as usize;
+    let sym = (VP30_CRUN1_LUT[idx] >> 4) as usize;
+    let bits = VP30_CRUN1_LUT[idx] & 0xF;
+                                                br.skip(bits as u32)?;
+    if sym < 7 {
+        Ok(sym)
+    } else if sym == 7 {
+        Ok(7 + (br.read(3)? as usize))
+    } else {
+        let len                                 = br.read_code(UintCodeType::Unary012)?;
+        match len {
+            0 => Ok(15 + (br.read(5)? as usize)),
+            1 => Ok(47 + (br.read(8)? as usize)),
+            _ => Ok(303 + (br.read(16)? as usize)),
+        }
+    }
+}
+
 struct VP34Decoder {
     info:       NACodecInfoRef,
     width:      usize,
@@ -143,6 +238,7 @@ struct VP34Decoder {
     loop_str:   i16,
 
     blocks:     Vec<Block>,
+    mb_coded:   Vec<bool>,
     y_blocks:   usize,
     y_sbs:      usize,
     qmat_y:     [i16; 64],
@@ -155,6 +251,30 @@ struct VP34Decoder {
     blk_addr:   Vec<usize>,
     sb_info:    Vec<SBState>,
     sb_blocks:  Vec<u8>,
+    sb_mbs:     Vec<u8>,
+    mb_blocks:  Vec<u8>,
+}
+
+fn vp30_read_mv_comp(br: &mut BitReader) -> DecoderResult<i16> {
+    let mode                                    = br.read(2)?;
+    if mode == 0 { return Ok(0); }
+    let sign                                    = br.read_bool()?;
+    let val = match mode - 1 {
+            0 => 1,
+            1 =>                                  2 + (br.read(2)? as i16),
+            _ =>                                  br.read(5)? as i16,
+        };
+    if !sign {
+        Ok(val)
+    } else {
+        Ok(-val)
+    }
+}
+
+fn vp30_read_mv(br: &mut BitReader) -> DecoderResult<MV> {
+    let x = vp30_read_mv_comp(br)?;
+    let y = vp30_read_mv_comp(br)?;
+    Ok(MV{ x, y })
 }
 
 fn read_mv_comp_packed(br: &mut BitReader) -> DecoderResult<i16> {
@@ -327,6 +447,7 @@ fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, coef_n
     }
     Ok(())
 }
+
 macro_rules! fill_dc_pred {
     ($self: expr, $ref_id: expr, $pred: expr, $pp: expr, $bit: expr, $idx: expr) => {
         if $self.blocks[$idx].coded && $self.blocks[$idx].btype.get_ref_id() == $ref_id {
@@ -438,6 +559,7 @@ impl VP34Decoder {
             loop_str:   0,
 
             blocks:     Vec::new(),
+            mb_coded:   Vec::new(),
             y_blocks:   0,
             y_sbs:      0,
 
@@ -451,6 +573,8 @@ impl VP34Decoder {
             blk_addr:   Vec::new(),
             sb_info:    Vec::new(),
             sb_blocks:  Vec::new(),
+            sb_mbs:     Vec::new(),
+            mb_blocks:  Vec::new(),
         }
     }
     fn parse_header(&mut self, br: &mut BitReader) -> DecoderResult<()> {
@@ -458,30 +582,220 @@ impl VP34Decoder {
                                                   br.skip(1)?;
         self.quant                              = br.read(6)? as usize;
         self.loop_str = VP31_LOOP_STRENGTH[self.quant];
-println!("quant = {}", self.quant);
         if self.is_intra {
             if br.peek(8) != 0 {
-                unimplemented!();
-            }
-            let version                         = br.read(13)?;
-println!("intra, ver {} (self {})", version, self.version);
-            let coding_type                     = br.read(1)?;
-            validate!(coding_type == 0);
-                                                  br.skip(2)?;
-            if version == 1 {
-                validate!(self.version == 3 || self.version == 31);
+                validate!(self.version == 3 || self.version == 30);
+                let mb_w                        = br.read(8)? as usize;
+                let mb_h                        = br.read(8)? as usize;
+println!(" VP30 {}x{} ({}x{})", mb_w, mb_h, self.mb_w, self.mb_h);
+                validate!(mb_w == self.mb_w && mb_h == self.mb_h);
                 if self.version == 3 {
-                    self.version = 31;
-                    self.codes   = Codes::VP31(VP31Codes::new());
+                    self.version = 30;
+                    self.codes   = Codes::VP30(VP30Codes::new());
                 }
-            } else if version == 2 {
-                validate!(self.version == 4);
-                unimplemented!();
             } else {
-                return Err(DecoderError::InvalidData);
+                let version                     = br.read(13)?;
+println!("intra, ver {} (self {})", version, self.version);
+                let coding_type                 = br.read(1)?;
+                validate!(coding_type == 0);
+                                                  br.skip(2)?;
+                if version == 1 {
+                    validate!(self.version == 3 || self.version == 31);
+                    if self.version == 3 {
+                        self.version = 31;
+                        self.codes   = Codes::VP31(VP31Codes::new());
+                    }
+                } else if version == 2 {
+                    validate!(self.version == 4);
+                    unimplemented!();
+                } else {
+                    return Err(DecoderError::InvalidData);
+                }
+            }
+        }
+//println!("decode frame({},{},{})", self.is_intra as u8, self.is_intra as u8, self.quant);
+        Ok(())
+    }
+    fn vp30_unpack_sb_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+        let mut has_nonempty = false;
+        {
+            let mut bit                         = !br.read_bool()?;
+            let mut run = 0;
+            for sb in self.sb_info.iter_mut() {
+                if run == 0 {
+                    bit = !bit;
+                    run = if bit { vp30_read_ne_run1(br)? } else { vp30_read_ne_run0(br)? };
+                }
+                *sb = if bit { has_nonempty = true; SBState::Partial } else { SBState::Uncoded };
+                run -= 1;
+            }
+            validate!(run == 0);
+        }
+        if has_nonempty {
+            for el in self.mb_coded.iter_mut() { *el = false; }
+            let mut bit                         = !br.read_bool()?;
+            let mut run = 0;
+            let mut mbiter = self.mb_coded.iter_mut();
+            for (sb, nmb) in self.sb_info.iter_mut().zip(self.sb_mbs.iter()) {
+                let nmbs = *nmb as usize;
+                if *sb == SBState::Partial {
+                    for _ in 0..nmbs {
+                        if run == 0 {
+                            bit = !bit;
+                            run = if bit { vp30_read_coded_run1(br)? } else { vp30_read_coded_run0(br)? };
+                        }
+                        run -= 1;
+                        *mbiter.next().unwrap() = bit;
+                    }
+                } else {
+                    for _ in 0..nmbs {
+                        mbiter.next().unwrap();
+                    }
+                }
+            }
+            validate!(run == 0);
+            let mut bit                         = !br.read_bool()?;
+            let mut run = 0;
+            let mut cur_blk = 0;
+            for (coded, nblk) in self.mb_coded.iter().zip(self.mb_blocks.iter()) {
+                let nblks = *nblk as usize;
+                if *coded {
+                    let mut cb = [false; 4];
+                    for j in 0..nblks {
+                        if run == 0 {
+                            bit = !bit;
+                            run = if bit { vp30_read_coded_run1(br)? } else { vp30_read_coded_run0(br)? };
+                        }
+                        run -= 1;
+                        cb[j] = bit;
+                    }
+                    for j in 0..nblks {
+                        let addr = self.blk_addr[cur_blk + j] >> 2;
+                        self.blocks[addr].coded = cb[j];
+                    }
+                }
+                cur_blk += nblks;
+            }
+            validate!(run == 0);
+        }
+        Ok(())
+    }
+    fn vp30_unpack_mb_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+        let mut cur_blk = 0;
+        if let Codes::VP30(ref codes) = self.codes {
+            for (sb, nblk) in self.sb_info.iter_mut().zip(self.sb_blocks.iter()).take(self.y_sbs) {
+                let nblks = *nblk as usize;
+                if *sb == SBState::Uncoded {
+                    for _ in 0..nblks {
+                        self.blocks[self.blk_addr[cur_blk] >> 2].btype = VPMBType::InterNoMV;
+                        cur_blk += 1;
+                    }
+                } else {
+                    for _ in 0..nblks/4 {
+                        let mut coded = *sb == SBState::Coded;
+                        if !coded {
+                            for blk in 0..4 {
+                                if self.blocks[self.blk_addr[cur_blk + blk] >> 2].coded {
+                                    coded = true;
+                                    break;
+                                }
+                            }
+                        }
+                        let mode = if !coded {
+                                VPMBType::InterNoMV
+                            } else {
+                                                br.read_cb(&codes.mbtype_cb)?
+                            };
+                        for _ in 0..4 {
+                            self.blocks[self.blk_addr[cur_blk] >> 2].btype = mode;
+                            cur_blk += 1;
+                        }
+                    }
+                }
+            }
+        } else {
+            return Err(DecoderError::Bug);
+        }
+        // replicate types for chroma
+        let mut off_y = 0;
+        let mut off_u = self.y_blocks;
+        let mut off_v = off_u + self.mb_w * self.mb_h;
+        for _blk_y in 0..self.mb_h {
+            for blk_x in 0..self.mb_w {
+                let btype = self.blocks[off_y + blk_x * 2].btype;
+                self.blocks[off_u + blk_x].btype = btype;
+                self.blocks[off_v + blk_x].btype = btype;
+            }
+            off_y += self.mb_w * 2 * 2;
+            off_u += self.mb_w;
+            off_v += self.mb_w;
+        }
+        Ok(())
+    }
+    fn vp30_unpack_mv_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+        let mut last_mv = ZERO_MV;
+
+        let mut cur_blk = 0;
+        for _ in 0..self.y_blocks/4 {
+            let baddr = self.blk_addr[cur_blk] >> 2;
+            if self.blocks[baddr].btype == VPMBType::InterFourMV {
+                let saddr = baddr.min(self.blk_addr[cur_blk + 1] >> 2).min(self.blk_addr[cur_blk + 2] >> 2).min(self.blk_addr[cur_blk + 3] >> 2);
+                for i in 0..4 {
+                    let blk = &mut self.blocks[saddr + (i & 1) + (i & 2) * self.mb_w];
+                    if blk.coded {
+                        blk.mv = vp30_read_mv(br)?;
+                    }
+                    cur_blk += 1;
+                }
+            } else {
+                let cur_mv;
+                match self.blocks[baddr].btype {
+                    VPMBType::Intra | VPMBType::InterNoMV | VPMBType::GoldenNoMV => {
+                        cur_mv = ZERO_MV;
+                    },
+                    VPMBType::InterMV => {
+                        cur_mv = vp30_read_mv(br)?;
+                        last_mv = cur_mv;
+                    },
+                    VPMBType::InterNearest => {
+                        cur_mv = last_mv;
+                    },
+                    _ => { // GoldenMV
+                        cur_mv = vp30_read_mv(br)?;
+                    },
+                };
+                for _ in 0..4 {
+                    self.blocks[self.blk_addr[cur_blk] >> 2].mv = cur_mv;
+                    cur_blk += 1;
+                }
             }
         }
         Ok(())
+    }
+    fn vp30_unpack_coeffs(&mut self, br: &mut BitReader, coef_no: usize, table: usize) -> DecoderResult<()> {
+        if let Codes::VP30(ref codes) = self.codes {
+            for blkaddr in self.blk_addr.iter() {
+                let blk: &mut Block = &mut self.blocks[blkaddr >> 2];
+                if !blk.coded || blk.idx != coef_no { continue; }
+                if self.eob_run > 0 {
+                    blk.idx = 64;
+                    self.eob_run -= 1;
+                    continue;
+                }
+                let cb = if coef_no == 0 {
+                        &codes.dc_cb[table]
+                    } else if blk.btype.is_intra() {
+                        &codes.ac_i_cb[table]
+                    } else {
+                        &codes.ac_p_cb[table]
+                    };
+                let token                       = br.read_cb(cb)?;
+                expand_token(blk, br, &mut self.eob_run, coef_no, token)?;
+            }
+            Ok(())
+        } else {
+            Err(DecoderError::Bug)
+        }
     }
     fn vp31_unpack_sb_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         let mut has_uncoded = false;
@@ -675,6 +989,82 @@ println!("intra, ver {} (self {})", version, self.version);
         } else {
             Err(DecoderError::Bug)
         }
+    }
+    fn decode_vp30(&mut self, br: &mut BitReader, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
+        for blk in self.blocks.iter_mut() {
+            blk.coeffs = [0; 64];
+            blk.idx = 0;
+            blk.coded = false;
+            blk.has_ac = false;
+        }
+        if self.is_intra {
+            for sb in self.sb_info.iter_mut() { *sb = SBState::Coded; }
+            for blk in self.blocks.iter_mut() {
+                blk.btype = VPMBType::Intra;
+                blk.coded = true;
+            }
+        } else {
+            if self.shuf.get_last().is_none() || self.shuf.get_golden().is_none() {
+                return Err(DecoderError::MissingReference);
+            }
+            self.vp30_unpack_sb_info(br)?;
+            self.vp30_unpack_mb_info(br)?;
+            self.vp30_unpack_mv_info(br)?;
+        }
+        let dc_quant = VP30_DC_SCALES[self.quant] * 10;
+        let ac_quant = VP30_AC_SCALES[self.quant];
+        rescale_qmat(&mut self.qmat_y, VP3_QMAT_Y, dc_quant, ac_quant, 2);
+        rescale_qmat(&mut self.qmat_c, VP3_QMAT_C, dc_quant, ac_quant, 2);
+        rescale_qmat(&mut self.qmat_inter, VP3_QMAT_INTER, dc_quant, ac_quant, 4);
+        if self.quant == 10 {
+            self.qmat_y[29] = 980;
+            self.qmat_y[58] = 1636;
+            self.qmat_y[59] = 1964;
+        } else if self.quant == 31 {
+            self.qmat_y[58] = 456;
+        } else if self.quant == 44 {
+            self.qmat_y[58] = 224;
+        }
+
+        let table = if ac_quant <= 50 {
+                0
+            } else if ac_quant <= 150 {
+                1
+            } else if ac_quant <= 300 {
+                2
+            } else if ac_quant <= 600 {
+                3
+            } else {
+                4
+            };
+
+        self.eob_run = 0;
+        self.vp30_unpack_coeffs(br, 0, table)?;
+        let mut last_dc_i = 0;
+        let mut last_dc_p = 0;
+        for blkaddr in self.blk_addr.iter() {
+            let blk: &mut Block = &mut self.blocks[blkaddr >> 2];
+            if !blk.coded { continue; }
+            if blk.btype.is_intra() {
+                blk.coeffs[0] += last_dc_i;
+                last_dc_i = blk.coeffs[0];
+            } else {
+                blk.coeffs[0] += last_dc_p;
+                last_dc_p = blk.coeffs[0];
+            }
+        }
+
+        for coef_no in 1..64 {
+            self.vp30_unpack_coeffs(br, coef_no, table)?;
+        }
+
+        if self.is_intra {
+            self.output_blocks_intra(frm);
+        } else {
+            self.output_blocks_inter(frm);
+        }
+
+        Ok(())
     }
     fn decode_vp31(&mut self, br: &mut BitReader, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
         for blk in self.blocks.iter_mut() {
@@ -958,11 +1348,14 @@ unimplemented!();
         let sb_h_c = ((self.height >> 1) + 31) >> 5;
         self.y_sbs = sb_w_y * sb_h_y;
         let tot_sb = sb_w_y * sb_h_y + 2 * sb_w_c * sb_h_c;
+        let tot_mb = self.mb_w * self.mb_h * 2 + ((self.mb_w + 1) & !1) * ((self.mb_h + 1) & !1) * 2;
         let bw = self.width >> 3;
         let bh = self.height >> 3;
         let tot_blk = bw * bh * 3 / 2;
         self.sb_info.resize(tot_sb, SBState::Uncoded);
         self.sb_blocks = Vec::with_capacity(tot_sb);
+        self.mb_blocks = Vec::with_capacity(tot_mb);
+        self.sb_mbs = Vec::with_capacity(tot_sb);
         self.blk_addr = Vec::with_capacity(tot_blk);
         self.y_blocks = bw * bh;
         let mut base_idx = 0;
@@ -975,6 +1368,23 @@ unimplemented!();
             let blk_h = h >> 3;
             for y in 0..sb_h {
                 for x in 0..sb_w {
+                    let mut nmbs = 0;
+                    for mb_no in 0..4 {
+                        let bx = x * 4 + HILBERT_ORDER[mb_no * 4][0];
+                        let by = y * 4 + HILBERT_ORDER[mb_no * 4][1];
+                        if (bx >= blk_w) || (by >= blk_h) { continue; }
+                        let mut nblocks = 0;
+                        for blk_no in 0..4 {
+                            let bx = x * 4 + HILBERT_ORDER[mb_no * 4 + blk_no][0];
+                            let by = y * 4 + HILBERT_ORDER[mb_no * 4 + blk_no][1];
+                            if (bx >= blk_w) || (by >= blk_h) { continue; }
+                            nblocks += 1;
+                        }
+                        self.mb_blocks.push(nblocks);
+                        nmbs += 1;
+                    }
+                    self.sb_mbs.push(nmbs);
+
                     let mut nblocks = 0;
                     for blk_no in 0..16 {
                         let bx = x * 4 + HILBERT_ORDER[blk_no][0];
@@ -990,6 +1400,7 @@ unimplemented!();
             base_idx += blk_w * blk_h;
         }
         self.blocks.resize(tot_blk, Block::new());
+        self.mb_coded.resize(tot_mb, false);
     }
 }
 
@@ -1032,6 +1443,7 @@ impl NADecoder for VP34Decoder {
         let mut buf = ret.unwrap();
         let mut dframe = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
         match self.version {
+            30 => self.decode_vp30(&mut br, &mut dframe)?,
             31 => self.decode_vp31(&mut br, &mut dframe)?,
              4 => self.decode_vp4()?,
              _ => return Err(DecoderError::Bug),
@@ -1066,17 +1478,27 @@ mod test {
     use nihav_commonfmt::demuxers::generic_register_all_demuxers;
 
     #[test]
-    fn test_vp3() {
+    fn test_vp30() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-//        let file = "assets/Duck/vp30-logo.avi";
+        let file = "assets/Duck/vp30-logo.avi";
+        test_file_decoding("avi", file, Some(23), true, false, Some("vp30"), &dmx_reg, &dec_reg);
+    }
+
+    #[test]
+    fn test_vp31() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        duck_register_all_codecs(&mut dec_reg);
+
         let file = "assets/Duck/vp31.avi";
 //        let file = "assets/Duck/vp31_crash.avi";
 //        let file = "assets/Duck/01-vp31-0500.avi";
-        test_file_decoding("avi", file, Some(3), true, false, Some("vp3"), &dmx_reg, &dec_reg);
+        test_file_decoding("avi", file, Some(3), true, false, Some("vp31"), &dmx_reg, &dec_reg);
 //panic!("end");
     }
 
@@ -1905,4 +2327,171 @@ const VP31_DC_WEIGHTS: [[i16; 5]; 16] = [
     [ 75,   0,  0, 53, 128 ],
     [  0,   3, 10,  3,  16 ],
     [ 29, -26, 29,  0,  32 ],
+];
+
+const VP30_DC_SCALES: [i16; 64] = [
+    24, 20, 20, 20, 20, 20, 20, 20,
+    19, 19, 19, 19, 18, 18, 18, 18,
+    17, 17, 17, 17, 16, 16, 15, 15,
+    14, 14, 13, 13, 12, 12, 11, 11,
+    10, 10,  9,  9,  8,  8,  7,  7,
+     6,  6,  6,  6,  5,  5,  5,  5,
+     4,  4,  4,  4,  3,  3,  3,  3,
+     2,  2,  2,  2,  1,  1,  1,  1
+];
+
+const VP30_AC_SCALES: [i16; 64] = [
+    3000, 2500, 2000, 1500, 1200, 1000, 900, 800,
+     750,  700,  650,  630,  600,  550, 500, 450,
+     410,  380,  350,  320,  290,  260, 240, 220,
+     200,  180,  165,  150,  140,  130, 120, 115,
+     110,  100,   95,   90,   85,   80,  75,  70,
+      67,   65,   63,   61,   57,   55,  53,  50,
+      49,   46,   44,   42,   39,   36,  33,  30,
+      27,   24,   21,   19,   17,   15,  12,  10
+];
+
+const VP30_DC_CODES: [[u16; 32]; 5] = [
+  [
+    0x0005, 0x002D, 0x0004, 0x0009, 0x0088, 0x0225, 0x0224, 0x0005,
+    0x0011, 0x0007, 0x0006, 0x0009, 0x000A, 0x0007, 0x0017, 0x000C,
+    0x002C, 0x0005, 0x0008, 0x0003, 0x0012, 0x0010, 0x0113, 0x0003,
+    0x0010, 0x0000, 0x0013, 0x001A, 0x0023, 0x0045, 0x0001, 0x001B
+  ], [
+    0x000B, 0x0012, 0x0029, 0x0010, 0x000D, 0x00A2, 0x0020, 0x0009,
+    0x0050, 0x0007, 0x0006, 0x0006, 0x0005, 0x0002, 0x0008, 0x0027,
+    0x0005, 0x0022, 0x0023, 0x0057, 0x00A3, 0x0011, 0x0021, 0x0007,
+    0x0000, 0x0009, 0x002A, 0x0003, 0x0007, 0x0026, 0x000C, 0x0056
+  ], [
+    0x000D, 0x0018, 0x0009, 0x0017, 0x0033, 0x0056, 0x00F7, 0x00F1,
+    0x007A, 0x0000, 0x0007, 0x0009, 0x0008, 0x0005, 0x000D, 0x002D,
+    0x0010, 0x001D, 0x001C, 0x0057, 0x00CB, 0x00F6, 0x00F0, 0x0014,
+    0x000C, 0x002C, 0x0011, 0x001F, 0x002A, 0x0064, 0x00CA, 0x0079
+  ], [
+    0x000F, 0x001A, 0x0013, 0x001B, 0x003B, 0x0072, 0x01D3, 0x0707,
+    0x0E0D, 0x0001, 0x0000, 0x000C, 0x000B, 0x0008, 0x0012, 0x002A,
+    0x0073, 0x0028, 0x0075, 0x0056, 0x0052, 0x01C0, 0x0E0C, 0x0071,
+    0x0057, 0x00E1, 0x00A6, 0x00E8, 0x00A7, 0x03A5, 0x03A4, 0x0382
+  ], [
+    0x000F, 0x001B, 0x0014, 0x001D, 0x0010, 0x0073, 0x00E2, 0x023C,
+    0x11C9, 0x0001, 0x0000, 0x000C, 0x000B, 0x0009, 0x0015, 0x0035,
+    0x0072, 0x0034, 0x0022, 0x0070, 0x0046, 0x011D, 0x11C8, 0x01C7,
+    0x01C6, 0x0238, 0x047E, 0x023E, 0x0473, 0x08E5, 0x023D, 0x047F
+  ]
+];
+const VP30_DC_BITS: [[u8; 32]; 5] = [
+  [
+     4,  6,  6,  6,  8, 10, 10,  6,  7,  3,  3,  4,  4,  4,  5,  5,
+     6,  5,  5,  5,  6,  7,  9,  4,  5,  5,  6,  6,  6,  7,  5,  6
+  ], [
+     4,  5,  6,  5,  6,  8,  9,  7,  7,  3,  3,  4,  4,  4,  5,  6,
+     6,  6,  6,  7,  8,  8,  9,  4,  4,  5,  6,  5,  5,  6,  6,  7
+  ], [
+     4,  5,  5,  5,  6,  7,  9,  9,  8,  2,  3,  4,  4,  4,  5,  6,
+     6,  6,  6,  7,  8,  9,  9,  5,  5,  6,  6,  6,  6,  7,  8,  8
+  ], [
+     4,  5,  5,  5,  6,  7,  9, 11, 12,  2,  2,  4,  4,  4,  5,  6,
+     7,  6,  7,  7,  7,  9, 12,  7,  7,  8,  8,  8,  8, 10, 10, 10
+  ], [
+     4,  5,  5,  5,  5,  7,  8, 10, 13,  2,  2,  4,  4,  4,  5,  6,
+     7,  6,  6,  7,  7,  9, 13,  9,  9, 10, 11, 10, 11, 12, 10, 11
+  ]
+];
+const VP30_AC_INTRA_CODES: [[u16; 32]; 5] = [
+  [
+    0x0008, 0x0033, 0x0008, 0x004B, 0x0089, 0x0221, 0x0220, 0x001F,
+    0x0045, 0x0000, 0x000E, 0x000B, 0x000A, 0x000D, 0x0006, 0x001E,
+    0x000A, 0x0018, 0x0013, 0x0005, 0x0009, 0x0046, 0x0111, 0x0007,
+    0x000B, 0x0032, 0x0010, 0x004A, 0x0024, 0x0047, 0x0003, 0x0009
+  ], [
+    0x000E, 0x000E, 0x007B, 0x001E, 0x007E, 0x03EF, 0x07DD, 0x0018,
+    0x00FA, 0x0002, 0x0000, 0x000A, 0x0008, 0x000B, 0x0003, 0x0012,
+    0x0033, 0x000C, 0x003C, 0x001A, 0x007F, 0x01F6, 0x07DC, 0x000D,
+    0x0013, 0x0004, 0x001B, 0x007A, 0x0032, 0x007C, 0x001F, 0x0005
+  ], [
+    0x0000, 0x0018, 0x0034, 0x000C, 0x006A, 0x01F9, 0x07EA, 0x0016,
+    0x0FD7, 0x0002, 0x0001, 0x000A, 0x0009, 0x0007, 0x001B, 0x003E,
+    0x0020, 0x0021, 0x006B, 0x01FB, 0x03F4, 0x1FAD, 0x1FAC, 0x000E,
+    0x0019, 0x0011, 0x002F, 0x007F, 0x002E, 0x01F8, 0x001E, 0x000D
+  ], [
+    0x000E, 0x0016, 0x002E, 0x0003, 0x006E, 0x008B, 0x0113, 0x0018,
+    0x0221, 0x0001, 0x0002, 0x000A, 0x0009, 0x0007, 0x001A, 0x0002,
+    0x001B, 0x0023, 0x006F, 0x008A, 0x0111, 0x0441, 0x0440, 0x000F,
+    0x0019, 0x0010, 0x0036, 0x001A, 0x002F, 0x0112, 0x0000, 0x000C
+  ], [
+    0x000E, 0x000F, 0x001B, 0x0033, 0x005A, 0x00B6, 0x0008, 0x001A,
+    0x004D, 0x0001, 0x0002, 0x000A, 0x0009, 0x0008, 0x001B, 0x0003,
+    0x002C, 0x002E, 0x0005, 0x00B7, 0x0027, 0x0099, 0x0098, 0x000F,
+    0x0018, 0x000E, 0x002F, 0x001A, 0x0032, 0x0012, 0x0000, 0x000C
+  ]
+];
+const VP30_AC_INTRA_BITS: [[u8; 32]; 5] = [
+  [
+     4,  6,  6,  7,  9, 11, 11,  5,  8,  3,  4,  4,  4,  4,  4,  5,
+     5,  5,  5,  5,  6,  8, 10,  4,  5,  6,  6,  7,  6,  8,  4,  5
+  ], [
+     4,  5,  7,  6,  8, 11, 12,  5,  9,  3,  3,  4,  4,  4,  4,  5,
+     6,  5,  6,  6,  8, 10, 12,  4,  5,  5,  6,  7,  6,  8,  5,  5
+  ], [
+     3,  5,  6,  5,  7,  9, 11,  5, 12,  3,  3,  4,  4,  4,  5,  6,
+     6,  6,  7,  9, 10, 13, 13,  4,  5,  5,  6,  7,  6,  9,  5,  5
+  ], [
+     4,  5,  6,  5,  7,  8,  9,  5, 10,  3,  3,  4,  4,  4,  5,  5,
+     6,  6,  7,  8,  9, 11, 11,  4,  5,  5,  6,  6,  6,  9,  4,  5
+  ], [
+     4,  5,  6,  6,  7,  8,  7,  5, 10,  3,  3,  4,  4,  4,  5,  5,
+     6,  6,  6,  8,  9, 11, 11,  4,  5,  5,  6,  6,  6,  8,  4,  5
+  ]
+];
+const VP30_AC_INTER_CODES: [[u16; 32]; 5] = [
+  [
+    0x000D, 0x0038, 0x0061, 0x0060, 0x0393, 0x1C95, 0x1C94, 0x0014,
+    0x0073, 0x0001, 0x0000, 0x000B, 0x0009, 0x001D, 0x000E, 0x0022,
+    0x0046, 0x0047, 0x00E5, 0x01C8, 0x0724, 0x1C97, 0x1C96, 0x000F,
+    0x0006, 0x0019, 0x000F, 0x0031, 0x0004, 0x0010, 0x0005, 0x0015
+  ], [
+    0x0004, 0x001B, 0x0030, 0x0034, 0x00D5, 0x06B3, 0x3595, 0x0031,
+    0x001A, 0x0002, 0x0001, 0x001F, 0x001E, 0x000C, 0x001B, 0x00D7,
+    0x00D4, 0x01AD, 0x0358, 0x0D64, 0x3594, 0x3597, 0x3596, 0x0000,
+    0x000A, 0x001D, 0x0017, 0x0039, 0x0007, 0x0019, 0x0016, 0x0038
+  ], [
+    0x0005, 0x0009, 0x001A, 0x001E, 0x001F, 0x00E2, 0x038E, 0x0070,
+    0x003B, 0x0001, 0x0000, 0x0019, 0x0018, 0x001E, 0x003A, 0x01C6,
+    0x071E, 0x0E3E, 0x1C7E, 0x71FD, 0x71FC, 0x71FF, 0x71FE, 0x0002,
+    0x0008, 0x001D, 0x001B, 0x0039, 0x001F, 0x000D, 0x000C, 0x001C
+  ], [
+    0x0003, 0x000B, 0x001C, 0x000D, 0x0004, 0x000A, 0x0076, 0x00E8,
+    0x01DC, 0x0001, 0x0000, 0x0033, 0x0032, 0x00E9, 0x03BB, 0x0774,
+    0x1DD5, 0x3BAD, 0x3BAC, 0x3BAF, 0x3BAE, 0x3BA9, 0x3BA8, 0x0004,
+    0x000A, 0x001F, 0x001E, 0x0030, 0x000B, 0x0075, 0x0031, 0x00EF
+  ], [
+    0x0009, 0x001E, 0x000F, 0x000E, 0x000C, 0x0008, 0x0001, 0x00E3,
+    0x00E2, 0x0002, 0x0000, 0x003A, 0x0039, 0x0070, 0x01DC, 0x0776,
+    0x0775, 0x0EEF, 0x0EE8, 0x1DD3, 0x1DD2, 0x1DDD, 0x1DDC, 0x0005,
+    0x001F, 0x001B, 0x0006, 0x006A, 0x0034, 0x0076, 0x006B, 0x00EF
+  ]
+];
+const VP30_AC_INTER_BITS: [[u8; 32]; 5] = [
+  [
+     4,  6,  7,  7, 10, 13, 13,  5,  7,  3,  3,  4,  4,  5,  5,  6,
+     7,  7,  8,  9, 11, 13, 13,  4,  4,  5,  5,  6,  4,  5,  4,  5
+  ], [
+     3,  5,  6,  6,  8, 11, 14,  6,  6,  3,  3,  5,  5,  5,  6,  8,
+     8,  9, 10, 12, 14, 14, 14,  3,  4,  5,  5,  6,  4,  5,  5,  6
+  ], [
+     3,  4,  5,  5,  6,  8, 10,  7,  7,  3,  3,  5,  5,  6,  7,  9,
+    11, 12, 13, 15, 15, 15, 15,  3,  4,  5,  5,  6,  5,  5,  5,  6
+  ], [
+     3,  4,  5,  4,  4,  5,  7,  8,  9,  3,  3,  6,  6,  8, 10, 11,
+    13, 14, 14, 14, 14, 14, 14,  3,  4,  5,  5,  6,  5,  7,  6,  8
+  ], [
+     4,  5,  5,  4,  4,  4,  3,  9,  9,  3,  3,  7,  7,  8, 10, 12,
+    12, 13, 13, 14, 14, 14, 14,  3,  5,  5,  4,  7,  6,  8,  7,  9
+  ]
+];
+const VP30_MBTYPE_CODES: [u8; 7] = [ 0x00, 0x08, 0x0A, 0x03, 0x0B, 0x13, 0x12 ];
+const VP30_MBTYPE_BITS: [u8; 7] = [ 1, 4, 4, 2, 4, 5, 5 ];
+const VP30_MBTYPE_SYMS: [VPMBType; 7] = [
+    VPMBType::InterNoMV,    VPMBType::Intra,        VPMBType::InterMV,      VPMBType::InterNearest,
+    VPMBType::GoldenNoMV,   VPMBType::GoldenMV,     VPMBType::InterFourMV
 ];
