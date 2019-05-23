@@ -14,7 +14,11 @@ enum SBState {
     Uncoded,
 }
 
-struct VP3Codes {
+fn map_idx(idx: usize) -> u8 {
+    idx as u8
+}
+
+struct VP31Codes {
     dc_cb:      [Codebook<u8>; 16],
     ac0_cb:     [Codebook<u8>; 16],
     ac1_cb:     [Codebook<u8>; 16],
@@ -22,11 +26,7 @@ struct VP3Codes {
     ac3_cb:     [Codebook<u8>; 16],
 }
 
-fn map_idx(idx: usize) -> u8 {
-    idx as u8
-}
-
-impl VP3Codes {
+impl VP31Codes {
     fn new() -> Self {
         let mut dc_cb: [Codebook<u8>; 16];
         let mut ac0_cb: [Codebook<u8>; 16];
@@ -40,20 +40,20 @@ impl VP3Codes {
             ac2_cb = mem::uninitialized();
             ac3_cb = mem::uninitialized();
             for i in 0..16 {
-                let mut cr = TableCodebookDescReader::new(&VP3_DC_CODES[i], &VP3_DC_BITS[i], map_idx);
+                let mut cr = TableCodebookDescReader::new(&VP31_DC_CODES[i], &VP31_DC_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
                 ptr::write(&mut dc_cb[i], cb);
 
-                let mut cr = TableCodebookDescReader::new(&VP3_AC_CAT0_CODES[i], &VP3_AC_CAT0_BITS[i], map_idx);
+                let mut cr = TableCodebookDescReader::new(&VP31_AC_CAT0_CODES[i], &VP31_AC_CAT0_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
                 ptr::write(&mut ac0_cb[i], cb);
-                let mut cr = TableCodebookDescReader::new(&VP3_AC_CAT1_CODES[i], &VP3_AC_CAT1_BITS[i], map_idx);
+                let mut cr = TableCodebookDescReader::new(&VP31_AC_CAT1_CODES[i], &VP31_AC_CAT1_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
                 ptr::write(&mut ac1_cb[i], cb);
-                let mut cr = TableCodebookDescReader::new(&VP3_AC_CAT2_CODES[i], &VP3_AC_CAT2_BITS[i], map_idx);
+                let mut cr = TableCodebookDescReader::new(&VP31_AC_CAT2_CODES[i], &VP31_AC_CAT2_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
                 ptr::write(&mut ac2_cb[i], cb);
-                let mut cr = TableCodebookDescReader::new(&VP3_AC_CAT3_CODES[i], &VP3_AC_CAT3_BITS[i], map_idx);
+                let mut cr = TableCodebookDescReader::new(&VP31_AC_CAT3_CODES[i], &VP31_AC_CAT3_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
                 ptr::write(&mut ac3_cb[i], cb);
             }
@@ -87,19 +87,19 @@ impl Block {
 
 type ReadRunFunc = fn (&mut BitReader) -> DecoderResult<usize>;
 
-const VP3_LONG_RUN_BASE: [usize; 7] = [ 1, 2, 4, 6, 10, 18, 34 ];
-const VP3_LONG_RUN_BITS: [u8;    7] = [ 0, 1, 1, 2,  3,  4, 12 ];
+const VP31_LONG_RUN_BASE: [usize; 7] = [ 1, 2, 4, 6, 10, 18, 34 ];
+const VP31_LONG_RUN_BITS: [u8;    7] = [ 0, 1, 1, 2,  3,  4, 12 ];
 fn read_long_run(br: &mut BitReader) -> DecoderResult<usize> {
     let pfx                                     = br.read_code(UintCodeType::LimitedUnary(6, 0))? as usize;
     if pfx == 0 { return Ok(1); }
-    Ok(VP3_LONG_RUN_BASE[pfx] + (br.read(VP3_LONG_RUN_BITS[pfx])? as usize))
+    Ok(VP31_LONG_RUN_BASE[pfx] + (br.read(VP31_LONG_RUN_BITS[pfx])? as usize))
 }
 
-const VP3_SHORT_RUN_BASE: [usize; 6] = [ 1, 3, 5, 7, 11, 15 ];
-const VP3_SHORT_RUN_BITS: [u8;    6] = [ 1, 1, 1, 2,  2,  4 ];
+const VP31_SHORT_RUN_BASE: [usize; 6] = [ 1, 3, 5, 7, 11, 15 ];
+const VP31_SHORT_RUN_BITS: [u8;    6] = [ 1, 1, 1, 2,  2,  4 ];
 fn read_short_run(br: &mut BitReader) -> DecoderResult<usize> {
     let pfx                                     = br.read_code(UintCodeType::LimitedUnary(5, 0))? as usize;
-    Ok(VP3_SHORT_RUN_BASE[pfx] + (br.read(VP3_SHORT_RUN_BITS[pfx])? as usize))
+    Ok(VP31_SHORT_RUN_BASE[pfx] + (br.read(VP31_SHORT_RUN_BITS[pfx])? as usize))
 }
 
 struct BitRunDecoder {
@@ -133,7 +133,7 @@ struct VP34Decoder {
     is_intra:   bool,
     quant:      usize,
     shuf:       VPShuffler,
-    codes:      VP3Codes,
+    codes:      VP31Codes,
     loop_str:   i16,
 
     blocks:     Vec<Block>,
@@ -214,6 +214,113 @@ fn rescale_qmat(dst_qmat: &mut [i16; 64], base_qmat: &[i16; 64], dc_quant: i16, 
     dst_qmat[0] = (base_qmat[0] * dc_quant / 100).max(4) << 2;
 }
 
+fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, coef_no: usize, token: u8) -> DecoderResult<()> {
+    match token {
+        // EOBs
+        0 | 1 | 2 => { *eob_run = (token as usize) + 1; },
+        3 | 4 | 5 => {
+            let bits = token - 1;
+            *eob_run                            = (br.read(bits)? as usize) + (1 << bits);
+        },
+        6 => { *eob_run                         = br.read(12)? as usize; },
+        // zero runs
+        7 | 8 => {
+            let bits = if token == 7 { 3 } else { 6 };
+            let run                             = (br.read(bits)? as usize) + 1;
+            blk.idx += run;
+            validate!(blk.idx <= 64);
+        },
+        // single coefficients
+        9 | 10 | 11 | 12 => {
+            let val = (i16::from(token) - 7) >> 1;
+            if (token & 1) == 1 {
+                blk.coeffs[ZIGZAG[blk.idx]] = val;
+            } else {
+                blk.coeffs[ZIGZAG[blk.idx]] = -val;
+            }
+            blk.idx += 1;
+        },
+        13 | 14 | 15 | 16 => {
+            let val = i16::from(token) - 10;
+            if !br.read_bool()? {
+                blk.coeffs[ZIGZAG[blk.idx]] = val;
+            } else {
+                blk.coeffs[ZIGZAG[blk.idx]] = -val;
+            }
+            blk.idx += 1;
+        },
+        17 | 18 | 19 | 20 | 21 | 22 => {
+            let add_bits = if token == 22 { 9 } else { token - 16 };
+            let sign                            = br.read_bool()?;
+            let val                             = (br.read(add_bits)? as i16) + VP3_LITERAL_BASE[(token - 17) as usize];
+            if !sign {
+                blk.coeffs[ZIGZAG[blk.idx]] = val;
+            } else {
+                blk.coeffs[ZIGZAG[blk.idx]] = -val;
+            }
+            blk.idx += 1;
+        }
+        // zero run plus coefficient
+        23 | 24 | 25 | 26 | 27 => {
+            blk.idx += (token - 22) as usize;
+            validate!(blk.idx < 64);
+            if !br.read_bool()? {
+                blk.coeffs[ZIGZAG[blk.idx]] = 1;
+            } else {
+                blk.coeffs[ZIGZAG[blk.idx]] = -1;
+            }
+            blk.idx += 1;
+        },
+        28 | 29 => {
+            let run_bits = token - 26;
+            if token == 28 {
+                blk.idx += 6;
+            } else {
+                blk.idx += 10;
+            }
+            let sign                            = br.read_bool()?;
+            blk.idx                            += br.read(run_bits)? as usize;
+            validate!(blk.idx < 64);
+            if !sign {
+                blk.coeffs[ZIGZAG[blk.idx]] = 1;
+            } else {
+                blk.coeffs[ZIGZAG[blk.idx]] = -1;
+            }
+            blk.idx += 1;
+        },
+        30 => {
+            blk.idx += 1;
+            validate!(blk.idx < 64);
+            let sign                            = br.read_bool()?;
+            let val                             = (br.read(1)? as i16) + 2;
+            if !sign {
+                blk.coeffs[ZIGZAG[blk.idx]] = val;
+            } else {
+                blk.coeffs[ZIGZAG[blk.idx]] = -val;
+            }
+            blk.idx += 1;
+        },
+        _ => {
+            let sign                            = br.read_bool()?;
+            let val                             = (br.read(1)? as i16) + 2;
+            blk.idx                            += (br.read(1)? as usize) + 2;
+            validate!(blk.idx < 64);
+            if !sign {
+                blk.coeffs[ZIGZAG[blk.idx]] = val;
+            } else {
+                blk.coeffs[ZIGZAG[blk.idx]] = -val;
+            }
+            blk.idx += 1;
+        },
+    };
+    if *eob_run > 0 {
+        blk.idx = 64;
+        *eob_run -= 1;
+    } else if coef_no > 0 {
+        blk.has_ac = true;
+    }
+    Ok(())
+}
 macro_rules! fill_dc_pred {
     ($self: expr, $ref_id: expr, $pred: expr, $pp: expr, $bit: expr, $idx: expr) => {
         if $self.blocks[$idx].coded && $self.blocks[$idx].btype.get_ref_id() == $ref_id {
@@ -272,7 +379,7 @@ fn vp3_interp11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: 
     }
 }
 
-fn vp3_loop_filter(data: &mut [u8], mut off: usize, step: usize, stride: usize, loop_str: i16) {
+fn vp31_loop_filter(data: &mut [u8], mut off: usize, step: usize, stride: usize, loop_str: i16) {
     for _ in 0..8 {
         let a = data[off - step * 2] as i16;
         let b = data[off - step] as i16;
@@ -297,14 +404,14 @@ fn vp3_loop_filter(data: &mut [u8], mut off: usize, step: usize, stride: usize, 
     }
 }
 
-fn vp3_loop_filter_v(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plane: usize, loop_str: i16) {
+fn vp31_loop_filter_v(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plane: usize, loop_str: i16) {
     let off = frm.offset[plane] + x + y * frm.stride[plane];
-    vp3_loop_filter(frm.data, off, 1, frm.stride[plane], loop_str);
+    vp31_loop_filter(frm.data, off, 1, frm.stride[plane], loop_str);
 }
 
-fn vp3_loop_filter_h(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plane: usize, loop_str: i16) {
+fn vp31_loop_filter_h(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plane: usize, loop_str: i16) {
     let off = frm.offset[plane] + x + y * frm.stride[plane];
-    vp3_loop_filter(frm.data, off, frm.stride[plane], 1, loop_str);
+    vp31_loop_filter(frm.data, off, frm.stride[plane], 1, loop_str);
 }
 
 pub const VP3_INTERP_FUNCS: &[blockdsp::BlkInterpFunc] = &[ vp3_interp00, vp3_interp01, vp3_interp10, vp3_interp11 ];
@@ -321,7 +428,7 @@ impl VP34Decoder {
             is_intra:   true,
             quant:      0,
             shuf:       VPShuffler::new(),
-            codes:      VP3Codes::new(),
+            codes:      VP31Codes::new(),
             loop_str:   0,
 
             blocks:     Vec::new(),
@@ -344,7 +451,7 @@ impl VP34Decoder {
         self.is_intra                           = !br.read_bool()?;
                                                   br.skip(1)?;
         self.quant                              = br.read(6)? as usize;
-        self.loop_str = VP3_LOOP_STRENGTH[self.quant];
+        self.loop_str = VP31_LOOP_STRENGTH[self.quant];
 println!("quant = {}", self.quant);
         if self.is_intra {
             if br.peek(8) != 0 {
@@ -359,7 +466,7 @@ println!("intra, ver {} (self {})", version, self.version);
         }
         Ok(())
     }
-    fn unpack_sb_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+    fn vp31_unpack_sb_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         let mut has_uncoded = false;
         let mut has_partial = false;
         {
@@ -413,16 +520,16 @@ println!("intra, ver {} (self {})", version, self.version);
         }
         Ok(())
     }
-    fn unpack_mb_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+    fn vp31_unpack_mb_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         let mut modes = [VPMBType::InterNoMV; 8];
         let alphabet                            = br.read(3)? as usize;
         let raw_modes = alphabet >= 7;
         if alphabet == 0 {
-            for mode in VP3_DEFAULT_MB_MODES.iter() {
+            for mode in VP31_DEFAULT_MB_MODES.iter() {
                 modes[br.read(3)? as usize] = *mode;
             }
         } else if alphabet < 7 {
-            modes.copy_from_slice(&VP3_MB_MODES[alphabet - 1]);
+            modes.copy_from_slice(&VP31_MB_MODES[alphabet - 1]);
         }
 
         let mut cur_blk = 0;
@@ -450,7 +557,7 @@ println!("intra, ver {} (self {})", version, self.version);
                             let code            = br.read_code(UintCodeType::LimitedUnary(7, 0))?;
                             modes[code as usize]
                         } else {
-                                                VP3_DEFAULT_MB_MODES[br.read(3)? as usize]
+                                                VP31_DEFAULT_MB_MODES[br.read(3)? as usize]
                         };
                     for _ in 0..4 {
                         self.blocks[self.blk_addr[cur_blk] >> 2].btype = mode;
@@ -475,7 +582,7 @@ println!("intra, ver {} (self {})", version, self.version);
         }
         Ok(())
     }
-    fn unpack_mv_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
+    fn vp31_unpack_mv_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         let mut last_mv = ZERO_MV;
         let mut last2_mv = ZERO_MV;
         let read_mv                             = if br.read_bool()? { read_mv_raw } else { read_mv_packed };
@@ -522,7 +629,7 @@ println!("intra, ver {} (self {})", version, self.version);
         }
         Ok(())
     }
-    fn unpack_coeffs(&mut self, br: &mut BitReader, coef_no: usize, table_y: usize, table_c: usize) -> DecoderResult<()> {
+    fn vp31_unpack_coeffs(&mut self, br: &mut BitReader, coef_no: usize, table_y: usize, table_c: usize) -> DecoderResult<()> {
         let cbs = if coef_no == 0 {
                 [&self.codes.dc_cb[table_y], &self.codes.dc_cb[table_c]]
             } else if coef_no < 6 {
@@ -544,114 +651,11 @@ println!("intra, ver {} (self {})", version, self.version);
             }
             let cb = if (blkaddr & 3) == 0 { cbs[0] } else { cbs[1] };
             let token                           = br.read_cb(cb)?;
-            match token {
-                // EOBs
-                0 | 1 | 2 => { self.eob_run = (token as usize) + 1; },
-                3 | 4 | 5 => {
-                    let bits = token - 1;
-                    self.eob_run                = (br.read(bits)? as usize) + (1 << bits);
-                },
-                6 => { self.eob_run             = br.read(12)? as usize; },
-                // zero runs
-                7 | 8 => {
-                    let bits = if token == 7 { 3 } else { 6 };
-                    let run                     = (br.read(bits)? as usize) + 1;
-                    blk.idx += run;
-                    validate!(blk.idx <= 64);
-                },
-                // single coefficients
-                9 | 10 | 11 | 12 => {
-                    let val = (i16::from(token) - 7) >> 1;
-                    if (token & 1) == 1 {
-                        blk.coeffs[ZIGZAG[blk.idx]] = val;
-                    } else {
-                        blk.coeffs[ZIGZAG[blk.idx]] = -val;
-                    }
-                    blk.idx += 1;
-                },
-                13 | 14 | 15 | 16 => {
-                    let val = i16::from(token) - 10;
-                    if !br.read_bool()? {
-                        blk.coeffs[ZIGZAG[blk.idx]] = val;
-                    } else {
-                        blk.coeffs[ZIGZAG[blk.idx]] = -val;
-                    }
-                    blk.idx += 1;
-                },
-                17 | 18 | 19 | 20 | 21 | 22 => {
-                    let add_bits = if token == 22 { 9 } else { token - 16 };
-                    let sign                    = br.read_bool()?;
-                    let val                     = (br.read(add_bits)? as i16) + VP3_LITERAL_BASE[(token - 17) as usize];
-                    if !sign {
-                        blk.coeffs[ZIGZAG[blk.idx]] = val;
-                    } else {
-                        blk.coeffs[ZIGZAG[blk.idx]] = -val;
-                    }
-                    blk.idx += 1;
-                }
-                // zero run plus coefficient
-                23 | 24 | 25 | 26 | 27 => {
-                    blk.idx += (token - 22) as usize;
-                    validate!(blk.idx < 64);
-                    if !br.read_bool()? {
-                        blk.coeffs[ZIGZAG[blk.idx]] = 1;
-                    } else {
-                        blk.coeffs[ZIGZAG[blk.idx]] = -1;
-                    }
-                    blk.idx += 1;
-                },
-                28 | 29 => {
-                    let run_bits = token - 26;
-                    if token == 28 {
-                        blk.idx += 6;
-                    } else {
-                        blk.idx += 10;
-                    }
-                    let sign                    = br.read_bool()?;
-                    blk.idx                     += br.read(run_bits)? as usize;
-                    validate!(blk.idx < 64);
-                    if !sign {
-                        blk.coeffs[ZIGZAG[blk.idx]] = 1;
-                    } else {
-                        blk.coeffs[ZIGZAG[blk.idx]] = -1;
-                    }
-                    blk.idx += 1;
-                },
-                30 => {
-                    blk.idx += 1;
-                    validate!(blk.idx < 64);
-                    let sign                    = br.read_bool()?;
-                    let val                     = (br.read(1)? as i16) + 2;
-                    if !sign {
-                        blk.coeffs[ZIGZAG[blk.idx]] = val;
-                    } else {
-                        blk.coeffs[ZIGZAG[blk.idx]] = -val;
-                    }
-                    blk.idx += 1;
-                },
-                _ => {
-                    let sign                    = br.read_bool()?;
-                    let val                     = (br.read(1)? as i16) + 2;
-                    blk.idx                    += (br.read(1)? as usize) + 2;
-                    validate!(blk.idx < 64);
-                    if !sign {
-                        blk.coeffs[ZIGZAG[blk.idx]] = val;
-                    } else {
-                        blk.coeffs[ZIGZAG[blk.idx]] = -val;
-                    }
-                    blk.idx += 1;
-                },
-            };
-            if self.eob_run > 0 {
-                blk.idx = 64;
-                self.eob_run -= 1;
-            } else if coef_no > 0 {
-                blk.has_ac = true;
-            }
+            expand_token(blk, br, &mut self.eob_run, coef_no, token)?;
         }
         Ok(())
     }
-    fn decode_vp3(&mut self, br: &mut BitReader, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
+    fn decode_vp31(&mut self, br: &mut BitReader, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
         for blk in self.blocks.iter_mut() {
             blk.coeffs = [0; 64];
             blk.idx = 0;
@@ -668,12 +672,12 @@ println!("intra, ver {} (self {})", version, self.version);
             if self.shuf.get_last().is_none() || self.shuf.get_golden().is_none() {
                 return Err(DecoderError::MissingReference);
             }
-            self.unpack_sb_info(br)?;
-            self.unpack_mb_info(br)?;
-            self.unpack_mv_info(br)?;
+            self.vp31_unpack_sb_info(br)?;
+            self.vp31_unpack_mb_info(br)?;
+            self.vp31_unpack_mv_info(br)?;
         }
-        let dc_quant = VP3_DC_SCALES[self.quant];
-        let ac_quant = VP3_AC_SCALES[self.quant];
+        let dc_quant = VP31_DC_SCALES[self.quant];
+        let ac_quant = VP31_AC_SCALES[self.quant];
         rescale_qmat(&mut self.qmat_y, VP3_QMAT_Y, dc_quant, ac_quant);
         rescale_qmat(&mut self.qmat_c, VP3_QMAT_C, dc_quant, ac_quant);
         rescale_qmat(&mut self.qmat_inter, VP3_QMAT_INTER, dc_quant, ac_quant);
@@ -681,13 +685,13 @@ println!("intra, ver {} (self {})", version, self.version);
         self.eob_run = 0;
         let dc_table_y                          = br.read(4)? as usize;
         let dc_table_c                          = br.read(4)? as usize;
-        self.unpack_coeffs(br, 0, dc_table_y, dc_table_c)?;
+        self.vp31_unpack_coeffs(br, 0, dc_table_y, dc_table_c)?;
         self.restore_dcs();
 
         let ac_table_y                          = br.read(4)? as usize;
         let ac_table_c                          = br.read(4)? as usize;
         for coef_no in 1..64 {
-            self.unpack_coeffs(br, coef_no, ac_table_y, ac_table_c)?;
+            self.vp31_unpack_coeffs(br, coef_no, ac_table_y, ac_table_c)?;
         }
 
         if self.is_intra {
@@ -696,7 +700,7 @@ println!("intra, ver {} (self {})", version, self.version);
             self.output_blocks_inter(frm);
         }
         if self.loop_str > 0 {
-            self.loop_filter(frm);
+            self.vp31_loop_filter(frm);
         }
 
         Ok(())
@@ -725,10 +729,10 @@ unimplemented!();
         let mut pred = 0i32;
         for i in 0..4 {
             if (pp & (1 << i)) != 0 {
-                pred += (preds[i] as i32) * (VP3_DC_WEIGHTS[pp][i] as i32);
+                pred += (preds[i] as i32) * (VP31_DC_WEIGHTS[pp][i] as i32);
             }
         }
-        pred /= VP3_DC_WEIGHTS[pp][4] as i32;
+        pred /= VP31_DC_WEIGHTS[pp][4] as i32;
         if (pp & 7) == 7 {
             if (pred - preds[2]).abs() > 128 { return preds[2] as i16; }
             if (pred - preds[0]).abs() > 128 { return preds[0] as i16; }
@@ -898,23 +902,23 @@ unimplemented!();
             }
         }
     }
-    fn loop_filter(&mut self, frm: &mut NASimpleVideoFrame<u8>) {
+    fn vp31_loop_filter(&mut self, frm: &mut NASimpleVideoFrame<u8>) {
         let mut blk_idx = 0;
         let blk_w = self.mb_w * 2;
         for by in 0..self.mb_h*2 {
             for bx in 0..blk_w {
                 let blk = &self.blocks[blk_idx + bx];
                 if (bx > 0) && blk.coded {
-                    vp3_loop_filter_v(frm, bx * 8, by * 8, 0, self.loop_str);
+                    vp31_loop_filter_v(frm, bx * 8, by * 8, 0, self.loop_str);
                 }
                 if (by > 0) && blk.coded {
-                    vp3_loop_filter_h(frm, bx * 8, by * 8, 0, self.loop_str);
+                    vp31_loop_filter_h(frm, bx * 8, by * 8, 0, self.loop_str);
                 }
                 if (bx < blk_w - 1) && !self.blocks[blk_idx + bx + 1].coded {
-                    vp3_loop_filter_v(frm, bx * 8 + 8, by * 8, 0, self.loop_str);
+                    vp31_loop_filter_v(frm, bx * 8 + 8, by * 8, 0, self.loop_str);
                 }
                 if (by < self.mb_h * 2 - 1) && !self.blocks[blk_idx + bx + blk_w].coded {
-                    vp3_loop_filter_h(frm, bx * 8, by * 8 + 8, 0, self.loop_str);
+                    vp31_loop_filter_h(frm, bx * 8, by * 8 + 8, 0, self.loop_str);
                 }
             }
             blk_idx += blk_w;
@@ -1007,7 +1011,7 @@ impl NADecoder for VP34Decoder {
         let mut buf = ret.unwrap();
         let mut dframe = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
         if self.version == 3 {
-            self.decode_vp3(&mut br, &mut dframe)?;
+            self.decode_vp31(&mut br, &mut dframe)?;
         } else {
             self.decode_vp4()?;
         }
@@ -1074,7 +1078,7 @@ const HILBERT_ORDER: [[usize; 2]; 16] = [
     [ 3, 1 ], [ 2, 1 ], [ 2, 0 ], [ 3, 0 ]
 ];
 
-const VP3_LOOP_STRENGTH: [i16; 64] = [
+const VP31_LOOP_STRENGTH: [i16; 64] = [
     30, 25, 20, 20, 15, 15, 14, 14,
     13, 13, 12, 12, 11, 11, 10, 10,
      9,  9,  8,  8,  7,  7,  7,  7,
@@ -1085,12 +1089,12 @@ const VP3_LOOP_STRENGTH: [i16; 64] = [
      0,  0,  0,  0,  0,  0,  0,  0
 ];
 
-const VP3_DEFAULT_MB_MODES: [VPMBType; 8] = [
+const VP31_DEFAULT_MB_MODES: [VPMBType; 8] = [
     VPMBType::InterNoMV,    VPMBType::Intra,        VPMBType::InterMV,      VPMBType::InterNearest,
     VPMBType::InterNear,    VPMBType::GoldenNoMV,   VPMBType::GoldenMV,     VPMBType::InterFourMV
 ];
 
-const VP3_MB_MODES: [[VPMBType; 8]; 6] = [
+const VP31_MB_MODES: [[VPMBType; 8]; 6] = [
   [
     VPMBType::InterNearest, VPMBType::InterNear,    VPMBType::InterMV,      VPMBType::InterNoMV,
     VPMBType::Intra,        VPMBType::GoldenNoMV,   VPMBType::GoldenMV,     VPMBType::InterFourMV
@@ -1114,7 +1118,7 @@ const VP3_MB_MODES: [[VPMBType; 8]; 6] = [
 
 const VP3_LITERAL_BASE: [i16; 6] = [ 7, 9, 13, 21, 37, 69 ];
 
-const VP3_AC_SCALES: [i16; 64] = [
+const VP31_AC_SCALES: [i16; 64] = [
     500, 450, 400, 370, 340, 310, 285, 265,
     245, 225, 210, 195, 185, 180, 170, 160,
     150, 145, 135, 130, 125, 115, 110, 107,
@@ -1125,7 +1129,7 @@ const VP3_AC_SCALES: [i16; 64] = [
      21,  19,  18,  17,  15,  13,  12,  10
 ];
 
-const VP3_DC_SCALES: [i16; 64] = [
+const VP31_DC_SCALES: [i16; 64] = [
     220, 200, 190, 180, 170, 170, 160, 160,
     150, 150, 140, 140, 130, 130, 120, 120,
     110, 110, 100, 100,  90,  90,  90,  80,
@@ -1180,7 +1184,7 @@ const ZIGZAG: [usize; 64] = [
     53, 60, 61, 54, 47, 55, 62, 63
 ];
 
-const VP3_DC_CODES: [[u16; 32]; 16] = [
+const VP31_DC_CODES: [[u16; 32]; 16] = [
   [
     0x002D, 0x0026, 0x0166, 0x004E, 0x02CE, 0x059E, 0x027D, 0x0008,
     0x04F9, 0x000F, 0x000E, 0x001B, 0x0006, 0x0008, 0x0005, 0x001A,
@@ -1264,7 +1268,7 @@ const VP3_DC_CODES: [[u16; 32]; 16] = [
   ]
 ];
 
-const VP3_DC_BITS: [[u8; 32]; 16] = [
+const VP31_DC_BITS: [[u8; 32]; 16] = [
   [
      6,  7,  9,  8, 10, 11, 11,  5, 12,  4,  4,  5,  4,  4,  4,  5,
      5,  4,  4,  3,  3,  4,  5,  6,  6,  8, 12, 11,  9, 10,  6,  7,
@@ -1316,7 +1320,7 @@ const VP3_DC_BITS: [[u8; 32]; 16] = [
   ]
 ];
 
-const VP3_AC_CAT0_CODES: [[u16; 32]; 16] = [
+const VP31_AC_CAT0_CODES: [[u16; 32]; 16] = [
   [
     0x0008, 0x0025, 0x017A, 0x02F7, 0x0BDB, 0x17B4, 0x2F6B, 0x001D,
     0x2F6A, 0x0008, 0x0007, 0x0001, 0x0002, 0x000A, 0x0006, 0x0000,
@@ -1400,7 +1404,7 @@ const VP3_AC_CAT0_CODES: [[u16; 32]; 16] = [
   ]
 ];
 
-const VP3_AC_CAT0_BITS: [[u8; 32]; 16] = [
+const VP31_AC_CAT0_BITS: [[u8; 32]; 16] = [
   [
      5,  7,  9, 10, 12, 13, 14,  5, 14,  4,  4,  4,  4,  4,  4,  4,
      5,  4,  4,  4,  4,  4,  5,  5,  6,  7,  7,  8,  7, 11,  5,  7,
@@ -1452,7 +1456,7 @@ const VP3_AC_CAT0_BITS: [[u8; 32]; 16] = [
   ]
 ];
 
-const VP3_AC_CAT1_CODES: [[u16; 32]; 16] = [
+const VP31_AC_CAT1_CODES: [[u16; 32]; 16] = [
   [
     0x000B, 0x002B, 0x0054, 0x01B7, 0x06D9, 0x0DB1, 0x0DB0, 0x0002,
     0x00AB, 0x0009, 0x000A, 0x0007, 0x0008, 0x000F, 0x000C, 0x0003,
@@ -1536,7 +1540,7 @@ const VP3_AC_CAT1_CODES: [[u16; 32]; 16] = [
   ]
 ];
 
-const VP3_AC_CAT1_BITS: [[u8; 32]; 16] = [
+const VP31_AC_CAT1_BITS: [[u8; 32]; 16] = [
   [
      5,  7,  8,  9, 11, 12, 12,  4,  9,  4,  4,  4,  4,  4,  4,  4,
      5,  4,  4,  4,  5,  6,  9,  4,  5,  6,  7,  8,  6, 10,  5,  6,
@@ -1588,7 +1592,7 @@ const VP3_AC_CAT1_BITS: [[u8; 32]; 16] = [
   ]
 ];
 
-const VP3_AC_CAT2_CODES: [[u16; 32]; 16] = [
+const VP31_AC_CAT2_CODES: [[u16; 32]; 16] = [
   [
     0x0003, 0x0009, 0x00D0, 0x01A3, 0x0344, 0x0D14, 0x1A2B, 0x0004,
     0x0015, 0x0000, 0x000F, 0x000B, 0x000C, 0x000E, 0x0009, 0x001B,
@@ -1672,7 +1676,7 @@ const VP3_AC_CAT2_CODES: [[u16; 32]; 16] = [
   ]
 ];
 
-const VP3_AC_CAT2_BITS: [[u8; 32]; 16] = [
+const VP31_AC_CAT2_BITS: [[u8; 32]; 16] = [
   [
      4,  6,  8,  9, 10, 12, 13,  4,  7,  3,  4,  4,  4,  4,  4,  5,
      5,  5,  5,  6,  7, 11, 13,  4,  5,  6,  6,  7,  6,  6,  4,  5,
@@ -1724,7 +1728,7 @@ const VP3_AC_CAT2_BITS: [[u8; 32]; 16] = [
   ]
 ];
 
-const VP3_AC_CAT3_CODES: [[u16; 32]; 16] = [
+const VP31_AC_CAT3_CODES: [[u16; 32]; 16] = [
   [
     0x0000, 0x0010, 0x0072, 0x0071, 0x0154, 0x0AAB, 0x0AA8, 0x0014,
     0x0070, 0x0002, 0x0003, 0x000C, 0x000B, 0x0003, 0x0011, 0x0073,
@@ -1808,7 +1812,7 @@ const VP3_AC_CAT3_CODES: [[u16; 32]; 16] = [
   ]
 ];
 
-const VP3_AC_CAT3_BITS: [[u8; 32]; 16] = [
+const VP31_AC_CAT3_BITS: [[u8; 32]; 16] = [
   [
      3,  5,  7,  7,  9, 12, 12,  5,  7,  3,  3,  4,  4,  4,  5,  7,
      7,  8, 10, 13, 13, 13, 13,  4,  5,  5,  6,  6,  4,  6,  5,  5,
@@ -1860,7 +1864,7 @@ const VP3_AC_CAT3_BITS: [[u8; 32]; 16] = [
   ]
 ];
 
-const VP3_DC_WEIGHTS: [[i16; 5]; 16] = [
+const VP31_DC_WEIGHTS: [[i16; 5]; 16] = [
     [  0,   0,  0,  0,   0 ],
     [  1,   0,  0,  0,   1 ],
     [  0,   1,  0,  0,   1 ],
