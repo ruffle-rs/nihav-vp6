@@ -62,6 +62,12 @@ impl VP31Codes {
     }
 }
 
+enum Codes {
+    None,
+//    VP30(VP30Codes),
+    VP31(VP31Codes),
+}
+
 #[derive(Clone)]
 struct Block {
     btype:      VPMBType,
@@ -133,7 +139,7 @@ struct VP34Decoder {
     is_intra:   bool,
     quant:      usize,
     shuf:       VPShuffler,
-    codes:      VP31Codes,
+    codes:      Codes,
     loop_str:   i16,
 
     blocks:     Vec<Block>,
@@ -428,7 +434,7 @@ impl VP34Decoder {
             is_intra:   true,
             quant:      0,
             shuf:       VPShuffler::new(),
-            codes:      VP31Codes::new(),
+            codes:      Codes::None,
             loop_str:   0,
 
             blocks:     Vec::new(),
@@ -459,10 +465,21 @@ println!("quant = {}", self.quant);
             }
             let version                         = br.read(13)?;
 println!("intra, ver {} (self {})", version, self.version);
-            validate!((self.version == 3 && version == 1) || (self.version == 4 && version == 3));
             let coding_type                     = br.read(1)?;
             validate!(coding_type == 0);
                                                   br.skip(2)?;
+            if version == 1 {
+                validate!(self.version == 3 || self.version == 31);
+                if self.version == 3 {
+                    self.version = 31;
+                    self.codes   = Codes::VP31(VP31Codes::new());
+                }
+            } else if version == 2 {
+                validate!(self.version == 4);
+                unimplemented!();
+            } else {
+                return Err(DecoderError::InvalidData);
+            }
         }
         Ok(())
     }
@@ -630,30 +647,34 @@ println!("intra, ver {} (self {})", version, self.version);
         Ok(())
     }
     fn vp31_unpack_coeffs(&mut self, br: &mut BitReader, coef_no: usize, table_y: usize, table_c: usize) -> DecoderResult<()> {
-        let cbs = if coef_no == 0 {
-                [&self.codes.dc_cb[table_y], &self.codes.dc_cb[table_c]]
-            } else if coef_no < 6 {
-                [&self.codes.ac0_cb[table_y], &self.codes.ac0_cb[table_c]]
-            } else if coef_no < 15 {
-                [&self.codes.ac1_cb[table_y], &self.codes.ac1_cb[table_c]]
-            } else if coef_no < 28 {
-                [&self.codes.ac2_cb[table_y], &self.codes.ac2_cb[table_c]]
-            } else {
-                [&self.codes.ac3_cb[table_y], &self.codes.ac3_cb[table_c]]
-            };
-        for blkaddr in self.blk_addr.iter() {
-            let blk: &mut Block = &mut self.blocks[blkaddr >> 2];
-            if !blk.coded || blk.idx != coef_no { continue; }
-            if self.eob_run > 0 {
-                blk.idx = 64;
-                self.eob_run -= 1;
-                continue;
+        if let Codes::VP31(ref codes) = self.codes {
+            let cbs = if coef_no == 0 {
+                    [&codes.dc_cb[table_y], &codes.dc_cb[table_c]]
+                } else if coef_no < 6 {
+                    [&codes.ac0_cb[table_y], &codes.ac0_cb[table_c]]
+                } else if coef_no < 15 {
+                    [&codes.ac1_cb[table_y], &codes.ac1_cb[table_c]]
+                } else if coef_no < 28 {
+                    [&codes.ac2_cb[table_y], &codes.ac2_cb[table_c]]
+                } else {
+                    [&codes.ac3_cb[table_y], &codes.ac3_cb[table_c]]
+                };
+            for blkaddr in self.blk_addr.iter() {
+                let blk: &mut Block = &mut self.blocks[blkaddr >> 2];
+                if !blk.coded || blk.idx != coef_no { continue; }
+                if self.eob_run > 0 {
+                    blk.idx = 64;
+                    self.eob_run -= 1;
+                    continue;
+                }
+                let cb = if (blkaddr & 3) == 0 { cbs[0] } else { cbs[1] };
+                let token                       = br.read_cb(cb)?;
+                expand_token(blk, br, &mut self.eob_run, coef_no, token)?;
             }
-            let cb = if (blkaddr & 3) == 0 { cbs[0] } else { cbs[1] };
-            let token                           = br.read_cb(cb)?;
-            expand_token(blk, br, &mut self.eob_run, coef_no, token)?;
+            Ok(())
+        } else {
+            Err(DecoderError::Bug)
         }
-        Ok(())
     }
     fn decode_vp31(&mut self, br: &mut BitReader, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
         for blk in self.blocks.iter_mut() {
@@ -1010,10 +1031,10 @@ impl NADecoder for VP34Decoder {
         }
         let mut buf = ret.unwrap();
         let mut dframe = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
-        if self.version == 3 {
-            self.decode_vp31(&mut br, &mut dframe)?;
-        } else {
-            self.decode_vp4()?;
+        match self.version {
+            31 => self.decode_vp31(&mut br, &mut dframe)?,
+             4 => self.decode_vp4()?,
+             _ => return Err(DecoderError::Bug),
         }
 
         if self.is_intra {
