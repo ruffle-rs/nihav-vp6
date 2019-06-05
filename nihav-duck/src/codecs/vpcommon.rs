@@ -186,3 +186,30 @@ pub fn vp_add_block_dc(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usiz
         off += frm.stride[plane];
     }
 }
+
+pub fn vp31_loop_filter(data: &mut [u8], mut off: usize, step: usize, stride: usize,
+                        len: usize, loop_str: i16) {
+    for _ in 0..len {
+        let a = data[off - step * 2] as i16;
+        let b = data[off - step] as i16;
+        let c = data[off] as i16;
+        let d = data[off + step] as i16;
+        let mut diff = ((a - d) + 3 * (c - b) + 4) >> 3;
+        if diff.abs() >= 2 * loop_str {
+            diff = 0;
+        } else if diff.abs() >= loop_str {
+            if diff < 0 {
+                diff = -diff - 2 * loop_str;
+            } else {
+                diff = -diff + 2 * loop_str;
+            }
+        }
+        if diff != 0 {
+            data[off - step] = (b + diff).max(0).min(255) as u8;
+            data[off]        = (c - diff).max(0).min(255) as u8;
+        }
+
+        off += stride;
+    }
+}
+

@@ -506,39 +506,14 @@ fn vp3_interp11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: 
     }
 }
 
-fn vp31_loop_filter(data: &mut [u8], mut off: usize, step: usize, stride: usize, loop_str: i16) {
-    for _ in 0..8 {
-        let a = data[off - step * 2] as i16;
-        let b = data[off - step] as i16;
-        let c = data[off] as i16;
-        let d = data[off + step] as i16;
-        let mut diff = ((a - d) + 3 * (c - b) + 4) >> 3;
-        if diff.abs() >= 2 * loop_str {
-            diff = 0;
-        } else if diff.abs() >= loop_str {
-            if diff < 0 {
-                diff = -diff - 2 * loop_str;
-            } else {
-                diff = -diff + 2 * loop_str;
-            }
-        }
-        if diff != 0 {
-            data[off - step] = (b + diff).max(0).min(255) as u8;
-            data[off]        = (c - diff).max(0).min(255) as u8;
-        }
-
-        off += stride;
-    }
-}
-
 fn vp31_loop_filter_v(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plane: usize, loop_str: i16) {
     let off = frm.offset[plane] + x + y * frm.stride[plane];
-    vp31_loop_filter(frm.data, off, 1, frm.stride[plane], loop_str);
+    vp31_loop_filter(frm.data, off, 1, frm.stride[plane], 8, loop_str);
 }
 
 fn vp31_loop_filter_h(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plane: usize, loop_str: i16) {
     let off = frm.offset[plane] + x + y * frm.stride[plane];
-    vp31_loop_filter(frm.data, off, frm.stride[plane], 1, loop_str);
+    vp31_loop_filter(frm.data, off, frm.stride[plane], 1, 8, loop_str);
 }
 
 pub const VP3_INTERP_FUNCS: &[blockdsp::BlkInterpFunc] = &[ vp3_interp00, vp3_interp01, vp3_interp10, vp3_interp11 ];
