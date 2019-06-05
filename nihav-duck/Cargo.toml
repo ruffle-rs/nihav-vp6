@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies.nihav_core]
 path = "../nihav-core"
-features = ["fft", "dsp_window"]
+features = ["fft", "dsp_window", "blockdsp"]
 
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt" }
