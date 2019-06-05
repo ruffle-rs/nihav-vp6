@@ -1,4 +1,5 @@
 use nihav_core::codecs::*;
+use nihav_core::codecs::blockdsp::*;
 
 #[derive(Clone,Copy,Debug,PartialEq)]
 #[allow(dead_code)]
@@ -213,3 +214,38 @@ pub fn vp31_loop_filter(data: &mut [u8], mut off: usize, step: usize, stride: us
     }
 }
 
+pub fn vp_copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>, comp: usize,
+                     dx: usize, dy: usize, mv_x: i16, mv_y: i16,
+                     preborder: usize, postborder: usize, loop_str: i16,
+                     mode: usize, interp: &[BlkInterpFunc], mut mc_buf: NAVideoBufferRef<u8>)
+{
+    let sx = (dx as isize) + (mv_x as isize);
+    let sy = (dy as isize) + (mv_y as isize);
+    if ((sx | sy) & 7) == 0 {
+        copy_block(dst, src, comp, dx, dy, mv_x, mv_y, 8, 8, preborder, postborder, mode, interp);
+        return;
+    }
+    let pre = preborder.max(2);
+    let post = postborder.max(1);
+    let bsize = 8 + pre + post;
+    let src_x = sx - (pre as isize);
+    let src_y = sy - (pre as isize);
+    {
+        let mut tmp_buf = NASimpleVideoFrame::from_video_buf(&mut mc_buf).unwrap();
+        copy_block(&mut tmp_buf, src, comp, 0, 0, src_x as i16, src_y as i16,
+                   bsize, bsize, 0, 0, 0, interp);
+        if (sy & 7) != 0 {
+            let foff = (8 - (sy & 7)) as usize;
+            let off = (pre + foff) * tmp_buf.stride[comp];
+            vp31_loop_filter(tmp_buf.data, off, tmp_buf.stride[comp], 1, bsize, loop_str);
+        }
+        if (sx & 7) != 0 {
+            let foff = (8 - (sx & 7)) as usize;
+            let off = pre + foff;
+            vp31_loop_filter(tmp_buf.data, off, 1, tmp_buf.stride[comp], bsize, loop_str);
+        }
+    }
+    let dxoff = (pre as i16) - (dx as i16);
+    let dyoff = (pre as i16) - (dy as i16);
+    copy_block(dst, mc_buf, comp, dx, dy, dxoff, dyoff, 8, 8, preborder, postborder, 0/* mode*/, interp);
+}
