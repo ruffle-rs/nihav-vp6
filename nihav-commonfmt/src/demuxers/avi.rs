@@ -183,7 +183,14 @@ impl<'a> AVIDemuxer<'a> {
         let riff_tag = self.src.read_u32be()?;
         let size     = self.src.read_u32le()? as usize;
         let avi_tag  = self.src.read_u32be()?;
-        if riff_tag != mktag!(b"RIFF") || avi_tag != mktag!(b"AVI ") {
+        let mut matches = false;
+        for rt in RIFF_TAGS.iter() {
+            if rt[0] == riff_tag && rt[1] == avi_tag {
+                matches = true;
+                break;
+            }
+        }
+        if !matches {
             return Err(InvalidData);
         }
         self.size = size;
@@ -207,10 +214,17 @@ impl<'a> AVIDemuxer<'a> {
     }
 }
 
-const CHUNKS: [RIFFParser; 6] = [
+const RIFF_TAGS: &[[u32; 2]] = &[
+    [ mktag!(b"RIFF"), mktag!(b"AVI ") ],
+    [ mktag!(b"RIFF"), mktag!(b"AVIX") ],
+    [ mktag!(b"ON2 "), mktag!(b"ON2f") ],
+];
+
+const CHUNKS: [RIFFParser; 7] = [
     RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"hdrl")), parse: parse_hdrl },
     RIFFParser { tag: RIFFTag::List(mktag!(b"LIST"), mktag!(b"strl")), parse: parse_strl },
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"avih")), parse: parse_avih },
+    RIFFParser { tag: RIFFTag::Chunk(mktag!(b"ON2h")), parse: parse_avih },
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"strf")), parse: parse_strf },
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"strh")), parse: parse_strh },
     RIFFParser { tag: RIFFTag::Chunk(mktag!(b"JUNK")), parse: parse_junk },
