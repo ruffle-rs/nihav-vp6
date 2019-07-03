@@ -185,7 +185,7 @@ impl<'a> RealVideo10BR<'a> {
             }
             idx += run;
             validate!(idx < 64);
-            let oidx = H263_ZIGZAG[idx as usize];
+            let oidx = ZIGZAG[idx as usize];
             blk[oidx] = level;
             idx += 1;
             if last { break; }

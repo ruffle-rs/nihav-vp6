@@ -126,7 +126,7 @@ impl<'a> RealVideo20BR<'a> {
         let scan = match acpred {
                     ACPredMode::Hor => H263_SCAN_V,
                     ACPredMode::Ver => H263_SCAN_H,
-                    _               => H263_ZIGZAG,
+                    _               => &ZIGZAG,
                 };
 
         let rl_cb = if sstate.is_iframe { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
