@@ -12,14 +12,19 @@ mod truemotionrt;
 mod truemotion2;
 #[cfg(feature="decoder_truemotion2x")]
 mod truemotion2x;
+#[cfg(any(feature="decoder_vp3", feature="decoder_vp4", feature="decoder_vp5", feature="decoder_vp6", feature="decoder_vp7"))]
+#[macro_use]
+mod vpcommon;
 #[cfg(any(feature="decoder_vp3", feature="decoder_vp4"))]
 mod vp3;
 #[cfg(any(feature="decoder_vp5", feature="decoder_vp6"))]
 mod vp56;
+#[cfg(feature="decoder_vp5")]
+mod vp5;
+#[cfg(feature="decoder_vp6")]
+mod vp6;
 #[cfg(feature="decoder_vp7")]
 mod vp7;
-#[cfg(any(feature="decoder_vp3", feature="decoder_vp4", feature="decoder_vp5", feature="decoder_vp6", feature="decoder_vp7"))]
-mod vpcommon;
 
 #[cfg(any(feature="decoder_dk3_adpcm", feature="decoder_dk4_adpcm"))]
 mod dkadpcm;
@@ -40,9 +45,11 @@ const DUCK_CODECS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_vp4")]
     DecoderInfo { name: "vp4", get_decoder: vp3::get_decoder_vp4 },
 #[cfg(feature="decoder_vp5")]
-    DecoderInfo { name: "vp5", get_decoder: vp56::get_decoder_vp5 },
+    DecoderInfo { name: "vp5", get_decoder: vp5::get_decoder },
 #[cfg(feature="decoder_vp6")]
-    DecoderInfo { name: "vp6", get_decoder: vp56::get_decoder_vp6 },
+    DecoderInfo { name: "vp6", get_decoder: vp6::get_decoder_vp6 },
+#[cfg(feature="decoder_vp6")]
+    DecoderInfo { name: "vp6a", get_decoder: vp6::get_decoder_vp6_alpha },
 #[cfg(feature="decoder_vp7")]
     DecoderInfo { name: "vp7", get_decoder: vp7::get_decoder },
 

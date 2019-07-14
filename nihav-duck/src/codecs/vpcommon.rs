@@ -16,6 +16,9 @@ pub enum VPMBType {
     GoldenNear,
 }
 
+pub const VP_REF_INTER: u8 = 1;
+pub const VP_REF_GOLDEN: u8 = 2;
+
 #[allow(dead_code)]
 impl VPMBType {
     pub fn is_intra(self) -> bool { self == VPMBType::Intra }
@@ -26,8 +29,8 @@ impl VPMBType {
             VPMBType::InterMV       |
             VPMBType::InterNearest  |
             VPMBType::InterNear     |
-            VPMBType::InterFourMV   => 1,
-            _                       => 2,
+            VPMBType::InterFourMV   => VP_REF_INTER,
+            _                       => VP_REF_GOLDEN,
         }
     }
 }
@@ -65,6 +68,103 @@ impl VPShuffler {
             None
         }
     }
+}
+
+#[allow(dead_code)]
+pub struct BoolCoder<'a> {
+    pub src:    &'a [u8],
+    pos:    usize,
+    value:  u32,
+    range:  u32,
+    bits:   i32,
+}
+
+#[allow(dead_code)]
+impl<'a> BoolCoder<'a> {
+    pub fn new(src: &'a [u8]) -> DecoderResult<Self> {
+        if src.len() < 3 { return Err(DecoderError::ShortData); }
+        let value = ((src[0] as u32) << 24) | ((src[1] as u32) << 16) | ((src[2] as u32) << 8) | (src[3] as u32);
+        Ok(Self { src, pos: 4, value, range: 255, bits: 8 })
+    }
+    pub fn read_bool(&mut self) -> bool {
+        self.read_prob(128)
+    }
+    pub fn read_prob(&mut self, prob: u8) -> bool {
+        self.renorm();
+        let split = 1 + (((self.range - 1) * (prob as u32)) >> 8);
+        let bit;
+        if self.value < (split << 24) {
+            self.range = split;
+            bit = false;
+        } else {
+            self.range -= split;
+            self.value -= split << 24;
+            bit = true;
+        }
+        bit
+    }
+    pub fn read_bits(&mut self, bits: u8) -> u32 {
+        let mut val = 0u32;
+        for _ in 0..bits {
+            val = (val << 1) | (self.read_prob(128) as u32);
+        }
+        val
+    }
+    pub fn read_probability(&mut self) -> u8 {
+        let val = self.read_bits(7) as u8;
+        if val == 0 {
+            1
+        } else {
+            val << 1
+        }
+    }
+    fn renorm(&mut self) {
+        let shift = self.range.leading_zeros() & 7;
+        self.range <<= shift;
+        self.value <<= shift;
+        self.bits   -= shift as i32;
+        if (self.bits <= 0) && (self.pos < self.src.len()) {
+            self.value |= (self.src[self.pos] as u32) << (-self.bits as u8);
+            self.pos += 1;
+            self.bits += 8;
+        }
+/*        while self.range < 0x80 {
+            self.range <<= 1;
+            self.value <<= 1;
+            self.bits   -= 1;
+            if (self.bits <= 0) && (self.pos < self.src.len()) {
+                self.value |= self.src[self.pos] as u32;
+                self.pos += 1;
+                self.bits = 8;
+            }
+        }*/
+    }
+    pub fn skip_bytes(&mut self, nbytes: usize) {
+        for _ in 0..nbytes {
+            self.value <<= 8;
+            if self.pos < self.src.len() {
+                self.value |= self.src[self.pos] as u32;
+                self.pos += 1;
+            }
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub fn rescale_prob(prob: u8, weights: &[i16; 2], maxval: i32) -> u8 {
+    ((((prob as i32) * (weights[0] as i32) + 128) >> 8) + (weights[1] as i32)).min(maxval).max(1) as u8
+}
+
+#[macro_export]
+macro_rules! vp_tree {
+    ($bc: expr, $prob: expr, $node1: expr, $node2: expr) => {
+        if !$bc.read_prob($prob) {
+            $node1
+        } else {
+            $node2
+        }
+    };
+    ($leaf: expr) => { $leaf }
 }
 
 const C1S7: i32 = 64277;
@@ -153,6 +253,17 @@ pub fn vp_put_block(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, 
     }
 }
 
+pub fn vp_put_block_ilace(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, frm: &mut NASimpleVideoFrame<u8>) {
+    vp_idct(coeffs);
+    let mut off = frm.offset[plane] + bx * 8 + ((by & !1) * 8 + (by & 1)) * frm.stride[plane];
+    for y in 0..8 {
+        for x in 0..8 {
+            frm.data[off + x] = (coeffs[x + y * 8] + 128).min(255).max(0) as u8;
+        }
+        off += frm.stride[plane] * 2;
+    }
+}
+
 pub fn vp_put_block_dc(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, frm: &mut NASimpleVideoFrame<u8>) {
     vp_idct_dc(coeffs);
     let dc = (coeffs[0] + 128).min(255).max(0) as u8;
@@ -173,6 +284,17 @@ pub fn vp_add_block(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, 
             frm.data[off + x] = (coeffs[x + y * 8] + (frm.data[off + x] as i16)).min(255).max(0) as u8;
         }
         off += frm.stride[plane];
+    }
+}
+
+pub fn vp_add_block_ilace(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, frm: &mut NASimpleVideoFrame<u8>) {
+    vp_idct(coeffs);
+    let mut off = frm.offset[plane] + bx * 8 + ((by & !1) * 8 + (by & 1)) * frm.stride[plane];
+    for y in 0..8 {
+        for x in 0..8 {
+            frm.data[off + x] = (coeffs[x + y * 8] + (frm.data[off + x] as i16)).min(255).max(0) as u8;
+        }
+        off += frm.stride[plane] * 2;
     }
 }
 
@@ -249,3 +371,55 @@ pub fn vp_copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>
     let dyoff = (pre as i16) - (dy as i16);
     copy_block(dst, mc_buf, comp, dx, dy, dxoff, dyoff, 8, 8, preborder, postborder, 0/* mode*/, interp);
 }
+
+fn vp3_interp00(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw { dst[didx + x] = src[sidx + x]; }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn vp3_interp01(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw { dst[didx + x] = (((src[sidx + x] as u16) + (src[sidx + x + 1] as u16)) >> 1) as u8; }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn vp3_interp10(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw { dst[didx + x] = (((src[sidx + x] as u16) + (src[sidx + x + sstride] as u16)) >> 1) as u8; }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn vp3_interp11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw {
+            dst[didx + x] = (((src[sidx + x] as u16) +
+                              (src[sidx + x + 1] as u16) +
+                              (src[sidx + x + sstride] as u16) +
+                              (src[sidx + x + sstride + 1] as u16)) >> 2) as u8;
+        }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+pub const VP3_INTERP_FUNCS: &[blockdsp::BlkInterpFunc] = &[ vp3_interp00, vp3_interp01, vp3_interp10, vp3_interp11 ];
+

@@ -542,55 +542,6 @@ macro_rules! fill_dc_pred {
     };
 }
 
-fn vp3_interp00(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
-{
-    let mut didx = 0;
-    let mut sidx = 0;
-    for _ in 0..bh {
-        for x in 0..bw { dst[didx + x] = src[sidx + x]; }
-        didx += dstride;
-        sidx += sstride;
-    }
-}
-
-fn vp3_interp01(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
-{
-    let mut didx = 0;
-    let mut sidx = 0;
-    for _ in 0..bh {
-        for x in 0..bw { dst[didx + x] = (((src[sidx + x] as u16) + (src[sidx + x + 1] as u16)) >> 1) as u8; }
-        didx += dstride;
-        sidx += sstride;
-    }
-}
-
-fn vp3_interp10(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
-{
-    let mut didx = 0;
-    let mut sidx = 0;
-    for _ in 0..bh {
-        for x in 0..bw { dst[didx + x] = (((src[sidx + x] as u16) + (src[sidx + x + sstride] as u16)) >> 1) as u8; }
-        didx += dstride;
-        sidx += sstride;
-    }
-}
-
-fn vp3_interp11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
-{
-    let mut didx = 0;
-    let mut sidx = 0;
-    for _ in 0..bh {
-        for x in 0..bw {
-            dst[didx + x] = (((src[sidx + x] as u16) +
-                              (src[sidx + x + 1] as u16) +
-                              (src[sidx + x + sstride] as u16) +
-                              (src[sidx + x + sstride + 1] as u16)) >> 2) as u8;
-        }
-        didx += dstride;
-        sidx += sstride;
-    }
-}
-
 fn vp31_loop_filter_v(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plane: usize, loop_str: i16) {
     let off = frm.offset[plane] + x + y * frm.stride[plane];
     vp31_loop_filter(frm.data, off, 1, frm.stride[plane], 8, loop_str);
@@ -600,8 +551,6 @@ fn vp31_loop_filter_h(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plan
     let off = frm.offset[plane] + x + y * frm.stride[plane];
     vp31_loop_filter(frm.data, off, frm.stride[plane], 1, 8, loop_str);
 }
-
-pub const VP3_INTERP_FUNCS: &[blockdsp::BlkInterpFunc] = &[ vp3_interp00, vp3_interp01, vp3_interp10, vp3_interp11 ];
 
 impl VP34Decoder {
     fn new(version: u8) -> Self {
