@@ -72,7 +72,7 @@ macro_rules! read_int_func {
             if src.len() < $size { return Err(ByteIOError::ReadError); }
             unsafe {
                 let mut buf: $inttype = 0;
-                ptr::copy_nonoverlapping(src.as_ptr(), &mut buf as *mut $inttype as *mut u8, 1);
+                ptr::copy_nonoverlapping(src.as_ptr(), &mut buf as *mut $inttype as *mut u8, std::mem::size_of::<$inttype>());
                 Ok(buf.$which())
             }
         }
