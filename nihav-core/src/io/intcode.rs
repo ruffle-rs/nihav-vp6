@@ -7,6 +7,8 @@ pub enum UintCodeType {
     Unary012,
     Unary210,
     LimitedUnary(u32, u32),
+    LimitedZeroes(u32),
+    LimitedOnes(u32),
     Golomb(u8),
     Rice(u8),
     Gamma,
@@ -101,6 +103,8 @@ impl<'a> IntCodeReader for BitReader<'a> {
         match t {
             UintCodeType::UnaryOnes               => read_unary(self, 0),
             UintCodeType::UnaryZeroes             => read_unary(self, 1),
+            UintCodeType::LimitedZeroes(len)      => read_unary_lim(self, len, 1),
+            UintCodeType::LimitedOnes(len)        => read_unary_lim(self, len, 0),
             UintCodeType::LimitedUnary(len, term) => read_unary_lim(self, len, term),
             UintCodeType::Unary012                => read_unary_lim(self, 2, 0),
             UintCodeType::Unary210                => read_unary210(self),
