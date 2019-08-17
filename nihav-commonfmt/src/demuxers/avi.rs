@@ -87,6 +87,9 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                 if self.movi_size == 0 { return Err(EOF); }
                 continue;
             }
+            if tag[0] == b'i' && tag[1] == b'x' {
+                return Err(EOF);
+            }
             if tag[0] < b'0' || tag[0] > b'9' || tag[1] < b'0' || tag[1] > b'9' {
                 return Err(InvalidData);
             }
