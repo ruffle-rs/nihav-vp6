@@ -30,6 +30,8 @@ mod vp7;
 mod dkadpcm;
 #[cfg(feature="decoder_on2avc")]
 mod on2avc;
+#[cfg(feature="decoder_on2avc")]
+mod on2avcdata;
 
 const DUCK_CODECS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_truemotion1")]
