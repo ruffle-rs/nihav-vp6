@@ -168,6 +168,9 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "bmv-audio",     "BMV audio"),
     desc!(video;    "bmv3-video",    "DW Noir BMV video"),
     desc!(audio;    "bmv3-audio",    "DW Noir BMV audio"),
+    desc!(video;    "midivid",       "MidiVid"),
+    desc!(video;    "midivid3",      "MidiVid 3"),
+    desc!(video-ll; "midivid-ll",    "MidiVid Lossless"),
     desc!(video;    "vmd-video",     "VMD video"),
     desc!(audio;    "vmd-audio",     "VMD audio"),
 
@@ -189,6 +192,10 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"I263", "intel263"),
 
     (b"UCOD", "clearvideo"),
+
+    (b"MVDV", "midivid"),
+    (b"MV30", "midivid3"),
+    (b"MVLZ", "midivid-ll"),
 
     (b"DUCK", "truemotion1"),
     (b"TR20", "truemotionrt"),

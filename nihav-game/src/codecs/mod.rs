@@ -10,6 +10,8 @@ pub mod bmv;
 pub mod bmv3;
 #[cfg(feature="decoder_gdvvid")]
 pub mod gremlinvideo;
+#[cfg(feature="decoder_midivid")]
+pub mod midivid;
 #[cfg(feature="decoder_vmd")]
 pub mod vmd;
 
@@ -30,6 +32,8 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "vmd-audio", get_decoder: vmd::get_decoder_audio },
 #[cfg(feature="decoder_vmd")]
     DecoderInfo { name: "vmd-video", get_decoder: vmd::get_decoder_video },
+#[cfg(feature="decoder_midivid")]
+    DecoderInfo { name: "midivid", get_decoder: midivid::get_decoder_video },
 ];
 
 pub fn game_register_all_codecs(rd: &mut RegisteredDecoders) {
