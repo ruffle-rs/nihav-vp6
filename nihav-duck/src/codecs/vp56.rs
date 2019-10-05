@@ -381,17 +381,7 @@ fn map_mb_type(mbtype: VPMBType) -> usize {
     }
 }
 
-pub const VP56_COEF_BASE: [i16; 6] = [ 5, 7, 11, 19, 35, 67 ];
 pub fn expand_token_bc(bc: &mut BoolCoder, val_probs: &[u8; 11], token: u8, version: u8) -> i16 {
-    const COEF_ADD_PROBS: [[u8; 12]; 6] = [
-        [ 159, 128,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0 ],
-        [ 165, 145, 128,   0,   0,   0,   0,   0,   0,   0,   0,   0 ],
-        [ 173, 148, 140, 128,   0,   0,   0,   0,   0,   0,   0,   0 ],
-        [ 176, 155, 140, 135, 128,   0,   0,   0,   0,   0,   0,   0 ],
-        [ 180, 157, 141, 134, 130, 128,   0,   0,   0,   0,   0,   0 ],
-        [ 254, 254, 243, 230, 196, 177, 153, 140, 133, 130, 129, 128 ],
-    ];
-
     let mut sign = false;
     let level;
     if token < TOKEN_LARGE {
@@ -409,7 +399,7 @@ pub fn expand_token_bc(bc: &mut BoolCoder, val_probs: &[u8; 11], token: u8, vers
             sign                                = bc.read_bool();
         }
         let mut add = 0i16;
-        let add_probs = &COEF_ADD_PROBS[cat];
+        let add_probs = &VP56_COEF_ADD_PROBS[cat];
         for prob in add_probs.iter() {
             if *prob == 128 { break; }
             add                                 = (add << 1) | (bc.read_prob(*prob) as i16);
