@@ -26,4 +26,6 @@ pub mod scale;
 #[allow(clippy::unreadable_literal)]
 pub mod dsp;
 
+pub mod data;
+
 pub mod test;
