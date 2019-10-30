@@ -120,6 +120,20 @@ impl<'a> BoolCoder<'a> {
         }
         val
     }
+    pub fn read_byte(&mut self) -> u8 {
+        let mut val = 0u8;
+        for _ in 0..8 {
+            val = (val << 1) | (self.read_prob(128) as u8);
+        }
+        val
+    }
+    pub fn read_sbits(&mut self, bits: u8) -> i32 {
+        let mut val = if self.read_prob(128) { -1i32 } else { 0i32 };
+        for _ in 1..bits {
+            val = (val << 1) | (self.read_prob(128) as i32);
+        }
+        val
+    }
     pub fn read_probability(&mut self) -> u8 {
         let val = self.read_bits(7) as u8;
         if val == 0 {

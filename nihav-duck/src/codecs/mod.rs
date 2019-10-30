@@ -25,6 +25,10 @@ mod vp5;
 mod vp6;
 #[cfg(feature="decoder_vp7")]
 mod vp7;
+#[cfg(feature="decoder_vp7")]
+mod vp7data;
+#[cfg(feature="decoder_vp7")]
+mod vp7dsp;
 
 #[cfg(any(feature="decoder_dk3_adpcm", feature="decoder_dk4_adpcm"))]
 mod dkadpcm;
