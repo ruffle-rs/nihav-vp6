@@ -182,11 +182,11 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
             panic!("error");
         }
         let pkt = pktres.unwrap();
-        if let (Some(lim), Some(ppts)) = (limit, pkt.get_pts()) {
-            if ppts > lim { break; }
-        }
         let streamno = pkt.get_stream().get_id() as usize;
         if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
+            if let (Some(lim), Some(ppts)) = (limit, pkt.get_pts()) {
+                if ppts > lim { break; }
+            }
             let frm = dec.decode(dsupp, &pkt).unwrap();
             if pkt.get_stream().get_info().is_video() && video_pfx.is_some() && frm.get_frame_type() != FrameType::Skip {
                 let pfx = video_pfx.unwrap();
