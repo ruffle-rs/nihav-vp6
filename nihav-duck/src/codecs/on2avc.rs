@@ -144,6 +144,7 @@ struct AVCDecoder {
     delay:          [[f32; COEFFS]; 2],
     tmp:            [f32; COEFFS * 2],
     ew_buf:         [f32; 1152],
+    use_generic:    bool,
 
     qtab:           [f32; QTAB_SIZE],
     scale_tab:      [f32; 128],
@@ -194,6 +195,7 @@ impl AVCDecoder {
             delay:          [[0.0; COEFFS]; 2],
             tmp:            [0.0; COEFFS * 2],
             ew_buf:         [0.0; 1152],
+            use_generic:    true,
 
             qtab,
             scale_tab,
@@ -335,11 +337,14 @@ impl AVCDecoder {
 
         match self.cur_win {
             0 | 1 => {
-                self.imdct_long.imdct(coeffs, &mut self.tmp);
-                overlap(dst, &self.tmp, delay, self.win_long);
-                delay.copy_from_slice(&self.tmp[COEFFS..]);
+                self.imdct_long.imdct_half(coeffs, &mut self.tmp);
+                overlap_half(dst, &self.tmp, delay, self.win_long);
+                (&mut delay[0..COEFFS/2]).copy_from_slice(&self.tmp[COEFFS/2..COEFFS]);
+                for i in COEFFS/2..COEFFS {
+                    delay[i] = delay[COEFFS - 1 - i];
+                }
             },
-            2 => {
+            2 | 7 => {
                 self.imdct_long.imdct(coeffs, &mut self.tmp);
                 for i in 0..SHORT_WIN_POINT0 {
                     dst[i] = delay[i];
@@ -348,7 +353,7 @@ impl AVCDecoder {
                         &self.tmp[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
                         &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
                 for i in SHORT_WIN_POINT1..COEFFS {
-                    dst[i] = self.tmp[i];
+                    dst[i] = self.tmp[i - SHORT_WIN_POINT1 + 128];
                 }
                 delay.copy_from_slice(&self.tmp[COEFFS..]);
             },
@@ -389,30 +394,34 @@ impl AVCDecoder {
                 for i in 0..SHORT_WIN_POINT0 {
                     dst[i] = delay[i];
                 }
-                synth1024(&mut self.dsp, coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz);
-                let tmp = &mut self.ew_buf[0..COEFFS];
-                tmp.reverse();
-                overlap(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &self.ew_buf[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
-                for i in SHORT_WIN_POINT1..COEFFS {
-                    dst[i] = self.ew_buf[i];
+                if !self.use_generic {
+                    synth1024(&mut self.dsp, coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz);
+                } else {
+                    synth_generic(coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz, 1024);
                 }
-                *delay = [0.0; COEFFS];
-                for i in 0..SHORT_WIN_POINT1 {
-                    delay[i] = self.ew_buf[i];
+                overlap_half(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
+                             &self.ew_buf[0..64],
+                             &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
+                for i in SHORT_WIN_POINT1..COEFFS {
+                    dst[i] = self.ew_buf[i - SHORT_WIN_POINT1 + 64];
+                }
+                for i in 0..COEFFS/2 {
+                    delay[i] = self.ew_buf[COEFFS/2 + i];
+                }
+                for i in COEFFS/2..COEFFS {
+                    delay[i] = delay[COEFFS - 1 - i];
                 }
             },
             5 => {
                 for i in 0..SHORT_WIN_POINT0 {
                     dst[i] = delay[i];
                 }
-                synth512(&mut self.dsp, coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz);
+                if !self.use_generic {
+                    synth512(&mut self.dsp, coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz);
+                } else {
+                    synth_generic(coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz, 512);
+                }
                 self.imdct_mid.imdct(&coeffs[512..], &mut self.ew_buf[512..]);
-                let tmp = &mut self.ew_buf[512..1024];
-                tmp.reverse();
-                let tmp = &mut self.ew_buf[0..1024];
-                tmp.reverse();
                 overlap(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
                         &self.ew_buf[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
                         &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
@@ -429,32 +438,16 @@ impl AVCDecoder {
                     dst[i] = delay[i];
                 }
                 self.imdct_mid.imdct(coeffs, &mut self.ew_buf);
-                let tmp = &mut self.ew_buf[0..512];
-                tmp.reverse();
-                synth512(&mut self.dsp, &coeffs[512..], &mut self.ew_buf[512..], &mut self.tmp, self.is_40khz);
-                let tmp = &mut self.ew_buf[0..1024];
-                tmp.reverse();
+                if !self.use_generic {
+                    synth512(&mut self.dsp, &coeffs[512..], &mut self.ew_buf[512..], &mut self.tmp, self.is_40khz);
+                } else {
+                    synth_generic(&coeffs[512..], &mut self.ew_buf[512..], &mut self.tmp, self.is_40khz, 512);
+                }
                 overlap(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
                         &self.ew_buf[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
                         &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
                 for i in SHORT_WIN_POINT1..COEFFS {
                     dst[i] = self.ew_buf[i];
-                }
-                *delay = [0.0; COEFFS];
-                for i in 0..SHORT_WIN_POINT1 {
-                    delay[i] = self.ew_buf[i];
-                }
-            },
-            7 => {
-                for i in 0..SHORT_WIN_POINT0 {
-                    dst[i] = delay[i];
-                }
-                self.imdct_long.imdct(coeffs, &mut self.tmp);
-                overlap(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &self.tmp[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
-                for i in SHORT_WIN_POINT1..COEFFS {
-                    dst[i] = self.tmp[i];
                 }
                 *delay = [0.0; COEFFS];
                 for i in 0..SHORT_WIN_POINT1 {
@@ -469,6 +462,19 @@ impl AVCDecoder {
 fn overlap(dst: &mut [f32], src: &[f32], delay: &[f32], win: &[f32]) {
     for (i, ((out, s), d)) in dst.iter_mut().zip(src.iter()).zip(delay.iter()).enumerate() {
         *out = *s * win[i] + *d * win[win.len() - 1 - i];
+    }
+}
+
+fn overlap_half(dst: &mut [f32], src: &[f32], delay: &[f32], win: &[f32]) {
+    let n = win.len();
+    for i in 0..n/2 {
+        let ii = n - 1 - i;
+        let c = src  [n/2 - 1 - i];
+        let d = delay[i];
+        let w0 = win[i];
+        let w1 = win[ii];
+        dst[i]      = d * w1 - c * w0;
+        dst[ii]     = d * w0 + c * w1;
     }
 }
 
@@ -594,11 +600,91 @@ fn merge_bands(src: &[FFTComplex], dst: &mut [FFTComplex], size: usize) {
     }
 }
 
+const SPARAMS10: [SynthParams; 2] = [
+    SynthParams { p0: 1, p1: 3, idx: 0 },
+    SynthParams { p0: 3, p1: 1, idx: 1 } ];
+const SPARAMS20: [SynthParams; 2] = [
+    SynthParams { p0: 5, p1: 4, idx: 0 },
+    SynthParams { p0: 4, p1: 5, idx: 1 } ];
+const SPARAMS40: [SynthParams; 2] = [
+    SynthParams { p0: 11, p1:  8, idx: 0 },
+    SynthParams { p0:  8, p1: 11, idx: 1 } ];
 const SPARAMS84: [SynthParams; 4] = [
     SynthParams { p0: 16, p1: 4, idx: 0 },
     SynthParams { p0: 16, p1: 4, idx: 1 },
     SynthParams { p0: 13, p1: 7, idx: 2 },
     SynthParams { p0: 15, p1: 5, idx: 3 } ];
+
+const MERGE_ORDER_44K: &[u8] = &[
+    4, 4, 2, 2, 0, 0, 2, 0, 0, 2, 2, 0, 0, 2, 0, 0, 2, 0, 0,
+    2, 0, 0, 4, 0, 0, 0, 0, 2, 0, 0, 0
+];
+const MERGE_ORDER_40K: &[u8] = &[
+    4, 4, 2, 2, 0, 0, 2, 0, 0, 2, 2, 0, 0, 2, 0, 0, 2, 0, 0,
+    2, 0, 0, 4, 2, 0, 0, 2, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0
+];
+
+fn synth_filter(src: &[f32], dst: &mut [f32], len: usize, step: usize, bands: usize, idx: usize)
+{
+    let off = (len - step) / bands + 1;
+    let params = match step {
+            10 => &SPARAMS10[idx],
+            20 => &SPARAMS20[idx],
+            40 => &SPARAMS40[idx],
+            _  => &SPARAMS84[idx],
+        };
+
+    if step == 10 {
+        synth_step0_10(src, dst, step, off, params);
+        synth_step1(src, dst, len, bands, step, off, params.p0, &AVC_TAB10[idx]);
+    } else if step == 20 {
+        synth_step0_20(src, dst, step, off, params);
+        synth_step1(src, dst, len, bands, step, off, params.p0, &AVC_TAB20[idx]);
+    } else if step == 40 {
+        synth_step0_40(src, dst, step, off, params);
+        synth_step1(src, dst, len, bands, step, off, params.p0, &AVC_TAB40[idx]);
+    } else {
+        synth_step0_84(src, dst, step, off, params);
+        synth_step1(src, dst, len, bands, step, off, params.p0, &AVC_TAB84[idx]);
+    }
+}
+
+fn synth_recursive(dst: &mut [f32], tmp: &mut [f32], size: usize, order: &[u8], order_idx: &mut usize, dir: bool) {
+    let bands = order[*order_idx] as usize;
+    *order_idx += 1;
+    if bands == 0 { return; }
+    let sub_size = size / bands;
+    let mut sub_dir = false;
+    for (dst, tmp) in dst.chunks_mut(sub_size).take(bands).zip(tmp.chunks_mut(sub_size)) {
+        synth_recursive(dst, tmp, sub_size, order, order_idx, sub_dir);
+        sub_dir = !sub_dir;
+    }
+    for el in tmp.iter_mut().take(size) { *el = 0.0; }
+    let step = if bands == 2 {
+            if sub_size <= 20 {
+                10
+            } else if sub_size <= 40 {
+                20
+            } else {
+                40
+            }
+        } else {
+            84
+        };
+    for (i, src) in dst.chunks_mut(sub_size).take(bands).enumerate() {
+        let idx = if !dir { i } else { bands - 1 - i };
+        synth_filter(src, tmp, size, step, bands, idx);
+    }
+    (&mut dst[..size]).copy_from_slice(&tmp[..size]);
+}
+
+fn synth_generic(src: &[f32], dst: &mut [f32], tmpbuf: &mut [f32; COEFFS * 2], is_40khz: bool, size: usize) {
+    let order = if is_40khz { MERGE_ORDER_40K } else { MERGE_ORDER_44K };
+    (&mut dst[..size]).copy_from_slice(&src[..size]);
+    let mut order_idx = 0;
+    synth_recursive(dst, tmpbuf, size, order, &mut order_idx, false);
+    for i in 0..COEFFS { dst[i] *= 0.125; }
+}
 
 fn synth1024(dsp: &mut SynthDSP, src: &[f32], dst: &mut [f32], tmpbuf: &mut [f32; COEFFS * 2], is_40khz: bool) {
     for el in tmpbuf.iter_mut() {
