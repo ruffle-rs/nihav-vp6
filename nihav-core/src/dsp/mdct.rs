@@ -54,4 +54,23 @@ impl IMDCT {
             dst[3 * size4 + 2 * n + 1] = -self.z[size4 - n - 1].re;
         }
     }
+    pub fn imdct_half(&mut self, src: &[f32], dst: &mut [f32]) {
+        let size2 = self.size / 2;
+        let size4 = self.size / 4;
+        let size8 = self.size / 8;
+        for k in 0..size4 {
+            let c = FFTComplex { re: src[size2 - 2 * k - 1], im: src[        2 * k] };
+            self.z[k] = c * self.twiddle[k];
+        }
+        self.fft.do_ifft_inplace(&mut self.z);
+        for k in 0..size4 {
+            self.z[k] *= self.twiddle[k];
+        }
+        for n in 0..size8 {
+            dst[        2 * n]     = -self.z[        n]    .re;
+            dst[        2 * n + 1] =  self.z[size4 - n - 1].im;
+            dst[size4 + 2 * n]     = -self.z[size8 + n]    .re;
+            dst[size4 + 2 * n + 1] =  self.z[size8 - n - 1].im;
+        }
+    }
 }
