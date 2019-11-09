@@ -456,6 +456,8 @@ impl NADecoder for GremlinVideoDecoder {
         frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder_video() -> Box<dyn NADecoder> {
@@ -547,6 +549,8 @@ impl NADecoder for GremlinAudioDecoder {
         } else {
             Err(DecoderError::InvalidData)
         }
+    }
+    fn flush(&mut self) {
     }
 }
 

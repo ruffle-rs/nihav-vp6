@@ -465,6 +465,8 @@ impl NADecoder for SmackerVideoDecoder {
         frm.set_frame_type(ftype);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder_video() -> Box<dyn NADecoder> {
@@ -588,6 +590,8 @@ impl NADecoder for SmackerAudioDecoder {
         } else {
             Err(DecoderError::InvalidData)
         }
+    }
+    fn flush(&mut self) {
     }
 }
 

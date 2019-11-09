@@ -922,6 +922,8 @@ impl NADecoder for IMCDecoder {
         frm.set_keyframe(true);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder_imc() -> Box<dyn NADecoder> {

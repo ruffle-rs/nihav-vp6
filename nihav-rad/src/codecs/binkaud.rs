@@ -273,6 +273,9 @@ impl NADecoder for BinkAudioDecoder {
             Err(DecoderError::InvalidData)
         }
     }
+    fn flush(&mut self) {
+        self.delay = [[0.0; 256]; 2];
+    }
 }
 
 pub fn get_decoder_dct() -> Box<dyn NADecoder> {

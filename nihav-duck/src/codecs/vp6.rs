@@ -701,6 +701,9 @@ impl NADecoder for VP6Decoder {
         frm.set_frame_type(ftype);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.dec.flush();
+    }
 }
 
 pub fn get_decoder_vp6() -> Box<NADecoder> {

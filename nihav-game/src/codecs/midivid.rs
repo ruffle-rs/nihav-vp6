@@ -169,6 +169,9 @@ impl NADecoder for MidividDecoder {
         frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.hams.clear();
+    }
 }
 
 

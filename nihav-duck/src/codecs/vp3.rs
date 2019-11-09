@@ -1839,6 +1839,9 @@ impl NADecoder for VP34Decoder {
         frm.set_frame_type(if self.is_intra { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.shuf.clear();
+    }
 }
 
 pub fn get_decoder_vp3() -> Box<NADecoder> {

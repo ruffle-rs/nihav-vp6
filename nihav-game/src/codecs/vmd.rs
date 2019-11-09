@@ -264,6 +264,9 @@ impl NADecoder for VMDVideoDecoder {
         frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.hams.clear();
+    }
 }
 
 
@@ -435,6 +438,8 @@ impl NADecoder for VMDAudioDecoder {
         } else {
             Err(DecoderError::InvalidData)
         }
+    }
+    fn flush(&mut self) {
     }
 }
 

@@ -503,6 +503,9 @@ impl NADecoder for RealVideo20Decoder {
         frm.set_frame_type(self.dec.get_frame_type());
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.dec.flush();
+    }
 }
 
 struct MBB { blocks: usize, bits: u8 }

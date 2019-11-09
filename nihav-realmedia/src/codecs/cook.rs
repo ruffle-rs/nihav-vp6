@@ -669,6 +669,11 @@ impl NADecoder for CookDecoder {
         frm.set_keyframe(true);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        for pair in self.pairs.iter_mut() {
+            pair.delay = [[0.0; MAX_SAMPLES]; 2];
+        }
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

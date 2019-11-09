@@ -56,6 +56,8 @@ impl NADecoder for PCMDecoder {
             Err(DecoderError::InvalidData)
         }
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

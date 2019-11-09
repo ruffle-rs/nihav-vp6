@@ -307,6 +307,8 @@ impl NADecoder for RA144Decoder {
         frm.set_keyframe(true);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

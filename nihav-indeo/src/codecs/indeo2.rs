@@ -357,6 +357,9 @@ impl NADecoder for Indeo2Decoder {
             Ok(frm.into_ref())
         }
     }
+    fn flush(&mut self) {
+        self.frmmgr.clear();
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

@@ -945,6 +945,14 @@ br.skip(skip_part as u32)?;
         res
     }
 
+    pub fn flush(&mut self) {
+        self.prev_frame = MISSING_REF;
+        self.next_frame = MISSING_REF;
+        self.iref_0     = MISSING_REF;
+        self.iref_1     = MISSING_REF;
+        self.scal_ref   = MISSING_REF;
+    }
+
     pub fn is_intra(&self) -> bool {
         self.ftype.is_intra()
     }

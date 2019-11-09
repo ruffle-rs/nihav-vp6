@@ -255,6 +255,7 @@ impl Default for NADecoderSupport {
 pub trait NADecoder {
     fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()>;
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef>;
+    fn flush(&mut self);
 }
 
 #[derive(Clone,Copy)]

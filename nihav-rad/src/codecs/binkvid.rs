@@ -1258,6 +1258,9 @@ println!("decode frame {} b={} i={}", pkt.get_pts().unwrap(), self.is_ver_b, sel
         frm.set_frame_type(FrameType::P);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.ips.clear();
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

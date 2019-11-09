@@ -530,6 +530,9 @@ impl NADecoder for Indeo5Decoder {
         frm.set_frame_type(self.dec.get_frame_type());
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.dec.flush();
+    }
 }
 
 const INDEO5_PICTURE_SIZE_TAB: [[usize; 2]; 15] = [

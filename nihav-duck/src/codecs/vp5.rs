@@ -267,6 +267,9 @@ impl NADecoder for VP5Decoder {
         frm.set_frame_type(ftype);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.dec.flush();
+    }
 }
 
 pub fn get_decoder() -> Box<NADecoder> {

@@ -783,6 +783,9 @@ impl NADecoder for Indeo3Decoder {
         frm.set_frame_type(if intraframe { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.bufs.reset();
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

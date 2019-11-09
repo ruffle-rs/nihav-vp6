@@ -499,6 +499,8 @@ impl NADecoder for BMV3VideoDecoder {
         frm.set_frame_type(if self.is_intra { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+    }
 }
 
 
@@ -588,6 +590,8 @@ impl NADecoder for BMV3AudioDecoder {
         } else {
             Err(DecoderError::InvalidData)
         }
+    }
+    fn flush(&mut self) {
     }
 }
 

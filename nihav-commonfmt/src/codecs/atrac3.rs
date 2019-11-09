@@ -687,6 +687,12 @@ impl NADecoder for Atrac3Decoder {
         frm.set_keyframe(true);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        for ch_data in self.ch_data.iter_mut() {
+            ch_data.delay = [0.0; 1024];
+            ch_data.qmf_delay = [0.0; 64 * 3];
+        }
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

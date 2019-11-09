@@ -352,6 +352,9 @@ println!("???");
         frm.set_pts(Some(ts));
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.dec.flush();
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

@@ -1235,6 +1235,9 @@ impl NADecoder for AudioDecoder {
         frm.set_keyframe(true);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.delay = [[0.0; BLOCK_LEN]; MAX_CHANNELS + 1];
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

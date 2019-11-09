@@ -1475,6 +1475,9 @@ println!("???");
         frm.set_frame_type(hdr.ftype);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.ipbs.clear();
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

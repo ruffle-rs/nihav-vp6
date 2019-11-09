@@ -577,6 +577,8 @@ impl NADecoder for TM2Decoder {
         frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

@@ -163,6 +163,8 @@ impl NADecoder for DuckADPCMDecoder {
             Err(DecoderError::InvalidData)
         }
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder_dk3() -> Box<dyn NADecoder> {

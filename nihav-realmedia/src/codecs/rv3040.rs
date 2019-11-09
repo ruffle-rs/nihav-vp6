@@ -1250,4 +1250,7 @@ impl RV34Decoder {
 
         Ok((NABufferType::Video(buf), hdr0.ftype, ts))
     }
+    pub fn flush(&mut self) {
+        self.ipbs.clear();
+    }
 }

@@ -80,6 +80,8 @@ impl NADecoder for TMRTDecoder {
         frm.set_frame_type(FrameType::I);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

@@ -1044,6 +1044,8 @@ impl NADecoder for AVCDecoder {
         frm.set_keyframe(true);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+    }
 }
 
 pub fn get_decoder_500() -> Box<dyn NADecoder> {

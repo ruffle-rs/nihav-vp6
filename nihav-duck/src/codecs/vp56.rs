@@ -428,6 +428,9 @@ impl VP56Decoder {
         self.set_dimensions(vinfo.get_width(), vinfo.get_height());
         Ok(())
     }
+    pub fn flush(&mut self) {
+        self.shuf.clear();
+    }
     pub fn decode_frame(&mut self, supp: &mut NADecoderSupport, src: &[u8], br: &mut dyn VP56Parser) -> DecoderResult<(NABufferType, FrameType)> {
         let aoffset;
         let mut bc;

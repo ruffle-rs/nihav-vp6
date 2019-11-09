@@ -1937,6 +1937,9 @@ impl NADecoder for Bink2Decoder {
         frm.set_frame_type(if self.key_frame { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.ips.clear();
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

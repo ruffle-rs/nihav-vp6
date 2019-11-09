@@ -1250,6 +1250,12 @@ impl NADecoder for AACDecoder {
         frm.set_keyframe(true);
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        for pair in self.pairs.iter_mut() {
+            pair.ics[0].delay = [0.0; 1024];
+            pair.ics[1].delay = [0.0; 1024];
+        }
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

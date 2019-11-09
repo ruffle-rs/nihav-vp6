@@ -159,6 +159,9 @@ println!("???");
         frm.set_frame_type(ftype);//if ftype == FrameType::B { FrameType::Skip } else { ftype } );
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.dec.flush();
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder> {

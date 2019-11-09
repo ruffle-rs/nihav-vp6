@@ -404,6 +404,9 @@ impl NADecoder for Intel263Decoder {
         frm.set_frame_type(if self.dec.is_intra() { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
+    fn flush(&mut self) {
+        self.dec.flush();
+    }
 }
 
 
