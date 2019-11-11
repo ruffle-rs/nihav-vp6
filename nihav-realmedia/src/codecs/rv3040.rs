@@ -1106,6 +1106,22 @@ impl RV34Decoder {
                 self.base_ts += 1 << 13;
             }
         }
+        match hdr0.ftype {
+            FrameType::P => {
+                if self.ipbs.get_lastref().is_none() {
+                    return Err(DecoderError::MissingReference);
+                }
+            },
+            FrameType::B => {
+                if self.ipbs.get_lastref().is_none() {
+                    return Err(DecoderError::MissingReference);
+                }
+                if self.ipbs.get_nextref().is_none() {
+                    return Err(DecoderError::MissingReference);
+                }
+            },
+            _ => {},
+        };
         let ts_diff = (self.next_ts << 3).wrapping_sub(hdr0.pts << 3) >> 3;
         let ts = self.base_ts + (self.next_ts as u64) - (ts_diff as u64);
         sstate.trd = (self.next_ts << 3).wrapping_sub(self.last_ts << 3) >> 3;

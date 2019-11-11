@@ -1141,6 +1141,10 @@ impl NADecoder for VP7Decoder {
             self.set_dimensions(width, height);
 
             self.dstate.reset();
+        } else {
+            if !self.shuf.has_refs() {
+                return Err(DecoderError::MissingReference);
+            }
         }
 
         self.read_features(&mut bc)?;

@@ -1814,6 +1814,10 @@ impl NADecoder for VP34Decoder {
         self.parse_header(&mut br)?;
         if self.is_intra {
             self.shuf.clear();
+        } else {
+            if !self.shuf.has_refs() {
+                return Err(DecoderError::MissingReference);
+            }
         }
 
         let ret = supp.pool_u8.get_free();

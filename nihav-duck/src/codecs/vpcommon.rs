@@ -68,6 +68,9 @@ impl VPShuffler {
             None
         }
     }
+    pub fn has_refs(&self) -> bool {
+        self.lastframe.is_some()
+    }
 }
 
 pub const VP56_COEF_BASE: [i16; 6] = [ 5, 7, 11, 19, 35, 67 ];

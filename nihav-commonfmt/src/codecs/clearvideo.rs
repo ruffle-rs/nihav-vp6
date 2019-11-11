@@ -683,7 +683,9 @@ impl NADecoder for ClearVideoDecoder {
             self.decode_frame_intra(&mut br, &mut buf, vinfo.get_width(), vinfo.get_height())?;
             extend_edges(&mut buf, 1 << self.tsize);
         } else {
-            let mut prev = self.frmmgr.clone_ref().unwrap();
+            let pref = self.frmmgr.clone_ref();
+            if pref.is_none() { return Err(DecoderError::MissingReference); }
+            let mut prev = pref.unwrap();
             extend_edges(&mut prev, 1 << self.tsize);
             self.decode_frame_inter(&mut br, &mut buf, &mut prev, vinfo.get_width(), vinfo.get_height())?;
             extend_edges(&mut buf, 1 << self.tsize);

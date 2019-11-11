@@ -1431,6 +1431,22 @@ println!("???");
         let hdr = FrameHeader::read(&mut br)?;
         let mut slices: Vec<usize> = Vec::new();
         hdr.parse_slice_sizes(&mut br, &mut slices)?;
+        match hdr.ftype {
+            FrameType::P => {
+                if self.ipbs.get_lastref().is_none() {
+                    return Err(DecoderError::MissingReference);
+                }
+            },
+            FrameType::B => {
+                if self.ipbs.get_lastref().is_none() {
+                    return Err(DecoderError::MissingReference);
+                }
+                if self.ipbs.get_nextref().is_none() {
+                    return Err(DecoderError::MissingReference);
+                }
+            },
+            _ => {},
+        };
 
         let tmp_vinfo = NAVideoInfo::new(hdr.width, hdr.height, false, YUV420_FORMAT);
         let ret = supp.pool_u8.get_free();

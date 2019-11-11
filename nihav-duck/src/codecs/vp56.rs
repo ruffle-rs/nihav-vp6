@@ -470,6 +470,10 @@ impl VP56Decoder {
 
         if hdr.is_intra {
             self.shuf.clear();
+        } else {
+            if !self.shuf.has_refs() {
+                return Err(DecoderError::MissingReference);
+            }
         }
 
         let mut cr;
