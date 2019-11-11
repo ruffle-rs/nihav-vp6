@@ -520,6 +520,9 @@ impl H263BaseDecoder {
 
         Ok(bufinfo)
     }
+    pub fn flush(&mut self) {
+        self.ipbs.clear();
+    }
 
     pub fn get_bframe(&mut self, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
         if !self.has_b || self.ipbs.get_lastref().is_none() || self.ipbs.get_nextref().is_none() {
