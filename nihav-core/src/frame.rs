@@ -669,6 +669,7 @@ impl NATimeInfo {
 #[derive(Clone)]
 pub struct NAFrame {
     ts:             NATimeInfo,
+    id:             i64,
     buffer:         NABufferType,
     info:           NACodecInfoRef,
     ftype:          FrameType,
@@ -694,7 +695,7 @@ impl NAFrame {
                info:           NACodecInfoRef,
                options:        HashMap<String, NAValue>,
                buffer:         NABufferType) -> Self {
-        NAFrame { ts, buffer, info, ftype, key: keyframe, options }
+        NAFrame { ts, id: 0, buffer, info, ftype, key: keyframe, options }
     }
     pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
     pub fn get_frame_type(&self) -> FrameType { self.ftype }
@@ -704,9 +705,11 @@ impl NAFrame {
     pub fn get_time_information(&self) -> NATimeInfo { self.ts }
     pub fn get_pts(&self) -> Option<u64> { self.ts.get_pts() }
     pub fn get_dts(&self) -> Option<u64> { self.ts.get_dts() }
+    pub fn get_id(&self) -> i64 { self.id }
     pub fn get_duration(&self) -> Option<u64> { self.ts.get_duration() }
     pub fn set_pts(&mut self, pts: Option<u64>) { self.ts.set_pts(pts); }
     pub fn set_dts(&mut self, dts: Option<u64>) { self.ts.set_dts(dts); }
+    pub fn set_id(&mut self, id: i64) { self.id = id; }
     pub fn set_duration(&mut self, dur: Option<u64>) { self.ts.set_duration(dur); }
 
     pub fn get_buffer(&self) -> NABufferType { self.buffer.clone() }
