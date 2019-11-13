@@ -1,4 +1,4 @@
-use std::io::SeekFrom;
+pub use std::io::SeekFrom;
 use std::fs::File;
 use std::io::prelude::*;
 use std::ptr;
