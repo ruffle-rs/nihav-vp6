@@ -11,14 +11,16 @@ pub enum DemuxerError {
     NotImplemented,
     MemoryError,
     TryAgain,
+    SeekError,
+    NotPossible,
 }
 
 pub type DemuxerResult<T> = Result<T, DemuxerError>;
 
 pub trait DemuxCore<'a> {
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()>;
+    fn open(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()>;
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket>;
-    fn seek(&mut self, time: u64) -> DemuxerResult<()>;
+    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()>;
 }
 
 pub trait NAPacketReader {
@@ -136,16 +138,121 @@ impl<'a> Iterator for StreamIter<'a> {
     }
 }
 
+#[derive(Clone,Copy,PartialEq)]
+pub enum SeekIndexMode {
+    None,
+    Present,
+    Automatic,
+}
+
+impl Default for SeekIndexMode {
+    fn default() -> Self { SeekIndexMode::None }
+}
+
+#[derive(Clone,Copy,Default)]
+pub struct SeekEntry {
+    pub pts:    u64,
+    pub pos:    u64,
+}
+
+#[derive(Clone)]
+pub struct StreamSeekInfo {
+    pub id:         u32,
+    pub tb_num:     u32,
+    pub tb_den:     u32,
+    pub filled:     bool,
+    pub entries:    Vec<SeekEntry>,
+}
+
+impl StreamSeekInfo {
+    pub fn new(id: u32, tb_num: u32, tb_den: u32) -> Self {
+        Self {
+            id, tb_num, tb_den,
+            filled:     false,
+            entries:    Vec::new(),
+        }
+    }
+    pub fn add_entry(&mut self, entry: SeekEntry) {
+        self.entries.push(entry);
+    }
+    pub fn find_pos(&self, pts: u64) -> Option<u64> {
+        if !self.entries.is_empty() {
+// todo something faster like binary search
+            let mut cand = 0;
+            for (idx, entry) in self.entries.iter().enumerate() {
+                if entry.pts <= pts {
+                    cand = idx;
+                } else {
+                    break;
+                }
+            }
+            Some(self.entries[cand].pos)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone,Copy,Default)]
+pub struct SeekIndexResult {
+    pub pts:        u64,
+    pub pos:        u64,
+    pub str_id:     u32,
+}
+
+#[derive(Default)]
+pub struct SeekIndex {
+    pub seek_info:  Vec<StreamSeekInfo>,
+    pub mode:       SeekIndexMode,
+}
+
+impl SeekIndex {
+    pub fn new() -> Self { Self::default() }
+    pub fn add_stream(&mut self, id: u32, tb_num: u32, tb_den: u32) {
+        if self.stream_id_to_index(id).is_none() {
+            self.seek_info.push(StreamSeekInfo::new(id, tb_num, tb_den));
+        }
+    }
+    pub fn stream_id_to_index(&self, id: u32) -> Option<usize> {
+        for (idx, str) in self.seek_info.iter().enumerate() {
+            if str.id == id {
+                return Some(idx);
+            }
+        }
+        None
+    }
+    pub fn find_pos(&self, time: u64) -> Option<SeekIndexResult> {
+        let mut cand = None;
+        for str in self.seek_info.iter() {
+            if !str.filled { continue; }
+            let pts = NATimeInfo::time_to_ts(time, 1000, str.tb_num, str.tb_den);
+            let pos = str.find_pos(pts);
+            if pos.is_none() { continue; }
+            let pos = pos.unwrap();
+            if cand.is_none() {
+                cand = Some(SeekIndexResult { pts, pos, str_id: str.id });
+            } else if let Some(entry) = cand {
+                if pos < entry.pos {
+                    cand = Some(SeekIndexResult { pts, pos, str_id: str.id });
+                }
+            }
+        }
+        cand
+    }
+}
+
 pub struct Demuxer<'a> {
     dmx:        Box<dyn DemuxCore<'a> + 'a>,
     streams:    StreamManager,
+    seek_idx:   SeekIndex,
 }
 
 impl<'a> Demuxer<'a> {
-    fn new(dmx: Box<dyn DemuxCore<'a> + 'a>, str: StreamManager) -> Self {
+    fn new(dmx: Box<dyn DemuxCore<'a> + 'a>, str: StreamManager, seek_idx: SeekIndex) -> Self {
         Demuxer {
             dmx,
             streams:    str,
+            seek_idx,
         }
     }
     pub fn get_stream(&self, idx: usize) -> Option<NAStreamRef> {
@@ -182,7 +289,10 @@ impl<'a> Demuxer<'a> {
         }
     }
     pub fn seek(&mut self, time: u64) -> DemuxerResult<()> {
-        self.dmx.seek(time)
+        self.dmx.seek(time, &self.seek_idx)
+    }
+    pub fn get_seek_index(&self) -> &SeekIndex {
+        &self.seek_idx
     }
 }
 
@@ -201,8 +311,9 @@ pub trait DemuxerCreator {
 pub fn create_demuxer<'a>(dmxcr: &DemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<Demuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     let mut str = StreamManager::new();
-    dmx.open(&mut str)?;
-    Ok(Demuxer::new(dmx, str))
+    let mut seek_idx = SeekIndex::new();
+    dmx.open(&mut str, &mut seek_idx)?;
+    Ok(Demuxer::new(dmx, str, seek_idx))
 }
 
 #[derive(Default)]

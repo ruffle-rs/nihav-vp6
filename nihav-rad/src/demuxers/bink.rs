@@ -49,7 +49,7 @@ macro_rules! mktag {
 }
 
 impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
         let mut magic: [u8; 4] = [0; 4];
                                               src.read_buf(&mut magic)?;
@@ -97,12 +97,18 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
             let _trk_id                     = src.read_u32le()?;
         }
 
+        seek_idx.mode = SeekIndexMode::Present;
+        seek_idx.add_stream(0, tb_num, tb_den);
         self.frame_pos = Vec::with_capacity(self.frames + 1);
-        for _ in 0..=self.frames {
+        for fno in 0..=self.frames {
             let pos                         = src.read_u32le()?;
             self.frame_pos.push(pos);
+            if (pos & 1) != 0 {
+                seek_idx.seek_info[0].add_entry(SeekEntry { pts: fno as u64, pos: (pos & !1) as u64 });
+            }
         }
         validate!((src.tell() as u32) == (self.frame_pos[0] & !1));
+        seek_idx.seek_info[0].filled = true;
 
         self.cur_frame = 0;
         
@@ -143,9 +149,16 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
 
         Ok(pkt)
     }
-    #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
-        Err(DemuxerError::NotImplemented)
+    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
+        let ret = seek_idx.find_pos(time);
+        if ret.is_none() {
+            return Err(DemuxerError::SeekError);
+        }
+        let seek_info = ret.unwrap();
+        self.src.seek(SeekFrom::Start(seek_info.pos))?;
+        self.queued_packets.clear();
+        self.cur_frame = seek_info.pts as usize;
+        Ok(())
     }
 }
 

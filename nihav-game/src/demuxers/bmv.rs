@@ -12,7 +12,7 @@ struct BMVDemuxer<'a> {
 
 impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 
         let vhdr = NAVideoInfo::new(640, 429, false, PAL8_FORMAT);
@@ -70,9 +70,8 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
         }
     }
 
-    #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
-        Err(DemuxerError::NotImplemented)
+    fn seek(&mut self, _time: u64, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+        Err(DemuxerError::NotPossible)
     }
 }
 
@@ -111,7 +110,7 @@ struct BMV3Demuxer<'a> {
 
 impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 
         let mut magic = [0u8; 4];
@@ -212,9 +211,8 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
         }
     }
 
-    #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
-        Err(DemuxerError::NotImplemented)
+    fn seek(&mut self, _time: u64, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+        Err(DemuxerError::NotPossible)
     }
 }
 

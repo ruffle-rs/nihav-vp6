@@ -41,6 +41,8 @@ struct AVIDemuxer<'a> {
     num_streams:    u8,
     size:           usize,
     movi_size:      usize,
+    movi_pos:       u64,
+    movi_orig:      usize,
     sstate:         StreamState,
     tb_num:         u32,
     tb_den:         u32,
@@ -59,7 +61,7 @@ struct RIFFParser {
 
 impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         self.read_header(strmgr)?;
         Ok(())
     }
@@ -112,9 +114,21 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
         }
     }
 
-    #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
-        Err(NotImplemented)
+    fn seek(&mut self, time: u64, seek_index: &SeekIndex) -> DemuxerResult<()> {
+        let ret = seek_index.find_pos(time);
+        if ret.is_none() {
+            return Err(DemuxerError::SeekError);
+        }
+        let pos = ret.unwrap().pos;
+        self.src.seek(SeekFrom::Start(pos))?;
+
+        let cur_pos = self.src.tell();
+        if cur_pos < self.movi_pos { return Err(DemuxerError::SeekError); }
+        let skip_size = (cur_pos - self.movi_pos) as usize;
+        if skip_size > self.movi_size { return Err(DemuxerError::SeekError); }
+        self.movi_size = self.movi_orig - skip_size;
+
+        Ok(())
     }
 }
 
@@ -126,6 +140,8 @@ impl<'a> AVIDemuxer<'a> {
             src: io,
             size: 0,
             movi_size: 0,
+            movi_pos:  0,
+            movi_orig: 0,
             sstate: StreamState::new(),
             tb_num: 0,
             tb_den: 0,
@@ -200,9 +216,15 @@ impl<'a> AVIDemuxer<'a> {
         let mut rest_size = size;
         loop {
             let (csz, end) = self.parse_chunk(strmgr, RIFFTag::List(mktag!(b"LIST"), mktag!(b"movi")), rest_size,0)?;
-            if end { self.movi_size = csz - 4; break; }
+            if end {
+                self.movi_size = csz - 4;
+                self.movi_orig = self.movi_size;
+                self.movi_pos = self.src.tell();
+                break;
+            }
             rest_size -= csz;
         }
+//todo read index
         if !self.sstate.valid_state() || self.sstate.strm_no != self.num_streams {
             return Err(InvalidData);
         }

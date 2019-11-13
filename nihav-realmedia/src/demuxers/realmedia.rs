@@ -647,7 +647,7 @@ println!(" got ainfo {:?}", ainfo);
 
 impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, _seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         self.read_header(strmgr)?;
         Ok(())
     }
@@ -731,7 +731,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
     }
 
     #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
+    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
 }
@@ -1110,7 +1110,7 @@ struct RealAudioDemuxer<'a> {
 
 impl<'a> DemuxCore<'a> for RealAudioDemuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, _seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let magic                                       = self.src.read_u32be()?;
         validate!(magic == mktag!(b".ra\xFD"));
         let ver         = self.src.read_u16be()?;
@@ -1183,7 +1183,7 @@ println!(" got ainfo {:?}", ainfo);
     }
 
     #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
+    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
 }
@@ -1450,7 +1450,7 @@ struct RealIVRDemuxer<'a> {
 
 impl<'a> DemuxCore<'a> for RealIVRDemuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let magic                                       = self.src.peek_u32be()?;
         if magic == mktag!(b".REC") {
             let mut rec = RecordDemuxer::new(0, 0);
@@ -1522,7 +1522,7 @@ println!("R1M kind");
     }
 
     #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
+    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
 }

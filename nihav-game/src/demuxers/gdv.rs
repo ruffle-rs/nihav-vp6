@@ -48,7 +48,7 @@ const GDV_SIZE_TABLE: &[GDVFixedSizes] = &[
 
 impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
     #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
         let magic = src.read_u32le()?;
         if magic != 0x29111994 { return Err(DemuxerError::InvalidData); }
@@ -110,9 +110,8 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
         }
     }
 
-    #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
-        Err(DemuxerError::NotImplemented)
+    fn seek(&mut self, _time: u64, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+        Err(DemuxerError::NotPossible)
     }
 }
 /*impl<'a> Drop for GremlinVideoDemuxer<'a> {

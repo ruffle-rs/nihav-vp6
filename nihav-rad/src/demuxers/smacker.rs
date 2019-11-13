@@ -95,7 +95,7 @@ fn get_pts_inc(val: i32) -> u64 {
 }
 
 impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
-    fn open(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn open(&mut self, strmgr: &mut StreamManager, _seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
         let mut magic: [u8; 4] = [0; 4];
                                               src.read_buf(&mut magic)?;
@@ -245,8 +245,7 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
 
         Ok(pkt)
     }
-    #[allow(unused_variables)]
-    fn seek(&mut self, time: u64) -> DemuxerResult<()> {
+    fn seek(&mut self, time: u64, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
         if time == 0 {
             let start = self.start;
             self.src.seek(SeekFrom::Start(start))?;
