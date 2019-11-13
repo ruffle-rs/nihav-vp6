@@ -663,6 +663,28 @@ impl NATimeInfo {
     pub fn set_pts(&mut self, pts: Option<u64>) { self.pts = pts; }
     pub fn set_dts(&mut self, dts: Option<u64>) { self.dts = dts; }
     pub fn set_duration(&mut self, dur: Option<u64>) { self.duration = dur; }
+
+    pub fn time_to_ts(time: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
+        let tb_num = tb_num as u64;
+        let tb_den = tb_den as u64;
+        let tmp = time.checked_mul(tb_num);
+        if let Some(tmp) = tmp {
+            tmp / base / tb_den
+        } else {
+            let tmp = time.checked_mul(tb_num);
+            if let Some(tmp) = tmp {
+                tmp / base / tb_den
+            } else {
+                let coarse = time / base;
+                let tmp = coarse.checked_mul(tb_num);
+                if let Some(tmp) = tmp {
+                    tmp / tb_den
+                } else {
+                    (coarse / tb_den) * tb_num
+                }
+            }
+        }
+    }
 }
 
 #[allow(dead_code)]
