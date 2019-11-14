@@ -98,13 +98,14 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         }
 
         seek_idx.mode = SeekIndexMode::Present;
-        seek_idx.add_stream(0, tb_num, tb_den);
+        seek_idx.add_stream(0);
         self.frame_pos = Vec::with_capacity(self.frames + 1);
         for fno in 0..=self.frames {
             let pos                         = src.read_u32le()?;
             self.frame_pos.push(pos);
             if (pos & 1) != 0 {
-                seek_idx.seek_info[0].add_entry(SeekEntry { pts: fno as u64, pos: (pos & !1) as u64 });
+                let time = (fno as u64) * 1000 * (tb_num as u64) / (tb_den as u64);
+                seek_idx.seek_info[0].add_entry(SeekEntry { time, pts: fno as u64, pos: (pos & !1) as u64 });
             }
         }
         validate!((src.tell() as u32) == (self.frame_pos[0] & !1));

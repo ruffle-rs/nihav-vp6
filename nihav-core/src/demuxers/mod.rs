@@ -151,6 +151,7 @@ impl Default for SeekIndexMode {
 
 #[derive(Clone,Copy,Default)]
 pub struct SeekEntry {
+    pub time:   u64, // in milliseconds
     pub pts:    u64,
     pub pos:    u64,
 }
@@ -158,16 +159,14 @@ pub struct SeekEntry {
 #[derive(Clone)]
 pub struct StreamSeekInfo {
     pub id:         u32,
-    pub tb_num:     u32,
-    pub tb_den:     u32,
     pub filled:     bool,
     pub entries:    Vec<SeekEntry>,
 }
 
 impl StreamSeekInfo {
-    pub fn new(id: u32, tb_num: u32, tb_den: u32) -> Self {
+    pub fn new(id: u32) -> Self {
         Self {
-            id, tb_num, tb_den,
+            id,
             filled:     false,
             entries:    Vec::new(),
         }
@@ -175,18 +174,18 @@ impl StreamSeekInfo {
     pub fn add_entry(&mut self, entry: SeekEntry) {
         self.entries.push(entry);
     }
-    pub fn find_pos(&self, pts: u64) -> Option<u64> {
+    pub fn find_pos(&self, time: u64) -> Option<SeekEntry> {
         if !self.entries.is_empty() {
 // todo something faster like binary search
-            let mut cand = 0;
-            for (idx, entry) in self.entries.iter().enumerate() {
-                if entry.pts <= pts {
-                    cand = idx;
+            let mut cand = None;
+            for entry in self.entries.iter() {
+                if entry.time <= time {
+                    cand = Some(*entry);
                 } else {
                     break;
                 }
             }
-            Some(self.entries[cand].pos)
+            cand
         } else {
             None
         }
@@ -208,9 +207,9 @@ pub struct SeekIndex {
 
 impl SeekIndex {
     pub fn new() -> Self { Self::default() }
-    pub fn add_stream(&mut self, id: u32, tb_num: u32, tb_den: u32) {
+    pub fn add_stream(&mut self, id: u32) {
         if self.stream_id_to_index(id).is_none() {
-            self.seek_info.push(StreamSeekInfo::new(id, tb_num, tb_den));
+            self.seek_info.push(StreamSeekInfo::new(id));
         }
     }
     pub fn stream_id_to_index(&self, id: u32) -> Option<usize> {
@@ -221,19 +220,26 @@ impl SeekIndex {
         }
         None
     }
+    pub fn get_stream_index(&mut self, id: u32) -> Option<&mut StreamSeekInfo> {
+        for str in self.seek_info.iter_mut() {
+            if str.id == id {
+                return Some(str);
+            }
+        }
+        None
+    }
     pub fn find_pos(&self, time: u64) -> Option<SeekIndexResult> {
         let mut cand = None;
         for str in self.seek_info.iter() {
             if !str.filled { continue; }
-            let pts = NATimeInfo::time_to_ts(time, 1000, str.tb_num, str.tb_den);
-            let pos = str.find_pos(pts);
-            if pos.is_none() { continue; }
-            let pos = pos.unwrap();
+            let res = str.find_pos(time);
+            if res.is_none() { continue; }
+            let res = res.unwrap();
             if cand.is_none() {
-                cand = Some(SeekIndexResult { pts, pos, str_id: str.id });
+                cand = Some(SeekIndexResult { pts: res.pts, pos: res.pos, str_id: str.id });
             } else if let Some(entry) = cand {
-                if pos < entry.pos {
-                    cand = Some(SeekIndexResult { pts, pos, str_id: str.id });
+                if res.pos < entry.pos {
+                    cand = Some(SeekIndexResult { pts: res.pts, pos: res.pos, str_id: str.id });
                 }
             }
         }
