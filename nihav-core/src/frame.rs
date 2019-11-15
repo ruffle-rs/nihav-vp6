@@ -685,6 +685,26 @@ impl NATimeInfo {
             }
         }
     }
+    pub fn ts_to_time(ts: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
+        let tb_num = tb_num as u64;
+        let tb_den = tb_den as u64;
+        let tmp = ts.checked_mul(base);
+        if let Some(tmp) = tmp {
+            let tmp2 = tmp.checked_mul(tb_num);
+            if let Some(tmp2) = tmp2 {
+                tmp2 / tb_den
+            } else {
+                (tmp / tb_den) * tb_num
+            }
+        } else {
+            let tmp = ts.checked_mul(tb_num);
+            if let Some(tmp) = tmp {
+                (tmp / tb_den) * base
+            } else {
+                (ts / tb_den) * base * tb_num
+            }
+        }
+    }
 }
 
 #[allow(dead_code)]
