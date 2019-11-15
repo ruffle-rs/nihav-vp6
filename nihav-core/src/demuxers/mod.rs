@@ -207,9 +207,13 @@ pub struct SeekIndex {
 
 impl SeekIndex {
     pub fn new() -> Self { Self::default() }
-    pub fn add_stream(&mut self, id: u32) {
-        if self.stream_id_to_index(id).is_none() {
+    pub fn add_stream(&mut self, id: u32) -> usize {
+        let ret = self.stream_id_to_index(id);
+        if ret.is_none() {
             self.seek_info.push(StreamSeekInfo::new(id));
+            self.seek_info.len() - 1
+        } else {
+            ret.unwrap()
         }
     }
     pub fn stream_id_to_index(&self, id: u32) -> Option<usize> {
@@ -227,6 +231,14 @@ impl SeekIndex {
             }
         }
         None
+    }
+    pub fn add_entry(&mut self, id: u32, entry: SeekEntry) {
+        let mut idx = self.stream_id_to_index(id);
+        if idx.is_none() {
+            idx = Some(self.add_stream(id));
+        }
+        self.seek_info[idx.unwrap()].add_entry(entry);
+        self.seek_info[idx.unwrap()].filled = true;
     }
     pub fn find_pos(&self, time: u64) -> Option<SeekIndexResult> {
         let mut cand = None;
