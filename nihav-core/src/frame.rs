@@ -771,7 +771,7 @@ impl fmt::Display for NAFrame {
 }
 
 /// Possible stream types.
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum StreamType {
     /// video stream
@@ -832,6 +832,7 @@ impl NAStream {
         NAStream { media_type: mt, id, num: 0, info: info.into_ref(), tb_num: n, tb_den: d }
     }
     pub fn get_id(&self) -> u32 { self.id }
+    pub fn get_media_type(&self) -> StreamType { self.media_type }
     pub fn get_num(&self) -> usize { self.num }
     pub fn set_num(&mut self, num: usize) { self.num = num; }
     pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
