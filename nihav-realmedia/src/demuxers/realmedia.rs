@@ -349,12 +349,16 @@ impl CommonStreamData {
 struct RealMediaDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
     data_pos:       u64,
+    data_end:       u64,
     next_data:      u64,
     data_ver:       u16,
     num_packets:    u32,
     cur_packet:     u32,
 
     str_data:       CommonStreamData,
+
+    data_chunks:    Vec<(u64, u32, u16)>,
+    cur_data_chunk: usize,
 
     queued_pkts:    Vec<NAPacket>,
     slice_buf:      Vec<u8>,
@@ -646,9 +650,8 @@ println!(" got ainfo {:?}", ainfo);
 }
 
 impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
-    #[allow(unused_variables)]
-    fn open(&mut self, strmgr: &mut StreamManager, _seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
-        self.read_header(strmgr)?;
+    fn open(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
+        self.read_header(strmgr, seek_idx)?;
         Ok(())
     }
 
@@ -659,12 +662,16 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
             return Ok(pkt);
         }
         loop {
-            if self.cur_packet >= self.num_packets {
-                if (self.next_data != 0) && (self.next_data == self.src.tell()) {
+            if (self.cur_packet >= self.num_packets) || (self.src.tell() >= self.data_end) {
+                self.cur_data_chunk += 1;
+                if self.cur_data_chunk < self.data_chunks.len() {
+                    let (pos, _, _) = self.data_chunks[self.cur_data_chunk];
+                    self.src.seek(SeekFrom::Start(pos))?;
                     let res = read_chunk(self.src);
                     if let Ok((id, size, ver)) = res {
                         self.data_pos = self.src.tell();
                         self.data_ver = ver;
+                        self.data_end = self.data_pos + (size as u64);
                         if self.parse_data_start().is_ok() {
                             continue;
                         }
@@ -732,7 +739,26 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
 
     #[allow(unused_variables)]
     fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
-        Err(NotImplemented)
+        self.queued_pkts.clear();
+        let ret = seek_idx.find_pos(time);
+        if ret.is_none() {
+            return Err(DemuxerError::SeekError);
+        }
+        let ret = ret.unwrap();
+        let seek_pos = ret.pos;
+        for (pos, size, ver) in self.data_chunks.iter() {
+            if seek_pos < *pos { continue; }
+            let end = *pos + (*size as u64);
+            if seek_pos < end {
+                self.cur_packet = 0;
+                self.data_pos = seek_pos;
+                self.data_ver = *ver;
+                self.data_end = end;
+                self.src.seek(SeekFrom::Start(seek_pos))?;
+                return Ok(());
+            }
+        }
+        Err(DemuxerError::SeekError)
     }
 }
 
@@ -939,17 +965,20 @@ impl<'a> RealMediaDemuxer<'a> {
         RealMediaDemuxer {
             src:            io,
             data_pos:       0,
+            data_end:       0,
             next_data:      0,
             data_ver:       0,
             num_packets:    0,
             cur_packet:     0,
             str_data:       CommonStreamData::new(),
+            data_chunks:    Vec::new(),
+            cur_data_chunk: 0,
             queued_pkts:    Vec::new(),
             slice_buf:      Vec::new(),
         }
     }
 #[allow(unused_variables)]
-    fn read_header(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn read_header(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let (id, size, ver) = read_chunk(self.src)?;
         validate!((id == mktag!(b".RMF")) || (id == mktag!(b".RMP")));
         validate!(size >= RMVB_HDR_SIZE);
@@ -988,20 +1017,25 @@ impl<'a> RealMediaDemuxer<'a> {
                 //warn maybe?
                 break;
             }
-            let res = self.parse_chunk(strmgr);
+            let res = self.parse_chunk(strmgr, seek_idx);
             match res {
                 Ok(last) => { if last { break; } },
                 Err(DemuxerError::IOError) => { break; },
                 Err(etype) => {
-                        if self.data_pos == 0 { // data is not found, report error
+                        if self.data_chunks.len() == 0 { // data is not found, report error
                             return Err(etype);
                         }
                     },
             };
         }
 //println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
-        validate!(self.data_pos > 0);
-        self.src.seek(SeekFrom::Start(self.data_pos))?;
+        validate!(self.data_chunks.len() > 0);
+        self.cur_data_chunk = 0;
+        let (pos, size, ver) = self.data_chunks[self.cur_data_chunk];
+        self.data_pos = pos;
+        self.data_ver = ver;
+        self.data_end = pos + (size as u64);
+        self.src.seek(SeekFrom::Start(self.data_pos + 10))?;
         self.parse_data_start()?;
         Ok(())
     }
@@ -1016,15 +1050,17 @@ impl<'a> RealMediaDemuxer<'a> {
         self.next_data   = next_data_hdr as u64;
         Ok(())
     }
-    fn parse_chunk(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<bool> {
+    fn parse_chunk(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<bool> {
         let (id, size, ver) = read_chunk(self.src)?;
         let end_pos = self.src.tell() - 10 + (size as u64);
 
         validate!((ver == 0) || (ver == 2));
              if id == mktag!(b"CONT") { self.parse_content_desc()?; }
         else if id == mktag!(b"MDPR") { self.parse_mdpr(strmgr)?; }
-        else if id == mktag!(b"DATA") { if self.data_pos == 0 { self.data_ver = ver; self.data_pos = self.src.tell(); } }
-        else if id == mktag!(b"INDX") { /* do nothing for now */ }
+        else if id == mktag!(b"DATA") {
+            self.data_chunks.push((self.src.tell() - 10, size, ver));
+        }
+        else if id == mktag!(b"INDX") { self.parse_index(seek_idx, (size as usize) - 10, ver)?; }
         else if id == 0               { return Ok(true); }
         else                          { println!("unknown chunk type {:08X}", id); }
 
@@ -1081,6 +1117,28 @@ impl<'a> RealMediaDemuxer<'a> {
             self.str_data.str_ids.push(stream_no);
         }
 
+        Ok(())
+    }
+    fn parse_index(&mut self, seek_idx: &mut SeekIndex, chunk_size: usize, ver: u16) -> DemuxerResult<()> {
+        if ver != 0 { return Ok(()); }
+        let num_entries     = self.src.read_u32be()? as usize;
+        let str_id          = self.src.read_u16be()? as u32;
+        let _next_idx       = self.src.read_u32be()?;
+        validate!(chunk_size == num_entries * 14 + 10);
+        if num_entries == 0 { return Ok(()); }
+        
+        seek_idx.add_stream(str_id);
+        let idx = seek_idx.get_stream_index(str_id).unwrap();
+        for _ in 0..num_entries {
+            let ver         = self.src.read_u16be()? as u32;
+            validate!(ver == 0);
+            let ts          = self.src.read_u32be()? as u64;
+            let pos         = self.src.read_u32be()? as u64;
+            let _pkt_no     = self.src.read_u32be()?;
+            idx.add_entry(SeekEntry { time: ts, pts: 0, pos });
+        }
+        idx.filled = true;
+        seek_idx.mode = SeekIndexMode::Present;
         Ok(())
     }
 }
