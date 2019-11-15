@@ -60,9 +60,8 @@ struct RIFFParser {
 }
 
 impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
-    #[allow(unused_variables)]
     fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
-        self.read_header(strmgr)?;
+        self.read_header(strmgr, seek_index)?;
         Ok(())
     }
 
@@ -119,14 +118,15 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
         if ret.is_none() {
             return Err(DemuxerError::SeekError);
         }
-        let pos = ret.unwrap().pos;
-        self.src.seek(SeekFrom::Start(pos))?;
+        let seek_info = ret.unwrap();
 
-        let cur_pos = self.src.tell();
-        if cur_pos < self.movi_pos { return Err(DemuxerError::SeekError); }
-        let skip_size = (cur_pos - self.movi_pos) as usize;
+        if seek_info.pos < self.movi_pos { return Err(DemuxerError::SeekError); }
+        let skip_size = (seek_info.pos - self.movi_pos) as usize;
         if skip_size > self.movi_size { return Err(DemuxerError::SeekError); }
         self.movi_size = self.movi_orig - skip_size;
+
+        self.cur_frame[seek_info.str_id as usize] = seek_info.pts;
+        self.src.seek(SeekFrom::Start(seek_info.pos))?;
 
         Ok(())
     }
@@ -198,7 +198,7 @@ impl<'a> AVIDemuxer<'a> {
         Ok((size + 8, false))
     }
 
-    fn read_header(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
+    fn read_header(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let riff_tag = self.src.read_u32be()?;
         let size     = self.src.read_u32le()? as usize;
         let avi_tag  = self.src.read_u32be()?;
@@ -224,7 +224,22 @@ impl<'a> AVIDemuxer<'a> {
             }
             rest_size -= csz;
         }
-//todo read index
+        self.src.read_skip(self.movi_size)?;
+        while rest_size > 0 {
+            let ret = self.parse_chunk(strmgr, RIFFTag::Chunk(mktag!(b"idx1")), rest_size,0);
+            if ret.is_err() { break; }
+            let (csz, end) = ret.unwrap();
+            if end {
+                let _res = parse_idx1(&mut self.src, strmgr, seek_idx, csz, self.movi_pos);
+                break;
+            }
+            rest_size -= csz;
+        }
+        if self.movi_pos != 0 {
+            self.src.seek(SeekFrom::Start(self.movi_pos))?;
+        } else {
+            return Err(InvalidData);
+        }
         if !self.sstate.valid_state() || self.sstate.strm_no != self.num_streams {
             return Err(InvalidData);
         }
@@ -415,6 +430,37 @@ fn parse_avih(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
 #[allow(unused_variables)]
 fn parse_junk(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     dmx.src.read_skip(size)?;
+    Ok(size)
+}
+
+fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64) -> DemuxerResult<usize> {
+    validate!((size & 15) == 0);
+    let mut tag = [0u8; 4];
+    let num_entries = size >> 4;
+    let mut counter = [0u64; 100];
+    for _ in 0..num_entries {
+                              src.read_buf(&mut tag)?;
+        let flags           = src.read_u32le()?;
+        let offset          = src.read_u32le()? as u64;
+        let _length         = src.read_u32le()?;
+
+        if tag[0] < b'0' || tag[0] > b'9' || tag[1] < b'0' || tag[1] > b'9' {
+            return Err(InvalidData);
+        }
+        let stream_no = ((tag[0] - b'0') * 10 + (tag[1] - b'0')) as usize;
+
+        if (flags & 0x10) != 0 {
+            if let Some(str) = strmgr.get_stream(stream_no) {
+                if str.get_media_type() == StreamType::Video {
+                    let (tb_num, tb_den) = str.get_timebase();
+                    let pts = counter[stream_no];
+                    let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
+                    seek_idx.add_entry(stream_no as u32, SeekEntry { time, pts, pos: offset + movi_pos - 4 });
+                }
+            }
+        }
+        counter[stream_no] += 1;
+    }
     Ok(size)
 }
 
