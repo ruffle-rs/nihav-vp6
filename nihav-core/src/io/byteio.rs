@@ -95,6 +95,41 @@ pub fn read_u24le(src: &[u8]) -> ByteIOResult<u32> {
     Ok((u32::from(src[2]) << 16) | (u32::from(src[1]) << 8) | u32::from(src[0]))
 }
 
+macro_rules! write_int_func {
+    ($s: ident, $inttype: ty, $size: expr, $which: ident) => {
+        pub fn $s(dst: &mut [u8], val: $inttype) -> ByteIOResult<()> {
+            if dst.len() < $size { return Err(ByteIOError::WriteError); }
+            unsafe {
+                let val = val.$which();
+                ptr::copy_nonoverlapping(&val as *const $inttype as *const u8, dst.as_mut_ptr(), std::mem::size_of::<$inttype>());
+            }
+            Ok(())
+        }
+    }
+}
+
+write_int_func!(write_u16be, u16, 2, to_be);
+write_int_func!(write_u16le, u16, 2, to_le);
+write_int_func!(write_u32be, u32, 4, to_be);
+write_int_func!(write_u32le, u32, 4, to_le);
+write_int_func!(write_u64be, u64, 8, to_be);
+write_int_func!(write_u64le, u64, 8, to_le);
+
+pub fn write_u24be(dst: &mut [u8], val: u32) -> ByteIOResult<()> {
+    if dst.len() < 3 { return Err(ByteIOError::WriteError); }
+    dst[0] = (val >> 16) as u8;
+    dst[1] = (val >>  8) as u8;
+    dst[2] = (val >>  0) as u8;
+    Ok(())
+}
+pub fn write_u24le(dst: &mut [u8], val: u32) -> ByteIOResult<()> {
+    if dst.len() < 3 { return Err(ByteIOError::WriteError); }
+    dst[0] = (val >>  0) as u8;
+    dst[1] = (val >>  8) as u8;
+    dst[2] = (val >> 16) as u8;
+    Ok(())
+}
+
 impl<'a> ByteReader<'a> {
     pub fn new(io: &'a mut ByteIO) -> Self { ByteReader { io } }
 
