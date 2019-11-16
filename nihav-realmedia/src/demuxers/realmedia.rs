@@ -1060,7 +1060,11 @@ impl<'a> RealMediaDemuxer<'a> {
         else if id == mktag!(b"DATA") {
             self.data_chunks.push((self.src.tell() - 10, size, ver));
         }
-        else if id == mktag!(b"INDX") { self.parse_index(seek_idx, (size as usize) - 10, ver)?; }
+        else if id == mktag!(b"INDX") {
+            if !seek_idx.skip_index {
+                self.parse_index(seek_idx, (size as usize) - 10, ver)?;
+            }
+        }
         else if id == 0               { return Ok(true); }
         else                          { println!("unknown chunk type {:08X}", id); }
 

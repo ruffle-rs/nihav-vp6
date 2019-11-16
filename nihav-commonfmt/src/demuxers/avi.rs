@@ -224,16 +224,18 @@ impl<'a> AVIDemuxer<'a> {
             }
             rest_size -= csz;
         }
-        self.src.read_skip(self.movi_size)?;
-        while rest_size > 0 {
-            let ret = self.parse_chunk(strmgr, RIFFTag::Chunk(mktag!(b"idx1")), rest_size,0);
-            if ret.is_err() { break; }
-            let (csz, end) = ret.unwrap();
-            if end {
-                let _res = parse_idx1(&mut self.src, strmgr, seek_idx, csz, self.movi_pos);
-                break;
+        if !seek_idx.skip_index {
+            self.src.read_skip(self.movi_size)?;
+            while rest_size > 0 {
+                let ret = self.parse_chunk(strmgr, RIFFTag::Chunk(mktag!(b"idx1")), rest_size,0);
+                if ret.is_err() { break; }
+                let (csz, end) = ret.unwrap();
+                if end {
+                    let _res = parse_idx1(&mut self.src, strmgr, seek_idx, csz, self.movi_pos);
+                    break;
+                }
+                rest_size -= csz;
             }
-            rest_size -= csz;
         }
         if self.movi_pos != 0 {
             self.src.seek(SeekFrom::Start(self.movi_pos))?;

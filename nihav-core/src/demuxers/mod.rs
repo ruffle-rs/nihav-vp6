@@ -203,6 +203,7 @@ pub struct SeekIndexResult {
 pub struct SeekIndex {
     pub seek_info:  Vec<StreamSeekInfo>,
     pub mode:       SeekIndexMode,
+    pub skip_index: bool,
 }
 
 impl SeekIndex {
@@ -307,6 +308,9 @@ impl<'a> Demuxer<'a> {
         }
     }
     pub fn seek(&mut self, time: u64) -> DemuxerResult<()> {
+        if self.seek_idx.skip_index {
+            return Err(DemuxerError::NotPossible);
+        }
         self.dmx.seek(time, &self.seek_idx)
     }
     pub fn get_seek_index(&self) -> &SeekIndex {
