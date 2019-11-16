@@ -235,6 +235,46 @@ impl NABufferType {
             _ => None,
         }
     }
+    pub fn get_audio_info(&self) -> Option<NAAudioInfo> {
+        match *self {
+            NABufferType::AudioU8(ref ab)     => Some(ab.get_info()),
+            NABufferType::AudioI16(ref ab)    => Some(ab.get_info()),
+            NABufferType::AudioI32(ref ab)    => Some(ab.get_info()),
+            NABufferType::AudioF32(ref ab)    => Some(ab.get_info()),
+            NABufferType::AudioPacked(ref ab) => Some(ab.get_info()),
+            _ => None,
+        }
+    }
+    pub fn get_chmap(&self) -> Option<&NAChannelMap> {
+        match *self {
+            NABufferType::AudioU8(ref ab)     => Some(ab.get_chmap()),
+            NABufferType::AudioI16(ref ab)    => Some(ab.get_chmap()),
+            NABufferType::AudioI32(ref ab)    => Some(ab.get_chmap()),
+            NABufferType::AudioF32(ref ab)    => Some(ab.get_chmap()),
+            NABufferType::AudioPacked(ref ab) => Some(ab.get_chmap()),
+            _ => None,
+        }
+    }
+    pub fn get_audio_length(&self) -> usize {
+        match *self {
+            NABufferType::AudioU8(ref ab)     => ab.get_length(),
+            NABufferType::AudioI16(ref ab)    => ab.get_length(),
+            NABufferType::AudioI32(ref ab)    => ab.get_length(),
+            NABufferType::AudioF32(ref ab)    => ab.get_length(),
+            NABufferType::AudioPacked(ref ab) => ab.get_length(),
+            _ => 0,
+        }
+    }
+    pub fn get_audio_stride(&self) -> usize {
+        match *self {
+            NABufferType::AudioU8(ref ab)     => ab.get_stride(),
+            NABufferType::AudioI16(ref ab)    => ab.get_stride(),
+            NABufferType::AudioI32(ref ab)    => ab.get_stride(),
+            NABufferType::AudioF32(ref ab)    => ab.get_stride(),
+            NABufferType::AudioPacked(ref ab) => ab.get_stride(),
+            _ => 0,
+        }
+    }
     pub fn get_abuf_u8(&self) -> Option<NAAudioBuffer<u8>> {
         match *self {
             NABufferType::AudioU8(ref ab) => Some(ab.clone()),
