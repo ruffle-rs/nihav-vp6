@@ -146,6 +146,7 @@ pub struct NAAudioBuffer<T> {
     info:   NAAudioInfo,
     data:   NABufferRef<Vec<T>>,
     offs:   Vec<usize>,
+    stride: usize,
     chmap:  NAChannelMap,
     len:    usize,
 }
@@ -155,6 +156,7 @@ impl<T: Clone> NAAudioBuffer<T> {
         if idx >= self.offs.len() { 0 }
         else { self.offs[idx] }
     }
+    pub fn get_stride(&self) -> usize { self.stride }
     pub fn get_info(&self) -> NAAudioInfo { self.info }
     pub fn get_chmap(&self) -> NAChannelMap { self.chmap.clone() }
     pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
@@ -164,7 +166,7 @@ impl<T: Clone> NAAudioBuffer<T> {
         data.clone_from(self.data.as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
         offs.clone_from(&self.offs);
-        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap(), len: self.len }
+        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap(), len: self.len, stride: self.stride }
     }
     pub fn get_length(&self) -> usize { self.len }
 }
@@ -172,7 +174,7 @@ impl<T: Clone> NAAudioBuffer<T> {
 impl NAAudioBuffer<u8> {
     pub fn new_from_buf(info: NAAudioInfo, data: NABufferRef<Vec<u8>>, chmap: NAChannelMap) -> Self {
         let len = data.len();
-        NAAudioBuffer { info, data, chmap, offs: Vec::new(), len }
+        NAAudioBuffer { info, data, chmap, offs: Vec::new(), len, stride: 0 }
     }
 }
 
@@ -424,13 +426,14 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         let len = nsamples.checked_mul(ainfo.channels as usize);
         if len == None { return Err(AllocatorError::TooLargeDimensions); }
         let length = len.unwrap();
+        let stride = nsamples;
         for i in 0..ainfo.channels {
-            offs.push((i as usize) * nsamples);
+            offs.push((i as usize) * stride);
         }
         if ainfo.format.is_float() {
             if ainfo.format.get_bits() == 32 {
                 let data: Vec<f32> = vec![0.0; length];
-                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples };
+                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride };
                 Ok(NABufferType::AudioF32(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -438,11 +441,11 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         } else {
             if ainfo.format.get_bits() == 8 && !ainfo.format.is_signed() {
                 let data: Vec<u8> = vec![0; length];
-                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples };
+                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride };
                 Ok(NABufferType::AudioU8(buf))
             } else if ainfo.format.get_bits() == 16 && ainfo.format.is_signed() {
                 let data: Vec<i16> = vec![0; length];
-                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples };
+                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride };
                 Ok(NABufferType::AudioI16(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -453,7 +456,7 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         if len == None { return Err(AllocatorError::TooLargeDimensions); }
         let length = ainfo.format.get_audio_size(len.unwrap() as u64);
         let data: Vec<u8> = vec![0; length];
-        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples };
+        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride: 0 };
         Ok(NABufferType::AudioPacked(buf))
     }
 }
