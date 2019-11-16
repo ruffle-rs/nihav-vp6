@@ -94,6 +94,10 @@ pub fn read_u24le(src: &[u8]) -> ByteIOResult<u32> {
     if src.len() < 3 { return Err(ByteIOError::ReadError); }
     Ok((u32::from(src[2]) << 16) | (u32::from(src[1]) << 8) | u32::from(src[0]))
 }
+pub fn read_f32be(src: &[u8]) -> ByteIOResult<f32> { Ok(f32::from_bits(read_u32be(src)?)) }
+pub fn read_f32le(src: &[u8]) -> ByteIOResult<f32> { Ok(f32::from_bits(read_u32le(src)?)) }
+pub fn read_f64be(src: &[u8]) -> ByteIOResult<f64> { Ok(f64::from_bits(read_u64be(src)?)) }
+pub fn read_f64le(src: &[u8]) -> ByteIOResult<f64> { Ok(f64::from_bits(read_u64le(src)?)) }
 
 macro_rules! write_int_func {
     ($s: ident, $inttype: ty, $size: expr, $which: ident) => {
@@ -129,6 +133,10 @@ pub fn write_u24le(dst: &mut [u8], val: u32) -> ByteIOResult<()> {
     dst[2] = (val >> 16) as u8;
     Ok(())
 }
+pub fn write_f32be(dst: &mut [u8], val: f32) -> ByteIOResult<()> { write_u32be(dst, val.to_bits()) }
+pub fn write_f32le(dst: &mut [u8], val: f32) -> ByteIOResult<()> { write_u32le(dst, val.to_bits()) }
+pub fn write_f64be(dst: &mut [u8], val: f64) -> ByteIOResult<()> { write_u64be(dst, val.to_bits()) }
+pub fn write_f64le(dst: &mut [u8], val: f64) -> ByteIOResult<()> { write_u64le(dst, val.to_bits()) }
 
 impl<'a> ByteReader<'a> {
     pub fn new(io: &'a mut ByteIO) -> Self { ByteReader { io } }
@@ -189,6 +197,22 @@ impl<'a> ByteReader<'a> {
         peek_int!(self, u64, 8, to_be)
     }
 
+    pub fn read_f32be(&mut self) -> ByteIOResult<f32> {
+        Ok(f32::from_bits(self.read_u32be()?))
+    }
+
+    pub fn peek_f32be(&mut self) -> ByteIOResult<f32> {
+        Ok(f32::from_bits(self.peek_u32be()?))
+    }
+
+    pub fn read_f64be(&mut self) -> ByteIOResult<f64> {
+        Ok(f64::from_bits(self.read_u64be()?))
+    }
+
+    pub fn peek_f64be(&mut self) -> ByteIOResult<f64> {
+        Ok(f64::from_bits(self.peek_u64be()?))
+    }
+
     pub fn read_u16le(&mut self) -> ByteIOResult<u16> {
         read_int!(self, u16, 2, to_le)
     }
@@ -223,6 +247,22 @@ impl<'a> ByteReader<'a> {
 
     pub fn peek_u64le(&mut self) -> ByteIOResult<u64> {
         peek_int!(self, u64, 8, to_le)
+    }
+
+    pub fn read_f32le(&mut self) -> ByteIOResult<f32> {
+        Ok(f32::from_bits(self.read_u32le()?))
+    }
+
+    pub fn peek_f32le(&mut self) -> ByteIOResult<f32> {
+        Ok(f32::from_bits(self.peek_u32le()?))
+    }
+
+    pub fn read_f64le(&mut self) -> ByteIOResult<f64> {
+        Ok(f64::from_bits(self.read_u64le()?))
+    }
+
+    pub fn peek_f64le(&mut self) -> ByteIOResult<f64> {
+        Ok(f64::from_bits(self.peek_u64le()?))
     }
 
     pub fn read_skip(&mut self, len: usize) -> ByteIOResult<()> {
@@ -488,6 +528,22 @@ impl<'a> ByteWriter<'a> {
     pub fn write_u64le(&mut self, val: u64) -> ByteIOResult<()> {
         self.write_u32le(val as u32)?;
         self.write_u32le((val >> 32) as u32)
+    }
+
+    pub fn write_f32be(&mut self, val: f32) -> ByteIOResult<()> {
+        self.write_u32be(val.to_bits())
+    }
+
+    pub fn write_f32le(&mut self, val: f32) -> ByteIOResult<()> {
+        self.write_u32le(val.to_bits())
+    }
+
+    pub fn write_f64be(&mut self, val: f64) -> ByteIOResult<()> {
+        self.write_u64be(val.to_bits())
+    }
+
+    pub fn write_f64le(&mut self, val: f64) -> ByteIOResult<()> {
+        self.write_u64le(val.to_bits())
     }
 
     pub fn tell(&mut self) -> u64 {
