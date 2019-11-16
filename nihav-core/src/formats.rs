@@ -4,12 +4,12 @@ use std::fmt;
 
 #[derive(Debug,Copy,Clone,PartialEq)]
 pub struct NASoniton {
-    bits:       u8,
-    be:         bool,
-    packed:     bool,
-    planar:     bool,
-    float:      bool,
-    signed:     bool,
+    pub bits:       u8,
+    pub be:         bool,
+    pub packed:     bool,
+    pub planar:     bool,
+    pub float:      bool,
+    pub signed:     bool,
 }
 
 pub const SONITON_FLAG_BE     :u32 = 0x01;
