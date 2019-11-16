@@ -158,7 +158,7 @@ impl<T: Clone> NAAudioBuffer<T> {
     }
     pub fn get_stride(&self) -> usize { self.stride }
     pub fn get_info(&self) -> NAAudioInfo { self.info }
-    pub fn get_chmap(&self) -> NAChannelMap { self.chmap.clone() }
+    pub fn get_chmap(&self) -> &NAChannelMap { &self.chmap }
     pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
     pub fn get_data_mut(&mut self) -> Option<&mut Vec<T>> { self.data.as_mut() }
     pub fn copy_buffer(&mut self) -> Self {
@@ -166,7 +166,7 @@ impl<T: Clone> NAAudioBuffer<T> {
         data.clone_from(self.data.as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
         offs.clone_from(&self.offs);
-        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap(), len: self.len, stride: self.stride }
+        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap().clone(), len: self.len, stride: self.stride }
     }
     pub fn get_length(&self) -> usize { self.len }
 }
