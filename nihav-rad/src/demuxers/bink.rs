@@ -66,6 +66,8 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         let tb_num                          = src.read_u32le()?;
         validate!((width > 0) && (height > 0) && (width <= 7680) && (height <= 4800));
         validate!((self.frames > 0) && (tb_num > 0) && (tb_den > 0) && (max_size < fsize));
+        self.tb_num = tb_num;
+        self.tb_den = tb_den;
         let mut flags: [u8; 4] = [0; 4];
                                               src.read_buf(&mut flags)?;
         let mut edata: Vec<u8> = vec![0; 8];
