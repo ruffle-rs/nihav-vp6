@@ -19,6 +19,7 @@ pub mod register;
 pub mod detect;
 pub mod reorder;
 pub mod scale;
+pub mod soundcvt;
 
 #[cfg(feature="dsp")]
 #[allow(clippy::excessive_precision)]
