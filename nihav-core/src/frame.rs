@@ -8,10 +8,10 @@ pub use crate::refs::*;
 #[allow(dead_code)]
 #[derive(Clone,Copy,PartialEq)]
 pub struct NAAudioInfo {
-    sample_rate: u32,
-    channels:    u8,
-    format:      NASoniton,
-    block_len:   usize,
+    pub sample_rate: u32,
+    pub channels:    u8,
+    pub format:      NASoniton,
+    pub block_len:   usize,
 }
 
 impl NAAudioInfo {
