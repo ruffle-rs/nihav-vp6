@@ -1278,7 +1278,7 @@ mod test {
 
 //        let file = "assets/RV/rv40_weighted_mc.rmvb";
         let file = "assets/RV/rv40_weighted_mc_2.rmvb";
-        test_decode_audio("realmedia", file, Some(12000), "aac", &dmx_reg, &dec_reg);
+        test_decode_audio("realmedia", file, Some(12000), None/*Some("aac")*/, &dmx_reg, &dec_reg);
     }
 }
 

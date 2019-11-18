@@ -755,7 +755,7 @@ mod test {
         generic_register_all_codecs(&mut dec_reg);
 
         let file = "assets/RV/autahi-vox.rm";
-        test_decode_audio("realmedia", file, Some(5000), "sipro", &dmx_reg, &dec_reg);
+        test_decode_audio("realmedia", file, Some(5000), None/*Some("sipro")*/, &dmx_reg, &dec_reg);
     }
 }
 

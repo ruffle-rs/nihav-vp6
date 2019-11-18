@@ -330,7 +330,7 @@ mod test {
         realmedia_register_all_codecs(&mut dec_reg);
 
         let file = "assets/RV/ra3_in_rm_file.rm";
-        test_decode_audio("realmedia", file, Some(5000), "ra14.4", &dmx_reg, &dec_reg);
+        test_decode_audio("realmedia", file, Some(5000), None/*Some("ra14.4")*/, &dmx_reg, &dec_reg);
     }
 }
 

@@ -1126,7 +1126,7 @@ mod test {
         let file = "assets/Indeo/IMC/8khz.avi";
 //        let file = "assets/Indeo/STsKlassFist-1a.avi";
 //        let file = "assets/Indeo/IMC/Angel Bday.avi";
-        test_decode_audio("avi", file, None, "imc", &dmx_reg, &dec_reg);
+        test_decode_audio("avi", file, None, None/*Some("imc")*/, &dmx_reg, &dec_reg);
         //test_file_decoding("avi", file, None, false, true, None);
     }
 }

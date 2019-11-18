@@ -490,7 +490,7 @@ mod test {
         realmedia_register_all_codecs(&mut dec_reg);
 
         let file = "assets/RV/rv40_ralf.rmvb";
-        test_decode_audio("realmedia", file, Some(2000), "ralf", &dmx_reg, &dec_reg);
+        test_decode_audio("realmedia", file, Some(2000), None/*Some("ralf")*/, &dmx_reg, &dec_reg);
 //panic!("end");
     }
 }

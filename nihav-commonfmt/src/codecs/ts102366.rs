@@ -1259,7 +1259,7 @@ mod test {
         generic_register_all_codecs(&mut dec_reg);
 
         let file = "assets/RV/sp_sample1.rm";
-        test_decode_audio("realmedia", file, Some(12000), "ac3", &dmx_reg, &dec_reg);
+        test_decode_audio("realmedia", file, Some(12000), None/*Some("ac3")*/, &dmx_reg, &dec_reg);
     }
 }
 

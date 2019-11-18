@@ -332,6 +332,6 @@ mod test {
         let file = "assets/Game/PERFECT.BMV";
 //        let file = "assets/Game/DW2-MOUSE.BMV";
 //        let file = "assets/Game/WILDCAT.BMV";
-        test_decode_audio("bmv", file, None, "bmv", &dmx_reg, &dec_reg);
+        test_decode_audio("bmv", file, None, None/*Some("bmv")*/, &dmx_reg, &dec_reg);
     }
 }

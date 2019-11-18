@@ -190,7 +190,7 @@ mod test {
         duck_register_all_codecs(&mut dec_reg);
 
         let file = "assets/Duck/AVI-DUCK-dk3.duk";
-        test_decode_audio("avi", file, Some(100), "dk3", &dmx_reg, &dec_reg);
+        test_decode_audio("avi", file, Some(100), None/*Some("dk3")*/, &dmx_reg, &dec_reg);
     }
     #[test]
     fn test_dk4() {
@@ -200,7 +200,7 @@ mod test {
         duck_register_all_codecs(&mut dec_reg);
 
         let file = "assets/Duck/virtuafighter2-opening1.avi";
-        test_decode_audio("avi", file, Some(100), "dk4", &dmx_reg, &dec_reg);
+        test_decode_audio("avi", file, Some(100), None/*Some("dk4")*/, &dmx_reg, &dec_reg);
     }
 }
 

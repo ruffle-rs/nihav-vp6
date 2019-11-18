@@ -206,7 +206,7 @@ panic!(" unknown format");
     }
 }
 
-pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pfx: &str,
+pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pfx: Option<&str>,
                          dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders) {
     let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
     let mut file = File::open(name).unwrap();
@@ -233,32 +233,50 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
         }
     }
 
-    let name = format!("assets/{}out.wav", audio_pfx);
-    let file = File::create(name).unwrap();
-    let mut fw = FileWriter::new_write(file);
-    let mut wr = ByteWriter::new(&mut fw);
-    let mut wwr = WavWriter::new(&mut wr);
-    let mut wrote_header = false;
+    if let Some(audio_pfx) = audio_pfx { 
+        let name = format!("assets/{}out.wav", audio_pfx);
+        let file = File::create(name).unwrap();
+        let mut fw = FileWriter::new_write(file);
+        let mut wr = ByteWriter::new(&mut fw);
+        let mut wwr = WavWriter::new(&mut wr);
+        let mut wrote_header = false;
 
-    loop {
-        let pktres = dmx.get_frame();
-        if let Err(e) = pktres {
-            if e == DemuxerError::EOF { break; }
-            panic!("error");
-        }
-        let pkt = pktres.unwrap();
-        if limit.is_some() && pkt.get_pts().is_some() && pkt.get_pts().unwrap() > limit.unwrap() {
-            break;
-        }
-        let streamno = pkt.get_stream().get_id() as usize;
-        if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
-            let frm = dec.decode(dsupp, &pkt).unwrap();
-            if frm.get_info().is_audio() {
-                if !wrote_header {
-                    wwr.write_header(frm.get_info().as_ref().get_properties().get_audio_info().unwrap()).unwrap();
-                    wrote_header = true;
+        loop {
+            let pktres = dmx.get_frame();
+            if let Err(e) = pktres {
+                if e == DemuxerError::EOF { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            if limit.is_some() && pkt.get_pts().is_some() && pkt.get_pts().unwrap() > limit.unwrap() {
+                break;
+            }
+            let streamno = pkt.get_stream().get_id() as usize;
+            if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
+                let frm = dec.decode(dsupp, &pkt).unwrap();
+                if frm.get_info().is_audio() {
+                    if !wrote_header {
+                        wwr.write_header(frm.get_info().as_ref().get_properties().get_audio_info().unwrap()).unwrap();
+                        wrote_header = true;
+                    }
+                    wwr.write_frame(frm.get_buffer()).unwrap();
                 }
-                wwr.write_frame(frm.get_buffer()).unwrap();
+            }
+        }
+    } else {
+        loop {
+            let pktres = dmx.get_frame();
+            if let Err(e) = pktres {
+                if e == DemuxerError::EOF { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            if limit.is_some() && pkt.get_pts().is_some() && pkt.get_pts().unwrap() > limit.unwrap() {
+                break;
+            }
+            let streamno = pkt.get_stream().get_id() as usize;
+            if let Some((ref mut dsupp, ref mut dec)) = decs[streamno] {
+                let _ = dec.decode(dsupp, &pkt).unwrap();
             }
         }
     }

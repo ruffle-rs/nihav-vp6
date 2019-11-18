@@ -306,6 +306,6 @@ mod test {
 //        let file = "assets/RAD/Snd0a110c51.dee";
 //        let file = "assets/RAD/NEW.BIK";
 //        let file = "assets/RAD/ge_video_86l.bk2";
-        test_decode_audio("bink", file, None, "bink", &dmx_reg, &dec_reg);
+        test_decode_audio("bink", file, None, None/*Some("bink")*/, &dmx_reg, &dec_reg);
     }
 }

@@ -628,6 +628,6 @@ mod test {
 
         //let file = "assets/RAD/20130507_audio-distortion.smk";
         let file = "assets/RAD/wetlogo.smk";
-        test_decode_audio("smacker", file, None, "smk", &dmx_reg, &dec_reg);
+        test_decode_audio("smacker", file, None, None/*Some("smk")*/, &dmx_reg, &dec_reg);
     }
 }

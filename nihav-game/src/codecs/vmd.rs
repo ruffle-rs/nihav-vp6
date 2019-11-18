@@ -476,6 +476,6 @@ mod test {
         let file = "assets/Game/128.vmd";
 //        let file = "assets/Game/1000.VMD";
 //        let file = "assets/Game/235.VMD";
-        test_decode_audio("vmd", file, None, "vmd", &dmx_reg, &dec_reg);
+        test_decode_audio("vmd", file, None, None/*Some("vmd")*/, &dmx_reg, &dec_reg);
     }
 }

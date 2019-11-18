@@ -1073,7 +1073,7 @@ mod test {
         //let file = "assets/Duck/Cell-140.vp5";
         //let file = "assets/Duck/Chocolat-500.vp5";
         let file = "assets/Duck/potter-500.vp7";
-        test_decode_audio("avi", file, Some(1500), "avc", &dmx_reg, &dec_reg);
+        test_decode_audio("avi", file, Some(1500), None/*Some("avc")*/, &dmx_reg, &dec_reg);
     }
 }
 

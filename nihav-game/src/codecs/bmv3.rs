@@ -624,7 +624,7 @@ mod test {
         game_register_all_codecs(&mut dec_reg);
 
         let file = "assets/Game/DW3-Loffnote.bmv";
-        test_decode_audio("bmv3", file, None, "bmv3", &dmx_reg, &dec_reg);
+        test_decode_audio("bmv3", file, None, None/*Some("bmv3")*/, &dmx_reg, &dec_reg);
     }
 }
 
