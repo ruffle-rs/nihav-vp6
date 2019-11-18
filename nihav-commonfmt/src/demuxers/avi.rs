@@ -487,7 +487,8 @@ mod test {
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = AVIDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
-        dmx.open(&mut sm).unwrap();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
 
         loop {
             let pktres = dmx.get_frame(&mut sm);

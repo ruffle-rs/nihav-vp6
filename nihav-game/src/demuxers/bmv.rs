@@ -252,7 +252,8 @@ mod test {
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = BMVDemuxer::new(&mut br);
         let mut sm = StreamManager::new();
-        dmx.open(&mut sm).unwrap();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
         loop {
             let pktres = dmx.get_frame(&mut sm);
             if let Err(e) = pktres {
@@ -270,7 +271,8 @@ mod test {
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = BMV3Demuxer::new(&mut br);
         let mut sm = StreamManager::new();
-        dmx.open(&mut sm).unwrap();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
         loop {
             let pktres = dmx.get_frame(&mut sm);
             if let Err(e) = pktres {
