@@ -7,9 +7,11 @@ use crate::demuxers::*;
 use crate::scale::*;
 use super::wavwriter::WavWriter;
 
+const OUTPUT_PREFIX: &str = "assets/test_out";
+
 fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
     if let NABufferType::None = frm.get_buffer() { return; }
-    let name = format!("assets/{}out{:02}_{:06}.pgm", pfx, strno, num);
+    let name = format!("{}/{}out{:02}_{:06}.pgm", OUTPUT_PREFIX, pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
     let buf = frm.get_buffer().get_vbuf().unwrap();
     let (w, h) = buf.get_dimensions(0);
@@ -89,7 +91,7 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
 }
 
 fn write_palppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
-    let name = format!("assets/{}out{:02}_{:06}.ppm", pfx, strno, num);
+    let name = format!("{}/{}out{:02}_{:06}.ppm", OUTPUT_PREFIX, pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
     let buf = frm.get_buffer().get_vbuf().unwrap();
     let (w, h) = buf.get_dimensions(0);
@@ -119,7 +121,7 @@ fn write_palppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
 }
 
 fn write_ppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
-    let name = format!("assets/{}out{:02}_{:06}.ppm", pfx, strno, num);
+    let name = format!("{}/{}out{:02}_{:06}.ppm", OUTPUT_PREFIX, pfx, strno, num);
     let mut ofile = File::create(name).unwrap();
         let info = frm.get_buffer().get_video_info().unwrap();
         let mut dpic = alloc_video_buffer(NAVideoInfo::new(info.get_width(), info.get_height(), false, RGB24_FORMAT), 0).unwrap();
@@ -234,7 +236,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
     }
 
     if let Some(audio_pfx) = audio_pfx { 
-        let name = format!("assets/{}out.wav", audio_pfx);
+        let name = format!("{}/{}out.wav", OUTPUT_PREFIX, audio_pfx);
         let file = File::create(name).unwrap();
         let mut fw = FileWriter::new_write(file);
         let mut wr = ByteWriter::new(&mut fw);
