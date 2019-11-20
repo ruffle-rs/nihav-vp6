@@ -677,14 +677,31 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
+        test_decoding("avi", "truemotion1", "assets/Duck/phant2-940.duk", Some(12), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                        [0x989e62b8, 0x5d85c23c, 0x1cffba6d, 0xe599f1c4],
+                        [0xc4231321, 0x25561487, 0x9db11f57, 0x4faeb9a5],
+                        [0x36e3a831, 0xdbd21f89, 0x0a446071, 0xf6d31ee7],
+                        [0x0af640af, 0x64bc2bac, 0x0e95dd72, 0x9e55360b],
+                        [0xbc9c5f8b, 0x6c06f2bc, 0x216f4129, 0x3a421337],
+                        [0xd8ea7297, 0xce5f79fc, 0x46071f4c, 0xaed7fb7a],
+                        [0x87617060, 0x72ce8df8, 0xde42eaa6, 0x804a6f45],
+                        [0xfd8c45b3, 0xf424b683, 0xb4d6a9bd, 0xc622d0b9],
+                        [0x6c233746, 0xba8ed68e, 0xc0ed0e85, 0xc99e1dc0],
+                        [0x5842aac0, 0xd3d78242, 0x5da21218, 0xea1ed0ad],
+                        [0xdea0db20, 0xe2ce3586, 0xf7386649, 0xecc374f9],
+                        [0xb80ae9cb, 0x04eb938e, 0xd8a337ee, 0x0054b5ed],
+                        [0xf8b80e1d, 0xd8eb3d6c, 0xa99b23ff, 0x562851a1]]));
+        test_decoding("avi", "truemotion1", "assets/Duck/SPRITES.AVI", Some(2), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0xb89a4275, 0xf9797f5f, 0xe53c1ccd, 0xfa163e02]));
         //let file = "assets/Duck/AVI-DUCK-dk3.duk";
-        let file = "assets/Duck/phant2-940.duk";
+        //let file = "assets/Duck/phant2-940.duk";
         //let file = "assets/Duck/bugsampler-m01-16bit.avi";
         //let file = "assets/Duck/sonic3dblast_intro.avi";
         //let file = "assets/Duck/BUTTONS.AVI";
         //let file = "assets/Duck/SPRITES.AVI";
         //let file = "assets/Duck/TRICORD.AVI";
-        test_file_decoding("avi", file, Some(42), true, false, None/*Some("tm1-")*/, &dmx_reg, &dec_reg);
+        //test_file_decoding("avi", file, Some(42), true, false, None/*Some("tm1-")*/, &dmx_reg, &dec_reg);
     }
 }
 

@@ -189,8 +189,10 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        let file = "assets/Duck/AVI-DUCK-dk3.duk";
-        test_decode_audio("avi", file, Some(100), None/*Some("dk3")*/, &dmx_reg, &dec_reg);
+        //let file = "assets/Duck/AVI-DUCK-dk3.duk";
+        //test_decode_audio("avi", file, Some(100), None/*Some("dk3")*/, &dmx_reg, &dec_reg);
+        test_decoding("avi", "adpcm-dk3", "assets/Duck/AVI-DUCK-dk3.duk", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0xa48fae0a, 0xa536b27f, 0x169ecc19, 0x8436fade]));
     }
     #[test]
     fn test_dk4() {
@@ -199,8 +201,10 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        let file = "assets/Duck/virtuafighter2-opening1.avi";
-        test_decode_audio("avi", file, Some(100), None/*Some("dk4")*/, &dmx_reg, &dec_reg);
+//        let file = "assets/Duck/virtuafighter2-opening1.avi";
+//        test_decode_audio("avi", file, Some(100), None/*Some("dk4")*/, &dmx_reg, &dec_reg);
+        test_decoding("avi", "adpcm-dk4", "assets/Duck/virtuafighter2-opening1.avi", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x04e40d15, 0xf65b3427, 0x1dd5181f, 0xf321b56f]));
     }
 }
 
