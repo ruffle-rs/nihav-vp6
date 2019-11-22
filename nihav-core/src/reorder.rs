@@ -36,56 +36,48 @@ impl FrameReorderer for NoReorderer {
     fn get_last_frames(&mut self) -> Option<NAFrameRef> { None }
 }
 
+#[derive(Default)]
 pub struct IPBReorderer {
-    frames:     Vec<NAFrameRef>,
-    max_depth:  usize,
-    last_ft:    FrameType,
+    rframe:     Option<NAFrameRef>,
+    bframe:     Option<NAFrameRef>,
 }
 
 impl IPBReorderer {
-    pub fn new(max_depth: usize) -> Self {
-        Self {
-            frames:     Vec::with_capacity(max_depth),
-            max_depth,
-            last_ft:    FrameType::Other,
-        }
-    }
+    pub fn new() -> Self { Self::default() }
 }
 
 impl FrameReorderer for IPBReorderer {
     fn add_frame(&mut self, fref: NAFrameRef) -> bool {
-        if self.frames.len() < self.max_depth {
-            let cur_ft = fref.get_frame_type();
-            if cur_ft != FrameType::B {
-                self.frames.push(fref);
-                self.last_ft = cur_ft;
-            } else {
-                let pframe = self.frames.pop();
-                if pframe.is_some() {
-                    self.frames.push(fref);
-                    self.frames.push(pframe.unwrap());
-                } else {
-                    self.last_ft = cur_ft;
-                }
-            }
-            true
+        if self.rframe.is_some() && self.bframe.is_some() { return false; }
+        let is_b = fref.get_frame_type() == FrameType::B;
+        if is_b && self.bframe.is_some() { return false; }
+        if is_b {
+            self.bframe = Some(fref);
         } else {
-            false
+            std::mem::swap(&mut self.bframe, &mut self.rframe);
+            self.rframe = Some(fref);
         }
+        true
     }
     fn get_frame(&mut self) -> Option<NAFrameRef> {
-        if !self.frames.is_empty() {
-            Some(self.frames.remove(0))
-        } else {
-            None
+        let mut ret = None;
+        if self.bframe.is_some() {
+            std::mem::swap(&mut ret, &mut self.bframe);
         }
+        ret
     }
     fn flush(&mut self) {
-        self.frames.clear();
-        self.last_ft = FrameType::Other;
+        self.rframe = None;
+        self.bframe = None;
     }
     fn get_last_frames(&mut self) -> Option<NAFrameRef> {
-        self.get_frame()
+        let mut ret = None;
+        if self.bframe.is_some() {
+            std::mem::swap(&mut ret, &mut self.bframe);
+        } else if self.rframe.is_some() {
+            std::mem::swap(&mut ret, &mut self.rframe);
+        }
+        ret
     }
 }
 
