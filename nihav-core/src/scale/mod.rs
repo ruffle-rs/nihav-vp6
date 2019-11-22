@@ -163,7 +163,7 @@ println!("convert {} -> {}", ifmt, ofmt);
         } else {
             !just_convert
         };
-    let needs_unpack = needs_scale || !ifmt.fmt.is_unpacked();
+    let needs_unpack = !ifmt.fmt.is_unpacked();
     let needs_pack = !ofmt.fmt.is_unpacked();
     let needs_convert = inname != outname;
     let scale_before_cvt = is_better_fmt(&ifmt, &ofmt) && needs_convert
