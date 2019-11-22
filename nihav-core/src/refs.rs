@@ -35,6 +35,9 @@ pub struct NABufferRef<T> {
     ptr: *mut NABufferData<T>,
 }
 
+unsafe impl<T> Sync for NABufferRef<T> {}
+unsafe impl<T> Send for NABufferRef<T> {}
+
 impl<T> NABufferRef<T> {
     pub fn new(val: T) -> Self {
         let bdata = NABufferData::new(val);
