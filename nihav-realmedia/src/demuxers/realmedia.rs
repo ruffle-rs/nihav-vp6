@@ -433,7 +433,7 @@ impl RMDemuxCommon {
             let soniton = NASoniton::new(samp_size as u8, SONITON_FLAG_SIGNED);
             let ahdr = NAAudioInfo::new(sample_rate, channels as u8, soniton, 1);
             let nainfo = NACodecInfo::new("ralf", NACodecTypeInfo::Audio(ahdr), extradata);
-            let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, sample_rate));
+            let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, 1000));
             if res.is_none() { return Err(MemoryError); }
             let astr = RMAudioStream::new(None);
             str_data.streams.push(RMStreamType::Audio(astr));
@@ -515,7 +515,7 @@ println!(" got ainfo {:?}", ainfo);
                 Some(eslice.to_vec())
             };
         let nainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, srate));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, 1000));
         if res.is_none() { return Err(MemoryError); }
 
         let astr = RMAudioStream::new(ainfo.ileave_info);
@@ -531,11 +531,11 @@ println!(" got ainfo {:?}", ainfo);
         let bpp         = src.read_u16be()?;
         let pad_w       = src.read_u16be()?;
         let pad_h       = src.read_u16be()?;
-        let fps;
+        let _fps;
         if tag2 == mktag!('V', 'I', 'D', 'O') {
-            fps         = src.read_u32be()?;
+            _fps        = src.read_u32be()?;
         } else {
-            fps = 0x10000;
+            _fps = 0x10000;
         }
         let extradata: Option<Vec<u8>>;
         if src.left() > 0 {
@@ -548,7 +548,7 @@ println!(" got ainfo {:?}", ainfo);
 
         let vhdr = NAVideoInfo::new(width, height, false, RGB24_FORMAT);
         let vinfo = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), extradata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Video, stream_no as u32, vinfo, 0x10000, fps));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, stream_no as u32, vinfo, 1, 1000));
         if res.is_none() { return Err(DemuxerError::MemoryError); }
 
         let vstr = RMVideoStream::new();
