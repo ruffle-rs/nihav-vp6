@@ -7,6 +7,40 @@ impl NNResampler {
     fn new() -> Self { Self{} }
 }
 
+fn scale_line<T:Copy>(src: &[T], dst: &mut [T], src_w: usize, dst_w: usize) {
+    if src_w == dst_w {
+        (&mut dst[..dst_w]).copy_from_slice(&src[..dst_w]);
+    } else if src_w < dst_w {
+        if dst_w % src_w == 0 {
+            let step = dst_w / src_w;
+            for (out, srcv) in dst.chunks_exact_mut(step).take(src_w).zip(src.iter()) {
+                for el in out.iter_mut() {
+                    *el = *srcv;
+                }
+            }
+        } else {
+            let mut pos = 0;
+            for out in dst.iter_mut().take(dst_w) {
+                *out = src[pos / dst_w];
+                pos += src_w;
+            }
+        }
+    } else {
+        if dst_w % src_w == 0 {
+            let step = src_w / dst_w;
+            for (out, srcv) in dst.iter_mut().take(dst_w).zip(src.iter().step_by(step)) {
+                *out = *srcv;
+            }
+        } else {
+            let mut pos = 0;
+            for out in dst.iter_mut().take(dst_w) {
+                *out = src[pos / dst_w];
+                pos += src_w;
+            }
+        }
+    }
+}
+
 macro_rules! scale_loop {
     ($sbuf:expr, $dbuf:expr) => {
             let fmt = $sbuf.get_info().get_format();
@@ -23,10 +57,7 @@ macro_rules! scale_loop {
                 for y in 0..dh {
                     let sy = y * sh / dh;
                     let soff = ioff + sy * istride;
-                    for x in 0..dw {
-                        let sx = x * sw / dw;
-                        dst[doff + x] = src[soff + sx];
-                    }
+                    scale_line(&src[soff..], &mut dst[doff..], sw, dw);
                     doff += dstride;
                 }
             }
