@@ -636,6 +636,12 @@ struct RealVideo60Decoder {
 
     xpos:       usize,
     ypos:       usize,
+
+    ts_scale:   u64,
+    ref0_pts:   u64,
+    ref1_pts:   u64,
+    ref0_ts:    u64,
+    ref1_ts:    u64,
 }
 
 impl RealVideo60Decoder {
@@ -667,6 +673,12 @@ impl RealVideo60Decoder {
             blk_pos:    0,
             xpos:       0,
             ypos:       0,
+
+            ts_scale:   1,
+            ref0_pts:   0,
+            ref1_pts:   0,
+            ref0_ts:    0,
+            ref1_ts:    0,
         }
     }
     fn decode_cu_line(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, src: &[u8], cu_y: usize) -> DecoderResult<()> {
@@ -1485,9 +1497,21 @@ println!("???");
             self.ipbs.add_frame(buf.clone());
         }
 
+        if hdr.ftype != FrameType::B {
+            self.ref0_pts = self.ref1_pts;
+            self.ref1_pts = pkt.get_pts().unwrap_or(0);
+            self.ref0_ts = self.ref1_ts;
+            self.ref1_ts = hdr.ts as u64;
+            if (self.ref1_pts > self.ref0_pts) && (self.ref1_ts > self.ref0_ts) {
+                self.ts_scale = (self.ref1_pts - self.ref0_pts) / (self.ref1_ts - self.ref0_ts);
+            }
+        }
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::Video(buf));
         frm.set_keyframe(hdr.ftype == FrameType::I);
-        frm.set_pts(Some(hdr.ts as u64));
+        if hdr.ftype == FrameType::B {
+            let pts = self.ref0_pts + ((hdr.ts as u64) - self.ref0_ts) * self.ts_scale;
+            frm.set_pts(Some(pts));
+        }
         frm.set_frame_type(hdr.ftype);
         Ok(frm.into_ref())
     }
