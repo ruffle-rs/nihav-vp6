@@ -238,6 +238,11 @@ pub fn create_rgb2yuv() -> Box<dyn Kernel> {
 #[derive(Default)]
 struct YuvToRgb {
     matrix: [[f32; 3]; 3],
+    yscale: Vec<i16>,
+    r_chr:  Vec<i16>,
+    g_u:    Vec<i16>,
+    g_v:    Vec<i16>,
+    b_chr:  Vec<i16>,
 }
 
 impl YuvToRgb {
@@ -262,6 +267,25 @@ impl Kernel for YuvToRgb {
                     apply_pal_yuv2rgb(BT_PAL_COEFFS[0], BT_PAL_COEFFS[1], &mut self.matrix);
                 },
             };
+            if yuvsm != YUVSubmodel::YIQ {
+                self.yscale = Vec::with_capacity(256);
+                self.r_chr  = Vec::with_capacity(256);
+                self.g_u    = Vec::with_capacity(256);
+                self.g_v    = Vec::with_capacity(256);
+                self.b_chr  = Vec::with_capacity(256);
+                for i in 0..256 {
+                    let yval = i as i16; // todo limited range as well
+                    self.yscale.push(yval);
+                    let rval = (((i as f32) - 128.0) * self.matrix[0][2]) as i16;
+                    self.r_chr.push(rval);
+                    let uval = (((i as f32) - 128.0) * self.matrix[1][1]) as i16;
+                    self.g_u.push(uval);
+                    let vval = (((i as f32) - 128.0) * self.matrix[1][2]) as i16;
+                    self.g_v.push(vval);
+                    let bval = (((i as f32) - 128.0) * self.matrix[2][1]) as i16;
+                    self.b_chr.push(bval);
+                }
+            }
         } else {
             return Err(ScaleError::InvalidArgument);
         }
@@ -294,6 +318,32 @@ println!(" [intermediate format {}]", df);
             let mut voff = sbuf.get_offset(2);
             let src = sbuf.get_data();
             let dst = dbuf.get_data_mut().unwrap();
+            if self.yscale.len() > 0 {
+                for y in 0..h {
+                    for x in 0..w {
+                        let y = self.yscale[src[yoff + x] as usize];
+                        let u = src[uoff + (x >> sv0)] as usize;
+                        let v = src[voff + (x >> sv1)] as usize;
+                        let r = y + self.r_chr[v];
+                        let g = y + self.g_u[u] + self.g_v[v];
+                        let b = y + self.b_chr[u];
+                        dst[roff + x] = r.max(0).min(255) as u8;
+                        dst[goff + x] = g.max(0).min(255) as u8;
+                        dst[boff + x] = b.max(0).min(255) as u8;
+                    }
+                    roff += dstrides[0];
+                    goff += dstrides[1];
+                    boff += dstrides[2];
+                    yoff += istrides[0];
+                    if (y & uhmask) == uhmask {
+                        uoff += istrides[1];
+                    }
+                    if (y & vhmask) == vhmask {
+                        voff += istrides[2];
+                    }
+                }
+                return;
+            }
             for y in 0..h {
                 for x in 0..w {
                     let y = f32::from(src[yoff + x]);
