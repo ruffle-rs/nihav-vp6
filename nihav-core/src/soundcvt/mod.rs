@@ -98,10 +98,10 @@ impl FromFmt<u8> for u8 {
     fn cvt_from(val: u8) -> u8 { val }
 }
 impl FromFmt<u8> for i16 {
-    fn cvt_from(val: u8) -> i16 { ((val as i16) - 128) * 0x101 }
+    fn cvt_from(val: u8) -> i16 { ((val as i16) - 128).wrapping_mul(0x101) }
 }
 impl FromFmt<u8> for i32 {
-    fn cvt_from(val: u8) -> i32 { ((val as i32) - 128) * 0x01010101 }
+    fn cvt_from(val: u8) -> i32 { ((val as i32) - 128).wrapping_mul(0x01010101) }
 }
 impl FromFmt<u8> for f32 {
     fn cvt_from(val: u8) -> f32 { ((val as f32) - 128.0) / 128.0 }
@@ -114,7 +114,7 @@ impl FromFmt<i16> for i16 {
     fn cvt_from(val: i16) -> i16 { val }
 }
 impl FromFmt<i16> for i32 {
-    fn cvt_from(val: i16) -> i32 { (val as i32) * 0x10001 }
+    fn cvt_from(val: i16) -> i32 { (val as i32).wrapping_mul(0x10001) }
 }
 impl FromFmt<i16> for f32 {
     fn cvt_from(val: i16) -> f32 { (val as f32) / 32768.0 }
@@ -182,7 +182,6 @@ fn read_packed<T:Copy>(src: &NAAudioBuffer<u8>, idx: usize, dst: &mut Vec<T>, fm
     for el in dst.iter_mut() {
         let src = &data[offset..];
         *el = if !fmt.float {
-println!("fmt = {} bytes, be: {}", fmt.bits, fmt.be);
                 match (bytes, fmt.be) {
                     (1, _)     => src[0].cvt_into(),
                     (2, true)  => (read_u16be(src).unwrap() as i16).cvt_into(),
