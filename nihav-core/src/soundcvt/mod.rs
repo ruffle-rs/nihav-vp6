@@ -16,12 +16,14 @@ enum ChannelOp {
     Passthrough,
     Reorder(Vec<usize>),
     Remix(Vec<f32>),
+    DupMono(Vec<bool>),
 }
 
 impl ChannelOp {
     fn is_remix(&self) -> bool {
         match *self {
             ChannelOp::Remix(_) => true,
+            ChannelOp::DupMono(_) => true,
             _ => false,
         }
     }
@@ -52,6 +54,12 @@ fn remix_i32(ch_op: &ChannelOp, src: &Vec<i32>, dst: &mut Vec<i32>) {
             *out = sum as i32;
         }
     }
+    if let ChannelOp::DupMono(ref dup_mat) = ch_op {
+        let src = src[0];
+        for (out, copy) in dst.iter_mut().zip(dup_mat.iter()) {
+            *out = if *copy { src } else { 0 };
+        }
+    }
 }
 
 fn remix_f32(ch_op: &ChannelOp, src: &Vec<f32>, dst: &mut Vec<f32>) {
@@ -63,6 +71,12 @@ fn remix_f32(ch_op: &ChannelOp, src: &Vec<f32>, dst: &mut Vec<f32>) {
                 sum += *inval * *coef;
             }
             *out = sum;
+        }
+    }
+    if let ChannelOp::DupMono(ref dup_mat) = ch_op {
+        let src = src[0];
+        for (out, copy) in dst.iter_mut().zip(dup_mat.iter()) {
+            *out = if *copy { src } else { 0.0 };
         }
     }
 }
@@ -168,6 +182,7 @@ fn read_packed<T:Copy>(src: &NAAudioBuffer<u8>, idx: usize, dst: &mut Vec<T>, fm
     for el in dst.iter_mut() {
         let src = &data[offset..];
         *el = if !fmt.float {
+println!("fmt = {} bytes, be: {}", fmt.bits, fmt.be);
                 match (bytes, fmt.be) {
                     (1, _)     => src[0].cvt_into(),
                     (2, true)  => (read_u16be(src).unwrap() as i16).cvt_into(),
@@ -255,9 +270,20 @@ Result<NABufferType, SoundConvertError> {
         } else if needs_reorder {
             let reorder_mat = calculate_reorder_matrix(src_chmap, dst_chmap);
             ChannelOp::Reorder(reorder_mat)
-        } else {
+        } else if src_chmap.num_channels() > 1 {
             let remix_mat = calculate_remix_matrix(src_chmap, dst_chmap);
             ChannelOp::Remix(remix_mat)
+        } else {
+            let mut dup_mat: Vec<bool> = Vec::with_capacity(dst_chmap.num_channels());
+            for i in 0..dst_chmap.num_channels() {
+                let ch =  dst_chmap.get_channel(i);
+                if ch.is_left() || ch.is_right() || ch == NAChannelType::C {
+                    dup_mat.push(true);
+                } else {
+                    dup_mat.push(false);
+                }
+            }
+            ChannelOp::DupMono(dup_mat)
         };
 
     let src_fmt = src_info.get_format();
