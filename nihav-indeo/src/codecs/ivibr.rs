@@ -1,9 +1,8 @@
 use std::mem;
-use std::rc::Rc;
-pub use std::cell::{Ref,RefCell};
 use nihav_core::io::bitreader::*;
 //use io::intcode::*;
 use nihav_core::codecs::*;
+use nihav_core::frame::NABufferRef;
 use super::ivi::*;
 use super::ividsp::*;
 
@@ -364,12 +363,12 @@ fn align(val: usize, bits: u8) -> usize {
 }
 
 impl FrameData {
-    fn new() -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(FrameData {
+    fn new() -> NABufferRef<Self> {
+        NABufferRef::new(FrameData {
             plane_buf:      [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
             plane_stride:   [0, 0, 0, 0],
             pic_hdr:        PictureHeader::new_null(IVIFrameType::Intra),
-        }))
+        })
     }
     fn realloc(&mut self, pic_hdr: &PictureHeader) -> DecoderResult<()> {
         let width  = align(pic_hdr.width,  6);
@@ -462,7 +461,7 @@ fn do_mc_b(dst: &mut [i16], dstride: usize, src1: &[i16], sstride1: usize, src2:
 pub trait IndeoXParser {
     fn decode_picture_header(&mut self, br: &mut BitReader) -> DecoderResult<PictureHeader>;
     fn decode_band_header(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, plane: usize, band: usize) -> DecoderResult<BandHeader>;
-    fn decode_mb_info(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, band_hdr: &BandHeader, tile: &mut IVITile, ref_tile: Option<Ref<IVITile>>, mv_scale: u8) -> DecoderResult<()>;
+    fn decode_mb_info(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, band_hdr: &BandHeader, tile: &mut IVITile, ref_tile: Option<&IVITile>, mv_scale: u8) -> DecoderResult<()>;
     fn recombine_plane(&mut self, src: &[i16], sstride: usize, dst: &mut [u8], dstride: usize, w: usize, h: usize);
 }
 
@@ -470,7 +469,7 @@ const MISSING_REF: usize = 42;
 
 pub struct IVIDecoder {
     ftype:      IVIFrameType,
-    frames:     [Rc<RefCell<FrameData>>; 4],
+    frames:     [NABufferRef<FrameData>; 4],
     cur_frame:  usize,
     prev_frame: usize,
     next_frame: usize,
@@ -482,7 +481,7 @@ pub struct IVIDecoder {
     bref:       Option<NABufferType>,
 
     bands:      Vec<BandHeader>,
-    tiles:      Vec<Rc<RefCell<IVITile>>>,
+    tiles:      Vec<NABufferRef<IVITile>>,
     num_tiles:  [[usize; 4]; 4],
     tile_start: [[usize; 4]; 4],
 }
@@ -539,7 +538,7 @@ impl IVIDecoder {
                     while x < band_w {
                         let cur_w = if x + tile_w <= band_w { tile_w } else { band_w - x };
                         let tile = IVITile::new(band_xoff + x, band_yoff + y, cur_w, cur_h);
-                        self.tiles.push(Rc::new(RefCell::new(tile)));
+                        self.tiles.push(NABufferRef::new(tile));
                         self.num_tiles[plane][band] += 1;
                         tstart += 1;
                         x += tile_w;
@@ -575,7 +574,7 @@ impl IVIDecoder {
         };
         for tile_no in tstart..tend {
             {
-                let mut tile = self.tiles[tile_no].borrow_mut();
+                let mut tile = self.tiles[tile_no].clone();
                 let mb_w = (tile.w + mb_size - 1) / mb_size;
                 let mb_h = (tile.h + mb_size - 1) / mb_size;
                 tile.mb_w = mb_w;
@@ -598,8 +597,8 @@ impl IVIDecoder {
                 validate!(tile_end > br.tell());
                 validate!(tile_end <= br.tell() + (br.left() as usize));
                 {
-                    let mut tile = self.tiles[tile_no].borrow_mut();
-                    let ref_tile: Option<Ref<IVITile>>;
+                    let mut tile = self.tiles[tile_no].clone();
+                    let ref_tile: Option<&IVITile>;
                     let mv_scale;
                     if (plane_no == 0) && (band_no == 0) {
                         mv_scale = 0;
@@ -607,7 +606,7 @@ impl IVIDecoder {
                         mv_scale = (((self.bands[0].mb_size >> 3) as i8) - ((band.mb_size >> 3) as i8)) as u8;
                     }
                     if plane_no != 0 || band_no != 0 {
-                        let rtile = self.tiles[0].borrow();
+                        let rtile = &self.tiles[0];
                         if (tile.mb_w != rtile.mb_w) || (tile.mb_h != rtile.mb_h) {
                             ref_tile = None;
                         } else {
@@ -624,8 +623,8 @@ let skip_part = tile_end - br.tell();
 br.skip(skip_part as u32)?;
             } else {
                 {
-                    let mut tile = self.tiles[tile_no].borrow_mut();
-                    let ref_tile: Option<Ref<IVITile>>;
+                    let mut tile = self.tiles[tile_no].clone();
+                    let ref_tile: Option<&IVITile>;
                     let mv_scale;
                     if (plane_no == 0) && (band_no == 0) {
                         mv_scale = 0;
@@ -633,7 +632,7 @@ br.skip(skip_part as u32)?;
                         mv_scale = (((self.bands[0].mb_size >> 3) as i8) - ((band.mb_size >> 3) as i8)) as u8;
                     }
                     if plane_no != 0 || band_no != 0 {
-                        let rtile = self.tiles[0].borrow();
+                        let rtile = &self.tiles[0];
                         if (tile.mb_w != rtile.mb_w) || (tile.mb_h != rtile.mb_h) {
                             ref_tile = None;
                         } else {
@@ -671,8 +670,8 @@ br.skip(skip_part as u32)?;
     fn decode_tile(&mut self, br: &mut BitReader, band: &BandHeader, tile_no: usize, tr: &TrFunc, transform_dc: &TrFuncDC) -> DecoderResult<()> {
         let mut mb_idx = 0;
         let mut prev_dc: i32 = 0;
-        let mut tile = self.tiles[tile_no].borrow_mut();
-        let mut frame = self.frames[self.cur_frame].borrow_mut();
+        let mut tile = self.tiles[tile_no].clone();
+        let mut frame = self.frames[self.cur_frame].clone();
 
         let stride = frame.plane_stride[band.plane_no];
         let mut dstidx = tile.pos_x + tile.pos_y * stride;
@@ -700,7 +699,7 @@ br.skip(skip_part as u32)?;
                                 } else {
                                     idx = self.next_frame;
                                 }
-                                let pf = self.frames[idx].borrow();
+                                let pf = &self.frames[idx];
                                 do_mc(&mut dst[dstidx + boff..], stride,
                                       &pf.plane_buf[band.plane_no], pf.plane_stride[band.plane_no],
                                       pos_x + mb_x * band.mb_size + (blk_no & 1) * band.blk_size,
@@ -708,8 +707,8 @@ br.skip(skip_part as u32)?;
                                       pos_x, pos_x + tile_w, pos_y, pos_y + tile_h,
                                       mb.mv_x, mb.mv_y, band.halfpel, band.blk_size);
                             } else {
-                                let pf = self.frames[self.prev_frame].borrow();
-                                let nf = self.frames[self.next_frame].borrow();
+                                let pf = &self.frames[self.prev_frame];
+                                let nf = &self.frames[self.next_frame];
                                 do_mc_b(&mut dst[dstidx + boff..], stride,
                                       &pf.plane_buf[band.plane_no], pf.plane_stride[band.plane_no],
                                       &nf.plane_buf[band.plane_no], nf.plane_stride[band.plane_no],
@@ -755,7 +754,7 @@ br.skip(skip_part as u32)?;
                             } else {
                                 idx = self.next_frame;
                             }
-                            let pf = self.frames[idx].borrow();
+                            let pf = &self.frames[idx];
                             do_mc(&mut dst[dstidx + mb_x * band.blk_size..], stride,
                                   &pf.plane_buf[band.plane_no], pf.plane_stride[band.plane_no],
                                   pos_x + mb_x * band.mb_size,
@@ -763,8 +762,8 @@ br.skip(skip_part as u32)?;
                                   pos_x, pos_x + tile_w, pos_y, pos_y + tile_h,
                                   mb.mv_x, mb.mv_y, band.halfpel, band.blk_size);
                         } else {
-                            let pf = self.frames[self.prev_frame].borrow();
-                            let nf = self.frames[self.next_frame].borrow();
+                            let pf = &self.frames[self.prev_frame];
+                            let nf = &self.frames[self.next_frame];
                             do_mc_b(&mut dst[dstidx + mb_x * band.blk_size..], stride,
                                     &pf.plane_buf[band.plane_no], pf.plane_stride[band.plane_no],
                                     &nf.plane_buf[band.plane_no], nf.plane_stride[band.plane_no],
@@ -865,7 +864,7 @@ br.skip(skip_part as u32)?;
         vinfo.set_height(pic_hdr.height);
         let mut buftype = alloc_video_buffer(vinfo, 0)?;
         self.realloc(&pic_hdr)?;
-        self.frames[self.cur_frame].borrow_mut().realloc(&pic_hdr)?;
+        self.frames[self.cur_frame].realloc(&pic_hdr)?;
 
         for plane in 0..3 {
             let num_bands = if plane == 0 { pic_hdr.luma_bands } else { pic_hdr.chroma_bands };
@@ -873,7 +872,7 @@ br.skip(skip_part as u32)?;
                 self.decode_band(&pic_hdr, dec, br, plane, band)?;
             }
             if let NABufferType::Video(ref mut vb) = buftype {
-                let mut frame = self.frames[self.cur_frame].borrow_mut();
+                let mut frame = self.frames[self.cur_frame].clone();
                 if num_bands == 1 {
                     frame.fill_plane(vb, plane);
                 } else {
@@ -887,7 +886,7 @@ br.skip(skip_part as u32)?;
             }
         }
         if pic_hdr.transparent {
-            let mut frame = self.frames[self.cur_frame].borrow_mut();
+            let mut frame = self.frames[self.cur_frame].clone();
             let stride = frame.plane_stride[3];
             read_trans_band_header(br, pic_hdr.width, pic_hdr.height, &mut frame.plane_buf[3], stride)?;
             if let NABufferType::Video(ref mut vb) = buftype {

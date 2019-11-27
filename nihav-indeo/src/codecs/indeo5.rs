@@ -264,7 +264,7 @@ impl IndeoXParser for Indeo5Parser {
         Ok(BandHeader::new(plane_no, band_no, self.mb_size[band_id], self.blk_size[band_id], self.is_hpel[band_id], inherit_mv, has_qdelta, inherit_qd, band_q, rvmap_idx, num_corr, corr_map, blk_cb, tr, txtype))
     }
 
-    fn decode_mb_info(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, band: &BandHeader, tile: &mut IVITile, ref_tile: Option<Ref<IVITile>>, mv_scale: u8) -> DecoderResult<()> {
+    fn decode_mb_info(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, band: &BandHeader, tile: &mut IVITile, ref_tile: Option<&IVITile>, mv_scale: u8) -> DecoderResult<()> {
         let mut mv_x = 0;
         let mut mv_y = 0;
         let band_id = if pic_hdr.luma_bands == 4 { band.band_no + 1 } else { 0 };
@@ -714,7 +714,7 @@ const INDEO5_QSCALE4_INTER: [u8; 24] = [
     0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23
 ];
 
-pub fn get_decoder() -> Box<dyn NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(Indeo5Decoder::new())
 }
 

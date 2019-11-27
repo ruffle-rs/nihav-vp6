@@ -460,7 +460,7 @@ impl NADecoder for GremlinVideoDecoder {
     }
 }
 
-pub fn get_decoder_video() -> Box<dyn NADecoder> {
+pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(GremlinVideoDecoder::new())
 }
 
@@ -554,7 +554,7 @@ impl NADecoder for GremlinAudioDecoder {
     }
 }
 
-pub fn get_decoder_audio() -> Box<dyn NADecoder> {
+pub fn get_decoder_audio() -> Box<dyn NADecoder + Send> {
     Box::new(GremlinAudioDecoder::new())
 }
 

@@ -175,7 +175,7 @@ impl NADecoder for MidividDecoder {
 }
 
 
-pub fn get_decoder_video() -> Box<dyn NADecoder> {
+pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(MidividDecoder::new())
 }
 

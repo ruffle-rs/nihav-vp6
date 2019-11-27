@@ -1240,7 +1240,7 @@ impl NADecoder for AudioDecoder {
     }
 }
 
-pub fn get_decoder() -> Box<dyn NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(AudioDecoder::new())
 }
 

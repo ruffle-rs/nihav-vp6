@@ -695,7 +695,7 @@ impl NADecoder for Atrac3Decoder {
     }
 }
 
-pub fn get_decoder() -> Box<dyn NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(Atrac3Decoder::new())
 }
 

@@ -1401,7 +1401,7 @@ impl NADecoder for VP7Decoder {
     }
 }
 
-pub fn get_decoder() -> Box<NADecoder> {
+pub fn get_decoder() -> Box<NADecoder + Send> {
     Box::new(VP7Decoder::new())
 }
 

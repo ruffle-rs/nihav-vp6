@@ -706,11 +706,11 @@ impl NADecoder for VP6Decoder {
     }
 }
 
-pub fn get_decoder_vp6() -> Box<NADecoder> {
+pub fn get_decoder_vp6() -> Box<NADecoder + Send> {
     Box::new(VP6Decoder::new(false))
 }
 
-pub fn get_decoder_vp6_alpha() -> Box<NADecoder> {
+pub fn get_decoder_vp6_alpha() -> Box<NADecoder + Send> {
     Box::new(VP6Decoder::new(true))
 }
 

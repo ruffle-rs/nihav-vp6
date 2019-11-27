@@ -519,7 +519,7 @@ const H263_MBB: &[MBB; 7] = &[
     MBB{ blocks: 65536, bits: 14 },
 ];
 
-pub fn get_decoder() -> Box<dyn NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(RealVideo20Decoder::new())
 }
 

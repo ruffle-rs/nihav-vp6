@@ -270,7 +270,7 @@ impl NADecoder for VMDVideoDecoder {
 }
 
 
-pub fn get_decoder_video() -> Box<dyn NADecoder> {
+pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(VMDVideoDecoder::new())
 }
 
@@ -443,7 +443,7 @@ impl NADecoder for VMDAudioDecoder {
     }
 }
 
-pub fn get_decoder_audio() -> Box<dyn NADecoder> {
+pub fn get_decoder_audio() -> Box<dyn NADecoder + Send> {
     Box::new(VMDAudioDecoder::new())
 }
 

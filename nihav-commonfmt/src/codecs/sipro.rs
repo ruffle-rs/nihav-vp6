@@ -736,7 +736,7 @@ impl NADecoder for SiproDecoder {
     }
 }
 
-pub fn get_decoder() -> Box<dyn NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(SiproDecoder::new())
 }
 

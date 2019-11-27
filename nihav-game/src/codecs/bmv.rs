@@ -221,7 +221,7 @@ impl NADecoder for BMVVideoDecoder {
 }
 
 
-pub fn get_decoder_video() -> Box<dyn NADecoder> {
+pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(BMVVideoDecoder::new())
 }
 
@@ -299,7 +299,7 @@ impl NADecoder for BMVAudioDecoder {
     }
 }
 
-pub fn get_decoder_audio() -> Box<dyn NADecoder> {
+pub fn get_decoder_audio() -> Box<dyn NADecoder + Send> {
     Box::new(BMVAudioDecoder::new())
 }
 

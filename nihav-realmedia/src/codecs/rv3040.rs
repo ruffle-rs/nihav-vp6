@@ -679,13 +679,13 @@ fn decode_mv(br: &mut BitReader) -> DecoderResult<MV> {
     Ok(MV{ x, y })
 }
 
-fn do_mc_16x16(dsp: &Box<dyn RV34DSP>, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, mb_y: usize, mv: MV, avg: bool) {
+fn do_mc_16x16(dsp: &Box<dyn RV34DSP + Send>, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, mb_y: usize, mv: MV, avg: bool) {
     dsp.do_luma_mc  (buf, prevbuf, mb_x * 16, mb_y * 16,    mv, true, avg);
     dsp.do_chroma_mc(buf, prevbuf, mb_x *  8, mb_y *  8, 1, mv, true, avg);
     dsp.do_chroma_mc(buf, prevbuf, mb_x *  8, mb_y *  8, 2, mv, true, avg);
 }
 
-fn do_mc_8x8(dsp: &Box<dyn RV34DSP>, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, xoff: usize, mb_y: usize, yoff: usize, mv: MV, avg: bool) {
+fn do_mc_8x8(dsp: &Box<dyn RV34DSP + Send>, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, xoff: usize, mb_y: usize, yoff: usize, mv: MV, avg: bool) {
     dsp.do_luma_mc  (buf, prevbuf, mb_x * 16 + xoff * 8, mb_y * 16 + yoff * 8,    mv, false, avg);
     dsp.do_chroma_mc(buf, prevbuf, mb_x *  8 + xoff * 4, mb_y *  8 + yoff * 4, 1, mv, false, avg);
     dsp.do_chroma_mc(buf, prevbuf, mb_x *  8 + xoff * 4, mb_y *  8 + yoff * 4, 2, mv, false, avg);
@@ -717,7 +717,7 @@ fn do_avg(cdsp: &RV34CommonDSP, buf: &mut NAVideoBuffer<u8>, avg_buf: &NAVideoBu
 pub struct RV34Decoder {
     is_rv30:    bool,
     coderead:   RV34Codes,
-    dsp:        Box<dyn RV34DSP>,
+    dsp:        Box<dyn RV34DSP + Send>,
     cdsp:       RV34CommonDSP,
     width:      usize,
     height:     usize,
@@ -735,7 +735,7 @@ pub struct RV34Decoder {
 }
 
 impl RV34Decoder {
-    pub fn new(is_rv30: bool, dsp: Box<dyn RV34DSP>) -> Self {
+    pub fn new(is_rv30: bool, dsp: Box<dyn RV34DSP + Send>) -> Self {
         let tmp_vinfo = NAVideoInfo::new(16, 16, false, YUV420_FORMAT);
         let vt = alloc_video_buffer(tmp_vinfo, 4).unwrap();
         let vb = vt.get_vbuf();

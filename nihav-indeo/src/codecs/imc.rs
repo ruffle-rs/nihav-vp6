@@ -926,11 +926,11 @@ impl NADecoder for IMCDecoder {
     }
 }
 
-pub fn get_decoder_imc() -> Box<dyn NADecoder> {
+pub fn get_decoder_imc() -> Box<dyn NADecoder + Send> {
     Box::new(IMCDecoder::new(true))
 }
 
-pub fn get_decoder_iac() -> Box<dyn NADecoder> {
+pub fn get_decoder_iac() -> Box<dyn NADecoder + Send> {
     Box::new(IMCDecoder::new(false))
 }
 

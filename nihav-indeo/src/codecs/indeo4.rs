@@ -227,7 +227,7 @@ impl IndeoXParser for Indeo4Parser {
         Ok(BandHeader::new(plane_no, band_no, mb_size, blk_size, mv_mode == 1, inherit_mv, false, inherit_qd, quant, rvmap_idx, num_corr, corr_map, blk_cb, tr, txtype))
     }
 
-    fn decode_mb_info(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, band: &BandHeader, tile: &mut IVITile, ref_tile: Option<Ref<IVITile>>, mv_scale: u8) -> DecoderResult<()> {
+    fn decode_mb_info(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, band: &BandHeader, tile: &mut IVITile, ref_tile: Option<&IVITile>, mv_scale: u8) -> DecoderResult<()> {
         let mut mv_x = 0;
         let mut mv_y = 0;
         let mut mb_idx = 0;
@@ -761,7 +761,7 @@ const INDEO4_Q4_INTER: [&[u16; 16]; 5] = [
     &INDEO4_QUANT4X4_INTER[3], &INDEO4_QUANT4X4_INTER[4]
 ];
 
-pub fn get_decoder() -> Box<dyn NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(Indeo4Decoder::new())
 }
 

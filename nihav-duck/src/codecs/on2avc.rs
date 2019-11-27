@@ -1048,11 +1048,11 @@ impl NADecoder for AVCDecoder {
     }
 }
 
-pub fn get_decoder_500() -> Box<dyn NADecoder> {
+pub fn get_decoder_500() -> Box<dyn NADecoder + Send> {
     Box::new(AVCDecoder::new(500))
 }
 
-pub fn get_decoder_501() -> Box<dyn NADecoder> {
+pub fn get_decoder_501() -> Box<dyn NADecoder + Send> {
     Box::new(AVCDecoder::new(501))
 }
 

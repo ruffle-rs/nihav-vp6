@@ -1848,11 +1848,11 @@ impl NADecoder for VP34Decoder {
     }
 }
 
-pub fn get_decoder_vp3() -> Box<NADecoder> {
+pub fn get_decoder_vp3() -> Box<NADecoder + Send> {
     Box::new(VP34Decoder::new(3))
 }
 
-pub fn get_decoder_vp4() -> Box<NADecoder> {
+pub fn get_decoder_vp4() -> Box<NADecoder + Send> {
     Box::new(VP34Decoder::new(4))
 }
 

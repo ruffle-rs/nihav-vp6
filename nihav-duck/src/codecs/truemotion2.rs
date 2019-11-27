@@ -581,7 +581,7 @@ impl NADecoder for TM2Decoder {
     }
 }
 
-pub fn get_decoder() -> Box<dyn NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(TM2Decoder::new())
 }
 

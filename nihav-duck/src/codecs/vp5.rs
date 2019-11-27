@@ -272,7 +272,7 @@ impl NADecoder for VP5Decoder {
     }
 }
 
-pub fn get_decoder() -> Box<NADecoder> {
+pub fn get_decoder() -> Box<NADecoder + Send> {
     Box::new(VP5Decoder::new())
 }
 

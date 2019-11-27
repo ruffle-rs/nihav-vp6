@@ -311,7 +311,7 @@ impl NADecoder for RA144Decoder {
     }
 }
 
-pub fn get_decoder() -> Box<dyn NADecoder> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(RA144Decoder::new())
 }
 
