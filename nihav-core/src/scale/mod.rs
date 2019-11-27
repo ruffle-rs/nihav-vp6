@@ -123,9 +123,38 @@ fn check_format(in_fmt: NAVideoInfo, ref_fmt: &ScaleInfo, just_convert: bool) ->
 fn copy(pic_in: &NABufferType, pic_out: &mut NABufferType)
 {
     if let (Some(ref sbuf), Some(ref mut dbuf)) = (pic_in.get_vbuf(), pic_out.get_vbuf()) {
-        let sdata = sbuf.get_data();
-        let ddata = dbuf.get_data_mut().unwrap();
-        ddata.copy_from_slice(&sdata[0..]);
+        let mut same = true;
+        let num_components = sbuf.get_info().get_format().get_num_comp();
+        for i in 0..num_components {
+            if sbuf.get_stride(i) != dbuf.get_stride(i) {
+                same = false;
+                break;
+            }
+            if sbuf.get_offset(i) != dbuf.get_offset(i) {
+                same = false;
+                break;
+            }
+        }
+        if same {
+            let sdata = sbuf.get_data();
+            let ddata = dbuf.get_data_mut().unwrap();
+            ddata.copy_from_slice(&sdata[0..]);
+        } else {
+            let sdata = sbuf.get_data();
+            for comp in 0..num_components {
+                let (_, h) = sbuf.get_dimensions(comp);
+                let src = &sdata[sbuf.get_offset(comp)..];
+                let sstride = sbuf.get_stride(comp);
+                let doff = dbuf.get_offset(comp);
+                let dstride = dbuf.get_stride(comp);
+                let ddata = dbuf.get_data_mut().unwrap();
+                let dst = &mut ddata[doff..];
+                let copy_size = sstride.min(dstride);
+                for (dline, sline) in dst.chunks_exact_mut(dstride).take(h).zip(src.chunks_exact(sstride)) {
+                    (&mut dline[..copy_size]).copy_from_slice(&sline[..copy_size]);
+                }
+            }
+        }
     } else {
         unimplemented!();
     }
