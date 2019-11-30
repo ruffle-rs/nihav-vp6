@@ -335,7 +335,8 @@ impl NADecoder for Indeo2Decoder {
             let mut buf = bufinfo.get_vbuf().unwrap();
             for plane in 0..3 {
                 let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;
-                self.decode_plane_intra(&mut br, &mut buf, plane, tabidx)?;
+                let planeno = if plane == 0 { 0 } else { plane ^ 3 };
+                self.decode_plane_intra(&mut br, &mut buf, planeno, tabidx)?;
             }
             self.frmmgr.add_frame(buf);
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
@@ -349,7 +350,8 @@ impl NADecoder for Indeo2Decoder {
 
             for plane in 0..3 {
                 let tabidx = (if plane == 0 { luma_tab } else { chroma_tab }) as usize;
-                self.decode_plane_inter(&mut br, &mut buf, plane, tabidx)?;
+                let planeno = if plane == 0 { 0 } else { plane ^ 3 };
+                self.decode_plane_inter(&mut br, &mut buf, planeno, tabidx)?;
             }
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::Video(buf));
             frm.set_keyframe(false);
