@@ -382,6 +382,18 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/Indeo/laser05.avi", Some(10), true, false, None, &dmx_reg, &dec_reg);
+        test_decoding("avi", "indeo2", "assets/Indeo/laser05.avi", Some(10),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x55f509ad, 0x62fb52d5, 0x6e9a86b2, 0x3910ce74],
+                            [0x76a2b95d, 0x97bd2eca, 0xc9815f99, 0xe196b47a],
+                            [0x4ce19793, 0x46ff7429, 0x89d5c3aa, 0x822b8825],
+                            [0xb9cd338f, 0x3d4884a7, 0x5a9e978d, 0xc5abcfe8],
+                            [0xc4c6997a, 0x7dbb3a97, 0x1e4e65f6, 0xb5b6fba5],
+                            [0xe315980e, 0x817f51e5, 0xf9a45363, 0x943c94b9],
+                            [0x09b8c723, 0xb39aa17e, 0x6de2a61b, 0xaceca224],
+                            [0xdc1b1966, 0xba5a13b3, 0x3a7fbdab, 0xdebb504c],
+                            [0xd33eed2a, 0x7b3834a6, 0x2d57cd23, 0x73644cd9],
+                            [0xd7bd2ade, 0x114f973e, 0xe9a9cf45, 0x3c04297e],
+                            [0x4d851f61, 0x519c41df, 0x325dc9f9, 0xdf88b57a]]));
     }
 }
