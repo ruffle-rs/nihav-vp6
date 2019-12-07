@@ -81,15 +81,6 @@ fn remix_f32(ch_op: &ChannelOp, src: &Vec<f32>, dst: &mut Vec<f32>) {
     }
 }
 
-fn read_samples<T:Copy>(src: &NAAudioBuffer<T>, mut idx: usize, dst: &mut Vec<T>) {
-    let stride = src.get_stride();
-    let data = src.get_data();
-    for out in dst.iter_mut() {
-        *out = data[idx];
-        idx += stride;
-    }
-}
-
 trait FromFmt<T:Copy> {
     fn cvt_from(val: T) -> Self;
 }
@@ -155,102 +146,167 @@ impl<T:Copy, U:Copy> IntoFmt<U> for T where U: FromFmt<T> {
 }
 
 
-fn read_samples_i32<T:Copy>(src: &NAAudioBuffer<T>, mut idx: usize, dst: &mut Vec<i32>) where i32: FromFmt<T> {
-    let stride = src.get_stride();
-    let data = src.get_data();
-    for out in dst.iter_mut() {
-        *out = i32::cvt_from(data[idx]);
-        idx += stride;
-    }
+trait SampleReader {
+    fn get_samples_i32(&self, pos: usize, dst: &mut Vec<i32>);
+    fn get_samples_f32(&self, pos: usize, dst: &mut Vec<f32>);
 }
 
-fn read_samples_f32<T:Copy>(src: &NAAudioBuffer<T>, mut idx: usize, dst: &mut Vec<f32>) where f32: FromFmt<T> {
-    let stride = src.get_stride();
-    let data = src.get_data();
-    for out in dst.iter_mut() {
-        *out = f32::cvt_from(data[idx]);
-        idx += stride;
-    }
+struct GenericSampleReader<'a, T:Copy> {
+    data:   &'a [T],
+    stride: usize,
 }
 
-fn read_packed<T:Copy>(src: &NAAudioBuffer<u8>, idx: usize, dst: &mut Vec<T>, fmt: &NASoniton) where u8: IntoFmt<T>, i16: IntoFmt<T>, i32: IntoFmt<T>, f32: IntoFmt<T> {
-    if (fmt.bits & 7) != 0 { unimplemented!(); }
-    let bytes = (fmt.bits >> 3) as usize;
-    let mut offset = idx * bytes * dst.len();
-    let data = src.get_data();
-
-    for el in dst.iter_mut() {
-        let src = &data[offset..];
-        *el = if !fmt.float {
-                match (bytes, fmt.be) {
-                    (1, _)     => src[0].cvt_into(),
-                    (2, true)  => (read_u16be(src).unwrap() as i16).cvt_into(),
-                    (2, false) => (read_u16le(src).unwrap() as i16).cvt_into(),
-                    (3, true)  => ((read_u24be(src).unwrap() << 8) as i32).cvt_into(),
-                    (3, false) => ((read_u24be(src).unwrap() << 8) as i32).cvt_into(),
-                    (4, true)  => (read_u32be(src).unwrap() as i32).cvt_into(),
-                    (4, false) => (read_u32be(src).unwrap() as i32).cvt_into(),
-                    _ => unreachable!(),
-                }
-            } else {
-                match (bytes, fmt.be) {
-                    (4, true)  => read_f32be(src).unwrap().cvt_into(),
-                    (4, false) => read_f32le(src).unwrap().cvt_into(),
-                    (8, true)  => (read_f64be(src).unwrap() as f32).cvt_into(),
-                    (8, false) => (read_f64le(src).unwrap() as f32).cvt_into(),
-                    (_, _) => unreachable!(),
-                }
-            };
-        offset += bytes;
-    }
-}
-
-fn store_samples<T:Copy, U:Copy>(dst: &mut NAAudioBuffer<T>, mut idx: usize, src: &Vec<U>) where U: IntoFmt<T> {
-    let stride = dst.get_stride();
-    let data = dst.get_data_mut().unwrap();
-    for src_el in src.iter() {
-        data[idx] = (*src_el).cvt_into();
-        idx += stride;
-    }
-}
-
-fn store_packed<T:Copy>(dst: &mut NAAudioBuffer<u8>, idx: usize, src: &Vec<T>, fmt: &NASoniton) where u8: FromFmt<T>, i16: FromFmt<T>, i32: FromFmt<T>, f32: FromFmt<T> {
-    if (fmt.bits & 7) != 0 { unimplemented!(); }
-    let bytes = (fmt.bits >> 3) as usize;
-    let mut offset = idx * bytes * src.len();
-    let data = dst.get_data_mut().unwrap();
-
-    for el in src.iter() {
-        let dst = &mut data[offset..];
-        if !fmt.float {
-            match (bytes, fmt.be) {
-                (1, _) => {
-                    dst[0] = u8::cvt_from(*el);
-                },
-                (2, true)  => write_u16be(dst, i16::cvt_from(*el) as u16).unwrap(),
-                (2, false) => write_u16le(dst, i16::cvt_from(*el) as u16).unwrap(),
-                (3, true)  => write_u24be(dst, (i32::cvt_from(*el) >> 8) as u32).unwrap(),
-                (3, false) => write_u24le(dst, (i32::cvt_from(*el) >> 8) as u32).unwrap(),
-                (4, true)  => write_u32be(dst, i32::cvt_from(*el) as u32).unwrap(),
-                (4, false) => write_u32le(dst, i32::cvt_from(*el) as u32).unwrap(),
-                _ => unreachable!(),
-            };
-        } else {
-            match (bytes, fmt.be) {
-                (4, true)  => write_f32be(dst, f32::cvt_from(*el)).unwrap(),
-                (4, false) => write_f32le(dst, f32::cvt_from(*el)).unwrap(),
-                (8, true)  => write_f64be(dst, f32::cvt_from(*el) as f64).unwrap(),
-                (8, false) => write_f64le(dst, f32::cvt_from(*el) as f64).unwrap(),
-                (_, _) => unreachable!(),
-            };
+impl<'a, T:Copy+IntoFmt<i32>+IntoFmt<f32>> SampleReader for GenericSampleReader<'a, T> {
+    fn get_samples_i32(&self, pos: usize, dst: &mut Vec<i32>) {
+        let mut off = pos;
+        for el in dst.iter_mut() {
+            *el = self.data[off].cvt_into();
+            off += self.stride;
         }
-        offset += bytes;
+    }
+    fn get_samples_f32(&self, pos: usize, dst: &mut Vec<f32>) {
+        let mut off = pos;
+        for el in dst.iter_mut() {
+            *el = self.data[off].cvt_into();
+            off += self.stride;
+        }
+    }
+}
+
+struct PackedSampleReader<'a> {
+    data:   &'a [u8],
+    fmt:    NASoniton,
+    bpp:    usize,
+}
+
+impl<'a> PackedSampleReader<'a> {
+    fn new(data: &'a [u8], fmt: NASoniton) -> Self {
+        if (fmt.bits & 7) != 0 { unimplemented!(); }
+        let bpp = (fmt.bits >> 3) as usize;
+        Self { data, fmt, bpp }
+    }
+    fn get_samples<T:Copy>(&self, pos: usize, dst: &mut Vec<T>) where u8: IntoFmt<T>, i16: IntoFmt<T>, i32: IntoFmt<T>, f32: IntoFmt<T> {
+        let mut offset = pos * self.bpp * dst.len();
+
+        for el in dst.iter_mut() {
+            let src = &self.data[offset..];
+            *el = if !self.fmt.float {
+                    match (self.bpp, self.fmt.be) {
+                        (1, _)     => src[0].cvt_into(),
+                        (2, true)  => (read_u16be(src).unwrap() as i16).cvt_into(),
+                        (2, false) => (read_u16le(src).unwrap() as i16).cvt_into(),
+                        (3, true)  => ((read_u24be(src).unwrap() << 8) as i32).cvt_into(),
+                        (3, false) => ((read_u24be(src).unwrap() << 8) as i32).cvt_into(),
+                        (4, true)  => (read_u32be(src).unwrap() as i32).cvt_into(),
+                        (4, false) => (read_u32be(src).unwrap() as i32).cvt_into(),
+                        _ => unreachable!(),
+                    }
+                } else {
+                    match (self.bpp, self.fmt.be) {
+                        (4, true)  => read_f32be(src).unwrap().cvt_into(),
+                        (4, false) => read_f32le(src).unwrap().cvt_into(),
+                        (8, true)  => (read_f64be(src).unwrap() as f32).cvt_into(),
+                        (8, false) => (read_f64le(src).unwrap() as f32).cvt_into(),
+                        (_, _) => unreachable!(),
+                    }
+                };
+            offset += self.bpp;
+        }
+    }
+}
+
+impl SampleReader for PackedSampleReader<'_> {
+    fn get_samples_i32(&self, pos: usize, dst: &mut Vec<i32>) {
+        self.get_samples(pos, dst);
+    }
+    fn get_samples_f32(&self, pos: usize, dst: &mut Vec<f32>) {
+        self.get_samples(pos, dst);
+    }
+}
+
+trait SampleWriter {
+    fn store_samples_i32(&mut self, pos: usize, src: &Vec<i32>);
+    fn store_samples_f32(&mut self, pos: usize, src: &Vec<f32>);
+}
+
+struct GenericSampleWriter<'a, T:Copy> {
+    data:   &'a mut [T],
+    stride: usize,
+}
+
+impl<'a, T:Copy+FromFmt<i32>+FromFmt<f32>> SampleWriter for GenericSampleWriter<'a, T> {
+    fn store_samples_i32(&mut self, pos: usize, src: &Vec<i32>) {
+        let mut off = pos;
+        for el in src.iter() {
+            self.data[off] = (*el).cvt_into();
+            off += self.stride;
+        }
+    }
+    fn store_samples_f32(&mut self, pos: usize, src: &Vec<f32>) {
+        let mut off = pos;
+        for el in src.iter() {
+            self.data[off] = (*el).cvt_into();
+            off += self.stride;
+        }
+    }
+}
+
+struct PackedSampleWriter<'a> {
+    data:   &'a mut [u8],
+    fmt:    NASoniton,
+    bpp:    usize,
+}
+
+impl<'a> PackedSampleWriter<'a> {
+    fn new(data: &'a mut [u8], fmt: NASoniton) -> Self {
+        if (fmt.bits & 7) != 0 { unimplemented!(); }
+        let bpp = (fmt.bits >> 3) as usize;
+        Self { data, fmt, bpp }
+    }
+
+    fn store_samples<T:Copy>(&mut self, pos: usize, src: &Vec<T>) where u8: FromFmt<T>, i16: FromFmt<T>, i32: FromFmt<T>, f32: FromFmt<T> {
+        let mut offset = pos * self.bpp * src.len();
+        for el in src.iter() {
+            let dst = &mut self.data[offset..];
+            if !self.fmt.float {
+                match (self.bpp, self.fmt.be) {
+                    (1, _) => {
+                        dst[0] = u8::cvt_from(*el);
+                    },
+                    (2, true)  => write_u16be(dst, i16::cvt_from(*el) as u16).unwrap(),
+                    (2, false) => write_u16le(dst, i16::cvt_from(*el) as u16).unwrap(),
+                    (3, true)  => write_u24be(dst, (i32::cvt_from(*el) >> 8) as u32).unwrap(),
+                    (3, false) => write_u24le(dst, (i32::cvt_from(*el) >> 8) as u32).unwrap(),
+                    (4, true)  => write_u32be(dst, i32::cvt_from(*el) as u32).unwrap(),
+                    (4, false) => write_u32le(dst, i32::cvt_from(*el) as u32).unwrap(),
+                    _ => unreachable!(),
+                };
+            } else {
+                match (self.bpp, self.fmt.be) {
+                    (4, true)  => write_f32be(dst, f32::cvt_from(*el)).unwrap(),
+                    (4, false) => write_f32le(dst, f32::cvt_from(*el)).unwrap(),
+                    (8, true)  => write_f64be(dst, f32::cvt_from(*el) as f64).unwrap(),
+                    (8, false) => write_f64le(dst, f32::cvt_from(*el) as f64).unwrap(),
+                    (_, _) => unreachable!(),
+                };
+            }
+            offset += self.bpp;
+        }
+    }
+}
+
+impl SampleWriter for PackedSampleWriter<'_> {
+    fn store_samples_i32(&mut self, pos: usize, src: &Vec<i32>) {
+        self.store_samples(pos, src);
+    }
+    fn store_samples_f32(&mut self, pos: usize, src: &Vec<f32>) {
+        self.store_samples(pos, src);
     }
 }
 
 pub fn convert_audio_frame(src: &NABufferType, dst_info: &NAAudioInfo, dst_chmap: &NAChannelMap) -> 
 Result<NABufferType, SoundConvertError> {
-    let nsamples = src.get_audio_length();
+    let mut nsamples = src.get_audio_length();
     if nsamples == 0 {
         return Err(SoundConvertError::InvalidInput);
     }
@@ -258,6 +314,10 @@ Result<NABufferType, SoundConvertError> {
     let src_info  = src.get_audio_info().unwrap();
     if (src_chmap.num_channels() == 0) || (dst_chmap.num_channels() == 0) {
         return Err(SoundConvertError::InvalidInput);
+    }
+
+    if let NABufferType::AudioPacked(_) = src {
+        nsamples = nsamples * 8 / (src_info.get_format().get_bits() as usize) / src_chmap.num_channels();
     }
 
     let needs_remix = src_chmap.num_channels() != dst_chmap.num_channels();
@@ -299,134 +359,88 @@ Result<NABufferType, SoundConvertError> {
     }
     let mut dst_buf = ret.unwrap();
 
-    if no_conversion {
-        match (src, &mut dst_buf) {
-            (NABufferType::AudioU8(sb), NABufferType::AudioU8(ref mut db)) => {
-                let mut svec = vec![0; src_chmap.num_channels()];
-                let mut tvec1 = vec![0; src_chmap.num_channels()];
-                let mut tvec2 = vec![0; dst_chmap.num_channels()];
-                let mut dvec = vec![0; dst_chmap.num_channels()];
-                for i in 0..nsamples {
-                    read_samples(sb, i, &mut svec);
-                    if !channel_op.is_remix() {
-                        apply_channel_op(&channel_op, &svec, &mut dvec);
-                    } else {
-                        for (oel, iel) in tvec1.iter_mut().zip(svec.iter()) {
-                            *oel = (*iel as i32) - 128;
-                        }
-                        remix_i32(&channel_op, &tvec1, &mut tvec2);
-                        for (oel, iel) in dvec.iter_mut().zip(tvec2.iter()) {
-                            *oel = (*iel + 128).min(255).max(0) as u8;
-                        }
-                    }
-                    store_samples(db, i, &dvec);
-                }
+    let sr: Box<dyn SampleReader> = match src {
+            NABufferType::AudioU8(ref ab) => {
+                let stride = ab.get_stride();
+                let data = ab.get_data();
+                Box::new(GenericSampleReader { data, stride })
             },
-            (NABufferType::AudioI16(sb), NABufferType::AudioI16(ref mut db)) => {
-                let mut svec = vec![0; src_chmap.num_channels()];
-                let mut tvec1 = vec![0; src_chmap.num_channels()];
-                let mut tvec2 = vec![0; dst_chmap.num_channels()];
-                let mut dvec = vec![0; dst_chmap.num_channels()];
-                for i in 0..nsamples {
-                    read_samples(sb, i, &mut svec);
-                    if !channel_op.is_remix() {
-                        apply_channel_op(&channel_op, &svec, &mut dvec);
-                    } else {
-                        for (oel, iel) in tvec1.iter_mut().zip(svec.iter()) {
-                            *oel = *iel as i32;
-                        }
-                        remix_i32(&channel_op, &tvec1, &mut tvec2);
-                        for (oel, iel) in dvec.iter_mut().zip(tvec2.iter()) {
-                            *oel = (*iel).min(16383).max(-16384) as i16;
-                        }
-                    }
-                    store_samples(db, i, &dvec);
-                }
+            NABufferType::AudioI16(ref ab) => {
+                let data = ab.get_data();
+                let stride = ab.get_stride();
+                Box::new(GenericSampleReader { data, stride })
             },
-            (NABufferType::AudioI32(sb), NABufferType::AudioI32(ref mut db)) => {
-                let mut svec = vec![0; src_chmap.num_channels()];
-                let mut dvec = vec![0; dst_chmap.num_channels()];
-                for i in 0..nsamples {
-                    read_samples(sb, i, &mut svec);
-                    if !channel_op.is_remix() {
-                        apply_channel_op(&channel_op, &svec, &mut dvec);
-                    } else {
-                        remix_i32(&channel_op, &svec, &mut dvec);
-                    }
-                    store_samples(db, i, &dvec);
-                }
+            NABufferType::AudioI32(ref ab) => {
+                let data = ab.get_data();
+                let stride = ab.get_stride();
+                Box::new(GenericSampleReader { data, stride })
             },
-            (NABufferType::AudioF32(sb), NABufferType::AudioF32(ref mut db)) => {
-                let mut svec = vec![0.0; src_chmap.num_channels()];
-                let mut dvec = vec![0.0; dst_chmap.num_channels()];
-                for i in 0..nsamples {
-                    read_samples(sb, i, &mut svec);
-                    if !channel_op.is_remix() {
-                        apply_channel_op(&channel_op, &svec, &mut dvec);
-                    } else {
-                        remix_f32(&channel_op, &svec, &mut dvec);
-                    }
-                    store_samples(db, i, &dvec);
-                }
+            NABufferType::AudioF32(ref ab) => {
+                let data = ab.get_data();
+                let stride = ab.get_stride();
+                Box::new(GenericSampleReader { data, stride })
+            },
+            NABufferType::AudioPacked(ref ab) => {
+                let data = ab.get_data();
+                Box::new(PackedSampleReader::new(data, src_fmt))
             },
             _ => unimplemented!(),
         };
+    let mut sw: Box<dyn SampleWriter> = match dst_buf {
+            NABufferType::AudioU8(ref mut ab) => {
+                let stride = ab.get_stride();
+                let data = ab.get_data_mut().unwrap();
+                Box::new(GenericSampleWriter { data, stride })
+            },
+            NABufferType::AudioI16(ref mut ab) => {
+                let stride = ab.get_stride();
+                let data = ab.get_data_mut().unwrap();
+                Box::new(GenericSampleWriter { data, stride })
+            },
+            NABufferType::AudioI32(ref mut ab) => {
+                let stride = ab.get_stride();
+                let data = ab.get_data_mut().unwrap();
+                Box::new(GenericSampleWriter { data, stride })
+            },
+            NABufferType::AudioF32(ref mut ab) => {
+                let stride = ab.get_stride();
+                let data = ab.get_data_mut().unwrap();
+                Box::new(GenericSampleWriter { data, stride })
+            },
+            NABufferType::AudioPacked(ref mut ab) => {
+                let data = ab.get_data_mut().unwrap();
+                Box::new(PackedSampleWriter::new(data, dst_fmt))
+            },
+            _ => unimplemented!(),
+        };
+
+    let into_float = dst_fmt.float;
+    if !into_float {
+        let mut svec = vec![0; src_chmap.num_channels()];
+        let mut dvec = vec![0; dst_chmap.num_channels()];
+        for i in 0..nsamples {
+            sr.get_samples_i32(i, &mut svec);
+            if !channel_op.is_remix() {
+                apply_channel_op(&channel_op, &svec, &mut dvec);
+            } else {
+                remix_i32(&channel_op, &svec, &mut dvec);
+            }
+            sw.store_samples_i32(i, &dvec);
+        }
     } else {
-        let into_float = dst_fmt.float;
-        if !into_float {
-            let mut svec = vec![0i32; src_chmap.num_channels()];
-            let mut dvec = vec![0i32; dst_chmap.num_channels()];
-            for i in 0..nsamples {
-                match src {
-                    NABufferType::AudioU8 (ref sb) => read_samples_i32(sb, i, &mut svec),
-                    NABufferType::AudioI16(ref sb) => read_samples_i32(sb, i, &mut svec),
-                    NABufferType::AudioI32(ref sb) => read_samples_i32(sb, i, &mut svec),
-                    NABufferType::AudioF32(ref sb) => read_samples_i32(sb, i, &mut svec),
-                    NABufferType::AudioPacked(ref sb) => read_packed(sb, i, &mut svec, &src_fmt),
-                    _ => unreachable!(),
-                };
-                if !channel_op.is_remix() {
-                    apply_channel_op(&channel_op, &svec, &mut dvec);
-                } else {
-                    remix_i32(&channel_op, &svec, &mut dvec);
-                }
-                match dst_buf {
-                    NABufferType::AudioU8 (ref mut db) => store_samples(db, i, &dvec),
-                    NABufferType::AudioI16(ref mut db) => store_samples(db, i, &dvec),
-                    NABufferType::AudioI32(ref mut db) => store_samples(db, i, &dvec),
-                    NABufferType::AudioF32(ref mut db) => store_samples(db, i, &dvec),
-                    NABufferType::AudioPacked(ref mut buf) => store_packed(buf, i, &dvec, &dst_fmt),
-                    _ => unreachable!(),
-                };
+        let mut svec = vec![0.0; src_chmap.num_channels()];
+        let mut dvec = vec![0.0; dst_chmap.num_channels()];
+        for i in 0..nsamples {
+            sr.get_samples_f32(i, &mut svec);
+            if !channel_op.is_remix() {
+                apply_channel_op(&channel_op, &svec, &mut dvec);
+            } else {
+                remix_f32(&channel_op, &svec, &mut dvec);
             }
-        } else {
-            let mut svec = vec![0.0f32; src_chmap.num_channels()];
-            let mut dvec = vec![0.0f32; dst_chmap.num_channels()];
-            for i in 0..nsamples {
-                match src {
-                    NABufferType::AudioU8 (ref sb) => read_samples_f32(sb, i, &mut svec),
-                    NABufferType::AudioI16(ref sb) => read_samples_f32(sb, i, &mut svec),
-                    NABufferType::AudioI32(ref sb) => read_samples_f32(sb, i, &mut svec),
-                    NABufferType::AudioF32(ref sb) => read_samples_f32(sb, i, &mut svec),
-                    NABufferType::AudioPacked(ref sb) => read_packed(sb, i, &mut svec, &src_fmt),
-                    _ => unreachable!(),
-                };
-                if !channel_op.is_remix() {
-                    apply_channel_op(&channel_op, &svec, &mut dvec);
-                } else {
-                    remix_f32(&channel_op, &svec, &mut dvec);
-                }
-                match dst_buf {
-                    NABufferType::AudioU8 (ref mut db) => store_samples(db, i, &dvec),
-                    NABufferType::AudioI16(ref mut db) => store_samples(db, i, &dvec),
-                    NABufferType::AudioI32(ref mut db) => store_samples(db, i, &dvec),
-                    NABufferType::AudioF32(ref mut db) => store_samples(db, i, &dvec),
-                    NABufferType::AudioPacked(ref mut buf) => store_packed(buf, i, &dvec, &dst_fmt),
-                    _ => unreachable!(),
-                };
-            }
+            sw.store_samples_f32(i, &dvec);
         }
     }
+    drop(sw);
     
     Ok(dst_buf)
 }
