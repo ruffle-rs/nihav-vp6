@@ -680,6 +680,12 @@ impl NADecoder for Indeo3Decoder {
         if ver != 32 { return Err(DecoderError::NotImplemented); }
         let flags   = br.read_u16le()?;
         let size2   = br.read_u32le()?;
+        if size2 == 0x80 {
+            let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::None);
+            frm.set_keyframe(false);
+            frm.set_frame_type(FrameType::Skip);
+            return Ok(frm.into_ref());
+        }
         validate!(((size2 + 7) >> 3) <= size);
         let cb      = br.read_byte()?;
         self.vq_offset = cb;
