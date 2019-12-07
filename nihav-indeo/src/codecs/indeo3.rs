@@ -20,30 +20,29 @@ struct Buffers {
     height:     usize,
     cw:         usize,
     ch:         usize,
-    buf1:       Vec<u8>,
-    buf2:       Vec<u8>,
-    fbuf:       bool,
+    sbuf:       Vec<u8>,
+    dbuf:       Vec<u8>,
 }
 
 const DEFAULT_PIXEL: u8 = 0x40;
 
 impl Buffers {
-    fn new() -> Self { Buffers { width: 0, height: 0, cw: 0, ch: 0, buf1: Vec::new(), buf2: Vec::new(), fbuf: true } }
+    fn new() -> Self { Buffers { width: 0, height: 0, cw: 0, ch: 0, sbuf: Vec::new(), dbuf: Vec::new() } }
     fn reset(&mut self) {
         self.width  = 0;
         self.height = 0;
-        self.buf1.truncate(0);
-        self.buf2.truncate(0);
+        self.sbuf.truncate(0);
+        self.dbuf.truncate(0);
     }
     fn alloc(&mut self, w: usize, h: usize) {
         self.width  = w;
         self.height = h;
         self.cw = ((w >> 2) + 3) & !3;
         self.ch = ((h >> 2) + 3) & !3;
-        self.buf1.resize(w * h + self.cw * self.ch * 2, DEFAULT_PIXEL);
-        self.buf2.resize(w * h + self.cw * self.ch * 2, DEFAULT_PIXEL);
+        self.sbuf.resize(w * h + self.cw * self.ch * 2, DEFAULT_PIXEL);
+        self.dbuf.resize(w * h + self.cw * self.ch * 2, DEFAULT_PIXEL);
     }
-    fn flip(&mut self) { self.fbuf = !self.fbuf; }
+    fn flip(&mut self) { std::mem::swap(&mut self.sbuf, &mut self.dbuf); }
     fn get_stride(&mut self, planeno: usize) -> usize {
         if planeno == 0 { self.width } else { self.cw }
     }
@@ -62,7 +61,7 @@ impl Buffers {
             let dstride = fbuf.get_stride(planeno);
             let width  = if planeno == 0 { self.width }  else { self.width >> 2 };
             let height = if planeno == 0 { self.height } else { self.height >> 2 };
-            let src = if self.fbuf { &self.buf1[0..] } else { &self.buf2[0..] };
+            let src = self.dbuf.as_slice();
             let dst = fbuf.get_data_mut().unwrap();
             for _ in 0..height {
                 for x in 0..width {
@@ -76,48 +75,25 @@ impl Buffers {
     fn copy_block(&mut self, doff: usize, soff: usize, stride: usize, w: usize, h: usize) {
         let mut sidx = soff;
         let mut didx = doff;
-        if self.fbuf {
-            for _ in 0..h {
-                for i in 0..w { self.buf1[didx + i] = self.buf2[sidx + i]; }
-                sidx += stride;
-                didx += stride;
-            }
-        } else {
-            for _ in 0..h {
-                for i in 0..w { self.buf2[didx + i] = self.buf1[sidx + i]; }
-                sidx += stride;
-                didx += stride;
-            }
+        for _ in 0..h {
+            for i in 0..w { self.dbuf[didx + i] = self.sbuf[sidx + i]; }
+            sidx += stride;
+            didx += stride;
         }
     }
     fn fill_block(&mut self, doff: usize, stride: usize, w: usize, h: usize, topline: bool) {
         let mut didx = doff;
         let mut buf: [u8; 8] = [0; 8];
         if topline {
-            if self.fbuf {
-                for _ in 0..h {
-                    for i in 0..w { self.buf1[didx + i] = DEFAULT_PIXEL; }
-                    didx += stride;
-                }
-            } else {
-                for _ in 0..h {
-                    for i in 0..w { self.buf2[didx + i] = DEFAULT_PIXEL; }
-                    didx += stride;
-                }
+            for _ in 0..h {
+                for i in 0..w { self.dbuf[didx + i] = DEFAULT_PIXEL; }
+                didx += stride;
             }
         } else {
-            if self.fbuf {
-                for i in 0..w { buf[i] = self.buf1[didx - stride + i]; }
-                for _ in 0..h {
-                    for i in 0..w { self.buf1[didx + i] = buf[i]; }
-                    didx += stride;
-                }
-            } else {
-                for i in 0..w { buf[i] = self.buf2[didx - stride + i]; }
-                for _ in 0..h {
-                    for i in 0..w { self.buf2[didx + i] = buf[i]; }
-                    didx += stride;
-                }
+            for i in 0..w { buf[i] = self.dbuf[didx - stride + i]; }
+            for _ in 0..h {
+                for i in 0..w { self.dbuf[didx + i] = buf[i]; }
+                didx += stride;
             }
         }
     }
@@ -126,16 +102,14 @@ impl Buffers {
 #[allow(unused_variables)]
 fn apply_delta4x4(bufs: &mut Buffers, off: usize, stride: usize,
                   deltas: &[u8], topline: bool, first_line: bool) {
-    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4)] }
-                      else { &mut bufs.buf2[off..(off + 4)] };
+    let dst = &mut bufs.dbuf[off..][..4];
     for i in 0..4 { dst[i] = dst[i].wrapping_add(deltas[i]) & 0x7F; }
 }
 
 #[allow(unused_variables)]
 fn apply_delta4x8(bufs: &mut Buffers, off: usize, stride: usize,
                   deltas: &[u8], topline: bool, first_line: bool) {
-    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4 + stride)] }
-                      else { &mut bufs.buf2[off..(off + 4 + stride)] };
+    let dst = &mut bufs.dbuf[off..][..stride + 4];
     for i in 0..4 { dst[i + stride] = dst[i].wrapping_add(deltas[i]) & 0x7F; }
     if !topline {
         for i in 0..4 { dst[i] = (dst[i + stride] + dst[i]) >> 1; }
@@ -147,8 +121,7 @@ fn apply_delta4x8(bufs: &mut Buffers, off: usize, stride: usize,
 #[allow(unused_variables)]
 fn apply_delta4x8m11(bufs: &mut Buffers, off: usize, stride: usize,
                      deltas: &[u8], topline: bool, first_line: bool) {
-    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 4 + stride)] }
-                      else { &mut bufs.buf2[off..(off + 4 + stride)] };
+    let dst = &mut bufs.dbuf[off..][..stride + 4];
     for i in 0..4 { dst[i]          = dst[i]         .wrapping_add(deltas[i]) & 0x7F; }
     for i in 0..4 { dst[i + stride] = dst[i + stride].wrapping_add(deltas[i]) & 0x7F; }
 }
@@ -156,16 +129,14 @@ fn apply_delta4x8m11(bufs: &mut Buffers, off: usize, stride: usize,
 #[allow(unused_variables)]
 fn apply_delta8x8p(bufs: &mut Buffers, off: usize, stride: usize,
                    deltas: &[u8], topline: bool, first_line: bool) {
-    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8 + stride)] }
-                      else { &mut bufs.buf2[off..(off + 8 + stride)] };
+    let dst = &mut bufs.dbuf[off..][..stride + 8];
     for i in 0..8 { dst[i]          = dst[i]         .wrapping_add(deltas[i >> 1]) & 0x7F; }
     for i in 0..8 { dst[i + stride] = dst[i + stride].wrapping_add(deltas[i >> 1]) & 0x7F; }
 }
 
 fn apply_delta8x8i(bufs: &mut Buffers, off: usize, stride: usize,
                    deltas: &[u8], topline: bool, firstline: bool) {
-    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8 + stride)] }
-                      else { &mut bufs.buf2[off..(off + 8 + stride)] };
+    let dst = &mut bufs.dbuf[off..][..stride + 8];
     if !firstline {
         for i in 0..8 { dst[i + stride] = dst[i     ].wrapping_add(deltas[i >> 1]) & 0x7F; }
     } else {
@@ -181,14 +152,12 @@ fn apply_delta8x8i(bufs: &mut Buffers, off: usize, stride: usize,
 fn copy_line_top(bufs: &mut Buffers, off: usize, stride: usize, bw: usize, topline: bool) {
     let mut buf: [u8; 8] = [0; 8];
     if !topline {
-        let src = if bufs.fbuf { &bufs.buf1[(off - stride)..(off - stride + bw)] }
-                          else { &bufs.buf2[(off - stride)..(off - stride + bw)] };
+        let src = &bufs.dbuf[(off - stride)..(off - stride + bw)];
         for i in 0..bw { buf[i] = src[i]; }
     } else {
         for i in 0..bw { buf[i] = DEFAULT_PIXEL; }
     }
-    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + bw)] }
-                      else { &mut bufs.buf2[off..(off + bw)] };
+    let dst = &mut bufs.dbuf[off..][..bw];
     for i in 0..bw { dst[i] = buf[i]; }
 }
 
@@ -204,14 +173,12 @@ fn copy_line_top4x8(bufs: &mut Buffers, off: usize, stride: usize, topline: bool
 fn copy_line_top8x8(bufs: &mut Buffers, off: usize, stride: usize, topline: bool) {
     let mut buf: [u8; 8] = [0; 8];
     if !topline {
-        let src = if bufs.fbuf { &bufs.buf1[(off - stride)..(off - stride + 8)] }
-                          else { &bufs.buf2[(off - stride)..(off - stride + 8)] };
+        let src = &bufs.dbuf[(off - stride)..(off - stride + 8)];
         for i in 0..8 { buf[i] = src[i & !1]; }
     } else {
         for i in 0..8 { buf[i] = DEFAULT_PIXEL; }
     }
-    let dst = if bufs.fbuf { &mut bufs.buf1[off..(off + 8)] }
-                      else { &mut bufs.buf2[off..(off + 8)] };
+    let dst = &mut bufs.dbuf[off..][..8];
     for i in 0..8 {dst[i] = buf[i]; }
 }
 
@@ -220,34 +187,21 @@ fn fill_block8x8(bufs: &mut Buffers, doff: usize, stride: usize, h: usize, topli
     let mut buf: [u8; 8] = [0; 8];
     if firstline {
         for i in 0..8 { buf[i] = DEFAULT_PIXEL; }
-    } else if bufs.fbuf {
-        for i in 0..8 { buf[i] = bufs.buf1[doff - stride + i]; }
     } else {
-        for i in 0..8 { buf[i] = bufs.buf2[doff - stride + i]; }
+        for i in 0..8 { buf[i] = bufs.dbuf[doff - stride + i]; }
     }
     if topline && !firstline {
         for i in 0..4 { buf[i * 2 + 1] = buf[i * 2]; }
-        if bufs.fbuf {
-            for i in 0..8 { bufs.buf1[doff + i] = (bufs.buf1[doff - stride + i] + buf[i]) >> 1; }
-        } else {
-            for i in 0..8 { bufs.buf2[doff + i] = (bufs.buf2[doff - stride + i] + buf[i]) >> 1; }
-        }
+        for i in 0..8 { bufs.dbuf[doff + i] = (bufs.dbuf[doff - stride + i] + buf[i]) >> 1; }
     }
 
     let start = if !topline { 0 } else { 1 };
     if topline {
         didx += stride;
     }
-    if bufs.fbuf {
-        for _ in start..h {
-            for i in 0..8 { bufs.buf1[didx + i] = buf[i]; }
-            didx += stride;
-        }
-    } else {
-        for _ in start..h {
-            for i in 0..8 { bufs.buf2[didx + i] = buf[i]; }
-            didx += stride;
-        }
+    for _ in start..h {
+        for i in 0..8 { bufs.dbuf[didx + i] = buf[i]; }
+        didx += stride;
     }
 }
 
