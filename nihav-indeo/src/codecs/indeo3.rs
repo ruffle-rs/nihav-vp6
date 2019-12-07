@@ -809,7 +809,19 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/Indeo/iv32_example.avi", Some(10), true, false, None, &dmx_reg, &dec_reg);
+        test_decoding("avi", "indeo3", "assets/Indeo/iv32_example.avi", Some(10),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x90be698e, 0x326db071, 0x08e8c6a5, 0x39349acc],
+                            [0x25d677fc, 0x63f96aaa, 0xd412ca98, 0x61416313],
+                            [0xc4368250, 0x63e7b6bc, 0xffcff950, 0x11f13239],
+                            [0x7e869758, 0x027abc2e, 0x25204bca, 0x93fbaa03],
+                            [0x5a1e822c, 0x2b1a4cd5, 0x72059843, 0xe5689ad1],
+                            [0x3a971cce, 0x5ec22135, 0x1a45f802, 0x0f5f9264],
+                            [0x0a65f782, 0xd8767cf3, 0x878b4b8d, 0xfc94c88b],
+                            [0x4ac70139, 0x3300eac1, 0xba84b068, 0x47f5ff29],
+                            [0x3e8c8ec4, 0x9421b38c, 0x580abbbd, 0x92792d19],
+                            [0x9096ee9b, 0x8dd9fb14, 0x981e31e3, 0x3ffd7d29],
+                            [0x22dc71ec, 0x3d8f6f7e, 0x1a198982, 0x41d17ecc]]));
     }
 }
 
