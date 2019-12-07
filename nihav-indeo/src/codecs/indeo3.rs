@@ -315,6 +315,7 @@ impl Indeo3Decoder {
 
         let mut didx: usize = ((cell.x*4) as usize) + ((cell.y * 4) as usize) * stride + off;
         let mut sidx: usize;
+
         if cell.no_mv() {
             sidx = 0;
         } else {
@@ -366,7 +367,7 @@ impl Indeo3Decoder {
                             let mut idx2;
                             if (c as usize) < delta_tab.data.len()/2 {
                                 idx1 = br.read_byte()? as usize;
-                                validate!(idx1 < delta_tab.data.len());
+                                validate!(idx1 < delta_tab.data.len() / 2);
                                 idx2 = c as usize;
                             } else {
                                 let tmp = (c as usize) - delta_tab.data.len()/2;
@@ -432,7 +433,7 @@ impl Indeo3Decoder {
                                 tocopy = nl as usize;
                             }
                             if do_copy {
-                                if !(params.bw == 8 && cell.no_mv()) {
+                                if !(params.bh == 8 && cell.no_mv()) {
                                     if !cell.no_mv() {
                                         self.bufs.copy_block(didx + xoff + line * scale * stride,
                                                              sidx + xoff + line * scale * stride,
@@ -495,10 +496,10 @@ impl Indeo3Decoder {
             let c = self.altquant[vq_idx as usize];
             idx1 = (c >> 4) as usize;
             idx2 = (c & 0xF) as usize;
+        } else {
+            idx1 += self.vq_offset as usize;
+            idx2 += self.vq_offset as usize;
         }
-
-        idx1 += self.vq_offset as usize;
-        idx2 += self.vq_offset as usize;
         validate!((idx1 < 24) && (idx2 < 24));
 
         let mut cp = CellDecParams {
@@ -603,10 +604,12 @@ impl Indeo3Decoder {
             self.mvs.push(MV{ x, y });
         }
 
-        let shift = if planeno == 0 { 2 } else { 4 };
-        let round = (1 << shift) - 1;
-        let cell = IV3Cell::new(((self.bufs.width  + round) >> shift) as u16,
-                                ((self.bufs.height + round) >> shift) as u16);
+        let (cellwidth, cellheight) = if planeno == 0 {
+                (self.bufs.width >> 2, self.bufs.height >> 2)
+            } else {
+                (((self.bufs.width >> 2) + 3) >> 2, ((self.bufs.height >> 2) + 3) >> 2)
+            };
+        let cell = IV3Cell::new(cellwidth as u16, cellheight as u16);
         self.br_reset();
         self.parse_tree(br, cell, offs, stride, if planeno > 0 { 10 } else { 40 }, true)?;
         validate!(br.tell() <= end);
@@ -628,9 +631,12 @@ impl Indeo3Decoder {
             self.mvs.push(MV{ x, y });
         }
 
-        let shift = if planeno == 0 { 2 } else { 4 };
-        let cell = IV3Cell::new((self.bufs.width  >> shift) as u16,
-                                (self.bufs.height >> shift) as u16);
+        let (cellwidth, cellheight) = if planeno == 0 {
+                (self.bufs.width >> 2, self.bufs.height >> 2)
+            } else {
+                (((self.bufs.width >> 2) + 3) >> 2, ((self.bufs.height >> 2) + 3) >> 2)
+            };
+        let cell = IV3Cell::new(cellwidth as u16, cellheight as u16);
         self.br_reset();
         self.parse_tree(br, cell, offs, stride, if planeno > 0 { 10 } else { 40 }, false)?;
         validate!(br.tell() <= end);
@@ -723,12 +729,12 @@ impl NADecoder for Indeo3Decoder {
         let vendpos = data_start + u64::from(vend);
         if intraframe {
             self.decode_plane_intra(&mut br, 0, ystart, yendpos)?;
-            self.decode_plane_intra(&mut br, 1, ustart, uendpos)?;
-            self.decode_plane_intra(&mut br, 2, vstart, vendpos)?;
+            self.decode_plane_intra(&mut br, 1, vstart, vendpos)?;
+            self.decode_plane_intra(&mut br, 2, ustart, uendpos)?;
         } else {
             self.decode_plane_inter(&mut br, 0, ystart, yendpos)?;
-            self.decode_plane_inter(&mut br, 1, ustart, uendpos)?;
-            self.decode_plane_inter(&mut br, 2, vstart, vendpos)?;
+            self.decode_plane_inter(&mut br, 1, vstart, vendpos)?;
+            self.decode_plane_inter(&mut br, 2, ustart, uendpos)?;
         }
         self.bufs.fill_framebuf(&mut buf);
         if (flags & FLAG_NONREF) == 0 { self.bufs.flip(); }
