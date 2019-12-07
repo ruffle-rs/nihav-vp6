@@ -215,6 +215,7 @@ struct Indeo3Decoder {
     altquant:   [u8; 16],
     vq_offset:  u8,
     bufs:       Buffers,
+    requant_tab: [[u8; 128]; 8],
 }
 
 #[derive(Clone,Copy)]
@@ -282,10 +283,32 @@ const SKIP_OR_TREE: u8 = 2;
 
 impl Indeo3Decoder {
     fn new() -> Self {
+        const REQUANT_OFF: [i32; 8] = [ 0, 1, 0, 4, 4, 1, 0, 1 ];
+
         let dummy_info = NACodecInfo::new_dummy();
+
+        let mut requant_tab = [[0u8; 128]; 8];
+        for i in 0..8 {
+            let step = (i as i32) + 2;
+            let start = if (i == 3) || (i == 4) { -3 } else { step / 2 };
+            let mut last = 0;
+            for j in 0..128 {
+                requant_tab[i][j] = (((j as i32) + start) / step * step + REQUANT_OFF[i]) as u8;
+                if requant_tab[i][j] < 128 {
+                    last = requant_tab[i][j];
+                } else {
+                    requant_tab[i][j] = last;
+                }
+            }
+        }
+        requant_tab[1][7]   =  10;
+        requant_tab[1][119] = 118;
+        requant_tab[1][120] = 118;
+        requant_tab[4][8]   =  10;
+
         Indeo3Decoder { info: dummy_info, bpos: 0, bbuf: 0, width: 0, height: 0,
                         mvs: Vec::new(), altquant: [0; 16],
-                        vq_offset: 0, bufs: Buffers::new() }
+                        vq_offset: 0, bufs: Buffers::new(), requant_tab }
     }
 
     fn br_reset(&mut self) {
@@ -303,7 +326,7 @@ impl Indeo3Decoder {
     }
 
     fn decode_cell_data(&mut self, br: &mut ByteReader, cell: IV3Cell,
-                        off: usize, stride: usize, params: CellDecParams) -> DecoderResult<()> {
+                        off: usize, stride: usize, params: CellDecParams, vq_idx: u8) -> DecoderResult<()> {
         let blk_w = cell.w * 4 / params.bw;
         let blk_h = cell.h * 4 / params.bh;
         let scale: usize = if params.bh == 4 { 1 } else { 2 };
@@ -331,6 +354,20 @@ impl Indeo3Decoder {
             validate!(r <= (self.width as i16));
             validate!(b <= (self.height as i16));
             sidx = (l as usize) + (t as usize) * stride + off;
+        }
+        if vq_idx >= 8 {
+            let requant_tab = &self.requant_tab[(vq_idx & 7) as usize];
+            if cell.no_mv() {
+                if cell.y > 0 {
+                    for x in 0..(cell.w as usize) * 4 {
+                        self.bufs.dbuf[didx + x - stride] = requant_tab[self.bufs.dbuf[didx + x - stride] as usize];
+                    }
+                }
+            } else {
+                for x in 0..(cell.w as usize) * 4 {
+                    self.bufs.sbuf[sidx + x] = requant_tab[self.bufs.sbuf[sidx + x] as usize];
+                }
+            }
         }
         for y in 0..blk_h {
             let mut xoff: usize = 0;
@@ -541,7 +578,7 @@ impl Indeo3Decoder {
         } else {
             return Err(DecoderError::InvalidData);
         }
-        self.decode_cell_data(br, cell, off, stride, cp)
+        self.decode_cell_data(br, cell, off, stride, cp, vq_idx)
     }
 
     fn parse_tree(&mut self, br: &mut ByteReader, cell: IV3Cell, off: usize,
