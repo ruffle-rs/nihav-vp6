@@ -224,7 +224,7 @@ impl RMAudioStream {
         self.sub_packet = 0;
 
         if self.deint == Deinterleaver::Sipro {
-            sipro_restore(&mut self.buf, factor, fsize);
+            sipro_restore(&mut self.buf, factor, iinfo.frame_size as usize);
         }
 
         let mut frames_iter = self.buf.chunks(fsize);
