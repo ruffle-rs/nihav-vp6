@@ -234,7 +234,6 @@ println!("[adding scale]");
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
-//todo flip if needed
     if needs_pack {
 println!("[adding pack]");
         let new_stage = Stage::new("pack", &cur_fmt, &ofmt)?;
@@ -247,6 +246,74 @@ println!("[adding pack]");
     }
     
     Ok(stages)
+}
+
+fn swap_plane<T:Copy>(data: &mut [T], stride: usize, h: usize, line0: &mut [T], line1: &mut [T]) {
+    let mut doff0 = 0;
+    let mut doff1 = stride * (h - 1);
+    for _ in 0..h/2 {
+        line0.copy_from_slice(&data[doff0..][..stride]);
+        line1.copy_from_slice(&data[doff1..][..stride]);
+        (&mut data[doff1..][..stride]).copy_from_slice(line0);
+        (&mut data[doff0..][..stride]).copy_from_slice(line1);
+        doff0 += stride;
+        doff1 -= stride;
+    }
+}
+
+pub fn flip_picture(pic: &mut NABufferType) -> ScaleResult<()> {
+    match pic {
+        NABufferType::Video(ref mut vb) => {
+            let ncomp = vb.get_num_components();
+            for comp in 0..ncomp {
+                let off    = vb.get_offset(comp);
+                let stride = vb.get_stride(comp);
+                let (_, h) = vb.get_dimensions(comp);
+                let data = vb.get_data_mut().unwrap();
+                let mut line0 = vec![0; stride];
+                let mut line1 = vec![0; stride];
+                swap_plane(&mut data[off..], stride, h, line0.as_mut_slice(), line1.as_mut_slice());
+            }
+        },
+        NABufferType::Video16(ref mut vb) => {
+            let ncomp = vb.get_num_components();
+            for comp in 0..ncomp {
+                let off    = vb.get_offset(comp);
+                let stride = vb.get_stride(comp);
+                let (_, h) = vb.get_dimensions(comp);
+                let data = vb.get_data_mut().unwrap();
+                let mut line0 = vec![0; stride];
+                let mut line1 = vec![0; stride];
+                swap_plane(&mut data[off..], stride, h, line0.as_mut_slice(), line1.as_mut_slice());
+            }
+        },
+        NABufferType::Video32(ref mut vb) => {
+            let ncomp = vb.get_num_components();
+            for comp in 0..ncomp {
+                let off    = vb.get_offset(comp);
+                let stride = vb.get_stride(comp);
+                let (_, h) = vb.get_dimensions(comp);
+                let data = vb.get_data_mut().unwrap();
+                let mut line0 = vec![0; stride];
+                let mut line1 = vec![0; stride];
+                swap_plane(&mut data[off..], stride, h, line0.as_mut_slice(), line1.as_mut_slice());
+            }
+        },
+        NABufferType::VideoPacked(ref mut vb) => {
+            let ncomp = vb.get_num_components();
+            for comp in 0..ncomp {
+                let off    = vb.get_offset(comp);
+                let stride = vb.get_stride(comp);
+                let (_, h) = vb.get_dimensions(comp);
+                let data = vb.get_data_mut().unwrap();
+                let mut line0 = vec![0; stride];
+                let mut line1 = vec![0; stride];
+                swap_plane(&mut data[off..], stride, h, line0.as_mut_slice(), line1.as_mut_slice());
+            }
+        },
+        _ => { return Err(ScaleError::InvalidArgument); },
+    };
+    Ok(())
 }
 
 impl NAScale {
@@ -273,14 +340,19 @@ impl NAScale {
                 (in_info.get_width() != out_info.get_width() || in_info.get_height() != out_info.get_height()) {
             return Err(ScaleError::InvalidArgument);
         }
+        let needs_flip = in_info.is_flipped() ^ out_info.is_flipped();
         check_format(in_info,  &self.fmt_in,  self.just_convert)?;
         check_format(out_info, &self.fmt_out, self.just_convert)?;
-        if let Some(ref mut pipe) = self.pipeline {
-            pipe.process(pic_in, pic_out)
-        } else {
-            copy(pic_in, pic_out);
-            Ok(())
+        let ret = if let Some(ref mut pipe) = self.pipeline {
+                pipe.process(pic_in, pic_out)
+            } else {
+                copy(pic_in, pic_out);
+                Ok(())
+            };
+        if ret.is_ok() && needs_flip {
+            flip_picture(pic_out)?;
         }
+        ret
     }
 }
 
