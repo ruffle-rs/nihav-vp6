@@ -118,6 +118,7 @@ impl<T: Clone> NAVideoBuffer<T> {
     pub fn get_info(&self) -> NAVideoInfo { self.info }
     pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
     pub fn get_data_mut(&mut self) -> Option<&mut Vec<T>> { self.data.as_mut() }
+    pub fn get_num_components(&self) -> usize { self.offs.len() }
     pub fn copy_buffer(&mut self) -> Self {
         let mut data: Vec<T> = Vec::with_capacity(self.data.len());
         data.clone_from(self.data.as_ref());
