@@ -1794,7 +1794,7 @@ impl NADecoder for VP34Decoder {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), true, fmt));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             supp.pool_u8.set_dec_bufs(3);
-            supp.pool_u8.prealloc_video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, fmt), 4)?;
+            supp.pool_u8.prealloc_video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), true, fmt), 4)?;
 
             self.generate_block_addr();
             if self.version == 4 {
