@@ -481,7 +481,7 @@ pub struct IVIDecoder {
     bref:       Option<NABufferType>,
 
     bands:      Vec<BandHeader>,
-    tiles:      Vec<NABufferRef<IVITile>>,
+    tiles:      Vec<IVITile>,
     num_tiles:  [[usize; 4]; 4],
     tile_start: [[usize; 4]; 4],
 }
@@ -538,7 +538,7 @@ impl IVIDecoder {
                     while x < band_w {
                         let cur_w = if x + tile_w <= band_w { tile_w } else { band_w - x };
                         let tile = IVITile::new(band_xoff + x, band_yoff + y, cur_w, cur_h);
-                        self.tiles.push(NABufferRef::new(tile));
+                        self.tiles.push(tile);
                         self.num_tiles[plane][band] += 1;
                         tstart += 1;
                         x += tile_w;
@@ -574,7 +574,7 @@ impl IVIDecoder {
         };
         for tile_no in tstart..tend {
             {
-                let mut tile = self.tiles[tile_no].clone();
+                let tile = &mut self.tiles[tile_no];
                 let mb_w = (tile.w + mb_size - 1) / mb_size;
                 let mb_h = (tile.h + mb_size - 1) / mb_size;
                 tile.mb_w = mb_w;
@@ -597,7 +597,6 @@ impl IVIDecoder {
                 validate!(tile_end > br.tell());
                 validate!(tile_end <= br.tell() + (br.left() as usize));
                 {
-                    let mut tile = self.tiles[tile_no].clone();
                     let ref_tile: Option<&IVITile>;
                     let mv_scale;
                     if (plane_no == 0) && (band_no == 0) {
@@ -605,8 +604,10 @@ impl IVIDecoder {
                     } else {
                         mv_scale = (((self.bands[0].mb_size >> 3) as i8) - ((band.mb_size >> 3) as i8)) as u8;
                     }
+                    let (ref_tiles, cur_tiles) = self.tiles.split_at_mut(tile_no);
+                    let tile = &mut cur_tiles[0];
                     if plane_no != 0 || band_no != 0 {
-                        let rtile = &self.tiles[0];
+                        let rtile = &ref_tiles[0];
                         if (tile.mb_w != rtile.mb_w) || (tile.mb_h != rtile.mb_h) {
                             ref_tile = None;
                         } else {
@@ -615,7 +616,7 @@ impl IVIDecoder {
                     } else {
                         ref_tile = None;
                     }
-                    dec.decode_mb_info(br, pic_hdr, &band, &mut tile, ref_tile, mv_scale)?;
+                    dec.decode_mb_info(br, pic_hdr, &band, tile, ref_tile, mv_scale)?;
                 }
 
                 self.decode_tile(br, &band, tile_no, &tr, &tr_dc)?;
@@ -623,7 +624,6 @@ let skip_part = tile_end - br.tell();
 br.skip(skip_part as u32)?;
             } else {
                 {
-                    let mut tile = self.tiles[tile_no].clone();
                     let ref_tile: Option<&IVITile>;
                     let mv_scale;
                     if (plane_no == 0) && (band_no == 0) {
@@ -631,8 +631,10 @@ br.skip(skip_part as u32)?;
                     } else {
                         mv_scale = (((self.bands[0].mb_size >> 3) as i8) - ((band.mb_size >> 3) as i8)) as u8;
                     }
+                    let (ref_tiles, cur_tiles) = self.tiles.split_at_mut(tile_no);
+                    let tile = &mut cur_tiles[0];
                     if plane_no != 0 || band_no != 0 {
-                        let rtile = &self.tiles[0];
+                        let rtile = &ref_tiles[0];
                         if (tile.mb_w != rtile.mb_w) || (tile.mb_h != rtile.mb_h) {
                             ref_tile = None;
                         } else {
@@ -670,7 +672,7 @@ br.skip(skip_part as u32)?;
     fn decode_tile(&mut self, br: &mut BitReader, band: &BandHeader, tile_no: usize, tr: &TrFunc, transform_dc: &TrFuncDC) -> DecoderResult<()> {
         let mut mb_idx = 0;
         let mut prev_dc: i32 = 0;
-        let mut tile = self.tiles[tile_no].clone();
+        let tile = &mut self.tiles[tile_no];
         let mut frame = self.frames[self.cur_frame].clone();
 
         let stride = frame.plane_stride[band.plane_no];
