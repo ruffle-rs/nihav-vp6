@@ -897,12 +897,9 @@ br.skip(skip_part as u32)?;
         }
 
         match self.ftype {
-            IVIFrameType::Intra | IVIFrameType::Inter => {
+            IVIFrameType::Intra | IVIFrameType::Intra1 | IVIFrameType::Inter => {
                     self.iref_1   = self.iref_0;
                     self.iref_0   = self.cur_frame;
-                    self.scal_ref = self.cur_frame;
-                },
-            IVIFrameType::InterScal => {
                     self.scal_ref = self.cur_frame;
                 },
             _ => {},
