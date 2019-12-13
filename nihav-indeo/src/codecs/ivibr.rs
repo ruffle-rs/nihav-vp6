@@ -171,6 +171,7 @@ fn read_trans_band_header(br: &mut BitReader, w: usize, h: usize, dst: &mut [i16
     for i in 0..cb.len {
         cb.bits[i] = br.read(4)? as u8;
     }
+    cb = cb.init();
     br.align();
 
 let tile_start = br.tell();
