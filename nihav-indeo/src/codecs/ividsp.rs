@@ -381,9 +381,9 @@ pub fn ivi_mc_put(dst: &mut [i16], dstride: usize, src: &[i16], sstride: usize, 
                 let mut sptr0 = src.as_ptr();
                 let mut sptr1 = sptr0.add(sstride);
                 let mut dptr = dst.as_mut_ptr();
-                let mut la = *sptr0;
-                let mut lb = *sptr1;
                 for _ in 0..h {
+                    let mut la = *sptr0;
+                    let mut lb = *sptr1;
                     for x in 0..w {
                         let a = *sptr0.add(x + 1);
                         let b = *sptr1.add(x + 1);
