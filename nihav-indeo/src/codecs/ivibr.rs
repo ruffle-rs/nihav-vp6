@@ -903,6 +903,9 @@ br.skip(skip_part as u32)?;
                     self.iref_0   = self.cur_frame;
                     self.scal_ref = self.cur_frame;
                 },
+            IVIFrameType::InterScal => {
+                    self.scal_ref = self.cur_frame;
+                },
             _ => {},
         };
 
