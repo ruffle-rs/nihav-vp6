@@ -732,8 +732,12 @@ impl NADecoder for Indeo3Decoder {
         validate!((width  >= 16) && (width  <= 640));
         validate!((height >= 16) && (height <= 640));
         validate!(((width & 3) == 0) && ((height & 3) == 0));
+        let vinfo;
         if (self.bufs.width != (width as usize)) || (self.bufs.height != (height as usize)) {
             self.bufs.alloc(width as usize, height as usize);
+            vinfo = NAVideoInfo::new(width as usize, height as usize, false, formats::YUV410_FORMAT);
+        } else {
+            vinfo = self.info.get_properties().get_video_info().unwrap();
         }
         self.width  = width;
         self.height = height;
@@ -759,9 +763,6 @@ impl NADecoder for Indeo3Decoder {
         if (uoff < vend) && (uoff > voff) { vend = uoff; }
 
         let intraframe = (flags & FLAG_KEYFRAME) != 0;
-        let vinfo = self.info.get_properties().get_video_info().unwrap();
-        validate!((vinfo.get_width() & !3) == (self.width & !3).into());
-        validate!((vinfo.get_height() & !3) == (self.height & !3).into());
         let bufinfo = alloc_video_buffer(vinfo, 4)?;
         let mut buf = bufinfo.get_vbuf().unwrap();
         let ystart  = data_start + u64::from(yoff);
