@@ -430,7 +430,9 @@ println!("frame pts {:?} hash {}", pkt.get_pts(), md5);
                     md5 = MD5::new();
                     frame_checksum(&mut md5, frm);
                     md5.finish();
-println!("frame pts {:?} hash {}", pkt.get_pts(), md5);
+                    let mut hash = [0u32; 4];
+                    md5.get_hash(&mut hash);
+println!("frame pts {:?} hash [0x{:08x}, 0x{:08x}, 0x{:08x}, 0x{:08x}],", pkt.get_pts(), hash[0], hash[1], hash[2], hash[3]);
                 },
             };
         }
