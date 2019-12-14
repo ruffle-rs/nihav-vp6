@@ -779,7 +779,35 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/Indeo/IV4/volcano.avi", /*None*/Some(16), true, false, None/*Some("iv4")*/, &dmx_reg, &dec_reg);
-//panic!("the end");
+        test_decoding("avi", "indeo4", "assets/Indeo/IV4/volcano.avi", Some(16),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x194f626b, 0x023fdfd0, 0x9809665a, 0xd68f6f47],
+                            [0x194f626b, 0x023fdfd0, 0x9809665a, 0xd68f6f47],
+                            [0x194f626b, 0x023fdfd0, 0x9809665a, 0xd68f6f47],
+                            [0x194f626b, 0x023fdfd0, 0x9809665a, 0xd68f6f47],
+                            [0x46c6719d, 0xe6415ac0, 0x3e4d9799, 0xd2f5747d],
+                            [0xe0278b0f, 0x3e4763d5, 0x88033344, 0xc9c2e6de],
+                            [0xd962be7f, 0xafc1ac64, 0x0647cdcc, 0xd06465c6],
+                            [0xedef0e19, 0xec75eed2, 0x955a2ae2, 0xd6145b4c],
+                            [0x89ec8d4b, 0x3d446d74, 0xbd3d681d, 0x2d219dca],
+                            [0x89e81643, 0x77fb2f1b, 0x2aa0782f, 0xb1b9b7ef],
+                            [0xea283aec, 0x94d7cdf9, 0x961bbb69, 0x2b38162a],
+                            [0x1d1b315c, 0x6613c5fa, 0xeff36485, 0x5025fbf2],
+                            [0x4145c6a8, 0xd8d513b1, 0x34a5d353, 0x07750cd5],
+                            [0xace12feb, 0x468754f3, 0xa72327f5, 0x1a6f6350],
+                            [0x4b04dc0e, 0x684533a7, 0x6a4e4b16, 0x0b8a5e68],
+                            [0xa3eb64fc, 0x5e02a31b, 0x6b484eae, 0xbb6e6c49],
+                            [0x7d4ef46e, 0x6761c447, 0x02e002f5, 0x02d0231c]]));
+        test_decoding("avi", "indeo4", "assets/Indeo/IV4/HRLDVIK.AVI", Some(8),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x239b8b87, 0x6dbec08c, 0x82bae1f0, 0x868e00c2],
+                            [0xe2298beb, 0x4e08866d, 0x00cb6201, 0x6b0a6df3],
+                            [0x9d7f4cf0, 0xed33df12, 0x2677be16, 0xce7e99b0],
+                            [0x0c8d7489, 0x2b3ac56e, 0x36d75559, 0x70550903],
+                            [0xc32b4b78, 0x2fc81737, 0xe4d7722b, 0xbcbbb35e],
+                            [0x20bfd5e8, 0x6cfad540, 0xfc6c6b6c, 0xa4f39a7d],
+                            [0xc327428d, 0x4e817b56, 0x4376eba2, 0xebafd04a],
+                            [0x6a53a6ec, 0x7477a471, 0xd55bc98e, 0x7498de0f],
+                            [0x398eba3a, 0x3cf3cce1, 0x90211dfe, 0x82c906f0]]));
     }
 }
