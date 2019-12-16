@@ -102,6 +102,8 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/Duck/tr20_low.avi", Some(10), true, false, None/*Some("tmrt")*/, &dmx_reg, &dec_reg);
+        test_decoding("avi", "truemotionrt", "assets/Duck/tr20_low.avi", Some(10),
+                        &dmx_reg, &dec_reg,
+                        ExpectedTestResult::MD5([0x24c3d26c, 0x1e8bbdc4, 0xfb0fba5d, 0xaa04be81]));
     }
 }
