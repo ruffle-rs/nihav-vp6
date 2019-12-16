@@ -710,7 +710,15 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/Duck/TM2x.avi", Some(16), true, false, None/*Some("tm2x")*/, &dmx_reg, &dec_reg);
+        test_decoding("avi", "truemotion2x", "assets/Duck/TM2x.avi", None,
+                        &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x2854e7f3, 0x41e54fd3, 0xd9a16302, 0x580321b2],
+                            [0x8e736f59, 0x57c58dc0, 0xe15bad3a, 0xf96e2c5b],
+                            [0x12700e7c, 0xfa2d06e0, 0x05b758ba, 0xe79aabb6],
+                            [0x29f935f2, 0x2ad0d6d1, 0x2fde19a2, 0x5aa3823b],
+                            [0x7f1a787d, 0x77f3ab61, 0x0e584c66, 0x9d1842ea],
+                            [0xb5607334, 0xdb149056, 0xe0e3ddb5, 0x19f8e254],
+                            [0xb054e4d0, 0x1d241d4f, 0x75fdfe95, 0x9dde8024]]));
     }
 }
 
