@@ -599,6 +599,24 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/Duck/tm20.avi", Some(16), true, false, None/*Some("tm2")*/, &dmx_reg, &dec_reg);
+        test_decoding("avi", "truemotion2", "assets/Duck/tm20.avi", Some(16),
+                        &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x8c336eb4, 0x10d0d934, 0x52392306, 0xc0bc6dd3],
+                            [0xf168ddc2, 0x502fef17, 0xf7a5d0a2, 0xc0bf2d26],
+                            [0xf33e02fa, 0x3931b691, 0xb29a0754, 0x07c0f8fa],
+                            [0x2dd81034, 0x1c9f7616, 0x64eed48a, 0x3aa09cf0],
+                            [0x55d18cd9, 0x0a3fd971, 0xf28fd5af, 0x9d9c3e3d],
+                            [0xbf9cbbd8, 0x7b44c122, 0x1c7b1904, 0x77cc87aa],
+                            [0xa6f6e79d, 0xc463a5bc, 0x5df9460c, 0xfce2e352],
+                            [0x2ad22b2d, 0xd4ceaff8, 0xa4adb974, 0x37888a8d],
+                            [0x4d45575f, 0x7e5b7670, 0x40cb7438, 0x9872d422],
+                            [0xb35bc12b, 0x026c77c6, 0x93163784, 0xb37630b7],
+                            [0xb1ec5059, 0x1fe26596, 0x4ac8d214, 0xdaf1b895],
+                            [0x69dd5a5f, 0xe14a16fa, 0xa0653092, 0xb04e0739],
+                            [0x979d8fe1, 0xbef29f89, 0xefae5f86, 0xa1ceb7d2],
+                            [0xc6dc80d7, 0x80153c6b, 0x76d770c0, 0x8fd7cce7],
+                            [0x8da96394, 0x1bd68024, 0x5feddfba, 0xd2b00660],
+                            [0x53ff97c3, 0xc021a9b3, 0xabdddc10, 0xc99ab86f],
+                            [0x66c877c4, 0xd8358048, 0xbca593db, 0xc6ecc4d1]]));
     }
 }
