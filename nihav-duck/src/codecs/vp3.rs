@@ -425,7 +425,7 @@ fn rescale_qmat(dst_qmat: &mut [i16; 64], base_qmat: &[i16; 64], dc_quant: i16, 
     dst_qmat[0] = (base_qmat[0] * dc_quant / 100).max(minval * 2) << 2;
 }
 
-fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, coef_no: usize, token: u8) -> DecoderResult<()> {
+fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, token: u8) -> DecoderResult<()> {
     match token {
         // EOBs
         0 | 1 | 2 => { *eob_run = (token as usize) + 1; },
@@ -527,7 +527,7 @@ fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, coef_n
     if *eob_run > 0 {
         blk.idx = 64;
         *eob_run -= 1;
-    } else if coef_no > 0 {
+    } else if (token > 8) && (blk.idx > 1) {
         blk.has_ac = true;
     }
     Ok(())
@@ -820,7 +820,7 @@ println!("intra, ver {} (self {})", version, self.version);
                         &codes.ac_p_cb[table]
                     };
                 let token                       = br.read_cb(cb)?;
-                expand_token(blk, br, &mut self.eob_run, coef_no, token)?;
+                expand_token(blk, br, &mut self.eob_run, token)?;
             }
             Ok(())
         } else {
@@ -1013,7 +1013,7 @@ println!("intra, ver {} (self {})", version, self.version);
                 }
                 let cb = if (blkaddr & 3) == 0 { cbs[0] } else { cbs[1] };
                 let token                       = br.read_cb(cb)?;
-                expand_token(blk, br, &mut self.eob_run, coef_no, token)?;
+                expand_token(blk, br, &mut self.eob_run, token)?;
             }
             Ok(())
         } else {
@@ -1212,7 +1212,7 @@ println!("intra, ver {} (self {})", version, self.version);
                         };
                     let cb = if (blkaddr & 3) == 0 { cbs[0] } else { cbs[1] };
                     let token                   = br.read_cb(cb)?;
-                    expand_token(blk, br, &mut coef_eob[blk.idx], blk.idx, token)?;
+                    expand_token(blk, br, &mut coef_eob[blk.idx], token)?;
                     if blk.idx == 64 { break; }
                 }
                 let idx = blkaddr >> 2;
