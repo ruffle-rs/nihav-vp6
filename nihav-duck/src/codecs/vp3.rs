@@ -1709,12 +1709,27 @@ println!("intra, ver {} (self {})", version, self.version);
             }
             blk_idx += blk_w;
         }
-/*        for plane in 1..3 {
+        let blk_w = self.mb_w;
+        for plane in 1..3 {
             for by in 0..self.mb_h {
                 for bx in 0..self.mb_w {
+                    let blk = &self.blocks[blk_idx + bx];
+                    if (bx > 0) && blk.coded {
+                        vp31_loop_filter_v(frm, bx * 8, by * 8, plane, self.loop_str);
+                    }
+                    if (by > 0) && blk.coded {
+                        vp31_loop_filter_h(frm, bx * 8, by * 8, plane, self.loop_str);
+                    }
+                    if (bx < blk_w - 1) && !self.blocks[blk_idx + bx + 1].coded {
+                        vp31_loop_filter_v(frm, bx * 8 + 8, by * 8, plane, self.loop_str);
+                    }
+                    if (by < self.mb_h - 1) && !self.blocks[blk_idx + bx + blk_w].coded {
+                        vp31_loop_filter_h(frm, bx * 8, by * 8 + 8, plane, self.loop_str);
+                    }
                 }
+                blk_idx += blk_w;
             }
-        }*/
+        }
     }
     fn generate_block_addr(&mut self) {
         let sb_w_y = (self.width         + 31) >> 5;
