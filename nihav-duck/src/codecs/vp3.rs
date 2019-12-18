@@ -1558,7 +1558,7 @@ println!("intra, ver {} (self {})", version, self.version);
                 for i in 0..4 {
                     let xoff = (i &  1) * 8;
                     let yoff = (i >> 1) * 8;
-                    
+
                     let mode = vp3_mv_mode(mvs[i].x, mvs[i].y);
                     if self.version != 4 {
                         copy_block(frm, src.clone(), 0, bx * 8 + xoff, by * 8 + yoff,
@@ -1630,15 +1630,15 @@ println!("intra, ver {} (self {})", version, self.version);
                 if blk.has_ac {
                     unquant(&mut blk.coeffs, qmat);
                 }
-                if blk.btype.is_intra() {
-                    if !blk.coded {
-                        copy_block(frm, self.shuf.get_last().unwrap(), 0, bx * 8, by * 8, 0, 0, 8, 8, 0, 1, 0, VP3_INTERP_FUNCS);
-                    } else if blk.has_ac {
+                if !blk.coded {
+                    copy_block(frm, self.shuf.get_last().unwrap(), 0, bx * 8, by * 8, 0, 0, 8, 8, 0, 1, 0, VP3_INTERP_FUNCS);
+                } else if blk.btype.is_intra() {
+                    if blk.has_ac {
                         vp_put_block(&mut blk.coeffs, bx, by, 0, frm);
                     } else {
                         vp_put_block_dc(&mut blk.coeffs, bx, by, 0, frm);
                     }
-                } else if blk.coded {
+                } else {
                     if blk.has_ac {
                         vp_add_block(&mut blk.coeffs, bx, by, 0, frm);
                     } else {
@@ -1656,15 +1656,15 @@ println!("intra, ver {} (self {})", version, self.version);
                     if blk.has_ac {
                         unquant(&mut blk.coeffs, qmat);
                     }
-                    if blk.btype.is_intra() {
-                        if !blk.coded {
-                            copy_block(frm, self.shuf.get_last().unwrap(), plane, bx * 8, by * 8, 0, 0, 8, 8, 0, 1, 0, VP3_INTERP_FUNCS);
-                        } else if blk.has_ac {
+                    if !blk.coded {
+                        copy_block(frm, self.shuf.get_last().unwrap(), plane, bx * 8, by * 8, 0, 0, 8, 8, 0, 1, 0, VP3_INTERP_FUNCS);
+                    } else if blk.btype.is_intra() {
+                        if blk.has_ac {
                             vp_put_block(&mut blk.coeffs, bx, by, plane, frm);
                         } else {
                             vp_put_block_dc(&mut blk.coeffs, bx, by, plane, frm);
                         }
-                    } else if blk.coded {
+                    } else {
                         if blk.has_ac {
                             vp_add_block(&mut blk.coeffs, bx, by, plane, frm);
                         } else {
