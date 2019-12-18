@@ -32,11 +32,22 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
     let ls = buf.get_stride(0);
     let mut idx = 0;
     let mut idx2 = w;
+    let is_flipped = buf.get_info().is_flipped();
+    if is_flipped {
+        idx  += h * ls;
+        idx2 += h * ls;
+    }
     for _ in 0..h {
+        if is_flipped {
+            idx  -= ls;
+            idx2 -= ls;
+        }
         let line = &dta[idx..idx2];
         ofile.write_all(line).unwrap();
-        idx  += ls;
-        idx2 += ls;
+        if !is_flipped {
+            idx  += ls;
+            idx2 += ls;
+        }
     }
     if w2 <= w/2 {
         let pad: Vec<u8> = vec![0xFF; (w - w2 * 2) / 2];
@@ -44,7 +55,15 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
         let stride1 = buf.get_stride(1);
         let mut base2 = buf.get_offset(2);
         let stride2 = buf.get_stride(2);
+        if is_flipped {
+            base1 += h2 * stride1;
+            base2 += h2 * stride2;
+        }
         for _ in 0..h2 {
+            if is_flipped {
+                base1 -= stride1;
+                base2 -= stride2;
+            }
             let bend1 = base1 + w2;
             let line = &dta[base1..bend1];
             ofile.write_all(line).unwrap();
@@ -55,39 +74,67 @@ fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
             ofile.write_all(line).unwrap();
             ofile.write_all(pad.as_slice()).unwrap();
 
-            base1 += stride1;
-            base2 += stride2;
+            if !is_flipped {
+                base1 += stride1;
+                base2 += stride2;
+            }
         }
     } else {
         let pad: Vec<u8> = vec![0xFF; w - w2];
         let mut base1 = buf.get_offset(1);
         let stride1 = buf.get_stride(1);
+        if is_flipped {
+            base1 += h2 * stride1;
+        }
         for _ in 0..h2 {
+            if is_flipped {
+                base1 -= stride1;
+            }
             let bend1 = base1 + w2;
             let line = &dta[base1..bend1];
             ofile.write_all(line).unwrap();
             ofile.write_all(pad.as_slice()).unwrap();
-            base1 += stride1;
+            if !is_flipped {
+                base1 += stride1;
+            }
         }
         let mut base2 = buf.get_offset(2);
         let stride2 = buf.get_stride(2);
+        if is_flipped {
+            base2 += h2 * stride2;
+        }
         for _ in 0..h2 {
+            if is_flipped {
+                base2 -= stride2;
+            }
             let bend2 = base2 + w2;
             let line = &dta[base2..bend2];
             ofile.write_all(line).unwrap();
             ofile.write_all(pad.as_slice()).unwrap();
-            base2 += stride2;
+            if !is_flipped {
+                base2 += stride2;
+            }
         }
     }
     if has_alpha {
         let ls = buf.get_stride(3);
         let mut idx = buf.get_offset(3);
         let mut idx2 = idx + w;
+        if is_flipped {
+            idx  += h * ls;
+            idx2 += h * ls;
+        }
         for _ in 0..h {
+            if is_flipped {
+                idx  -= ls;
+                idx2 -= ls;
+            }
             let line = &dta[idx..idx2];
             ofile.write_all(line).unwrap();
-            idx  += ls;
-            idx2 += ls;
+            if !is_flipped {
+                idx  += ls;
+                idx2 += ls;
+            }
         }
     }
 }
