@@ -1537,50 +1537,28 @@ println!("intra, ver {} (self {})", version, self.version);
                 if self.blocks[blk_idx + bx].btype != VPMBType::InterFourMV {
                     continue;
                 }
-                let mv_a = self.blocks[blk_idx + bx].mv;
-                let mv_b = self.blocks[blk_idx + bx + 1].mv;
-                let mv_c = self.blocks[blk_idx + bx     + bstride].mv;
-                let mv_d = self.blocks[blk_idx + bx + 1 + bstride].mv;
-                let mut mv_sum = mv_a + mv_b + mv_c + mv_d;
+                let mvs = [ self.blocks[blk_idx + bx].mv,
+                            self.blocks[blk_idx + bx + 1].mv,
+                            self.blocks[blk_idx + bx     + bstride].mv,
+                            self.blocks[blk_idx + bx + 1 + bstride].mv ];
+                let mut mv_sum = mvs[0] + mvs[1] + mvs[2] + mvs[3];
                 mv_sum.x = (mv_sum.x + 2) >> 2;
                 mv_sum.y = (mv_sum.y + 2) >> 2;
 
                 let src = self.shuf.get_last().unwrap();
-                let mode = ((mv_a.x & 1) + (mv_a.y & 1) * 2) as usize;
-                if self.version != 4 {
-                    copy_block(frm, src.clone(), 0, bx * 8, by * 8,
-                               mv_a.x >> 1, mv_a.y >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
-                } else {
-                    vp_copy_block(frm, src.clone(), 0, bx * 8, by * 8,
-                                  mv_a.x >> 1, mv_a.y >> 1, 0, 1, self.loop_str,
-                                  mode, VP3_INTERP_FUNCS, self.mc_buf.clone());
-                }
-                let mode = ((mv_b.x & 1) + (mv_b.y & 1) * 2) as usize;
-                if self.version != 4 {
-                    copy_block(frm, src.clone(), 0, bx * 8 + 8, by * 8,
-                               mv_b.x >> 1, mv_b.y >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
-                } else {
-                    vp_copy_block(frm, src.clone(), 0, bx * 8 + 8, by * 8,
-                                  mv_b.x >> 1, mv_b.y >> 1, 0, 1, self.loop_str,
-                                  mode, VP3_INTERP_FUNCS, self.mc_buf.clone());
-                }
-                let mode = ((mv_c.x & 1) + (mv_c.y & 1) * 2) as usize;
-                if self.version != 4 {
-                    copy_block(frm, src.clone(), 0, bx * 8, by * 8 + 8,
-                               mv_c.x >> 1, mv_c.y >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
-                } else {
-                    vp_copy_block(frm, src.clone(), 0, bx * 8, by * 8 + 8,
-                                  mv_c.x >> 1, mv_c.y >> 1, 0, 1, self.loop_str,
-                                  mode, VP3_INTERP_FUNCS, self.mc_buf.clone());
-                }
-                let mode = ((mv_d.x & 1) + (mv_d.y & 1) * 2) as usize;
-                if self.version != 4 {
-                    copy_block(frm, src.clone(), 0, bx * 8 + 8, by * 8 + 8,
-                               mv_d.x >> 1, mv_d.y >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
-                } else {
-                    vp_copy_block(frm, src.clone(), 0, bx * 8 + 8, by * 8 + 8,
-                                  mv_d.x >> 1, mv_d.y >> 1, 0, 1, self.loop_str,
-                                  mode, VP3_INTERP_FUNCS, self.mc_buf.clone());
+                for i in 0..4 {
+                    let xoff = (i &  1) * 8;
+                    let yoff = (i >> 1) * 8;
+                    
+                    let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+                    if self.version != 4 {
+                        copy_block(frm, src.clone(), 0, bx * 8 + xoff, by * 8 + yoff,
+                                   mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
+                    } else {
+                        vp_copy_block(frm, src.clone(), 0, bx * 8 + xoff, by * 8 + yoff,
+                                      mvs[i].x >> 1, mvs[i].y >> 1, 0, 1, self.loop_str,
+                                      mode, VP3_INTERP_FUNCS, self.mc_buf.clone());
+                    }
                 }
 
                 let mx = (mv_sum.x >> 1) | (mv_sum.x & 1);
