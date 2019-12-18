@@ -552,6 +552,15 @@ fn vp31_loop_filter_h(frm: &mut NASimpleVideoFrame<u8>, x: usize, y: usize, plan
     vp31_loop_filter(frm.data, off, frm.stride[plane], 1, 8, loop_str);
 }
 
+fn vp3_mv_mode(mvx: i16, mvy: i16) -> usize {
+    let mode = ((mvx & 1) + (mvy & 1) * 2) as usize;
+    if (mode == 3) && (mvx ^ mvy < 0) {
+        4
+    } else {
+        mode
+    }
+}
+
 impl VP34Decoder {
     fn new(version: u8) -> Self {
         let vt = alloc_video_buffer(NAVideoInfo::new(24, 24, false, YUV420_FORMAT), 4).unwrap();
@@ -1550,7 +1559,7 @@ println!("intra, ver {} (self {})", version, self.version);
                     let xoff = (i &  1) * 8;
                     let yoff = (i >> 1) * 8;
                     
-                    let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+                    let mode = vp3_mv_mode(mvs[i].x, mvs[i].y);
                     if self.version != 4 {
                         copy_block(frm, src.clone(), 0, bx * 8 + xoff, by * 8 + yoff,
                                    mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
@@ -1563,7 +1572,7 @@ println!("intra, ver {} (self {})", version, self.version);
 
                 let mx = (mv_sum.x >> 1) | (mv_sum.x & 1);
                 let my = (mv_sum.y >> 1) | (mv_sum.y & 1);
-                let mode = ((mx & 1) + (my & 1) * 2) as usize;
+                let mode = vp3_mv_mode(mx, my);
                 copy_block(frm, src.clone(), 1, bx * 4, by * 4, mx >> 1, my >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
                 copy_block(frm, src.clone(), 2, bx * 4, by * 4, mx >> 1, my >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);
             }
@@ -1581,7 +1590,7 @@ println!("intra, ver {} (self {})", version, self.version);
                         } else {
                             self.shuf.get_golden().unwrap()
                         };
-                    let mode = ((blk.mv.x & 1) + (blk.mv.y & 1) * 2) as usize;
+                    let mode = vp3_mv_mode(blk.mv.x, blk.mv.y);
                     if self.version != 4 {
                         copy_block(frm, src.clone(), 0, bx * 8, by * 8,
                                    blk.mv.x >> 1, blk.mv.y >> 1, 16, 16, 0, 1, mode, VP3_INTERP_FUNCS);
@@ -1601,7 +1610,7 @@ println!("intra, ver {} (self {})", version, self.version);
                     }
                     let mx = (blk.mv.x >> 1) | (blk.mv.x & 1);
                     let my = (blk.mv.y >> 1) | (blk.mv.y & 1);
-                    let mode = ((mx & 1) + (my & 1) * 2) as usize;
+                    let mode = vp3_mv_mode(mx, my);
                     if self.version != 4 {
                         copy_block(frm, src.clone(), 1, bx * 4, by * 4,
                                    mx >> 1, my >> 1, 8, 8, 0, 1, mode, VP3_INTERP_FUNCS);

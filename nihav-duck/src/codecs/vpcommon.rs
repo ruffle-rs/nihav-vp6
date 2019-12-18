@@ -432,21 +432,33 @@ fn vp3_interp10(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: 
     }
 }
 
-fn vp3_interp11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+fn vp3_interp1x(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
 {
     let mut didx = 0;
     let mut sidx = 0;
     for _ in 0..bh {
         for x in 0..bw {
             dst[didx + x] = (((src[sidx + x] as u16) +
-                              (src[sidx + x + 1] as u16) +
-                              (src[sidx + x + sstride] as u16) +
-                              (src[sidx + x + sstride + 1] as u16)) >> 2) as u8;
+                              (src[sidx + x + sstride + 1] as u16)) >> 1) as u8;
         }
         didx += dstride;
         sidx += sstride;
     }
 }
 
-pub const VP3_INTERP_FUNCS: &[blockdsp::BlkInterpFunc] = &[ vp3_interp00, vp3_interp01, vp3_interp10, vp3_interp11 ];
+fn vp3_interp1y(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw {
+            dst[didx + x] = (((src[sidx + x + 1] as u16) +
+                              (src[sidx + x + sstride] as u16)) >> 1) as u8;
+        }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+pub const VP3_INTERP_FUNCS: &[blockdsp::BlkInterpFunc] = &[ vp3_interp00, vp3_interp01, vp3_interp10, vp3_interp1x, vp3_interp1y ];
 
