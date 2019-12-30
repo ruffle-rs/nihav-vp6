@@ -1888,11 +1888,13 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        let file = "assets/Duck/vp31.avi";
+//        let file = "assets/Duck/vp31.avi";
 //        let file = "assets/Duck/vp31_crash.avi";
 //        let file = "assets/Duck/01-vp31-0500.avi";
-        test_file_decoding("avi", file, Some(3), true, false, None/*Some("vp31")*/, &dmx_reg, &dec_reg);
+//        test_file_decoding("avi", file, Some(3), true, false, None/*Some("vp31")*/, &dmx_reg, &dec_reg);
 //panic!("end");
+        test_decoding("avi", "vp3", "assets/Duck/01-vp31-0500.avi", Some(16), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x65112f7e, 0x2914f29b, 0x2908ed2f, 0xce5fc8c5]));
     }
 
     #[test]
