@@ -960,15 +960,19 @@ println!("intra, ver {} (self {})", version, self.version);
         let mut cur_blk = 0;
         for _ in 0..self.y_blocks/4 {
             if self.blocks[self.blk_addr[cur_blk] >> 2].btype == VPMBType::InterFourMV {
-                for _ in 0..4 {
-                    let blk = &mut self.blocks[self.blk_addr[cur_blk] >> 2];
-                    if blk.coded {
-                        blk.mv = (read_mv)(br)?;
-                        last2_mv = last_mv;
-                        last_mv = blk.mv;
-                    }
-                    cur_blk += 1;
-                }
+                let a0 = self.blk_addr[cur_blk + 0] >> 2;
+                let a1 = self.blk_addr[cur_blk + 1] >> 2;
+                let a2 = self.blk_addr[cur_blk + 2] >> 2;
+                let a3 = self.blk_addr[cur_blk + 3] >> 2;
+                let first = a0.min(a1).min(a2).min(a3);
+                let last  = a0.max(a1).max(a2).max(a3);
+                self.blocks[first + 0].mv = (read_mv)(br)?;
+                self.blocks[first + 1].mv = (read_mv)(br)?;
+                self.blocks[last  - 1].mv = (read_mv)(br)?;
+                self.blocks[last  + 0].mv = (read_mv)(br)?;
+                last2_mv = last_mv;
+                last_mv = self.blocks[last].mv;
+                cur_blk += 4;
             } else {
                 let cur_mv;
                 match self.blocks[self.blk_addr[cur_blk] >> 2].btype {
