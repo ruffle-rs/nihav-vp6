@@ -611,7 +611,6 @@ impl VP34Decoder {
                 validate!(self.version == 3 || self.version == 30);
                 let mb_w                        = br.read(8)? as usize;
                 let mb_h                        = br.read(8)? as usize;
-println!(" VP30 {}x{} ({}x{})", mb_w, mb_h, self.mb_w, self.mb_h);
                 validate!(mb_w == self.mb_w && mb_h == self.mb_h);
                 if self.version == 3 {
                     self.version = 30;
@@ -619,7 +618,6 @@ println!(" VP30 {}x{} ({}x{})", mb_w, mb_h, self.mb_w, self.mb_h);
                 }
             } else {
                 let version                     = br.read(13)?;
-println!("intra, ver {} (self {})", version, self.version);
                 let coding_type                 = br.read(1)?;
                 validate!(coding_type == 0);
                                                   br.skip(2)?;
@@ -633,7 +631,6 @@ println!("intra, ver {} (self {})", version, self.version);
                     validate!(self.version == 4);
                     let mb_h                    = br.read(8)? as usize;
                     let mb_w                    = br.read(8)? as usize;
-//println!(" VP40 {}x{} ({}x{})", mb_w, mb_h, self.mb_w, self.mb_h);
                     validate!(mb_w == self.mb_w && mb_h == self.mb_h);
                     let fact1                   = br.read(5)?;
                     let fact2                   = br.read(3)?;
@@ -652,7 +649,6 @@ println!("intra, ver {} (self {})", version, self.version);
             } else {
                 VP40_LOOP_STRENGTH[self.quant]
             };
-//println!("decode frame({},{},{})", self.is_intra as u8, self.is_intra as u8, self.quant);
         Ok(())
     }
     fn vp30_unpack_sb_info(&mut self, br: &mut BitReader) -> DecoderResult<()> {
