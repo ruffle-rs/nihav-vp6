@@ -1878,8 +1878,8 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        let file = "assets/Duck/vp30-logo.avi";
-        test_file_decoding("avi", file, Some(23), true, false, None/*Some("vp30")*/, &dmx_reg, &dec_reg);
+        test_decoding("avi", "vp3", "assets/Duck/vp30-logo.avi", Some(23), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x51aba7df, 0x6e42534d, 0xef6c5b13, 0x26c38d1f]));
     }
 
     #[test]
