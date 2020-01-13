@@ -312,6 +312,7 @@ struct VP34Decoder {
     mb_h:       usize,
     version:    u8,
     is_intra:   bool,
+    update_gf:  bool,
     quant:      usize,
     shuf:       VPShuffler,
     codes:      Codes,
@@ -573,6 +574,7 @@ impl VP34Decoder {
             mb_h:       0,
             version,
             is_intra:   true,
+            update_gf:  false,
             quant:      0,
             shuf:       VPShuffler::new(),
             codes:      Codes::None,
@@ -1266,6 +1268,9 @@ impl VP34Decoder {
         }
         let dc_quant = VP30_DC_SCALES[self.quant] * 10;
         let ac_quant = VP30_AC_SCALES[self.quant];
+
+        self.update_gf = ac_quant <= 50;
+
         rescale_qmat(&mut self.qmat_y, VP3_QMAT_Y, dc_quant, ac_quant, 2);
         rescale_qmat(&mut self.qmat_c, VP3_QMAT_C, dc_quant, ac_quant, 2);
         rescale_qmat(&mut self.qmat_y_p, VP3_QMAT_INTER, dc_quant, ac_quant, 4);
@@ -1835,7 +1840,7 @@ impl NADecoder for VP34Decoder {
              _ => return Err(DecoderError::Bug),
         }
 
-        if self.is_intra {
+        if self.is_intra || self.update_gf {
             self.shuf.add_golden_frame(buf.clone());
         }
         self.shuf.add_frame(buf.clone());
