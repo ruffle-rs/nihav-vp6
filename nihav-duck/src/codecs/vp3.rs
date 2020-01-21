@@ -426,6 +426,14 @@ fn rescale_qmat(dst_qmat: &mut [i16; 64], base_qmat: &[i16; 64], dc_quant: i16, 
     dst_qmat[0] = (base_qmat[0] * dc_quant / 100).max(minval * 2) << 2;
 }
 
+fn rescale_qmat_vp4(dst_qmat: &mut [i16; 64], base_qmat: &[i16; 64], dc_quant: i16, ac_quant: i16, is_intra: bool) {
+    let (bias, minval) = if is_intra { (3, 4) } else { (6, 8) };
+    for (dst, src) in dst_qmat.iter_mut().zip(base_qmat.iter()) {
+        *dst = ((src - bias).wrapping_mul(ac_quant) / 100 + bias) << 2;
+    }
+    dst_qmat[0] = (base_qmat[0] * dc_quant / 100).max(minval) << 2;
+}
+
 fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, token: u8) -> DecoderResult<()> {
     match token {
         // EOBs
@@ -1400,10 +1408,10 @@ impl VP34Decoder {
         let dc_y_quant = VP40_DC_Y_SCALES[self.quant];
         let dc_c_quant = VP40_DC_C_SCALES[self.quant];
         let ac_quant = VP40_AC_SCALES[self.quant];
-        rescale_qmat(&mut self.qmat_y, VP40_QMAT, dc_y_quant, ac_quant, 2);
-        rescale_qmat(&mut self.qmat_c, VP40_QMAT, dc_c_quant, ac_quant, 2);
-        self.qmat_y_p.copy_from_slice(&self.qmat_y);
-        self.qmat_c_p.copy_from_slice(&self.qmat_c);
+        rescale_qmat_vp4(&mut self.qmat_y,   VP40_QMAT, dc_y_quant, ac_quant, true);
+        rescale_qmat_vp4(&mut self.qmat_y_p, VP40_QMAT, dc_c_quant, ac_quant, false);
+        self.qmat_c.copy_from_slice(&self.qmat_y);
+        self.qmat_c_p.copy_from_slice(&self.qmat_y_p);
 
         self.eob_run = 0;
         let dc_table_y                          = br.read(4)? as usize;
