@@ -383,20 +383,20 @@ pub fn vp_copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>
         let mut tmp_buf = NASimpleVideoFrame::from_video_buf(&mut mc_buf).unwrap();
         copy_block(&mut tmp_buf, src, comp, 0, 0, src_x as i16, src_y as i16,
                    bsize, bsize, 0, 0, 0, interp);
-        if (sy & 7) != 0 {
-            let foff = (8 - (sy & 7)) as usize;
-            let off = (pre + foff) * tmp_buf.stride[comp];
-            vp31_loop_filter(tmp_buf.data, off, tmp_buf.stride[comp], 1, bsize, loop_str);
-        }
-        if (sx & 7) != 0 {
+        if ((sx & 7) != 0) || (mode != 0) {
             let foff = (8 - (sx & 7)) as usize;
             let off = pre + foff;
             vp31_loop_filter(tmp_buf.data, off, 1, tmp_buf.stride[comp], bsize, loop_str);
         }
+        if ((sy & 7) != 0) || (mode != 0) {
+            let foff = (8 - (sy & 7)) as usize;
+            let off = (pre + foff) * tmp_buf.stride[comp];
+            vp31_loop_filter(tmp_buf.data, off, tmp_buf.stride[comp], 1, bsize, loop_str);
+        }
     }
     let dxoff = (pre as i16) - (dx as i16);
     let dyoff = (pre as i16) - (dy as i16);
-    copy_block(dst, mc_buf, comp, dx, dy, dxoff, dyoff, 8, 8, preborder, postborder, 0/* mode*/, interp);
+    copy_block(dst, mc_buf, comp, dx, dy, dxoff, dyoff, 8, 8, preborder, postborder, mode, interp);
 }
 
 fn vp3_interp00(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
