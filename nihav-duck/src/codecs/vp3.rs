@@ -1131,7 +1131,7 @@ impl VP34Decoder {
                     last2_mv = last_mv;
                     let saddr = (self.blk_addr[cur_blk] >> 2).min(self.blk_addr[cur_blk + 1] >> 2).min(self.blk_addr[cur_blk + 2] >> 2).min(self.blk_addr[cur_blk + 3] >> 2);
                     for i in 0..4 {
-                        let blk = &mut self.blocks[saddr + (i & 1) + (i >> 1) * self.mb_w];
+                        let blk = &mut self.blocks[saddr + (i & 1) + (i >> 1) * self.mb_w * 2];
                         blk.mv.x = br.read_cb(x_cb)? as i16;
                         if x_sign {
                             blk.mv.x = -blk.mv.x;
