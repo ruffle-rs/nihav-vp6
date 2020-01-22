@@ -1192,7 +1192,7 @@ impl VP34Decoder {
     fn vp40_unpack_coeffs(&mut self, br: &mut BitReader, dc_table_y: usize, dc_table_c: usize, ac_table_y: usize, ac_table_c: usize) -> DecoderResult<()> {
         const VP40_PRED_MASKS: [usize; 16] = [ // top, bottom, left, right
                 0b1010, 0b1010, 0b1000, 0b1011,
-                0b1010, 0b1010, 0b0010, 0b1111,
+                0b1010, 0b1010, 0b0010, 0b1110,
                 0b0010, 0b1010, 0b0010, 0b0110,
                 0b0100, 0b0111, 0b1110, 0b1110
             ];
