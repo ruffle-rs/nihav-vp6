@@ -1,5 +1,4 @@
 use nihav_core::codecs::*;
-use nihav_core::data::GenericCache;
 use nihav_core::io::bitreader::*;
 use super::vpcommon::*;
 
@@ -296,6 +295,52 @@ impl FrameState {
     }
 }
 
+#[derive(Default)]
+pub struct VP56DCPred {
+    dc_y:       Vec<i16>,
+    dc_u:       Vec<i16>,
+    dc_v:       Vec<i16>,
+    ldc_y:      [i16; 2],
+    ldc_u:      i16,
+    ldc_v:      i16,
+    ref_y:      Vec<u8>,
+    ref_c:      Vec<u8>,
+    ref_left:   u8,
+    y_idx:      usize,
+    c_idx:      usize,
+}
+
+const INVALID_REF: u8 = 42;
+
+impl VP56DCPred {
+    fn new() -> Self { Self::default() }
+    fn resize(&mut self, mb_w: usize) {
+        self.dc_y.resize(mb_w * 2 + 2, 0);
+        self.dc_u.resize(mb_w     + 2, 0);
+        self.dc_v.resize(mb_w     + 2, 0);
+        self.ref_y.resize(mb_w * 2 + 2, INVALID_REF);
+        self.ref_c.resize(mb_w     + 2, INVALID_REF);
+        self.ref_c[0] = 0;
+    }
+    fn reset(&mut self) {
+        self.update_row();
+        for el in self.ref_y.iter_mut().skip(1) { *el = INVALID_REF; }
+        for el in self.ref_c.iter_mut().skip(1) { *el = INVALID_REF; }
+    }
+    fn update_row(&mut self) {
+        self.y_idx = 1;
+        self.c_idx = 1;
+        self.ldc_y = [0; 2];
+        self.ldc_u = 0;
+        self.ldc_v = 0;
+        self.ref_left = INVALID_REF;
+    }
+    fn next_mb(&mut self) {
+        self.y_idx += 2;
+        self.c_idx += 1;
+    }
+}
+
 pub struct VP56Decoder {
     version:    u8,
     has_alpha:  bool,
@@ -315,10 +360,7 @@ pub struct VP56Decoder {
 
     mb_info:    Vec<MBInfo>,
     fstate:     FrameState,
-    dc_y:       GenericCache<i16>,
-    dc_u:       GenericCache<i16>,
-    dc_v:       GenericCache<i16>,
-    dc_a:       GenericCache<i16>,
+    dc_pred:    VP56DCPred,
     last_dc:    [[i16; 4]; 3],
     top_ctx:    [Vec<u8>; 4],
 
@@ -400,10 +442,7 @@ impl VP56Decoder {
 
             mb_info:    Vec::new(),
             fstate:     FrameState::new(),
-            dc_y:       GenericCache::new(0, 0, 0),
-            dc_u:       GenericCache::new(0, 0, 0),
-            dc_v:       GenericCache::new(0, 0, 0),
-            dc_a:       GenericCache::new(0, 0, 0),
+            dc_pred:    VP56DCPred::new(),
             last_dc:    [[0; 4]; 3],
             top_ctx:    [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
 
@@ -416,16 +455,13 @@ impl VP56Decoder {
         self.mb_w   = (self.width  + 15) >> 4;
         self.mb_h   = (self.height + 15) >> 4;
         self.mb_info.resize(self.mb_w * self.mb_h, MBInfo::default());
-        self.dc_y   = GenericCache::new(2, 1 + self.mb_w * 2, 0);
-        self.dc_u   = GenericCache::new(1, 1 + self.mb_w,     0);
-        self.dc_v   = GenericCache::new(1, 1 + self.mb_w,     0);
-        self.dc_a   = GenericCache::new(2, 1 + self.mb_w * 2, 0);
         self.top_ctx = [vec![0; self.mb_w * 2], vec![0; self.mb_w], vec![0; self.mb_w], vec![0; self.mb_w * 2]];
     }
     pub fn init(&mut self, supp: &mut NADecoderSupport, vinfo: NAVideoInfo) -> DecoderResult<()> {
         supp.pool_u8.set_dec_bufs(3);
         supp.pool_u8.prealloc_video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, vinfo.get_format()), 4)?;
         self.set_dimensions(vinfo.get_width(), vinfo.get_height());
+        self.dc_pred.resize(self.mb_w);
         Ok(())
     }
     pub fn flush(&mut self) {
@@ -524,10 +560,6 @@ impl VP56Decoder {
         self.loop_thr = VP56_FILTER_LIMITS[hdr.quant as usize] as i16;
 
         self.last_mbt = VPMBType::InterNoMV;
-        self.dc_y.reset();
-        self.dc_u.reset();
-        self.dc_v.reset();
-        self.dc_a.reset();
         for vec in self.top_ctx.iter_mut() {
             for el in vec.iter_mut() {
                 *el = 0;
@@ -536,6 +568,7 @@ impl VP56Decoder {
         self.last_dc = [[0; 4]; 3];
         self.last_dc[0][1] = 0x80;
         self.last_dc[0][2] = 0x80;
+        self.dc_pred.reset();
 
         self.ilace_mb = false;
         for mb_y in 0..self.mb_h {
@@ -545,11 +578,9 @@ impl VP56Decoder {
             for mb_x in 0..self.mb_w {
                 self.fstate.mb_x = mb_x;
                 self.decode_mb(&mut dframe, &mut bc, &mut cr, br, &hdr, false)?;
+                self.dc_pred.next_mb();
             }
-            self.dc_y.update_row();
-            self.dc_u.update_row();
-            self.dc_v.update_row();
-            self.dc_a.update_row();
+            self.dc_pred.update_row();
         }
 
         if self.has_alpha {
@@ -930,60 +961,42 @@ impl VP56Decoder {
             br.mc_block(frm, self.mc_buf.clone(), src.clone(), 2, x, y, mv, self.loop_thr);
         }
     }
-    fn predict_dc(&mut self, mb_type: VPMBType, mb_pos: usize, blk_no: usize, alpha: bool) {
-        let mb_x = self.fstate.mb_x;
+    fn predict_dc(&mut self, mb_type: VPMBType, _mb_pos: usize, blk_no: usize, _alpha: bool) {
         let is_luma = blk_no < 4;
-        let (plane, dcs) = if alpha { (0, &mut self.dc_a) } else {
-                match blk_no {
-                    4 => (1, &mut self.dc_u),
-                    5 => (2, &mut self.dc_v),
-                    _ => (0, &mut self.dc_y),
-                }
+        let (plane, dcs) = match blk_no {
+                4 => (1, &mut self.dc_pred.dc_u),
+                5 => (2, &mut self.dc_pred.dc_v),
+                _ => (0, &mut self.dc_pred.dc_y),
              };
-        let dc_pos = if is_luma {
-                dcs.xpos + mb_x * 2 + (blk_no & 1) + (blk_no >> 1) * dcs.stride
+        let (dc_ref, dc_idx) = if is_luma {
+                (&mut self.dc_pred.ref_y, self.dc_pred.y_idx + (blk_no & 1))
             } else {
-                dcs.xpos + mb_x
+                (&mut self.dc_pred.ref_c, self.dc_pred.c_idx)
             };
         let ref_id = mb_type.get_ref_id();
-        let has_left_blk = is_luma && ((blk_no & 1) != 0);
-        let has_top_blk = is_luma && ((blk_no & 2) != 0);
         let mut dc_pred = 0;
         let mut count = 0;
-        if has_left_blk || ((mb_x > 0) && (self.mb_info[mb_pos - 1].mb_type.get_ref_id() == ref_id)) {
-            dc_pred += dcs.data[dc_pos - 1];
+        let has_left_blk = is_luma && ((blk_no & 1) == 1);
+        if has_left_blk || self.dc_pred.ref_left == ref_id {
+            dc_pred += match blk_no {
+                    0 | 1 => self.dc_pred.ldc_y[0],
+                    2 | 3 => self.dc_pred.ldc_y[1],
+                    4     => self.dc_pred.ldc_u,
+                    _     => self.dc_pred.ldc_v,
+                };
             count += 1;
         }
-        if has_top_blk || ((mb_pos >= self.mb_w) && (self.mb_info[mb_pos - self.mb_w].mb_type.get_ref_id() == ref_id)) {
-            dc_pred += dcs.data[dc_pos - dcs.stride];
+        if dc_ref[dc_idx] == ref_id {
+            dc_pred += dcs[dc_idx];
             count += 1;
         }
         if self.version == 5 {
-            if (count < 2) && has_left_blk {
-                dc_pred += dc_pred;
+            if (count < 2) && (dc_ref[dc_idx - 1] == ref_id) {
+                dc_pred += dcs[dc_idx - 1];
                 count += 1;
             }
-            if (count < 2) && !has_left_blk && has_top_blk && (mb_x > 0) && (self.mb_info[mb_pos - 1].mb_type.get_ref_id() == ref_id) {
-                dc_pred += dc_pred;
-                count += 1;
-            }
-            if (count < 2) && mb_pos == 0 && !is_luma {
-                count += 1;
-            }
-            if (count < 2) && !has_left_blk && !has_top_blk && is_luma && (mb_x > 0) && (self.mb_info[mb_pos - 1].mb_type.get_ref_id() == ref_id) {
-                dc_pred += dcs.data[dc_pos + dcs.stride - 1];
-                count += 1;
-            }
-            if (count < 2) && blk_no == 2 {
-                dc_pred += dcs.data[dc_pos - dcs.stride + 1];
-                count += 1;
-            }
-            if (count < 2) && !has_left_blk && (mb_pos >= self.mb_w) && (self.mb_info[mb_pos - self.mb_w].mb_type.get_ref_id() == ref_id) {
-                dc_pred += dcs.data[dc_pos - dcs.stride + 1];
-                count += 1;
-            }
-            if (count < 2) && has_left_blk && (mb_pos > self.mb_w) && (mb_x < self.mb_w - 1) && (self.mb_info[mb_pos - self.mb_w + 1].mb_type.get_ref_id() == ref_id) {
-                dc_pred += dcs.data[dc_pos - dcs.stride + 1];
+            if (count < 2) && (dc_ref[dc_idx + 1] == ref_id) {
+                dc_pred += dcs[dc_idx + 1];
                 count += 1;
             }
         }
@@ -993,8 +1006,29 @@ impl VP56Decoder {
             dc_pred /= 2;
         }
         self.coeffs[blk_no][0] += dc_pred;
-        self.last_dc[ref_id as usize][plane] = self.coeffs[blk_no][0];
-        dcs.data[dc_pos] = self.coeffs[blk_no][0];
+
+        let dc = self.coeffs[blk_no][0];
+        if blk_no != 4 { // update top block reference only for the second chroma component
+            dc_ref[dc_idx] = ref_id;
+        }
+        match blk_no {
+            0 | 1 => {
+                self.dc_pred.ldc_y[0] = dc;
+            },
+            2 | 3 => {
+                self.dc_pred.ldc_y[1] = dc;
+            },
+            4 => {
+                self.dc_pred.ldc_u = dc;
+            },
+            _ => {
+                self.dc_pred.ldc_v = dc;
+                self.dc_pred.ref_left = ref_id;
+            },
+        };
+        dcs[dc_idx] = dc;
+
+        self.last_dc[ref_id as usize][plane] = dc;
         self.coeffs[blk_no][0] = self.coeffs[blk_no][0].wrapping_mul(self.fstate.dc_quant);
     }
 }
