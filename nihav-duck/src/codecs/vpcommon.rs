@@ -380,17 +380,18 @@ pub fn vp_copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>
     let src_x = sx - (pre as isize);
     let src_y = sy - (pre as isize);
     {
-        let mut tmp_buf = NASimpleVideoFrame::from_video_buf(&mut mc_buf).unwrap();
-        copy_block(&mut tmp_buf, src, comp, 0, 0, src_x as i16, src_y as i16,
-                   bsize, bsize, 0, 0, 0, interp);
-        if ((sx & 7) != 0) || (mode != 0) {
+        let tmp_buf = NASimpleVideoFrame::from_video_buf(&mut mc_buf).unwrap();
+        edge_emu(src.as_ref(), src_x, src_y, bsize, bsize, &mut tmp_buf.data[tmp_buf.offset[comp]..], tmp_buf.stride[comp], comp);
+//        copy_block(&mut tmp_buf, src, comp, 0, 0, src_x as i16, src_y as i16,
+//                   bsize, bsize, 0, 0, 0, interp);
+        if (sx & 7) != 0 {
             let foff = (8 - (sx & 7)) as usize;
-            let off = pre + foff;
+            let off = pre + foff + tmp_buf.offset[comp];
             vp31_loop_filter(tmp_buf.data, off, 1, tmp_buf.stride[comp], bsize, loop_str);
         }
-        if ((sy & 7) != 0) || (mode != 0) {
+        if (sy & 7) != 0 {
             let foff = (8 - (sy & 7)) as usize;
-            let off = (pre + foff) * tmp_buf.stride[comp];
+            let off = (pre + foff) * tmp_buf.stride[comp] + tmp_buf.offset[comp];
             vp31_loop_filter(tmp_buf.data, off, tmp_buf.stride[comp], 1, bsize, loop_str);
         }
     }
