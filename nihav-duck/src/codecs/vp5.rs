@@ -219,11 +219,16 @@ impl VP56Parser for VP5BR {
     }
     fn mc_block(&self, dst: &mut NASimpleVideoFrame<u8>, mc_buf: NAVideoBufferRef<u8>, src: NAVideoBufferRef<u8>, plane: usize, x: usize, y: usize, mv: MV, loop_str: i16) {
         let (sx, sy, mx, my) = if (plane != 1) && (plane != 2) {
-                (mv.x / 2, mv.y / 2, mv.x & 1, mv.y & 1)
+                (mv.x >> 1, mv.y >> 1, mv.x & 1, mv.y & 1)
             } else {
-                (mv.x / 4, mv.y / 4, (mv.x >> 1) & 1, (mv.y >> 1) & 1)
+                (mv.x >> 2, mv.y >> 2, (mv.x / 2) & 1, (mv.y / 2) & 1)
             };
-        let mode = (mx as usize) + (my as usize) * 2;
+        let mode1 = (mx as usize) + (my as usize) * 2;
+        let mode = if (mode1 == 3) && (mv.x ^ mv.y < 0) {
+                4
+            } else {
+                mode1
+            };
         vp_copy_block(dst, src, plane, x, y, sx, sy, 0, 1, loop_str,
                       mode, VP3_INTERP_FUNCS, mc_buf);
     }
