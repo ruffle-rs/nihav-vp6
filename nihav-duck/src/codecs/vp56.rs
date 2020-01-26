@@ -738,7 +738,7 @@ impl VP56Decoder {
                         vp_tree!(bc, probs[5], VPMBType::Intra, VPMBType::InterFourMV),
                         vp_tree!(bc, probs[6],
                             vp_tree!(bc, probs[7], VPMBType::GoldenNoMV, VPMBType::GoldenMV),
-                            vp_tree!(bc, probs[8], VPMBType::InterNearest, VPMBType::InterNear)
+                            vp_tree!(bc, probs[8], VPMBType::GoldenNearest, VPMBType::GoldenNear)
                         )
                     )
                 );
