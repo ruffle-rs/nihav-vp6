@@ -298,8 +298,8 @@ mod test {
 
         let file = "assets/Duck/Cell-140.vp5";
         //let file = "assets/Duck/Chocolat-500.vp5";
-        test_file_decoding("avi", file, Some(13), true, false, None/*Some("vp5")*/, &dmx_reg, &dec_reg);
-//panic!("end");
+        test_decoding("avi", "vp5", file, Some(96), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x9ad78b0f, 0xed988ead, 0x88ed2ea9, 0xcdb75cdf]));
     }
 }
 
