@@ -221,7 +221,7 @@ impl VP56Parser for VP5BR {
         let (sx, sy, mx, my) = if (plane != 1) && (plane != 2) {
                 (mv.x >> 1, mv.y >> 1, mv.x & 1, mv.y & 1)
             } else {
-                (mv.x >> 2, mv.y >> 2, (mv.x / 2) & 1, (mv.y / 2) & 1)
+                (mv.x >> 2, mv.y >> 2, if (mv.x & 3) != 0 { 1 } else { 0 }, if (mv.y & 3) != 0 { 1 } else { 0 })
             };
         let mode1 = (mx as usize) + (my as usize) * 2;
         let mode = if (mode1 == 3) && (mv.x ^ mv.y < 0) {
