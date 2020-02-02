@@ -209,6 +209,7 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"VP60", "vp6"),
     (b"VP61", "vp6"),
     (b"VP62", "vp6"),
+    (b"VP6A", "vp6a"),
     (b"VP70", "vp7"),
 ];
 
