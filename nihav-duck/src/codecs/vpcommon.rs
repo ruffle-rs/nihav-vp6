@@ -1,6 +1,21 @@
 use nihav_core::codecs::*;
 use nihav_core::codecs::blockdsp::*;
 
+pub const VP_YUVA420_FORMAT: NAPixelFormaton = NAPixelFormaton{
+        model:      ColorModel::YUV(YUVSubmodel::YUVJ),
+        components: 4,
+        comp_info:  [
+                Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}),
+                Some(NAPixelChromaton{ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 1, next_elem: 1}),
+                Some(NAPixelChromaton{ h_ss: 1, v_ss: 1, packed: false, depth: 8, shift: 0, comp_offs: 2, next_elem: 1}),
+                Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 3, next_elem: 1}),
+                None ],
+        elem_size:  0,
+        be:         false,
+        alpha:      true,
+        palette:    false
+    };
+
 #[derive(Clone,Copy,Debug,PartialEq)]
 #[allow(dead_code)]
 pub enum VPMBType {

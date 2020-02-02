@@ -423,7 +423,7 @@ pub fn expand_token_bc(bc: &mut BoolCoder, val_probs: &[u8; 11], token: u8, vers
 
 impl VP56Decoder {
     pub fn new(version: u8, has_alpha: bool, flip: bool) -> Self {
-        let vt = alloc_video_buffer(NAVideoInfo::new(24, 24, false, YUV420_FORMAT), 4).unwrap();
+        let vt = alloc_video_buffer(NAVideoInfo::new(24, 24, false, VP_YUVA420_FORMAT), 4).unwrap();
         let mc_buf = vt.get_vbuf().unwrap();
         Self {
             version, has_alpha, flip,
@@ -486,7 +486,12 @@ impl VP56Decoder {
         if hdr.mb_w != 0 {
             self.set_dimensions((hdr.mb_w as usize) * 16, (hdr.mb_h as usize) * 16);
         }
-        let vinfo = NAVideoInfo::new(self.width, self.height, self.flip, YUV420_FORMAT);
+        let fmt = if !self.has_alpha {
+                YUV420_FORMAT
+            } else {
+                VP_YUVA420_FORMAT
+                };
+        let vinfo = NAVideoInfo::new(self.width, self.height, self.flip, fmt);
         let ret = supp.pool_u8.get_free();
         if ret.is_none() {
             return Err(DecoderError::AllocError);

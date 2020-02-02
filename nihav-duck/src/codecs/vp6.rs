@@ -688,13 +688,7 @@ impl NADecoder for VP6Decoder {
             let fmt = if !self.has_alpha {
                     YUV420_FORMAT
                 } else {
-                    NAPixelFormaton::new(ColorModel::YUV(YUVSubmodel::YUVJ),
-                                         Some(NAPixelChromaton::new(0, 0, false, 8, 0, 0, 1)),
-                                         Some(NAPixelChromaton::new(1, 1, false, 8, 0, 1, 1)),
-                                         Some(NAPixelChromaton::new(1, 1, false, 8, 0, 2, 1)),
-                                         Some(NAPixelChromaton::new(0, 0, false, 8, 0, 3, 1)),
-                                         None,
-                                         0, 4)
+                    VP_YUVA420_FORMAT
                 };
             let myvinfo = NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, fmt);
             let myinfo = NACodecTypeInfo::Video(myvinfo.clone());
