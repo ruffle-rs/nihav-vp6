@@ -51,6 +51,7 @@ impl VP56Parser for VP6BR {
         } else {
             hdr.version = self.vpversion;
             hdr.profile = self.profile;
+            hdr.interlaced = self.interlaced;
         }
         if hdr.multistream || (hdr.profile == VP6_SIMPLE_PROFILE) {
             hdr.offset                          = br.read(16)? as u16;
