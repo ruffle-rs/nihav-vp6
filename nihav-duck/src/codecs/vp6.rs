@@ -351,38 +351,51 @@ impl VP56Parser for VP6BR {
 
         Ok(())
     }
-    fn mc_block(&self, dst: &mut NASimpleVideoFrame<u8>, mut mc_buf: NAVideoBufferRef<u8>, src: NAVideoBufferRef<u8>, plane: usize, x: usize, y: usize, mv: MV, _loop_str: i16) {
+    fn mc_block(&self, dst: &mut NASimpleVideoFrame<u8>, mut mc_buf: NAVideoBufferRef<u8>, src: NAVideoBufferRef<u8>, plane: usize, x: usize, y: usize, mv: MV, loop_str: i16) {
         let is_luma = (plane != 1) && (plane != 2);
-        let (sx, sy, mx, my) = if is_luma {
-                (mv.x / 4, mv.y / 4, mv.x & 3, mv.y & 3)
+        let (sx, sy, mx, my, msx, msy) = if is_luma {
+                (mv.x >> 2, mv.y >> 2, (mv.x & 3) << 1, (mv.y & 3) << 1, mv.x / 4, mv.y / 4)
             } else {
-                (mv.x / 8, mv.y / 8, mv.x & 7, mv.y & 7)
+                (mv.x >> 3, mv.y >> 3, mv.x & 7, mv.y & 7, mv.x / 8, mv.y / 8)
             };
         let tmp_blk = mc_buf.get_data_mut().unwrap();
         get_block(tmp_blk, 16, src.clone(), plane, x, y, sx, sy);
-        // todo filtering
-        let mut bicubic = self.bicubic;
-        if is_luma && (self.profile == VP6_ADVANCED_PROFILE) {
+        if (msx & 7) != 0 {
+            let foff = (8 - (sx & 7)) as usize;
+            let off = 2 + foff;
+            vp31_loop_filter(tmp_blk, off, 1, 16, 12, loop_str);
+        }
+        if (msy & 7) != 0 {
+            let foff = (8 - (sy & 7)) as usize;
+            let off = (2 + foff) * 16;
+            vp31_loop_filter(tmp_blk, off, 16, 1, 12, loop_str);
+        }
+        let copy_mode = (mx == 0) && (my == 0);
+        let mut bicubic = !copy_mode && is_luma && self.bicubic;
+        if is_luma && !copy_mode && (self.profile == VP6_ADVANCED_PROFILE) {
             if !self.autosel_pm {
                 bicubic = true;
             } else {
                 let mv_limit = 1 << (self.mv_thresh + 1);
                 if (mv.x.abs() <= mv_limit) && (mv.y.abs() <= mv_limit) {
-                    let var = calc_variance(&tmp_blk[16 * 2 + 2..], 16);
-                    if var > self.var_thresh {
-                        bicubic = false;
+                    let mut var_off = 16 * 2 + 2;
+                    if mv.x < 0 { var_off += 1; }
+                    if mv.y < 0 { var_off += 16; }
+                    let var = calc_variance(&tmp_blk[var_off..], 16);
+                    if var >= self.var_thresh {
+                        bicubic = true;
                     }
                 }
             }
         }
         let dstride = dst.stride[plane];
         let dbuf = &mut dst.data[dst.offset[plane] + x + y * dstride..];
-        if mx == 0 && my == 0 {
+        if copy_mode {
             let src = &tmp_blk[2 * 16 + 2..];
             for (dline, sline) in dbuf.chunks_mut(dst.stride[plane]).zip(src.chunks(16)).take(8) {
                 for i in 0..8 { dline[i] = sline[i]; }
             }
-        } else if is_luma && bicubic {
+        } else if bicubic {
             let coeff_h = &VP6_BICUBIC_COEFFS[self.filter_alpha][mx as usize];
             let coeff_v = &VP6_BICUBIC_COEFFS[self.filter_alpha][my as usize];
             mc_bicubic(dbuf, dstride, tmp_blk, 16 * 2 + 2, 16, coeff_h, coeff_v);
@@ -561,7 +574,7 @@ fn get_block(dst: &mut [u8], dstride: usize, src: NAVideoBufferRef<u8>, comp: us
 fn calc_variance(src: &[u8], stride: usize) -> u16 {
     let mut sum = 0;
     let mut ssum = 0;
-    for line in src.chunks(stride * 2).take(8) {
+    for line in src.chunks(stride * 2).take(4) {
         for el in line.iter().take(8).step_by(2) {
             let pix = *el as u32;
             sum += pix;
@@ -573,7 +586,7 @@ fn calc_variance(src: &[u8], stride: usize) -> u16 {
 
 macro_rules! mc_filter {
     (bilinear; $a: expr, $b: expr, $c: expr) => {
-        ((($a as u16) * (8 - $c) + ($b as u16) * $c + 3) >> 3) as u8
+        ((($a as u16) * (8 - $c) + ($b as u16) * $c + 4) >> 3) as u8
     };
     (bicubic; $src: expr, $off: expr, $step: expr, $coeffs: expr) => {
         ((($src[$off - $step]     as i32) * ($coeffs[0] as i32) +
