@@ -737,16 +737,26 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        //let file = "assets/Duck/predator2_vp60.avi";
-        //let file = "assets/Duck/predator2_vp61.avi";
-        //let file = "assets/Duck/vp6_crash.avi";
-        let file = "assets/Duck/vp6_interlaced.avi";
-        //let file = "assets/Duck/vp6_vid.avi";
-        //let file = "assets/Duck/selection_720x576_300kBit_vp60i.avi";
-        //let file = "assets/Duck/selection_720x576_300kBit_flipped_vp60i.avi";
-        test_file_decoding("avi", file, Some(17), true, false, None/*Some("vp6")*/, &dmx_reg, &dec_reg);
-//panic!("end");
+        test_decoding("avi", "vp6", "assets/Duck/selection_720x576_300kBit_vp60i.avi", Some(16),
+                      &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x042c3e96, 0x8a9b26a2, 0x4dcbaf66, 0x1b788d03]));
     }
+    #[test]
+    fn test_vp6_huff() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        duck_register_all_codecs(&mut dec_reg);
+
+        test_decoding("avi", "vp6", "assets/Duck/vp6_crash.avi", Some(4),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0xdcd70fa0, 0x0d075ce2, 0xc9e65077, 0xb003a92e],
+                            [0x334abf96, 0x3a004c7a, 0x5781cd5c, 0x25c3ae5c],
+                            [0x6164b851, 0x528cd8de, 0xecab7328, 0x4b49708a],
+                            [0x11b048ac, 0xedb3e471, 0xd04e9399, 0x64e623e3],
+                            [0x182871b1, 0x2146893a, 0x2912210e, 0x6dd592e8]]));
+    }
+    // todo find good sample for vp6a test
 }
 
 const VP6_AC_PROBS: [[[[u8; 11]; 6]; 2]; 3] = [
