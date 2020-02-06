@@ -871,13 +871,14 @@ impl VP7Decoder {
                     }
                 }
             }
+            let tr_edge = if has_top { ydst[yoff - ystride + 15] } else { 0x80 };
             for y in 0..4 {
                 for x in 0..4 {
                     ipred_ctx_y.has_left = has_left || x > 0;
                     let bmode = self.ymodes[iidx + x];
                     let cur_yoff = yoff + x * 4;
-                    let has_tr = has_top && ((x < 3) || ((y == 0) && (mb_y < self.mb_w - 1)));
-                    let has_dl = ipred_ctx_y.has_left && (y < 3);
+                    let has_tr = ipred_ctx_y.has_top && ((x < 3) || ((y == 0) && (mb_y < self.mb_w - 1)));
+                    let has_dl = ipred_ctx_y.has_left && (x == 0) && (y < 3);
                     ipred_ctx_y.fill(ydst, cur_yoff, ystride,
                                      if has_tr { 8 } else { 4 },
                                      if has_dl { 8 } else { 4 });
@@ -888,6 +889,11 @@ impl VP7Decoder {
                     } else {
                         for i in 0..4 {
                             tr_save[x * 4 + i] = ipred_ctx_y.top[i + 4];
+                        }
+                    }
+                    if (mb_x == self.mb_w - 1) && has_top && (x == 3) {
+                        for i in 0..4 {
+                            ipred_ctx_y.top[i + 4] = tr_edge;
                         }
                     }
                     match bmode {
