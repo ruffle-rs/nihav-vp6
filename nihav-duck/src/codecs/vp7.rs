@@ -544,11 +544,11 @@ impl VP7Decoder {
                     y2block[0] = dc;
                 }
                 if (pval == 0) || (dc == 0) || ((pval ^ dc) < 0) {
-                    self.dstate.pdc_pred_val    = dc;
                     self.dstate.pdc_pred_count  = 0;
                 } else if dc == pval {
                     self.dstate.pdc_pred_count += 1;
                 }
+                self.dstate.pdc_pred_val = dc;
             }
             if has_ac[24] {
                 idct4x4(y2block);
@@ -1246,8 +1246,10 @@ impl NADecoder for VP7Decoder {
 
         let mut mb_idx = 0;
         self.pcache.reset();
-        self.dstate.pdc_pred_val    = 0;
-        self.dstate.pdc_pred_count  = 0;
+        if self.dstate.is_intra || (self.dstate.version > 0) {
+            self.dstate.pdc_pred_val    = 0;
+            self.dstate.pdc_pred_count  = 0;
+        }
         let mut use_last = true;
         for mb_y in 0..self.mb_h {
             for mb_x in 0..self.mb_w {
