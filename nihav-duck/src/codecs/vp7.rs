@@ -1017,22 +1017,32 @@ impl VP7Decoder {
         } else {
             for y in 0..2 {
                 for x in 0..2 {
-                    let mut chroma_mv = self.mvs[iidx] + self.mvs[iidx + 1]
-                                       + self.mvs[iidx + self.mv_stride]
-                                       + self.mvs[iidx + self.mv_stride + 1];
-                    chroma_mv.x /= 4;
-                    chroma_mv.y /= 4;
+                    let mut chroma_mv = self.mvs[iidx + x * 2] + self.mvs[iidx + x * 2 + 1]
+                                       + self.mvs[iidx + x * 2 + self.mv_stride]
+                                       + self.mvs[iidx + x * 2 + self.mv_stride + 1];
+                    if chroma_mv.x < 0 {
+                        chroma_mv.x += 1;
+                    } else {
+                        chroma_mv.x += 2;
+                    }
+                    if chroma_mv.y < 0 {
+                        chroma_mv.y += 1;
+                    } else {
+                        chroma_mv.y += 2;
+                    }
+                    chroma_mv.x >>= 2;
+                    chroma_mv.y >>= 2;
 
                     if pitch_smode == 0 {
-                        mc_block4x4(dst, uoff, ustride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
+                        mc_block4x4(dst, uoff + x * 4, ustride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
                                     chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf);
-                        mc_block4x4(dst, voff, vstride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
+                        mc_block4x4(dst, voff + x * 4, vstride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
                                     chroma_mv.x, chroma_mv.y, refframe.clone(), 2, &mut mc_buf);
                     } else {
-                        mc_block_special(dst, uoff, ustride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
+                        mc_block_special(dst, uoff + x * 4, ustride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
                                          chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf,
                                          4, pitch_smode);
-                        mc_block_special(dst, voff, vstride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
+                        mc_block_special(dst, voff + x * 4, vstride, mb_x * 8 + x * 4, mb_y * 8 + y * 4,
                                          chroma_mv.x, chroma_mv.y, refframe.clone(), 2, &mut mc_buf,
                                          4, pitch_smode);
                     }
