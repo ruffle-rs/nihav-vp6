@@ -552,7 +552,7 @@ impl VP7Decoder {
             }
             if has_ac[24] {
                 idct4x4(y2block);
-            } else {
+            } else if y2block[0] != 0 {
                 idct4x4_dc(y2block);
             }
             for i in 0..16 {
@@ -562,7 +562,7 @@ impl VP7Decoder {
         for i in 0..24 {
             if has_ac[i] {
                 idct4x4(&mut self.coeffs[i]);
-            } else {
+            } else if self.coeffs[i][0] != 0 {
                 idct4x4_dc(&mut self.coeffs[i]);
             }
         }
