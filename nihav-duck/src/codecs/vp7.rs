@@ -200,8 +200,8 @@ struct DecoderState {
     force_pitch:        Option<u8>,
 
     has_y2:             bool,
-    pdc_pred_val:       i16,
-    pdc_pred_count:     usize,
+    pdc_pred_val:       [i16; 2],
+    pdc_pred_count:     [usize; 2],
 
     ipred_ctx_y:        IPredContext,
     ipred_ctx_u:        IPredContext,
@@ -467,7 +467,7 @@ impl VP7Decoder {
         }
         Ok(())
     }
-    fn decode_residue(&mut self, bc: &mut BoolCoder, mb_x: usize, mb_idx: usize) {
+    fn decode_residue(&mut self, bc: &mut BoolCoder, mb_x: usize, mb_idx: usize, use_last: bool) {
         let qmat_idx = if let Some(idx) = self.dstate.force_quant { (idx as usize) + 1 } else { 0 };
         let mut sbparams = SBParams {
                 scan:       &DEFAULT_SCAN_ORDER,
@@ -538,17 +538,19 @@ impl VP7Decoder {
             let y2block = &mut self.coeffs[24];
             if self.mb_info[mb_idx].mb_type != VPMBType::Intra {
                 let mut dc = y2block[0];
-                let pval = self.dstate.pdc_pred_val;
-                if self.dstate.pdc_pred_count > 3 {
+                let pdc_idx = if use_last { 0 } else { 1 };
+                let pval = self.dstate.pdc_pred_val[pdc_idx];
+
+                if self.dstate.pdc_pred_count[pdc_idx] > 3 {
                     dc += pval;
                     y2block[0] = dc;
                 }
                 if (pval == 0) || (dc == 0) || ((pval ^ dc) < 0) {
-                    self.dstate.pdc_pred_count  = 0;
+                    self.dstate.pdc_pred_count[pdc_idx]  = 0;
                 } else if dc == pval {
-                    self.dstate.pdc_pred_count += 1;
+                    self.dstate.pdc_pred_count[pdc_idx] += 1;
                 }
-                self.dstate.pdc_pred_val = dc;
+                self.dstate.pdc_pred_val[pdc_idx] = dc;
             }
             if has_ac[24] {
                 idct4x4(y2block);
@@ -1263,8 +1265,8 @@ impl NADecoder for VP7Decoder {
         let mut mb_idx = 0;
         self.pcache.reset();
         if self.dstate.is_intra || (self.dstate.version > 0) {
-            self.dstate.pdc_pred_val    = 0;
-            self.dstate.pdc_pred_count  = 0;
+            self.dstate.pdc_pred_val    = [0; 2];
+            self.dstate.pdc_pred_count  = [0; 2];
         }
         let mut use_last = true;
         for mb_y in 0..self.mb_h {
@@ -1355,7 +1357,7 @@ impl NADecoder for VP7Decoder {
                     self.mb_info[mb_idx].ymode      = PredMode::Inter;
                     self.mb_info[mb_idx].uvmode     = PredMode::Inter;
                 }
-                self.decode_residue(&mut bc_main, mb_x, mb_idx);
+                self.decode_residue(&mut bc_main, mb_x, mb_idx, use_last);
                 match self.mb_info[mb_idx].mb_type {
                     VPMBType::Intra => {
                         self.recon_intra_mb(&mut dframe, mb_x, mb_y)?;
