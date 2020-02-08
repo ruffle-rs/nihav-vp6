@@ -623,10 +623,19 @@ pub fn mc_block_special(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize
     let (w, h) = reffrm.get_dimensions(plane);
     let wa = if plane == 0 { ((w + 15) & !15) } else { ((w + 7) & !7) } as isize;
     let ha = if plane == 0 { ((h + 15) & !15) } else { ((h + 7) & !7) } as isize;
-    let start_x = (xpos as isize) - (EDGE_PRE as isize) * xstep;
-    let end_x   = (xpos as isize) + ((size + EDGE_POST) as isize) * xstep;
-    let start_y = (ypos as isize) - (EDGE_PRE as isize) * ymul;
-    let end_y   = (ypos as isize) + ((size + EDGE_POST) as isize) * ymul;
+    let mut start_x = (xpos as isize) + ((mvx >> 3) as isize) - (EDGE_PRE as isize);
+    let mut end_x   = (xpos as isize) + ((mvx >> 3) as isize) + ((size + EDGE_POST) as isize);
+    if xstep < 0 {
+        start_x -= (size + EDGE_POST) as isize;
+    } else if xstep > 0 {
+        end_x += (size as isize) * xstep;
+    }
+    let mut start_y = (ypos as isize) + ((mvy >> 3) as isize) - (EDGE_PRE as isize) * ymul;
+    let mut end_y   = (ypos as isize) + ((mvy >> 3) as isize) + ((size + EDGE_POST) as isize) * ymul;
+    if ymul == 0 {
+        start_y -= EDGE_PRE as isize;
+        end_y   += (EDGE_POST + 1) as isize;
+    }
     let off     = reffrm.get_offset(plane);
     let stride  = reffrm.get_stride(plane);
     let (src, sstride) = if (start_x >= 0) && (end_x <= wa) && (start_y >= 0) && (end_y <= ha) {
