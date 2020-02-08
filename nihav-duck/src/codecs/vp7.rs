@@ -1159,6 +1159,7 @@ impl NADecoder for VP7Decoder {
             self.set_dimensions(width, height);
 
             self.dstate.reset();
+            self.scan.copy_from_slice(&DEFAULT_SCAN_ORDER);
         } else {
             if !self.shuf.has_refs() {
                 return Err(DecoderError::MissingReference);
