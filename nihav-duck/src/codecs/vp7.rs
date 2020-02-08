@@ -1441,14 +1441,21 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        //let file = "assets/Duck/potter-40.vp7";
-        //let file = "assets/Duck/potter-500.vp7";
-        //let file = "assets/Duck/starsky-700.vp7";
-        //let file = "assets/Duck/taking-700.vp7";
-        //let file = "assets/Duck/troy-700.vp7";
-        let file = "assets/Duck/interlaced_blit_pitch.avi";
-        //let file = "assets/Duck/vp7.avi";
-        test_file_decoding("avi", file, Some(12), true, false, None/*Some("vp7")*/, &dmx_reg, &dec_reg);
+        test_decoding("avi", "vp7", "assets/Duck/interlaced_blit_pitch.avi", Some(12), &dmx_reg, 
+                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0xb79fb6f8, 0xed51ac9e, 0x9e423456, 0xc0918e7f],
+                            [0xbf8d1274, 0x83515e15, 0x8c0887de, 0xfbfd05d3],
+                            [0x8ad00466, 0x80b6cbfb, 0x54de408e, 0x9efbc05e],
+                            [0x144122c5, 0x6897b553, 0x93474d29, 0x1a1274ec],
+                            [0x06ff5d07, 0x55825d38, 0x072b0a78, 0xfcb5020f],
+                            [0xfd01591b, 0xc42113e7, 0xc5a5550f, 0xb30f3b02],
+                            [0x155e0d6e, 0x96d75e06, 0x9bd7ce87, 0xacf868e1],
+                            [0xfd79103a, 0x695d21d3, 0xfeacb5b4, 0x1d869d08],
+                            [0xf4bcfeac, 0x0d2c305c, 0x11416c96, 0x626a5ef6],
+                            [0x3579b66c, 0x0a7d7dc0, 0xe80b0395, 0xf6a70661],
+                            [0x5773768c, 0x813442e9, 0x4dd6f793, 0xb10fe55f],
+                            [0xcaaf0ddb, 0x65c2410e, 0x95da5bba, 0x3b90128e],
+                            [0x74773773, 0xe1dbadeb, 0x57aaf64b, 0x9c21e3c7]]));
     }
 }
 
