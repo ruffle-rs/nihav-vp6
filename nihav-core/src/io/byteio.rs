@@ -37,7 +37,6 @@ pub struct ByteReader<'a> {
 
 pub struct MemoryReader<'a> {
     buf:      &'a [u8],
-    size:     usize,
     pos:      usize,
 }
 
@@ -310,11 +309,11 @@ impl<'a> ByteReader<'a> {
 impl<'a> MemoryReader<'a> {
 
     pub fn new_read(buf: &'a [u8]) -> Self {
-        MemoryReader { buf, size: buf.len(), pos: 0 }
+        MemoryReader { buf, pos: 0 }
     }
 
     fn real_seek(&mut self, pos: i64) -> ByteIOResult<u64> {
-        if pos < 0 || (pos as usize) > self.size {
+        if pos < 0 || (pos as usize) > self.buf.len() {
             return Err(ByteIOError::WrongRange);
         }
         self.pos = pos as usize;
@@ -336,7 +335,7 @@ impl<'a> ByteIO for MemoryReader<'a> {
     }
 
     fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
-        let copy_size = if self.size - self.pos < buf.len() { self.size } else { buf.len() };
+        let copy_size = if self.buf.len() - self.pos < buf.len() { self.buf.len() } else { buf.len() };
         if copy_size == 0 { return Err(ByteIOError::EOF); }
         let dst = &mut buf[0..copy_size];
         dst.copy_from_slice(&self.buf[self.pos..][..copy_size]);
@@ -366,8 +365,8 @@ impl<'a> ByteIO for MemoryReader<'a> {
     }
 
     fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {
-        let cur_pos  = self.pos  as i64;
-        let cur_size = self.size as i64;
+        let cur_pos  = self.pos       as i64;
+        let cur_size = self.buf.len() as i64;
         match pos {
             SeekFrom::Start(x)   => self.real_seek(x as i64),
             SeekFrom::Current(x) => self.real_seek(cur_pos + x),
@@ -376,7 +375,7 @@ impl<'a> ByteIO for MemoryReader<'a> {
     }
 
     fn is_eof(&self) -> bool {
-        self.pos >= self.size
+        self.pos >= self.buf.len()
     }
 
     fn is_seekable(&mut self) -> bool {
@@ -470,7 +469,6 @@ pub struct ByteWriter<'a> {
 
 pub struct MemoryWriter<'a> {
     buf:      &'a mut [u8],
-    size:     usize,
     pos:      usize,
 }
 
@@ -564,12 +562,11 @@ impl<'a> ByteWriter<'a> {
 impl<'a> MemoryWriter<'a> {
 
     pub fn new_write(buf: &'a mut [u8]) -> Self {
-        let len = buf.len();
-        MemoryWriter { buf, size: len, pos: 0 }
+        MemoryWriter { buf, pos: 0 }
     }
 
     fn real_seek(&mut self, pos: i64) -> ByteIOResult<u64> {
-        if pos < 0 || (pos as usize) > self.size {
+        if pos < 0 || (pos as usize) > self.buf.len() {
             return Err(ByteIOError::WrongRange)
         }
         self.pos = pos as usize;
@@ -604,7 +601,7 @@ impl<'a> ByteIO for MemoryWriter<'a> {
     }
 
     fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
-        if self.pos + buf.len() > self.size { return Err(ByteIOError::WriteError); }
+        if self.pos + buf.len() > self.buf.len() { return Err(ByteIOError::WriteError); }
         for i in 0..buf.len() {
             self.buf[self.pos + i] = buf[i];
         }
@@ -617,8 +614,8 @@ impl<'a> ByteIO for MemoryWriter<'a> {
     }
 
     fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {
-        let cur_pos  = self.pos  as i64;
-        let cur_size = self.size as i64;
+        let cur_pos  = self.pos       as i64;
+        let cur_size = self.buf.len() as i64;
         match pos {
             SeekFrom::Start(x)   => self.real_seek(x as i64),
             SeekFrom::Current(x) => self.real_seek(cur_pos + x),
@@ -627,7 +624,7 @@ impl<'a> ByteIO for MemoryWriter<'a> {
     }
 
     fn is_eof(&self) -> bool {
-        self.pos >= self.size
+        self.pos >= self.buf.len()
     }
 
     fn is_seekable(&mut self) -> bool {
