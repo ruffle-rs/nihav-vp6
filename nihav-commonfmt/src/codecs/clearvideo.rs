@@ -717,7 +717,7 @@ pub fn get_decoder_rm() -> Box<dyn NADecoder + Send> {
 mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
-    use nihav_core::test::dec_video::test_file_decoding;
+    use nihav_core::test::dec_video::*;
     use crate::codecs::generic_register_all_codecs;
     use crate::demuxers::generic_register_all_demuxers;
     #[test]
@@ -726,9 +726,19 @@ mod test {
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         generic_register_all_codecs(&mut dec_reg);
-        test_file_decoding("avi", "assets/Misc/TalkingHead_352x288.avi", Some(10), true, false, None/*Some("clv")*/, &dmx_reg, &dec_reg);
-//         test_file_decoding("avi", "assets/Misc/basketball.avi", None/*Some(10)*/, true, false, Some("clv1"));
-//panic!("debug");
+        test_decoding("avi", "clearvideo", "assets/Misc/TalkingHead_352x288.avi", Some(10), &dmx_reg,
+                     &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0xb432376c, 0xf1dce57b, 0x8e79c7ee, 0xdd51850d],
+                            [0x76eb9726, 0x7ca1aabd, 0xf3f0740c, 0xf804dd0e],
+                            [0xc639b32c, 0x1f53f1f4, 0x50c34651, 0xc49cd2ac],
+                            [0x55408f2a, 0x37b01de0, 0xcc6aeadd, 0x09768735],
+                            [0xea219c51, 0xed72710c, 0x6c4b2bb0, 0xbfab0cb7],
+                            [0xfbf56708, 0x7f6597c7, 0x08ce894d, 0x9c4c7f60],
+                            [0x3dbf8b57, 0x9e1513ef, 0x209309a6, 0x56f0aca7],
+                            [0xc5fb6cb7, 0x1b9b092f, 0xe11127be, 0xe4fe8f45],
+                            [0x81a4a122, 0xb2b84bcf, 0xa478bd80, 0x12c78fb6],
+                            [0xb5b43c22, 0xd9c457fa, 0xcc5390d8, 0x1201ef22],
+                            [0x27a206e9, 0x88085556, 0x1114fb62, 0x77f1ebed]]));
     }
 }
 
