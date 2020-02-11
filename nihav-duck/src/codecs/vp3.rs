@@ -243,7 +243,7 @@ impl BitRunDecoder {
             self.run = (self.read_run)(br)?;
         }
         self.run -= 1;
-        Ok(self.value)        
+        Ok(self.value)
     }
 }
 
@@ -1108,7 +1108,7 @@ impl VP34Decoder {
                             cur_blk += 1;
                         }
                     }
-                }            
+                }
             }
             Ok(())
         } else {

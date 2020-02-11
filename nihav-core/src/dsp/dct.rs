@@ -81,7 +81,7 @@ impl DCT {
                 },*/
             _ => { tab = Vec::new(); },
         };
-        
+
         Self { tmp, tab, mode, size, swaps, perms, is_pow2, perm_tab }
     }
     fn can_do_fast(&mut self) -> bool {

@@ -145,9 +145,9 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "atrac3",     "Sony Atrac3"),
     desc!(audio;    "sipro",      "Sipro Labs ADPCM"),
 
-    desc!(video;    "truemotion1",   "TrueMotion 1"), 
-    desc!(video-im; "truemotionrt",  "TrueMotion RT"), 
-    desc!(video;    "truemotion2",   "TrueMotion 2"), 
+    desc!(video;    "truemotion1",   "TrueMotion 1"),
+    desc!(video-im; "truemotionrt",  "TrueMotion RT"),
+    desc!(video;    "truemotion2",   "TrueMotion 2"),
     desc!(video;    "truemotion2x",  "TrueMotion 2X"),
     desc!(video;    "vp3",           "VP3"),
     desc!(video;    "vp4",           "VP4"),

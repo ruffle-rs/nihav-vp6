@@ -114,7 +114,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         seek_idx.seek_info[0].filled = true;
 
         self.cur_frame = 0;
-        
+
         Ok(())
     }
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {

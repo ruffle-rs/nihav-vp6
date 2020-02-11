@@ -145,7 +145,7 @@ impl TM2Stream {
         validate!(pos <= endpos);
         let toskip = endpos - pos;
                                                   br.read_skip(toskip as usize)?;
-        
+
         Ok(())
     }
     fn read_deltas(&mut self, src: &[u8]) -> DecoderResult<usize> {
@@ -164,7 +164,7 @@ impl TM2Stream {
                 self.deltas[i] = val as i32;
             }
         }
-        
+
         Ok(((br.tell() + 31) >> 5) << 2)
     }
     fn read_huff_tree(&mut self, src: &[u8], htree: &mut HuffTree) -> DecoderResult<usize> {
@@ -186,7 +186,7 @@ impl TM2Stream {
             let mut cr = FullCodebookDescReader::new(codes);
             htree.cb = Some(Codebook::new(&mut cr, CodebookMode::MSB)?);
         }
-        
+
         Ok(((br.tell() + 31) >> 5) << 2)
     }
     fn read_tokens(&mut self, src: &[u8], htree: &HuffTree, ntoks: usize) -> DecoderResult<usize> {
@@ -198,7 +198,7 @@ impl TM2Stream {
                 self.tokens.push(tok);
             }
         }
-        
+
         Ok(((br.tell() + 31) >> 5) << 2)
     }
 

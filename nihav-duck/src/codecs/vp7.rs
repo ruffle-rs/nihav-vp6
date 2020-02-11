@@ -1441,7 +1441,7 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         duck_register_all_codecs(&mut dec_reg);
 
-        test_decoding("avi", "vp7", "assets/Duck/interlaced_blit_pitch.avi", Some(12), &dmx_reg, 
+        test_decoding("avi", "vp7", "assets/Duck/interlaced_blit_pitch.avi", Some(12), &dmx_reg,
                       &dec_reg, ExpectedTestResult::MD5Frames(vec![
                             [0xb79fb6f8, 0xed51ac9e, 0x9e423456, 0xc0918e7f],
                             [0xbf8d1274, 0x83515e15, 0x8c0887de, 0xfbfd05d3],

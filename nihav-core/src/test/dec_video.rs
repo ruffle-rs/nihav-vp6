@@ -284,7 +284,7 @@ pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pf
         }
     }
 
-    if let Some(audio_pfx) = audio_pfx { 
+    if let Some(audio_pfx) = audio_pfx {
         let name = format!("{}/{}out.wav", OUTPUT_PREFIX, audio_pfx);
         let file = File::create(name).unwrap();
         let mut fw = FileWriter::new_write(file);
@@ -406,7 +406,7 @@ fn frame_checksum(md5: &mut MD5, frm: NAFrameRef) {
     };
 }
 
-pub fn test_decoding(demuxer: &str, dec_name: &str, filename: &str, limit: Option<u64>, 
+pub fn test_decoding(demuxer: &str, dec_name: &str, filename: &str, limit: Option<u64>,
                      dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders,
                      test: ExpectedTestResult) {
     let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();

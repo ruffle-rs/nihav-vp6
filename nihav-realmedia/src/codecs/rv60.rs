@@ -253,7 +253,7 @@ enum PUType {
 
 const RV60_PU_TYPES: [PUType; 8] = [
     PUType::Full,   PUType::N2Hor,  PUType::N2Ver,  PUType::Quarters,
-    PUType::N4Hor,  PUType::N34Hor, PUType::N4Ver,  PUType::N34Ver, 
+    PUType::N4Hor,  PUType::N34Hor, PUType::N4Ver,  PUType::N34Ver,
 ];
 
 impl PUType {
@@ -1283,7 +1283,7 @@ println!(" left {} bits", br.left());
         } else {
             b_mv = ZERO_MV;
         }
-        
+
         MVInfo { f_mv: mvi.f_mv + f_mv, b_mv: mvi.b_mv + b_mv, mvref: mvi.mvref }
     }
     fn fill_skip_cand(&mut self, hdr: &FrameHeader, skip_cand: &mut UniqueList<MVInfo>, size: usize) {

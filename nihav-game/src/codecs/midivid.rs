@@ -92,7 +92,7 @@ fn decode_frame(frm: &mut NASimpleVideoFrame<u8>, src: &[u8], width: usize, heig
                     idx_br.read_byte()? as usize
                 } else {
                     if bits == 0 {
-                        hi9 = idx9_br.read_byte()?; 
+                        hi9 = idx9_br.read_byte()?;
                         bits = 8;
                     }
                     bits -= 1;
@@ -112,7 +112,7 @@ fn decode_frame(frm: &mut NASimpleVideoFrame<u8>, src: &[u8], width: usize, heig
             }
         }
     }
-    
+
     Ok(is_intra)
 }
 

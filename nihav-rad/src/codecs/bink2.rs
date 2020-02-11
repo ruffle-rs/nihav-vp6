@@ -973,7 +973,7 @@ struct Bink2Codes {
 }
 
 fn map_ac(idx: usize) -> u8 { idx as u8 }
-fn map_mv(idx: usize) -> i8 { BINK2_MV_SYMS[idx] } 
+fn map_mv(idx: usize) -> i8 { BINK2_MV_SYMS[idx] }
 
 impl Default for Bink2Codes {
     fn default() -> Self {

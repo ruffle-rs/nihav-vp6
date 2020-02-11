@@ -1149,7 +1149,7 @@ fn read_residue(br: &mut BitReader, block: &mut [i32; 64], mut masks_count: usiz
         }
         mask >>= 1;
     }
-    
+
     Ok(())
 }
 

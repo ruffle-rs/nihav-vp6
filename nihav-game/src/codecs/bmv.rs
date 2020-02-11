@@ -142,7 +142,7 @@ impl BMVVideoDecoder {
             }
             validate!(val >= 2);
             let len = (val >> 1) - 1;
-            
+
             match mode {
                 1 => bw.copy(len),
                 2 => for _ in 0..len { bw.put_byte(br.get_byte()); },

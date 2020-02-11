@@ -161,7 +161,7 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
         self.start = src.tell();
         self.cur_frame = 0;
         self.reset_state();
-        
+
         Ok(())
     }
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {

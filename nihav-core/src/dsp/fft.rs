@@ -776,7 +776,7 @@ impl RDFT {
                 let t2 = t1 * self.table[n];
 
                 buf[n + 1] = crossadd(t0, t2);
-                buf[self.size - n - 1] = FFTComplex { re: t0.re - t2.re, im: -(t0.im + t2.im) }; 
+                buf[self.size - n - 1] = FFTComplex { re: t0.re - t2.re, im: -(t0.im + t2.im) };
             }
             let a = buf[0].re;
             let b = buf[0].im;

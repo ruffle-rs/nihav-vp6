@@ -32,7 +32,7 @@ impl VP56Parser for VP5BR {
             validate!((hdr.disp_w <= hdr.mb_w) && (hdr.disp_h <= hdr.mb_h));
             hdr.scale                           = bc.read_bits(2) as u8;
         }
-        
+
         Ok(hdr)
     }
     fn decode_mv(&self, bc: &mut BoolCoder, model: &VP56MVModel) -> i16 {
@@ -192,7 +192,7 @@ impl VP56Parser for VP5BR {
             if idx > 0 {
                 coeffs[ZIGZAG[idx]] *= fstate.ac_quant;
             }
-            
+
             idx += 1;
             if idx >= 64 {
                 break;

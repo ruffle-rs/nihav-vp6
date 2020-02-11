@@ -304,7 +304,7 @@ impl SampleWriter for PackedSampleWriter<'_> {
     }
 }
 
-pub fn convert_audio_frame(src: &NABufferType, dst_info: &NAAudioInfo, dst_chmap: &NAChannelMap) -> 
+pub fn convert_audio_frame(src: &NABufferType, dst_info: &NAAudioInfo, dst_chmap: &NAChannelMap) ->
 Result<NABufferType, SoundConvertError> {
     let mut nsamples = src.get_audio_length();
     if nsamples == 0 {
@@ -441,7 +441,7 @@ Result<NABufferType, SoundConvertError> {
         }
     }
     drop(sw);
-    
+
     Ok(dst_buf)
 }
 
@@ -490,7 +490,7 @@ pub fn calculate_reorder_matrix(src: &NAChannelMap, dst: &NAChannelMap) -> Vec<u
 
 fn is_stereo(chmap: &NAChannelMap) -> bool {
     (chmap.num_channels() == 2) &&
-    (chmap.get_channel(0) == NAChannelType::L) && 
+    (chmap.get_channel(0) == NAChannelType::L) &&
     (chmap.get_channel(1) == NAChannelType::R)
 }
 

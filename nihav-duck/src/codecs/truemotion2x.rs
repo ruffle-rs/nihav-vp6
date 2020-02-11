@@ -227,7 +227,7 @@ impl TM2XDecoder {
                                           br.read_skip(len)?;
             let _smth                   = br.read_u32be()?;
         }
-        
+
         Ok(())
     }
     fn parse_tabs(&mut self) -> DecoderResult<()> {

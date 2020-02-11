@@ -167,7 +167,7 @@ fn filter_luma_edge(dst: &mut [u8], mut offset: usize, step: usize, stride: usiz
     let str_q = strength!(diff_p1p0[0] + diff_p1p0[1] + diff_p1p0[2] + diff_p1p0[3], lim2);
     if str_p + str_q > 2 {
         let msum = ((mode1 + mode2 + str_q + str_p) >> 1) as i16;
-        let (maxprod, weak) = if (str_q == 1) || (str_p == 1) { (512, true) } else { (384, false) }; 
+        let (maxprod, weak) = if (str_q == 1) || (str_p == 1) { (512, true) } else { (384, false) };
         for y in 0..4 {
             let diff_p0q0 = diff!(dst, offset, offset - step);
             if (diff_p0q0 != 0) && (lim1 * diff_p0q0.abs() < maxprod) {

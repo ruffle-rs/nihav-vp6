@@ -45,7 +45,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         let nframes = read_u16le(&header[6..])? as usize;
         let fpb     = read_u16le(&header[18..])? as usize;
         validate!(nframes > 0 && fpb > 0);
-        
+
         let mut edata: Vec<u8> = Vec::with_capacity(HEADER_SIZE);
         edata.extend_from_slice(&header);
         let vhdr = NAVideoInfo::new(width, height, false, PAL8_FORMAT);

@@ -1130,7 +1130,7 @@ impl<'a> RealMediaDemuxer<'a> {
         let _next_idx       = self.src.read_u32be()?;
         validate!(chunk_size == num_entries * 14 + 10);
         if num_entries == 0 { return Ok(()); }
-        
+
         seek_idx.add_stream(str_id);
         let idx = seek_idx.get_stream_index(str_id).unwrap();
         for _ in 0..num_entries {

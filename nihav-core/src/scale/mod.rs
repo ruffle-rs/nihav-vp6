@@ -244,7 +244,7 @@ println!("[adding pack]");
     if let Some(ref mut head) = stages {
         head.drop_last_tmp();
     }
-    
+
     Ok(stages)
 }
 
