@@ -682,7 +682,7 @@ impl RealVideo60Decoder {
         }
     }
     fn decode_cu_line(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, src: &[u8], cu_y: usize) -> DecoderResult<()> {
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::BE);
+        let mut br = BitReader::new(src, BitReaderMode::BE);
         let cu_w = hdr.get_width_cu();
         let dqp = hdr.read_line_qp_offset(&mut br)?;
         let qps = (hdr.qp as i8) + dqp;
@@ -1439,7 +1439,7 @@ println!("???");
 
         validate!(src.len() > 9);
         let hsize = (src[0] as usize) * 8 + 9;
-        let mut br = BitReader::new(&src[hsize..], src.len() - hsize, BitReaderMode::BE);
+        let mut br = BitReader::new(&src[hsize..], BitReaderMode::BE);
         let hdr = FrameHeader::read(&mut br)?;
         let mut slices: Vec<usize> = Vec::new();
         hdr.parse_slice_sizes(&mut br, &mut slices)?;

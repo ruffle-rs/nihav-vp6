@@ -522,7 +522,7 @@ impl NADecoder for Indeo5Decoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        let mut br = BitReader::new(src.as_slice(), src.len(), BitReaderMode::LE);
+        let mut br = BitReader::new(src.as_slice(), BitReaderMode::LE);
 
         let bufinfo = self.dec.decode_frame(&mut self.ip, &mut br)?;
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);

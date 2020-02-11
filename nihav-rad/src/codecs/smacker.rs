@@ -413,7 +413,7 @@ impl NADecoder for SmackerVideoDecoder {
             let type_size               = br.read_u32le()?;
 
             self.is_ver4 = (magic & 0xFF) == 0x34;
-            let mut br = BitReader::new(&edata[24..], edata.len() - 24, BitReaderMode::LE);
+            let mut br = BitReader::new(&edata[24..], BitReaderMode::LE);
             self.mmap_tree.decode(&mut br, mmap_size)?;
             self.mclr_tree.decode(&mut br, mclr_size)?;
             self.full_tree.decode(&mut br, full_size)?;
@@ -442,7 +442,7 @@ impl NADecoder for SmackerVideoDecoder {
         let ftype;
         let bufinfo;
         if src.len() > PAL_SIZE {
-            let mut br = BitReader::new(&src[PAL_SIZE..], src.len() - PAL_SIZE, BitReaderMode::LE);
+            let mut br = BitReader::new(&src[PAL_SIZE..], BitReaderMode::LE);
 
             bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 2)?;
             let mut buf = bufinfo.get_vbuf().unwrap();
@@ -509,7 +509,7 @@ impl NADecoder for SmackerAudioDecoder {
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let src = pkt.get_buffer();
             validate!(src.len() > 4);
-            let mut br = BitReader::new(&src, src.len(), BitReaderMode::LE);
+            let mut br = BitReader::new(&src, BitReaderMode::LE);
             let unp_size                        = br.read(32)? as usize;
             if !br.read_bool()? {
                 let mut frm = NAFrame::new_from_pkt(pkt, info.clone(), NABufferType::None);

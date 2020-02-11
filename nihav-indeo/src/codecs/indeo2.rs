@@ -326,7 +326,7 @@ impl NADecoder for Indeo2Decoder {
         if src.len() <= IR2_START { return Err(DecoderError::ShortData); }
         let interframe = src[18];
         let tabs = src[34];
-        let mut br = BitReader::new(&src[IR2_START..], src.len() - IR2_START, BitReaderMode::LE);
+        let mut br = BitReader::new(&src[IR2_START..], BitReaderMode::LE);
         let luma_tab = tabs & 3;
         let chroma_tab = (tabs >> 2) & 3;
         if interframe != 0 {

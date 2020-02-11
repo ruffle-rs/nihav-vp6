@@ -1824,7 +1824,7 @@ impl NADecoder for VP34Decoder {
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
         validate!(src.len() > 0);
-        let mut br = BitReader::new(&src, src.len(), BitReaderMode::BE);
+        let mut br = BitReader::new(&src, BitReaderMode::BE);
 
         self.parse_header(&mut br)?;
         if self.is_intra {

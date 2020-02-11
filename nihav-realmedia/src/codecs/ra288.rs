@@ -175,7 +175,7 @@ impl NADecoder for RA288Decoder {
         let dst = adata.get_data_mut().unwrap();
 
         for (input, output) in pktbuf.chunks(FRAME_SIZE).zip(dst.chunks_mut(NBLOCKS * BLOCKSIZE)) {
-            let mut br = BitReader::new(input, input.len(), BitReaderMode::LE);
+            let mut br = BitReader::new(input, BitReaderMode::LE);
 
             for (i, block) in output.chunks_mut(BLOCKSIZE).enumerate() {
                 let gain = RA288_GAIN_TAB[br.read(3)? as usize];

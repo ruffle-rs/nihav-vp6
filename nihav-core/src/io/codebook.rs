@@ -348,7 +348,7 @@ mod test {
             FullCodebookDesc { code: 0b1110, bits: 4, sym: -42 }
         );
         let buf = &BITS;
-        let mut br = BitReader::new(buf, buf.len(), BitReaderMode::BE);
+        let mut br = BitReader::new(buf, BitReaderMode::BE);
         let mut cfr = FullCodebookDescReader::new(cb_desc);
         let cb = Codebook::new(&mut cfr, CodebookMode::MSB).unwrap();
         assert_eq!(br.read_cb(&cb).unwrap(),  16);
@@ -377,7 +377,7 @@ mod test {
             ShortCodebookDesc { code: 0b1111110, bits: 7 },
             ShortCodebookDesc { code: 0b11111111, bits: 8 }
         );
-        let mut br2 = BitReader::new(buf, buf.len(), BitReaderMode::BE);
+        let mut br2 = BitReader::new(buf, BitReaderMode::BE);
         let mut cfr = ShortCodebookDescReader::new(scb_desc);
         let cb = Codebook::new(&mut cfr, CodebookMode::MSB).unwrap();
         assert_eq!(br2.read_cb(&cb).unwrap(), 0);
@@ -404,7 +404,7 @@ mod test {
             ShortCodebookDesc { code: 0b0111111, bits: 7 },
             ShortCodebookDesc { code: 0b1011101111, bits: 10 }
         );
-        let mut brl = BitReader::new(buf, buf.len(), BitReaderMode::LE);
+        let mut brl = BitReader::new(buf, BitReaderMode::LE);
         let mut cfr = ShortCodebookDescReader::new(scble_desc);
         let cb = Codebook::new(&mut cfr, CodebookMode::LSB).unwrap();
         assert_eq!(brl.read_cb(&cb).unwrap(), 11);

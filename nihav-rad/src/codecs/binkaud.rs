@@ -234,7 +234,7 @@ impl NADecoder for BinkAudioDecoder {
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();
             validate!(pktbuf.len() > 1);
-            let mut br = BitReader::new(&pktbuf, pktbuf.len(), BitReaderMode::LE);
+            let mut br = BitReader::new(&pktbuf, BitReaderMode::LE);
             let nsamples = br.read(32)? as usize;
 //            validate!(nsamples % self.duration == 0);
 

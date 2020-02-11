@@ -277,7 +277,7 @@ impl RALFDecoder {
         }
     }
     fn decode_block(&mut self, off: usize, size: usize, abuf: &mut NABufferType) -> DecoderResult<()> {
-        let mut br = BitReader::new(&self.pkt_buf[off..][..size], size, BitReaderMode::BE);
+        let mut br = BitReader::new(&self.pkt_buf[off..][..size], BitReaderMode::BE);
 
         let length = read_block_length(&mut br).unwrap();
         validate!(length + self.sample_offset <= self.max_frame_size);
@@ -428,7 +428,7 @@ impl NADecoder for RALFDecoder {
         validate!(src_len > table_bytes + 3);
         self.blocks.truncate(0);
         {
-            let mut br = BitReader::new(&self.pkt_buf[2..], table_bytes, BitReaderMode::BE);
+            let mut br = BitReader::new(&self.pkt_buf[2..][..table_bytes], BitReaderMode::BE);
             while br.tell() < table_bits {
                 let size                                = br.read(13 + self.channels).unwrap() as usize;
                 let pts;

@@ -43,7 +43,7 @@ fn check_marker<'a>(br: &mut BitReader<'a>) -> DecoderResult<()> {
 impl<'a> Intel263BR<'a> {
     fn new(src: &'a [u8], tables: &'a Tables) -> Self {
         Intel263BR {
-            br:     BitReader::new(src, src.len(), BitReaderMode::BE),
+            br:     BitReader::new(src, BitReaderMode::BE),
             tables,
             gob_no: 0,
             mb_w:   0,

@@ -728,7 +728,7 @@ impl IMCDecoder {
     }
 
     fn decode_block(&mut self, data: &[u8], ch: usize, dst: &mut [f32]) -> DecoderResult<()> {
-        let mut br = BitReader::new(&data[BLOCK_SIZE*ch..], BLOCK_SIZE, BitReaderMode::LE16MSB);
+        let mut br = BitReader::new(&data[BLOCK_SIZE*ch..][..BLOCK_SIZE], BitReaderMode::LE16MSB);
         let hdr = br.read(9)?;
         validate!((hdr & 0x18) == 0);
 

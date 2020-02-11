@@ -147,7 +147,7 @@ impl M4AInfo {
         }
     }
     fn read(&mut self, src: &[u8]) -> DecoderResult<()> {
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::BE);
+        let mut br = BitReader::new(src, BitReaderMode::BE);
         self.otype = Self::read_object_type(&mut br)?;
         self.srate = Self::read_sampling_frequency(&mut br)?;
         validate!(self.srate > 0);
@@ -1238,7 +1238,7 @@ impl NADecoder for AACDecoder {
         let ainfo = self.info.get_properties().get_audio_info().unwrap();
         let mut abuf = alloc_audio_buffer(ainfo, self.m4ainfo.samples, self.chmap.clone())?;
 
-        let mut br = BitReader::new(&pktbuf, pktbuf.len(), BitReaderMode::BE);
+        let mut br = BitReader::new(&pktbuf, BitReaderMode::BE);
         match self.m4ainfo.otype {
             M4AType::LC => {
                     self.decode_ga(&mut br, &mut abuf)?;

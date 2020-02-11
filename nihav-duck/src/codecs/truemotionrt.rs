@@ -63,7 +63,7 @@ impl NADecoder for TMRTDecoder {
         let bufinfo = alloc_video_buffer(myinfo, 2)?;
         let mut buf = bufinfo.get_vbuf().unwrap();
 
-        let mut br = BitReader::new(&src[hdr_size..], src.len() - hdr_size, BitReaderMode::LE);
+        let mut br = BitReader::new(&src[hdr_size..], BitReaderMode::LE);
         let size                                = br.read(32)? as usize;
         validate!(size <= src.len() - hdr_size);
         for plane in 0..3 {

@@ -685,7 +685,7 @@ impl NADecoder for SiproDecoder {
 
         let frame_len = self.mode.subframe_len * self.mode.subframes;
         for (input, output) in pktbuf.chunks(frm_size).zip(dst.chunks_mut(out_frm_size)) {
-            let mut br = BitReader::new(input, input.len(), BitReaderMode::LE);
+            let mut br = BitReader::new(input, BitReaderMode::LE);
             for dst in output.chunks_mut(frame_len) {
                 self.unpack_frame(&mut br)?;
                 if self.mode_type.is16k() {

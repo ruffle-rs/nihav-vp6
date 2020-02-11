@@ -67,7 +67,7 @@ impl<'a> RealVideo10BR<'a> {
         let mut slice_offs = Vec::with_capacity(nslices);
         {
             let offs = &src[1..][..nslices * 8];
-            let mut br = BitReader::new(offs, offs.len(), BitReaderMode::BE);
+            let mut br = BitReader::new(offs, BitReaderMode::BE);
             for _ in 0..nslices {
                 br.skip(32).unwrap();
                 let off = br.read(32).unwrap();
@@ -76,7 +76,7 @@ impl<'a> RealVideo10BR<'a> {
         }
         let soff = nslices * 8 + 1;
         RealVideo10BR {
-            br:         BitReader::new(&src[soff..], src.len() - soff, BitReaderMode::BE),
+            br:         BitReader::new(&src[soff..], BitReaderMode::BE),
             tables,
             num_slices: nslices,
             slice_no:   0,
@@ -425,7 +425,7 @@ println!("ver {:06X} -> {}", ver, mic_ver);
                 self.mvmode = MVMode::UMV;
             }
 {
-let mut br = BitReader::new(src, src.len(), BitReaderMode::BE);
+let mut br = BitReader::new(src, BitReaderMode::BE);
 println!("edata:");
 println!("{:08X}", br.read(32).unwrap());
 println!("{:08X}", br.read(32).unwrap());

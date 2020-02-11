@@ -1171,9 +1171,9 @@ impl NADecoder for AudioDecoder {
 
         let mut br;
         if (pktbuf[0] == MAGIC_BYTE0) && (pktbuf[1] == MAGIC_BYTE1) {
-            br = BitReader::new(pktbuf.as_slice(), pktbuf.len(), BitReaderMode::BE);
+            br = BitReader::new(pktbuf.as_slice(), BitReaderMode::BE);
         } else if (pktbuf[0] == MAGIC_BYTE1) && (pktbuf[1] == MAGIC_BYTE0) {
-            br = BitReader::new(pktbuf.as_slice(), pktbuf.len(), BitReaderMode::LE16MSB);
+            br = BitReader::new(pktbuf.as_slice(), BitReaderMode::LE16MSB);
         } else {
             return Err(DecoderError::InvalidData);
         }

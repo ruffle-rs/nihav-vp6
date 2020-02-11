@@ -622,7 +622,7 @@ impl NADecoder for Atrac3Decoder {
         }
 
         {
-            let mut br = BitReader::new(self.pkt_buf.as_slice(), frame_size, BitReaderMode::BE);
+            let mut br = BitReader::new(&self.pkt_buf[0..frame_size], BitReaderMode::BE);
             let id                                  = br.read(6)?;
             validate!(id == 0x28);
             self.ch_data[0].decode_unit(&mut br, &self.codebooks, &self.scalefactors)?;
@@ -644,7 +644,7 @@ impl NADecoder for Atrac3Decoder {
             } else {
                 off = frame_size / 2;
             }
-            let mut br = BitReader::new(&self.pkt_buf[off..], frame_size - off, BitReaderMode::BE);
+            let mut br = BitReader::new(&self.pkt_buf[off..frame_size], BitReaderMode::BE);
             if self.mode == Mode::JointStereo {
                 let id                                  = br.read(2)?;
                 validate!(id == 0x3);

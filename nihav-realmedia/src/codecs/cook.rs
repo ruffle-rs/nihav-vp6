@@ -302,7 +302,7 @@ impl CookChannelPair {
         for (i, b) in src.iter().enumerate() {
             buf[i] = b ^ COOK_XOR_KEY[i & 3];
         }
-        let mut br = BitReader::new(buf, src.len(), BitReaderMode::BE);
+        let mut br = BitReader::new(&buf[..src.len()], BitReaderMode::BE);
 
         let num_gains                                   = br.read_code(UintCodeType::UnaryOnes)? as usize;
         validate!(num_gains <= 8);

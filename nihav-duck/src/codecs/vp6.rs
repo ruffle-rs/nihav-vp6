@@ -36,7 +36,7 @@ impl VP56Parser for VP6BR {
         let mut hdr = VP56Header::default();
 // horrible hack to match VP6 header parsing
         let src = bc.src;
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::BE);
+        let mut br = BitReader::new(src, BitReaderMode::BE);
 
         hdr.is_intra                            = !br.read_bool()?;
         hdr.is_golden = hdr.is_intra;

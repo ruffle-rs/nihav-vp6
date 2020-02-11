@@ -1209,7 +1209,7 @@ impl NADecoder for BinkDecoder {
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
-        let mut br = BitReader::new(&src, src.len(), BitReaderMode::LE);
+        let mut br = BitReader::new(&src, BitReaderMode::LE);
 
         let mut buf;
         self.key_frame = pkt.is_keyframe();

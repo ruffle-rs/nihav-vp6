@@ -267,7 +267,7 @@ impl NADecoder for RA144Decoder {
         let dst = adata.get_data_mut().unwrap();
 
         for (input, output) in pktbuf.chunks(FRAME_SIZE).zip(dst.chunks_mut(NBLOCKS * BLOCKSIZE)) {
-            let mut br = BitReader::new(input, input.len(), BitReaderMode::BE);
+            let mut br = BitReader::new(input, BitReaderMode::BE);
 
             let mut lpc_refl: [i32; LPC_ORDER] = [0; LPC_ORDER];
             for i in 0..LPC_ORDER {

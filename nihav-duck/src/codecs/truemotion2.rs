@@ -149,7 +149,7 @@ impl TM2Stream {
         Ok(())
     }
     fn read_deltas(&mut self, src: &[u8]) -> DecoderResult<usize> {
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::LE32MSB);
+        let mut br = BitReader::new(src, BitReaderMode::LE32MSB);
         let coded_deltas                        = br.read(9)? as usize;
         let bits                                = br.read(5)? as u8;
         validate!((coded_deltas <= TM2_MAX_DELTAS) && (bits > 0));
@@ -168,7 +168,7 @@ impl TM2Stream {
         Ok(((br.tell() + 31) >> 5) << 2)
     }
     fn read_huff_tree(&mut self, src: &[u8], htree: &mut HuffTree) -> DecoderResult<usize> {
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::LE32MSB);
+        let mut br = BitReader::new(src, BitReaderMode::LE32MSB);
 
         let val_bits                            = br.read(5)? as u8;
         let max_bits                            = br.read(5)? as u8;
@@ -190,7 +190,7 @@ impl TM2Stream {
         Ok(((br.tell() + 31) >> 5) << 2)
     }
     fn read_tokens(&mut self, src: &[u8], htree: &HuffTree, ntoks: usize) -> DecoderResult<usize> {
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::LE32MSB);
+        let mut br = BitReader::new(src, BitReaderMode::LE32MSB);
 
         if let Some(ref cb) = htree.cb {
             for _ in 0..ntoks {

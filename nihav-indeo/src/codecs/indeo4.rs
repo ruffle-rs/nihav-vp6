@@ -446,7 +446,7 @@ impl NADecoder for Indeo4Decoder {
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
-        let mut br = BitReader::new(src.as_slice(), src.len(), BitReaderMode::LE);
+        let mut br = BitReader::new(src.as_slice(), BitReaderMode::LE);
 
         let mut ip = Indeo4Parser::new();
         let bufinfo = self.dec.decode_frame(&mut ip, &mut br)?;

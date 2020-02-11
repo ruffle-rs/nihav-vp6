@@ -671,7 +671,7 @@ impl NADecoder for ClearVideoDecoder {
         }
 
         let is_intra = (src[off] & 2) == 2;
-        let mut br = BitReader::new(&src[(off + 1)..], src.len() - (off + 1), BitReaderMode::BE);
+        let mut br = BitReader::new(&src[(off + 1)..], BitReaderMode::BE);
 
         let vinfo = self.info.get_properties().get_video_info().unwrap();
         let bufinfo = alloc_video_buffer(vinfo, self.tsize)?;

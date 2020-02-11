@@ -141,7 +141,7 @@ mod test {
     fn int_codes() {
         const GDATA: [u8; 6] = [0b000_001_01, 0b0_0110_011, 0b1_1000_100, 0b1_1010_101, 0b10_10111_1, 0b1000_0000];
         let src = &GDATA;
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::BE);
+        let mut br = BitReader::new(src, BitReaderMode::BE);
         for i in 0..11 {
             assert_eq!(br.read_code(UintCodeType::Golomb(5)).unwrap(), i);
         }

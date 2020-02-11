@@ -524,7 +524,7 @@ impl VP56Decoder {
                 let bc2 = BoolCoder::new(&src[off..])?;
                 cr = CoeffReader::Bool(bc2);
             } else {
-                let br = BitReader::new(&src[off..], aoffset - off, BitReaderMode::BE);
+                let br = BitReader::new(&src[off..aoffset], BitReaderMode::BE);
                 cr = CoeffReader::Huff(br);
             }
         } else {

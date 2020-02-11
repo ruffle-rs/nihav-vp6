@@ -1012,7 +1012,7 @@ impl NADecoder for AVCDecoder {
         if self.version == 500 {
             abuf = alloc_audio_buffer(self.ainfo, COEFFS, self.chmap.clone())?;
             let mut adata = abuf.get_abuf_f32().unwrap();
-            let mut br = BitReader::new(src.as_slice(), src.len(), BitReaderMode::BE);
+            let mut br = BitReader::new(src.as_slice(), BitReaderMode::BE);
             self.decode_frame(&mut br, &mut adata, 0)?;
         } else {
             let mut offsets: Vec<usize> = Vec::new();
@@ -1034,7 +1034,7 @@ impl NADecoder for AVCDecoder {
             let mut adata = abuf.get_abuf_f32().unwrap();
             let mut aoffset = 0;
             for (o, s) in offsets.iter().zip(sizes.iter()) {
-                let mut br = BitReader::new(&src[*o..], *s, BitReaderMode::BE);
+                let mut br = BitReader::new(&src[*o..][..*s], BitReaderMode::BE);
                 self.decode_frame(&mut br, &mut adata, aoffset)?;
                 aoffset += COEFFS;
             }

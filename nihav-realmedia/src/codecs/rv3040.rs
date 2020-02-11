@@ -514,7 +514,7 @@ fn parse_slice_offsets(src: &[u8], offsets: &mut Vec<usize>) -> DecoderResult<()
 
     if ini_off >= src.len() { return Err(DecoderError::ShortData); }
 
-    let mut br = BitReader::new(&src[1..], ini_off - 1, BitReaderMode::BE);
+    let mut br = BitReader::new(&src[1..ini_off], BitReaderMode::BE);
 
     for i in 0..num_slices {
         br.skip(32)?;
@@ -1080,7 +1080,7 @@ impl RV34Decoder {
         parse_slice_offsets(src, &mut slice_offs)?;
         let ini_off = slice_offs.len() * 8 + 1;
 
-        let mut br = BitReader::new(&src[ini_off..], src.len() - ini_off, BitReaderMode::BE);
+        let mut br = BitReader::new(&src[ini_off..], BitReaderMode::BE);
         let hdr0 = decode_slice_header(&mut br, bd, 0, slice_offs.as_slice(), self.width, self.height)?;
         validate!((hdr0.width != 0) && (hdr0.height != 0));
         self.width  = hdr0.width;

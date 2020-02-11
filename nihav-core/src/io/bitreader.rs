@@ -22,7 +22,6 @@ pub struct BitReader<'a> {
     cache: u64,
     bits:  u8,
     pos:   usize,
-    end:   usize,
     src:   &'a [u8],
     mode:  BitReaderMode,
 }
@@ -30,9 +29,8 @@ pub struct BitReader<'a> {
 #[allow(clippy::identity_op)]
 impl<'a> BitReader<'a> {
 
-    pub fn new(src: &'a [u8], size: usize, mode: BitReaderMode) -> Self {
-        if src.len() < size { panic!("size is less than needed"); }
-        BitReader{ cache: 0, pos: 0, bits: 0, end: size, src, mode }
+    pub fn new(src: &'a [u8], mode: BitReaderMode) -> Self {
+        BitReader{ cache: 0, pos: 0, bits: 0, src, mode }
     }
 
     pub fn tell(&self) -> usize {
@@ -40,7 +38,7 @@ impl<'a> BitReader<'a> {
     }
 
     pub fn left(&self) -> isize {
-        ((self.end as isize) - (self.pos as isize)) * 8 + (self.bits as isize)
+        ((self.src.len() as isize) - (self.pos as isize)) * 8 + (self.bits as isize)
     }
 
     fn fill32be(&mut self, src: &[u8]) {
@@ -73,9 +71,9 @@ impl<'a> BitReader<'a> {
 
     #[inline(always)]
     fn refill(&mut self) -> BitReaderResult<()> {
-        if self.pos >= self.end { return Err(BitstreamEnd) }
+        if self.pos >= self.src.len() { return Err(BitstreamEnd) }
         while self.bits <= 32 {
-            if self.pos + 4 <= self.end {
+            if self.pos + 4 <= self.src.len() {
                 let buf = &self.src[self.pos..];
                 match self.mode {
                     BitReaderMode::BE      => self.fill32be  (buf),
@@ -89,7 +87,7 @@ impl<'a> BitReader<'a> {
                 let mut buf: [u8; 4] = [0, 0, 0, 0];
                 let mut newbits: u8 = 0;
                 for out in buf.iter_mut().take(3) {
-                    if self.pos < self.end {
+                    if self.pos < self.src.len() {
                         *out = self.src[self.pos];
                         self.pos += 1;
                         newbits += 8;
@@ -200,7 +198,7 @@ impl<'a> BitReader<'a> {
     }
 
     pub fn seek(&mut self, nbits: u32) -> BitReaderResult<()> {
-        if ((nbits + 7) >> 3) as usize > self.end { return Err(TooManyBitsRequested); }
+        if ((nbits + 7) >> 3) as usize > self.src.len() { return Err(TooManyBitsRequested); }
         self.reset_cache();
         self.pos = ((nbits / 32) * 4) as usize;
         self.skip(nbits & 0x1F)
@@ -238,14 +236,14 @@ mod test {
     fn br_works() {
         const DATA: [u8; 18] = [0b00011011; 18];
         let src = &DATA;
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::LE16MSB);
+        let mut br = BitReader::new(src, BitReaderMode::LE16MSB);
 
         for _ in 0..8 {
             assert_eq!(br.read(16).unwrap(), 0x1B1B);
         }
         const DATA2: [u8; 1] = [ 0b00011011 ];
         let src = &DATA2;
-        let mut br = BitReader::new(src, src.len(), BitReaderMode::LE);
+        let mut br = BitReader::new(src, BitReaderMode::LE);
         assert_eq!(br.read_s(5).unwrap(), -5);
     }
 }
