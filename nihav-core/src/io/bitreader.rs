@@ -1,22 +1,69 @@
+//! Bitstream reader functionality.
+//!
+//! Bitstream reader operates on `&[u8]` and allows to read bits from the slice in different modes. 
+//!
+//! # Examples
+//!
+//! Reading 17 bits from a bitstream:
+//! ```
+//! use nihav_core::io::bitreader::{BitReader,BitReaderMode};
+//!
+//! # use nihav_core::io::bitreader::BitReaderResult;
+//! # fn foo() -> BitReaderResult<u32> { 
+//! let bits: [u8; 4] = [ 42, 43, 44, 45 ];
+//! let mut br = BitReader::new(&bits, BitReaderMode::BE);
+//! let value = br.read(17)?;
+//! # Ok(value)
+//! # }
+//! ```
+//!
+//! Reading some amount of bits and checking how many bits are left:
+//! ```
+//! use nihav_core::io::bitreader::{BitReader,BitReaderMode};
+//!
+//! # use nihav_core::io::bitreader::BitReaderResult;
+//! # fn foo() -> BitReaderResult<()> { 
+//! let bits: [u8; 4] = [ 42, 43, 44, 45 ];
+//! let mut br = BitReader::new(&bits, BitReaderMode::BE);
+//! let num_skip_bits = br.read(3)?;
+//! br.skip(num_skip_bits)?;
+//! println!("Now there are {} bits left to read.", br.left());
+//! # Ok(())
+//! # }
+//! ```
+
+
+
+/// Bitstream reading modes.
 #[derive(Debug)]
 pub enum BitReaderMode {
+    /// The stream is big endian MSB first.
     BE,
+    /// The stream is little endian LSB first.
     LE,
+    /// The stream is packed into 16-bit little-endian words MSB first.
     LE16MSB,
+    /// The stream is packed into 32-bit little-endian words MSB first.
     LE32MSB,
 }
 
+/// A list specifying general bitstream reading errors.
 #[derive(Debug)]
 pub enum BitReaderError {
+    /// The reader is at the end of bitstream.
     BitstreamEnd,
+    /// The caller tried to read too many bits at once (e.g. 128).
     TooManyBitsRequested,
+    /// Some argument is invalid.
     InvalidValue,
 }
 
 use self::BitReaderError::*;
 
+/// A specialised `Result` type for bitstream operations.
 pub type BitReaderResult<T> = Result<T, BitReaderError>;
 
+/// Bitstream reader.
 #[derive(Debug)]
 pub struct BitReader<'a> {
     cache: u64,
@@ -29,14 +76,26 @@ pub struct BitReader<'a> {
 #[allow(clippy::identity_op)]
 impl<'a> BitReader<'a> {
 
+    /// Constructs a new instance of bitstream reader.
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
+    ///
+    /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
+    /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
+    /// ```
     pub fn new(src: &'a [u8], mode: BitReaderMode) -> Self {
         BitReader{ cache: 0, pos: 0, bits: 0, src, mode }
     }
 
+    /// Reports the current bit position in the bitstream (usually simply the number of bits read so far).
     pub fn tell(&self) -> usize {
         self.pos * 8 - (self.bits as usize)
     }
 
+    /// Reports the amount of bits left until the end of the bitstream.
     pub fn left(&self) -> isize {
         ((self.src.len() as isize) - (self.pos as isize)) * 8 + (self.bits as isize)
     }
@@ -138,6 +197,28 @@ impl<'a> BitReader<'a> {
         self.cache = 0;
     }
 
+    /// Reads the specified amount of bits as an unsigned value.
+    ///
+    /// The amount should fit into 32 bits, if you need more then
+    /// you should read it as several parts. If the amount of bits
+    /// requested to read is larger than the amount of bits left the
+    /// call will return [`BitstreamEnd`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
+    ///
+    /// # use nihav_core::io::bitreader::BitReaderResult;
+    /// # fn foo() -> BitReaderResult<u32> { 
+    /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
+    /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
+    /// let value = br.read(17)?;
+    /// # Ok(value)
+    /// # }
+    /// ```
+    ///
+    /// [`BitstreamEnd`]: ./enum.BitReaderError.html#variant.BitstreamEnd
     #[inline(always)]
     pub fn read(&mut self, nbits: u8) -> BitReaderResult<u32> {
         if nbits == 0 { return Ok(0) }
@@ -151,6 +232,11 @@ impl<'a> BitReader<'a> {
         Ok(res)
     }
 
+    /// Reads the specified amount of bits as a signed value.
+    ///
+    /// Beside signedness it behaves the same as [`read`].
+    ///
+    /// [`read`]: #method.read
     pub fn read_s(&mut self, nbits: u8) -> BitReaderResult<i32> {
         if nbits == 0 || nbits > 32 { return Err(TooManyBitsRequested) }
         if self.bits < nbits {
@@ -162,6 +248,7 @@ impl<'a> BitReader<'a> {
         Ok(res)
     }
 
+    /// Reads single bit from the stream and interprets it as a boolean value.
     #[inline(always)]
     pub fn read_bool(&mut self) -> BitReaderResult<bool> {
         if self.bits < 1 {
@@ -173,6 +260,24 @@ impl<'a> BitReader<'a> {
         Ok(res == 1)
     }
 
+    /// Retrieves the next bits from the stream without advancing.
+    ///
+    /// If the bitstream is shorter than the amount of bits requested the result is padded with zeroes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
+    ///
+    /// # use nihav_core::io::bitreader::BitReaderResult;
+    /// # fn foo() -> BitReaderResult<u32> { 
+    /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
+    /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
+    /// let peek_value = br.peek(8); // this should return 42
+    /// let value = br.read(8)?; // also 42
+    /// # Ok(value)
+    /// # }
+    /// ```
     #[inline(always)]
     pub fn peek(&mut self, nbits: u8) -> u32 {
         if nbits > 32 { return 0 }
@@ -180,6 +285,13 @@ impl<'a> BitReader<'a> {
         self.read_cache(nbits)
     }
 
+    /// Skips the requested amount of bits.
+    ///
+    /// The amount of bits to skip can be arbitrary large.
+    /// If it skips more bits than there are actually in the stream the call will return [`BitstreamEnd`]
+    ///
+    /// [`read`]: #method.read
+    /// [`BitstreamEnd`]: ./enum.BitReaderError.html#variant.BitstreamEnd
     #[inline(always)]
     pub fn skip(&mut self, nbits: u32) -> BitReaderResult<()> {
         if u32::from(self.bits) >= nbits {
@@ -197,6 +309,25 @@ impl<'a> BitReader<'a> {
         Ok(())
     }
 
+    /// Seeks to the absolute bit position in the stream.
+    /// If the requested position lies after the bitstream end the function returns [`TooManyBitsRequested`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
+    ///
+    /// # use nihav_core::io::bitreader::BitReaderResult;
+    /// # fn foo() -> BitReaderResult<u32> { 
+    /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
+    /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
+    /// br.seek(16)?;
+    /// let value = br.read(8)?; // this should return 44
+    /// # Ok(value)
+    /// # }
+    /// ```
+    ///
+    /// [`TooManyBitsRequested`]: ./enum.BitReaderError.html#variant.TooManyBitsRequested
     pub fn seek(&mut self, nbits: u32) -> BitReaderResult<()> {
         if ((nbits + 7) >> 3) as usize > self.src.len() { return Err(TooManyBitsRequested); }
         self.reset_cache();
@@ -204,6 +335,23 @@ impl<'a> BitReader<'a> {
         self.skip(nbits & 0x1F)
     }
 
+    /// Aligns the bit position to the next byte boundary. If already at byte boundary the function does nothing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
+    ///
+    /// # use nihav_core::io::bitreader::BitReaderResult;
+    /// # fn foo() -> BitReaderResult<()> { 
+    /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
+    /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
+    /// br.skip(17)?; // now reader is at bit position 17
+    /// br.align(); // now reader is at bit position 24
+    /// br.align(); // now reader is still at bit position 24
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn align(&mut self) {
         let pos = self.bits & 7;
         if pos != 0 {
@@ -212,6 +360,13 @@ impl<'a> BitReader<'a> {
     }
 }
 
+/// Returns a variable with `len` amount of low bits in reverse order.
+///
+/// # Examples
+/// ```
+/// use nihav_core::io::bitreader::reverse_bits;
+/// reverse_bits(0b010101, 6); // the result should be 0b101010
+/// ```
 pub fn reverse_bits(inval: u32, len: u8) -> u32 {
     if len == 0 { return 0; }
     const REV_TAB: [u8; 16] = [
