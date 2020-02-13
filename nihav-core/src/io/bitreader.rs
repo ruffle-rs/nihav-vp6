@@ -35,7 +35,7 @@
 
 
 /// Bitstream reading modes.
-#[derive(Debug)]
+#[derive(Debug,Clone,Copy)]
 pub enum BitReaderMode {
     /// The stream is big endian MSB first.
     BE,
@@ -48,7 +48,7 @@ pub enum BitReaderMode {
 }
 
 /// A list specifying general bitstream reading errors.
-#[derive(Debug)]
+#[derive(Debug,Clone,Copy)]
 pub enum BitReaderError {
     /// The reader is at the end of bitstream.
     BitstreamEnd,
@@ -64,7 +64,7 @@ use self::BitReaderError::*;
 pub type BitReaderResult<T> = Result<T, BitReaderError>;
 
 /// Bitstream reader.
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct BitReader<'a> {
     cache: u64,
     bits:  u8,
