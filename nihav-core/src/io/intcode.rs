@@ -1,29 +1,82 @@
+//! Some universal integer codes support for bitstream reader.
 use crate::io::bitreader::{BitReader, BitReaderError, BitReaderResult};
 
+/// Unsigned integer code types.
 #[derive(Debug)]
 pub enum UintCodeType {
+    /// Code where number is represented as run of ones with terminating zero.
     UnaryOnes,
+    /// Code where number is represented as run of zeroes with terminating one.
     UnaryZeroes,
+    /// Code for 0, 1 and 2 coded as `0`, `10` and `11`
     Unary012,
+    /// Code for 0, 1 and 2 coded as `11`, `10` and `0`
     Unary210,
+    /// General limited unary code with defined run and terminating bit.
     LimitedUnary(u32, u32),
+    /// Limited run of zeroes with terminating one (unless the code has maximum length).
+    ///
+    /// [`Unary012`] is essentially an alias for `LimitedZeroes(2)`.
+    ///
+    /// [`Unary012`]: #variant.Unary012
     LimitedZeroes(u32),
+    /// Limited run of one with terminating zero (unless the code has maximum length).
     LimitedOnes(u32),
+    /// Golomb code.
     Golomb(u8),
+    /// Rice code.
     Rice(u8),
+    /// Elias Gamma code (interleaved).
     Gamma,
+    /// Elias Gamma' code (sometimes incorrectly called exp-Golomb).
     GammaP,
 }
 
+/// Signed integer code types.
 pub enum IntCodeType {
+    /// Golomb code. Last bit represents the sign.
     Golomb(u8),
+    /// Golomb code. Last bit represents the sign.
     Rice(u8),
+    /// Elias Gamma code. Unsigned values are remapped as 0, 1, -1, 2, -2, ...
     Gamma,
+    /// Elias Gamma' code. Unsigned values are remapped as 0, 1, -1, 2, -2, ...
     GammaP,
 }
 
+/// Universal integer code reader trait for bitstream reader.
+///
+/// # Examples
+///
+/// Read an unsigned Golomb code:
+/// ````
+/// use nihav_core::io::bitreader::*;
+/// use nihav_core::io::intcode::{IntCodeReader,UintCodeType};
+///
+/// # fn foo() -> BitReaderResult<()> {
+/// let mem: [u8; 4] = [ 0, 1, 2, 3];
+/// let mut br = BitReader::new(&mem, BitReaderMode::BE);
+/// let val = br.read_code(UintCodeType::Golomb(3))?;
+/// # Ok(())
+/// # }
+/// ````
+///
+/// Read signed Elias code:
+/// ````
+/// use nihav_core::io::bitreader::*;
+/// use nihav_core::io::intcode::{IntCodeReader,IntCodeType};
+///
+/// # fn foo() -> BitReaderResult<()> {
+/// let mem: [u8; 4] = [ 0, 1, 2, 3];
+/// let mut br = BitReader::new(&mem, BitReaderMode::BE);
+/// let val = br.read_code_signed(IntCodeType::Gamma)?;
+/// # Ok(())
+/// # }
+/// ````
 pub trait IntCodeReader {
+    /// Reads an unsigned integer code of requested type.
     fn read_code(&mut self, t: UintCodeType) -> BitReaderResult<u32>;
+    /// Reads signed integer code of requested type.
     fn read_code_signed(&mut self, t: IntCodeType) -> BitReaderResult<i32>;
 }
 
