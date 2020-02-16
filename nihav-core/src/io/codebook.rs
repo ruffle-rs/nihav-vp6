@@ -1,40 +1,128 @@
+//! Codebook support for bitstream reader.
+//!
+//! Codebook is a set of unique bit strings and values assigned to them.
+//! Since there are many ways to define codebook, this implementation employs [`CodebookDescReader`] trait to provide codebook generator with the codes.
+//! Please also pay attention to the codebook creation mode: if bitstream reader reads bits starting from most significant bit first then you should use [`MSB`] mode and [`LSB`] mode otherwise.
+//!
+//! # Examples
+//!
+//! Create a codebook from arrays with codeword descriptions:
+//! ```
+//! use nihav_core::io::codebook::{ShortCodebookDesc, ShortCodebookDescReader, Codebook, CodebookMode};
+//!
+//! let cb_desc: Vec<ShortCodebookDesc> = vec!(
+//!             ShortCodebookDesc { code: 0b00,   bits: 2 },
+//!             ShortCodebookDesc { code: 0,      bits: 0 },
+//!             ShortCodebookDesc { code: 0b01,   bits: 2 },
+//!             ShortCodebookDesc { code: 0b1,    bits: 1 });
+//! let mut cr = ShortCodebookDescReader::new(cb_desc);
+//! let cb = Codebook::new(&mut cr, CodebookMode::LSB).unwrap();
+//! ```
+//!
+//! Create a codebook using more flexible [`TableCodebookDescReader`] approach.
+//! This will create a codebook for the following set: `1` -> -2, `01` -> -1, `001` -> 0, `0001` -> 1, `00001` -> 2.
+//! ```
+//! use nihav_core::io::codebook::{TableCodebookDescReader, Codebook, CodebookMode};
+//!
+//! fn map_cb_index(index: usize) -> i16 { (index as i16) - 2 }
+//! const CB_BITS:  [u8; 5] = [ 1, 2, 3, 4, 5 ];
+//! const CB_CODES: [u8; 5] = [ 1, 1, 1, 1, 1 ];
+//!
+//! let mut tcr = TableCodebookDescReader::new(&CB_CODES, &CB_BITS, map_cb_index);
+//! let cb = Codebook::new(&mut tcr, CodebookMode::MSB).unwrap();
+//! ```
+//!
+//! Read value using a codebook:
+//! ```no_run
+//! use nihav_core::io::bitreader::BitReader;
+//! use nihav_core::io::codebook::{Codebook, CodebookReader, CodebookMode};
+//! # use nihav_core::io::codebook::{ShortCodebookDesc, ShortCodebookDescReader, CodebookDescReader, CodebookResult};
+//!
+//! # fn foo(br: &mut BitReader) -> CodebookResult<()> {
+//! # let mut cr = ShortCodebookDescReader::new(vec![ShortCodebookDesc { code: 0b00,   bits: 2 }]);
+//! let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
+//! let value = br.read_cb(&cb)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [`MSB`]: ./enum.CodebookMode.html#variant.MSB
+//! [`LSB`]: ./enum.CodebookMode.html#variant.LSB
+//! [`CodebookDescReader`]: ./trait.CodebookDescReader.html
+//! [`TableCodebookDescReader`]: ./struct.TableCodebookDescReader.html
+
 use std::collections::HashMap;
 use std::cmp::{max, min};
 use super::bitreader::BitReader;
 
+/// A list specifying general codebook operations errors.
 #[derive(Debug)]
 pub enum CodebookError {
+    /// Codebook description contains errors.
     InvalidCodebook,
+    /// Could not allocate memory for codebook.
     MemoryError,
+    /// Bitstream contains a sequence not present in codebook.
     InvalidCode,
 }
 
+/// Codebook operation modes.
 #[derive(Debug, Copy, Clone)]
 pub enum CodebookMode {
+    /// Codes in the codebook should be read most significant bit first.
     MSB,
+    /// Codes in the codebook should be read least significant bit first.
     LSB,
 }
 
-type CodebookResult<T> = Result<T, CodebookError>;
+/// A specialised `Result` type for codebook operations.
+pub type CodebookResult<T> = Result<T, CodebookError>;
 
+/// Codebook description for `(code bits, code length, code value)` triplet.
+///
+/// This should be used to create a list of codeword definitions for [`FullCodebookDescReader`].
+///
+/// [`FullCodebookDescReader`]: ./struct.FullCodebookDescReader.html
 pub struct FullCodebookDesc<S> {
+    /// Codeword bits.
     pub code: u32,
+    /// Codeword length.
     pub bits: u8,
+    /// Codeword value (symbol).
     pub sym:  S,
 }
 
+/// Codebook description for `(code bits, code length)` pair with array index being used as codeword value.
+///
+/// This should be used to create a list of codeword definitions for [`ShortCodebookDescReader`].
+///
+/// [`ShortCodebookDescReader`]: ./struct.ShortCodebookDescReader.html
 pub struct ShortCodebookDesc {
+    /// Codeword bits.
     pub code: u32,
+    /// Codeword length.
     pub bits: u8,
 }
 
+/// The interface for providing a list of codeword definitions to the codebook creator.
+///
+/// The structure implementing this trait should be able to provide the total number of defined codewords and their bits and values. [`ShortCodebookDescReader`] or [`TableCodebookDescReader`] are some examples of such implementation.
+/// Codeword definitions with zero length are ignored (those may be used to create sparse codebook definitions though).
+///
+/// [`ShortCodebookDescReader`]: ./struct.ShortCodebookDescReader.html
+/// [`TableCodebookDescReader`]: ./struct.TableCodebookDescReader.html
 pub trait CodebookDescReader<S> {
+    /// Returns the codeword length for the provided index.
     fn bits(&mut self, idx: usize) -> u8;
+    /// Returns the codeword bits for the provided index.
     fn code(&mut self, idx: usize) -> u32;
+    /// Returns the codeword value (aka codeword symbol) for the provided index.
     fn sym (&mut self, idx: usize) -> S;
+    /// Returns the total number of defined codewords.
     fn len (&mut self)             -> usize;
 }
 
+/// The codebook structure for code reading.
 #[allow(dead_code)]
 pub struct Codebook<S> {
     table: Vec<u32>,
@@ -42,7 +130,11 @@ pub struct Codebook<S> {
     lut_bits: u8,
 }
 
+/// Trait allowing bitreader to use codebook for decoding bit sequences.
 pub trait CodebookReader<S> {
+    /// Reads the codeword from the bitstream and returns its value (or [`InvalidCode`] on error).
+    ///
+    /// [`InvalidCode`]: ./enum.CodebookError.html#variant.InvalidCode
     fn read_cb(&mut self, cb: &Codebook<S>) -> CodebookResult<S>;
 }
 
@@ -187,6 +279,7 @@ fn build_esc_lut(table: &mut Vec<u32>,
 
 impl<S: Copy> Codebook<S> {
 
+    /// Constructs a new `Codebook` instance using provided codebook description and mode.
     pub fn new(cb: &mut CodebookDescReader<S>, mode: CodebookMode) -> CodebookResult<Self> {
         let mut maxbits = 0;
         let mut nnz = 0;
@@ -280,11 +373,13 @@ impl<'a, S: Copy> CodebookReader<S> for BitReader<'a> {
     }
 }
 
+/// Codebook description that stores a list of codewords and their values.
 pub struct FullCodebookDescReader<S> {
     data: Vec<FullCodebookDesc<S>>,
 }
 
 impl<S> FullCodebookDescReader<S> {
+    /// Constructs a new `FullCodebookDescReader` instance.
     pub fn new(data: Vec<FullCodebookDesc<S>>) -> Self {
         FullCodebookDescReader { data }
     }
@@ -297,11 +392,13 @@ impl<S: Copy> CodebookDescReader<S> for FullCodebookDescReader<S> {
     fn len(&mut self) -> usize { self.data.len() }
 }
 
+/// Codebook description that stores a list of codewords and their value is equal to the index.
 pub struct ShortCodebookDescReader {
     data: Vec<ShortCodebookDesc>,
 }
 
 impl ShortCodebookDescReader {
+    /// Constructs a new `ShortCodebookDescReader` instance.
     pub fn new(data: Vec<ShortCodebookDesc<>>) -> Self {
         ShortCodebookDescReader { data }
     }
@@ -314,6 +411,7 @@ impl CodebookDescReader<u32> for ShortCodebookDescReader {
     fn len(&mut self) -> usize { self.data.len() }
 }
 
+/// Flexible codebook description that uses two separate arrays for codeword bits and lengths and a function that maps codeword index into its symbol.
 pub struct TableCodebookDescReader<'a, CodeType:'static, IndexType:'static> {
     bits:       &'a [u8],
     codes:      &'a [CodeType],
@@ -321,6 +419,7 @@ pub struct TableCodebookDescReader<'a, CodeType:'static, IndexType:'static> {
 }
 
 impl<'a, CodeType, IndexType> TableCodebookDescReader<'a, CodeType, IndexType> {
+    /// Constructs a new `TableCodebookDescReader` instance.
     pub fn new(codes: &'a [CodeType], bits: &'a [u8], idx_map: fn(usize) -> IndexType) -> Self {
         Self { bits, codes, idx_map }
     }
