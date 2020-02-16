@@ -1,6 +1,6 @@
 //! Bitstream reader functionality.
 //!
-//! Bitstream reader operates on `&[u8]` and allows to read bits from the slice in different modes. 
+//! Bitstream reader operates on `&[u8]` and allows to read bits from the slice in different modes.
 //!
 //! # Examples
 //!
@@ -9,7 +9,7 @@
 //! use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 //!
 //! # use nihav_core::io::bitreader::BitReaderResult;
-//! # fn foo() -> BitReaderResult<u32> { 
+//! # fn foo() -> BitReaderResult<u32> {
 //! let bits: [u8; 4] = [ 42, 43, 44, 45 ];
 //! let mut br = BitReader::new(&bits, BitReaderMode::BE);
 //! let value = br.read(17)?;
@@ -22,7 +22,7 @@
 //! use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 //!
 //! # use nihav_core::io::bitreader::BitReaderResult;
-//! # fn foo() -> BitReaderResult<()> { 
+//! # fn foo() -> BitReaderResult<()> {
 //! let bits: [u8; 4] = [ 42, 43, 44, 45 ];
 //! let mut br = BitReader::new(&bits, BitReaderMode::BE);
 //! let num_skip_bits = br.read(3)?;
@@ -77,7 +77,7 @@ pub struct BitReader<'a> {
 impl<'a> BitReader<'a> {
 
     /// Constructs a new instance of bitstream reader.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```
@@ -210,7 +210,7 @@ impl<'a> BitReader<'a> {
     /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
     ///
     /// # use nihav_core::io::bitreader::BitReaderResult;
-    /// # fn foo() -> BitReaderResult<u32> { 
+    /// # fn foo() -> BitReaderResult<u32> {
     /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
     /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
     /// let value = br.read(17)?;
@@ -270,7 +270,7 @@ impl<'a> BitReader<'a> {
     /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
     ///
     /// # use nihav_core::io::bitreader::BitReaderResult;
-    /// # fn foo() -> BitReaderResult<u32> { 
+    /// # fn foo() -> BitReaderResult<u32> {
     /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
     /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
     /// let peek_value = br.peek(8); // this should return 42
@@ -318,7 +318,7 @@ impl<'a> BitReader<'a> {
     /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
     ///
     /// # use nihav_core::io::bitreader::BitReaderResult;
-    /// # fn foo() -> BitReaderResult<u32> { 
+    /// # fn foo() -> BitReaderResult<u32> {
     /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
     /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
     /// br.seek(16)?;
@@ -343,7 +343,7 @@ impl<'a> BitReader<'a> {
     /// use nihav_core::io::bitreader::{BitReader,BitReaderMode};
     ///
     /// # use nihav_core::io::bitreader::BitReaderResult;
-    /// # fn foo() -> BitReaderResult<()> { 
+    /// # fn foo() -> BitReaderResult<()> {
     /// let bits: [u8; 4] = [ 42, 43, 44, 45 ];
     /// let mut br = BitReader::new(&bits, BitReaderMode::BE);
     /// br.skip(17)?; // now reader is at bit position 17
