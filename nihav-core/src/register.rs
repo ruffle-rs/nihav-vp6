@@ -1,12 +1,21 @@
+//! Global registry of codec information.
+//!
+//! This module contains codec information from technical level that allows user to retrieve information about codec type and features without creating and invoking a decoder for such codec.
 use std::fmt;
 
+/// Codec types.
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum CodecType {
+    /// Video codec.
     Video,
+    /// Audio codec.
     Audio,
+    /// Subtitle codec.
     Subtitles,
+    /// Some special codec (e.g. some event stream or separate timecodes stream).
     Data,
+    /// Dummy codec.
     None,
 }
 
@@ -28,22 +37,39 @@ const CODEC_CAP_REORDER:u32     = 0x0004;
 const CODEC_CAP_HYBRID:u32      = 0x0008;
 const CODEC_CAP_SCALABLE:u32    = 0x0010;
 
+/// Codec description structure.
 #[derive(Clone)]
 pub struct CodecDescription {
+    /// Short codec name.
+    ///
+    /// Short codec name is used inside NihAV as the unique identifier.
     pub name:  &'static str,
+    /// Full codec name.
     pub fname: &'static str,
+    /// Codec type.
     pub ctype: CodecType,
+    /// Codec capabilities.
     pub caps:  u32,
 }
 
 impl CodecDescription {
+    /// Returns short codec name.
     pub fn get_name(&self) -> &'static str { self.name }
+    /// Returns full codec name.
     pub fn get_full_name(&self) -> &'static str { self.fname }
+    /// Returns codec type.
     pub fn get_codec_type(&self) -> CodecType { self.ctype }
+    /// Reports whether the codec has only intra frames or not.
     pub fn is_intraonly(&self) -> bool { (self.caps & CODEC_CAP_INTRAONLY) != 0 }
+    /// Reports whether the codec is lossless.
     pub fn is_lossless(&self)  -> bool { (self.caps & CODEC_CAP_LOSSLESS)  != 0 }
+    /// Reports whether the codec requires frame reordering.
     pub fn has_reorder(&self)  -> bool { (self.caps & CODEC_CAP_REORDER)   != 0 }
+    /// Reports whether the codec can be either lossless or lossy.
     pub fn is_hybrid(&self)    -> bool { (self.caps & CODEC_CAP_HYBRID)    != 0 }
+    /// Reports whether codec supports scalability.
+    ///
+    /// Scalability means that codec can be decoded in reduced resolution by design.
     pub fn is_scalable(&self)  -> bool { (self.caps & CODEC_CAP_SCALABLE)  != 0 }
 }
 
@@ -108,6 +134,7 @@ macro_rules! desc {
     });
 }
 
+/// Returns codec description for the provided codec short name if it is found.
 pub fn get_codec_description(name: &str) -> Option<&'static CodecDescription> {
     for reg in CODEC_REGISTER {
         if reg.name == name {
@@ -225,6 +252,7 @@ static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
     (0x0501, "on2avc-501"),
 ];
 
+/// Returns video codec short name for provided FOURCC (used in AVI format).
 pub fn find_codec_from_avi_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
     for (fourcc, name) in AVI_VIDEO_CODEC_REGISTER.iter() {
         if *fourcc == fcc { return Some(name); }
@@ -232,6 +260,7 @@ pub fn find_codec_from_avi_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
     None
 }
 
+/// Returns known audio codec short name for provided TWOCC (used in WAV and AVI format).
 pub fn find_codec_from_wav_twocc(tcc: u16) -> Option<&'static str> {
     for (twocc, name) in WAV_CODEC_REGISTER.iter() {
         if *twocc == tcc { return Some(name); }
