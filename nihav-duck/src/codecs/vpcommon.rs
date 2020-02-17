@@ -197,7 +197,6 @@ pub fn rescale_prob(prob: u8, weights: &[i16; 2], maxval: i32) -> u8 {
     ((((prob as i32) * (weights[0] as i32) + 128) >> 8) + (weights[1] as i32)).min(maxval).max(1) as u8
 }
 
-#[macro_export]
 macro_rules! vp_tree {
     ($bc: expr, $prob: expr, $node1: expr, $node2: expr) => {
         if !$bc.read_prob($prob) {
