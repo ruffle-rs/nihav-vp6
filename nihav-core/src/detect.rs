@@ -1,14 +1,41 @@
+//! Container format detection.
+//!
+//! Usually user does not know the container format of the opened file.
+//! That is why format detection functionality is needed.
+//! This module contains the set of rules to detect container not merely by file extension but also by its content if possible.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use nihav_core::detect::detect_format;
+//! use std::fs::File;
+//! use nihav_core::io::byteio::*;
+//!
+//! let name = "mediafile.ogv";
+//! let mut file = File::open(name).unwrap();
+//! let mut filereader = FileReader::new_read(&mut file);
+//! let mut br = ByteReader::new(&mut filereader);
+//! let result = detect_format(name, &mut br);
+//! if let Some((name, score)) = result {
+//!     println!("detected format {} with score {:?}", name, score);
+//! }
+//! ```
 use std::io::SeekFrom;
 use crate::io::byteio::ByteReader;
 
+/// Format detection score.
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum DetectionScore {
+    /// Format is not detected.
     No,
+    /// Format matched by file extension.
     ExtensionMatches,
+    /// Format matches by markers inside the file.
     MagicMatches,
 }
 
 impl DetectionScore {
+    /// Checks whether current detection score is less than a value it is compared against.
     pub fn less(self, other: DetectionScore) -> bool {
         (self as i32) < (other as i32)
     }
@@ -223,6 +250,11 @@ const DETECTORS: &[DetectConditions] = &[
     },
 ];
 
+/// Tries to detect container format.
+///
+/// This function tries to determine container format using both file extension and checking against container specific markers inside.
+/// In case of success the function returns short container name and the detection score.
+/// Result should have the highest detection score among tested.
 pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, DetectionScore)> {
     let mut result = None;
     let lname = name.to_lowercase();
