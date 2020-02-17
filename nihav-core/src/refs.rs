@@ -1,3 +1,24 @@
+//! Reference-counted buffer data type.
+//!
+//! NihAV requires some reference-counted type especially for frame buffer pools.
+//! `Arc` does not allow mutability with several references present, `RwLock` does not work reliably in a single thread mode (at least for me) so I ended up NIHing something.
+//!
+//! Currently it does not prevent code from reading the data that is being written to.
+//! Maybe in the future this will be replaced by something better and using more standard components.
+//!
+//! Also it contains `unsafe{}` so I should not write in Rust at all.
+//!
+//! # Examples
+//!
+//! ```
+//! use nihav_core::refs::NABufferRef;
+//!
+//! let vec = vec![42u8; 16];
+//! let vec_ref = NABufferRef::new(vec);
+//! let vec_ref2 = vec_ref.clone();
+//! let ref_count = vec_ref.get_num_refs(); // should be 2
+//! println!("vector element 4 is {}", vec_ref[4]); // should print the fourth vector element
+//! ```
 use std::ops::{Deref, DerefMut};
 use std::convert::AsRef;
 use std::sync::atomic::*;
@@ -31,6 +52,7 @@ impl<T> NABufferData<T> {
     }
 }
 
+/// Reference-counted buffer reference.
 pub struct NABufferRef<T> {
     ptr: *mut NABufferData<T>,
 }
@@ -39,16 +61,19 @@ unsafe impl<T> Sync for NABufferRef<T> {}
 unsafe impl<T> Send for NABufferRef<T> {}
 
 impl<T> NABufferRef<T> {
+    /// Constructs a new instance of `NABufferRef`.
     pub fn new(val: T) -> Self {
         let bdata = NABufferData::new(val);
         let nbox: Box<_> = Box::new(bdata);
         Self { ptr: Box::into_raw(nbox) }
     }
+    /// Reports the number of references for the current instance.
     pub fn get_num_refs(&self) -> usize {
         unsafe {
             NABufferData::get_num_refs(self.ptr.as_mut().unwrap())
         }
     }
+    /// Returns a mutable pointer to the underlying data if possible.
     pub fn as_mut(&mut self) -> Option<&mut T> {
         unsafe {
             NABufferData::get_write_ptr(self.ptr.as_mut().unwrap())
