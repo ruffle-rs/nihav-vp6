@@ -15,6 +15,7 @@ const DEMUXERS: &[&DemuxerCreator] = &[
     &avi::AVIDemuxerCreator {},
 ];
 
+/// Registers all available demuxers provided by this crate.
 pub fn generic_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     for demuxer in DEMUXERS.iter() {
         rd.add_demuxer(*demuxer);

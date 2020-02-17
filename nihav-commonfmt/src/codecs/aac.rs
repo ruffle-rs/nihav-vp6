@@ -1267,8 +1267,8 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_core::test::dec_video::test_decode_audio;
-    use crate::codecs::generic_register_all_codecs;
-    use nihav_realmedia::demuxers::realmedia_register_all_demuxers;
+    use crate::generic_register_all_codecs;
+    use nihav_realmedia::realmedia_register_all_demuxers;
     #[test]
     fn test_aac() {
         let mut dmx_reg = RegisteredDemuxers::new();

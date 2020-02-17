@@ -9,7 +9,12 @@ extern crate nihav_core;
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::unreadable_literal)]
 #[allow(clippy::useless_let_if_seq)]
-pub mod codecs;
+mod codecs;
+#[cfg(feature="decoders")]
+pub use codecs::rad_register_all_codecs;
+
 #[cfg(feature="demuxers")]
 #[allow(clippy::cast_lossless)]
-pub mod demuxers;
+mod demuxers;
+#[cfg(feature="demuxers")]
+pub use demuxers::rad_register_all_demuxers;

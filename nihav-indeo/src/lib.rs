@@ -6,7 +6,9 @@ extern crate nihav_core;
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::useless_let_if_seq)]
 #[allow(clippy::verbose_bit_mask)]
-pub mod codecs;
+mod codecs;
+
+pub use codecs::indeo_register_all_codecs;
 
 #[cfg(test)]
 extern crate nihav_commonfmt;

@@ -291,8 +291,8 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_core::test::dec_video::*;
-    use crate::codecs::rad_register_all_codecs;
-    use crate::demuxers::rad_register_all_demuxers;
+    use crate::rad_register_all_codecs;
+    use crate::rad_register_all_demuxers;
 
     #[test]
     fn test_bink_audio() {

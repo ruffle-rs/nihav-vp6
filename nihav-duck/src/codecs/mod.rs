@@ -69,6 +69,7 @@ const DUCK_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "on2avc-501", get_decoder: on2avc::get_decoder_501 },
 ];
 
+/// Registers all available codecs provided by this crate.
 pub fn duck_register_all_codecs(rd: &mut RegisteredDecoders) {
     for decoder in DUCK_CODECS.iter() {
         rd.add_decoder(decoder.clone());

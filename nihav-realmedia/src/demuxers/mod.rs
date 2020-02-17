@@ -16,6 +16,7 @@ const RM_DEMUXERS: &[&DemuxerCreator] = &[
     &realmedia::RealIVRDemuxerCreator {},
 ];
 
+/// Registers all available demuxers provided by this crate.
 pub fn realmedia_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     for demuxer in RM_DEMUXERS.iter() {
         rd.add_demuxer(*demuxer);

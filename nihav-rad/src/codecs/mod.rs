@@ -28,6 +28,7 @@ const RAD_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "bink2-video", get_decoder: bink2::get_decoder },
 ];
 
+/// Registers all available codecs provided by this crate.
 pub fn rad_register_all_codecs(rd: &mut RegisteredDecoders) {
     for decoder in RAD_CODECS.iter() {
         rd.add_decoder(decoder.clone());

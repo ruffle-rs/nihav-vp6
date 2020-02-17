@@ -46,6 +46,7 @@ const INDEO_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "iac", get_decoder: imc::get_decoder_iac },
 ];
 
+/// Registers all available codecs provided by this crate.
 pub fn indeo_register_all_codecs(rd: &mut RegisteredDecoders) {
     for decoder in INDEO_CODECS.iter() {
         rd.add_decoder(decoder.clone());

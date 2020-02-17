@@ -1529,8 +1529,8 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_core::test::dec_video::*;
-    use crate::codecs::realmedia_register_all_codecs;
-    use crate::demuxers::realmedia_register_all_demuxers;
+    use crate::realmedia_register_all_codecs;
+    use crate::realmedia_register_all_demuxers;
     #[test]
     fn test_rv60() {
         let mut dmx_reg = RegisteredDemuxers::new();

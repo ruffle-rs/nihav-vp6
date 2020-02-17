@@ -71,6 +71,7 @@ const RM_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "ralf", get_decoder: ralf::get_decoder },
 ];
 
+/// Registers all available codecs provided by this crate.
 pub fn realmedia_register_all_codecs(rd: &mut RegisteredDecoders) {
     for decoder in RM_CODECS.iter() {
         rd.add_decoder(decoder.clone());

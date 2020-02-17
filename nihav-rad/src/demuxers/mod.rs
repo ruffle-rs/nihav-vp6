@@ -17,6 +17,7 @@ const RAD_DEMUXERS: &[&DemuxerCreator] = &[
     &bink::BinkDemuxerCreator {},
 ];
 
+/// Registers all available demuxers provided by this crate.
 pub fn rad_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     for demuxer in RAD_DEMUXERS.iter() {
         rd.add_demuxer(*demuxer);

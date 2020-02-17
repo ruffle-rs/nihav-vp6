@@ -23,6 +23,7 @@ const GAME_DEMUXERS: &[&DemuxerCreator] = &[
     &vmd::VMDDemuxerCreator {},
 ];
 
+/// Registers all available demuxers provided by this crate.
 pub fn game_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     for demuxer in GAME_DEMUXERS.iter() {
         rd.add_demuxer(*demuxer);

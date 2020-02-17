@@ -4,10 +4,15 @@ extern crate nihav_core;
 #[allow(clippy::unreadable_literal)]
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::excessive_precision)]
-pub mod codecs;
+mod codecs;
+
+#[cfg(feature="decoders")]
+pub use codecs::generic_register_all_codecs;
 
 #[cfg(feature="demuxers")]
-pub mod demuxers;
+mod demuxers;
+#[cfg(feature="demuxers")]
+pub use demuxers::generic_register_all_demuxers;
 
 #[cfg(test)]
 extern crate nihav_realmedia;

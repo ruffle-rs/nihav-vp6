@@ -36,6 +36,7 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "aac", get_decoder: aac::get_decoder },
 ];
 
+/// Registers all available codecs provided by this crate.
 pub fn generic_register_all_codecs(rd: &mut RegisteredDecoders) {
     for decoder in DECODERS.iter() {
         rd.add_decoder(decoder.clone());

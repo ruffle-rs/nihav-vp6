@@ -718,8 +718,8 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_core::test::dec_video::*;
-    use crate::codecs::generic_register_all_codecs;
-    use crate::demuxers::generic_register_all_demuxers;
+    use crate::generic_register_all_codecs;
+    use crate::generic_register_all_demuxers;
     #[test]
     fn test_clv() {
         let mut dmx_reg = RegisteredDemuxers::new();
