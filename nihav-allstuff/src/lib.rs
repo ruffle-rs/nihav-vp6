@@ -1,3 +1,4 @@
+//! Umbrella crate to register decoders and demuxers from all known NihAV crates.
 extern crate nihav_core;
 extern crate nihav_commonfmt;
 extern crate nihav_duck;
@@ -25,6 +26,7 @@ use nihav_rad::rad_register_all_demuxers;
 use nihav_realmedia::realmedia_register_all_codecs;
 use nihav_realmedia::realmedia_register_all_demuxers;
 
+/// Registers all known decoders.
 pub fn nihav_register_all_codecs(rd: &mut RegisteredDecoders) {
     generic_register_all_codecs(rd);
     duck_register_all_codecs(rd);
@@ -34,6 +36,7 @@ pub fn nihav_register_all_codecs(rd: &mut RegisteredDecoders) {
     realmedia_register_all_codecs(rd);
 }
 
+/// Registers all known demuxers.
 pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     generic_register_all_demuxers(rd);
     game_register_all_demuxers(rd);
