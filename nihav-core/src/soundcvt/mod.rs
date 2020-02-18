@@ -1,3 +1,7 @@
+//! Sound format conversion.
+//!
+//! This module implements the functionality for conversion between different sound formats: packed or planar audio, 8-/16-/24-/32-bit, integer or floating point, different number of channels.
+//! Eventually this might support resampling as well.
 pub use crate::formats::{NASoniton,NAChannelMap};
 pub use crate::frame::{NAAudioBuffer,NAAudioInfo,NABufferType};
 use crate::formats::NAChannelType;
@@ -5,10 +9,14 @@ use crate::frame::alloc_audio_buffer;
 use crate::io::byteio::*;
 use std::f32::consts::SQRT_2;
 
+/// A list specifying general sound conversion errors.
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum SoundConvertError {
+    /// Invalid input arguments.
     InvalidInput,
+    /// Allocation failed.
     AllocError,
+    /// Requested feature is not supported.
     Unsupported,
 }
 
@@ -304,6 +312,7 @@ impl SampleWriter for PackedSampleWriter<'_> {
     }
 }
 
+/// Converts input audio buffer into desired format and returns a newly allocated buffer.
 pub fn convert_audio_frame(src: &NABufferType, dst_info: &NAAudioInfo, dst_chmap: &NAChannelMap) ->
 Result<NABufferType, SoundConvertError> {
     let mut nsamples = src.get_audio_length();
@@ -445,6 +454,7 @@ Result<NABufferType, SoundConvertError> {
     Ok(dst_buf)
 }
 
+/// Checks whether two channel maps are identical.
 pub fn channel_maps_equal(a: &NAChannelMap, b: &NAChannelMap) -> bool {
     if a.num_channels() != b.num_channels() { return false; }
     for i in 0..a.num_channels() {
@@ -455,6 +465,7 @@ pub fn channel_maps_equal(a: &NAChannelMap, b: &NAChannelMap) -> bool {
     true
 }
 
+/// Checks whether two channel maps have identical channels (but maybe in different order).
 pub fn channel_maps_reordered(a: &NAChannelMap, b: &NAChannelMap) -> bool {
     if a.num_channels() != b.num_channels() { return false; }
     let mut count_a = [0u8; 32];
@@ -471,6 +482,7 @@ pub fn channel_maps_reordered(a: &NAChannelMap, b: &NAChannelMap) -> bool {
     true
 }
 
+/// Calculates permutation matrix for reordering channels from source channel map into destination one.
 pub fn calculate_reorder_matrix(src: &NAChannelMap, dst: &NAChannelMap) -> Vec<usize> {
     if src.num_channels() != dst.num_channels() { return Vec::new(); }
     let num_channels = src.num_channels();
@@ -494,6 +506,7 @@ fn is_stereo(chmap: &NAChannelMap) -> bool {
     (chmap.get_channel(1) == NAChannelType::R)
 }
 
+/// Calculates matrix of remixing coefficients for converting input channel layout into destination one.
 pub fn calculate_remix_matrix(src: &NAChannelMap, dst: &NAChannelMap) -> Vec<f32> {
     if is_stereo(src) && dst.num_channels() == 1 &&
         (dst.get_channel(0) == NAChannelType::L || dst.get_channel(0) == NAChannelType::C) {
