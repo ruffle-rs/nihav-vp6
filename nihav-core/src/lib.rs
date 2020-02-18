@@ -1,3 +1,4 @@
+//! Core functionality of NihAV intended to be used by both crates implementing format support and users.
 #[cfg(feature="decoders")]
 #[allow(clippy::cast_lossless)]
 #[allow(clippy::identity_op)]
