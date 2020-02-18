@@ -1,3 +1,20 @@
+//! Image conversion functionality.
+
+//! # Examples
+//!
+//! Convert input image into YUV one and scale down two times.
+//! ```no_run
+//! use nihav_core::scale::*;
+//! use nihav_core::formats::{RGB24_FORMAT, YUV420_FORMAT};
+//! use nihav_core::frame::{alloc_video_buffer, NAVideoInfo};
+//!
+//! let mut in_pic = alloc_video_buffer(NAVideoInfo::new(640, 480, false, RGB24_FORMAT), 4).unwrap();
+//! let mut out_pic = alloc_video_buffer(NAVideoInfo::new(320, 240, false, YUV420_FORMAT), 4).unwrap();
+//! let in_fmt = get_scale_fmt_from_pic(&in_pic);
+//! let out_fmt = get_scale_fmt_from_pic(&out_pic);
+//! let mut scaler = NAScale::new(in_fmt, out_fmt).unwrap();
+//! scaler.convert(&in_pic, &mut out_pic).unwrap();
+//! ```
 use crate::frame::*;
 
 mod kernel;
@@ -6,10 +23,14 @@ mod colorcvt;
 mod repack;
 mod scale;
 
+/// Image format information used by the converter.
 #[derive(Clone,Copy,PartialEq)]
 pub struct ScaleInfo {
+    /// Pixel format description.
     pub fmt:    NAPixelFormaton,
+    /// Image width.
     pub width:  usize,
+    /// Image height.
     pub height: usize,
 }
 
@@ -19,16 +40,23 @@ impl std::fmt::Display for ScaleInfo {
     }
 }
 
+/// A list specifying general image conversion errors.
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum ScaleError {
+    /// Input or output buffer contains no image data.
     NoFrame,
+    /// Allocation failed.
     AllocError,
+    /// Invalid argument.
     InvalidArgument,
+    /// Feature is not implemented.
     NotImplemented,
+    /// Internal implementation bug.
     Bug,
 }
 
+/// A specialised `Result` type for image conversion operations.
 pub type ScaleResult<T> = Result<T, ScaleError>;
 
 /*trait Kernel {
@@ -68,6 +96,7 @@ struct Stage {
     worker:     Box<dyn kernel::Kernel>,
 }
 
+/// Converts input picture information into format used by scaler.
 pub fn get_scale_fmt_from_pic(pic: &NABufferType) -> ScaleInfo {
     let info = pic.get_video_info().unwrap();
     ScaleInfo { fmt: info.get_format(), width: info.get_width(), height: info.get_height() }
@@ -105,6 +134,7 @@ impl Stage {
     }
 }
 
+/// Image format converter.
 pub struct NAScale {
     fmt_in:         ScaleInfo,
     fmt_out:        ScaleInfo,
@@ -261,6 +291,7 @@ fn swap_plane<T:Copy>(data: &mut [T], stride: usize, h: usize, line0: &mut [T], 
     }
 }
 
+/// Flips the picture contents.
 pub fn flip_picture(pic: &mut NABufferType) -> ScaleResult<()> {
     match pic {
         NABufferType::Video(ref mut vb) => {
@@ -317,6 +348,7 @@ pub fn flip_picture(pic: &mut NABufferType) -> ScaleResult<()> {
 }
 
 impl NAScale {
+    /// Constructs a new `NAScale` instance.
     pub fn new(fmt_in: ScaleInfo, fmt_out: ScaleInfo) -> ScaleResult<Self> {
         let pipeline;
         let just_convert = (fmt_in.width == fmt_out.width) && (fmt_in.height == fmt_out.height);
@@ -327,9 +359,13 @@ impl NAScale {
         }
         Ok(Self { fmt_in, fmt_out, just_convert, pipeline })
     }
+    /// Checks whether requested conversion operation is needed at all.
     pub fn needs_processing(&self) -> bool { self.pipeline.is_some() }
+    /// Returns the input image format.
     pub fn get_in_fmt(&self) -> ScaleInfo { self.fmt_in }
+    /// Returns the output image format.
     pub fn get_out_fmt(&self) -> ScaleInfo { self.fmt_out }
+    /// Performs the image format conversion.
     pub fn convert(&mut self, pic_in: &NABufferType, pic_out: &mut NABufferType) -> ScaleResult<()> {
         let in_info  = pic_in.get_video_info();
         let out_info = pic_out.get_video_info();
