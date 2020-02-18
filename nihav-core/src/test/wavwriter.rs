@@ -1,7 +1,9 @@
+//! Audio output in WAV format.
 use crate::io::byteio::*;
 use crate::frame::*;
 use std::io::SeekFrom;
 
+/// WAVE output writer.
 pub struct WavWriter<'a> {
     io: &'a mut ByteWriter<'a>,
     data_pos: u64,
@@ -46,9 +48,13 @@ macro_rules! write_data {
 }
 
 impl<'a> WavWriter<'a> {
+    /// Constructs a new `WavWriter` instance.
     pub fn new(io: &'a mut ByteWriter<'a>) -> Self {
         WavWriter { io, data_pos: 0 }
     }
+    /// Writes audio format information to the file header.
+    ///
+    /// This function should be called exactly once before writing actual audio data.
     pub fn write_header(&mut self, ainfo: NAAudioInfo) -> ByteIOResult<()> {
         let bits = ainfo.get_format().get_bits() as usize;
 
@@ -78,6 +84,7 @@ impl<'a> WavWriter<'a> {
         self.data_pos = self.io.tell();
         Ok(())
     }
+    /// Writes audio data.
     pub fn write_frame(&mut self, abuf: NABufferType) -> ByteIOResult<()> {
         match abuf {
             NABufferType::AudioU8(ref buf) => {

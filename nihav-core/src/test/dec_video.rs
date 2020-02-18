@@ -1,3 +1,4 @@
+//! Routines for testing decoders.
 use std::fs::File;
 use std::io::prelude::*;
 use crate::frame::*;
@@ -197,6 +198,17 @@ fn write_ppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
     WavWriter::new(&mut wr)
 }*/
 
+/// Tests decoding of provided file and optionally outputs video frames as PNM (PPM for RGB video, PGM for YUV).
+///
+/// This function expects the following arguments:
+/// * `demuxer` - container format name (used to find proper demuxer for it)
+/// * `name` - input file name
+/// * `limit` - optional PTS value after which decoding is stopped
+/// * `decode_video`/`decode_audio` - flags for enabling video/audio decoding
+/// * `video_pfx` - prefix for video frames written as pictures (if enabled then output picture names should look like `<crate_name>/assets/test_out/PFXout00_000000.ppm`
+/// * `dmx_reg` and `dec_reg` - registered demuxers and decoders that should contain demuxer and decoder(s) needed to decode the provided file.
+///
+/// Since the function is intended for tests, it will panic instead of returning an error.
 pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
                           decode_video: bool, decode_audio: bool,
                           video_pfx: Option<&str>,
@@ -257,6 +269,13 @@ panic!(" unknown format");
     }
 }
 
+/// Tests audio decoder with the content in the provided file and optionally outputs decoded audio.
+///
+/// The syntax is very similar to [`test_file_decoding`] except that it is intended for testing audio codecs.
+///
+/// Since the function is intended for tests, it will panic instead of returning an error.
+///
+/// [`test_file_decoding`]: ./fn.test_file_decoding.html
 pub fn test_decode_audio(demuxer: &str, name: &str, limit: Option<u64>, audio_pfx: Option<&str>,
                          dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders) {
     let dmx_f = dmx_reg.find_demuxer(demuxer).unwrap();
@@ -406,6 +425,26 @@ fn frame_checksum(md5: &mut MD5, frm: NAFrameRef) {
     };
 }
 
+/// Tests decoder for requested codec in provided file.
+///
+/// This functions tries to decode a stream corresponding to `dec_name` codec in input file and validate the results against expected ones.
+///
+/// Since the function is intended for tests, it will panic instead of returning an error.
+///
+/// # Examples
+///
+/// Test RealVideo 4 decoder in test stream:
+/// ```no_run
+/// use nihav_core::test::ExpectedTestResult;
+/// use nihav_core::test::dec_video::test_decoding;
+/// use nihav_core::codecs::RegisteredDecoders;
+/// use nihav_core::demuxers::RegisteredDemuxers;
+///
+/// let mut dmx_reg = RegisteredDemuxers::new();
+/// let mut dec_reg = RegisteredDecoders::new();
+/// // ... register RealMedia demuxers and RealVideo decoders ...
+/// test_decoding("realmedia", "rv40", "assets/test_file.rmvb", None, &dmx_reg, &dec_reg, ExpectedTestResult::MD5([0x00010203, 0x04050607, 0x08090a0b, 0x0c0d0e0f]));
+/// ```
 pub fn test_decoding(demuxer: &str, dec_name: &str, filename: &str, limit: Option<u64>,
                      dmx_reg: &RegisteredDemuxers, dec_reg: &RegisteredDecoders,
                      test: ExpectedTestResult) {
