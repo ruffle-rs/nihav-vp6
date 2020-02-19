@@ -1,12 +1,20 @@
+//! Window generating functions.
 use std::f32::consts;
 
+/// Known window types.
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum WindowType {
+    /// Simple square window.
     Square,
+    /// Simple sine window.
     Sine,
+    /// Kaiser-Bessel derived window.
     KaiserBessel(f32),
 }
 
+/// Calculates window coefficients for the requested window type and size.
+///
+/// Set `half` flag to calculate only the first half of the window.
 pub fn generate_window(mode: WindowType, scale: f32, size: usize, half: bool, dst: &mut [f32]) {
     match mode {
         WindowType::Square => {

@@ -1,6 +1,8 @@
+//! Modified Discrete Cosine transform functionality.
 use std::f32::consts;
 use super::fft::*;
 
+/// IMDCT working context.
 pub struct IMDCT {
     twiddle:    Vec<FFTComplex>,
     fft:        FFT,
@@ -19,6 +21,7 @@ fn imdct(src: &[f32], dst: &mut [f32], length: usize) {
 }*/
 
 impl IMDCT {
+    /// Constructs a new instance of `IMDCT` context.
     pub fn new(size: usize, scaledown: bool) -> Self {
         let mut twiddle: Vec<FFTComplex> = Vec::with_capacity(size / 4);
         let factor = 2.0 * consts::PI / ((8 * size) as f32);
@@ -31,6 +34,7 @@ impl IMDCT {
         z.resize(size / 2, FFTC_ZERO);
         IMDCT { twiddle, fft, size, z }
     }
+    /// Calculates IMDCT.
     pub fn imdct(&mut self, src: &[f32], dst: &mut [f32]) {
         let size2 = self.size / 2;
         let size4 = self.size / 4;
@@ -54,6 +58,7 @@ impl IMDCT {
             dst[3 * size4 + 2 * n + 1] = -self.z[size4 - n - 1].re;
         }
     }
+    /// Calculates only non-mirrored part of IMDCT.
     pub fn imdct_half(&mut self, src: &[f32], dst: &mut [f32]) {
         let size2 = self.size / 2;
         let size4 = self.size / 4;

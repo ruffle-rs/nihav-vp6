@@ -1,5 +1,7 @@
+//! Discrete 1-D cosine and sine transforms.
 use std::f32::consts;
 
+/// A list of DCT and DST modes.
 #[allow(non_camel_case_types)]
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum DCTMode {
@@ -13,6 +15,7 @@ pub enum DCTMode {
     DST_IV,
 }
 
+/// DCT/DST working context.
 #[allow(dead_code)]
 pub struct DCT {
     tmp:        Vec<f32>,
@@ -26,6 +29,7 @@ pub struct DCT {
 }
 
 impl DCT {
+    /// Constructs a new context for the selected DCT or DST operation.
     pub fn new(mode: DCTMode, size: usize) -> Self {
         let bits = 31 - (size as u32).leading_zeros();
         let is_pow2 = (size & (size - 1)) == 0;
@@ -111,6 +115,7 @@ impl DCT {
             _ => unreachable!(),
         };
     }
+    /// Performs DCT/DST.
     pub fn do_dct(&mut self, src: &[f32], dst: &mut [f32]) {
         if self.can_do_fast() {
             for (i, ni) in self.perms.iter().enumerate() { dst[i] = src[*ni]; }
@@ -119,6 +124,7 @@ impl DCT {
             do_ref_dct(self.mode, src, dst, self.size);
         }
     }
+    /// Performs inplace DCT/DST.
     pub fn do_dct_inplace(&mut self, buf: &mut [f32]) {
         if self.can_do_fast() {
             swap_buf(buf, &self.swaps);
@@ -128,6 +134,7 @@ impl DCT {
             do_ref_dct(self.mode, &self.tmp, buf, self.size);
         }
     }
+    /// Returns the scale for output normalisation.
     pub fn get_scale(&self) -> f32 {
         let fsize = self.size as f32;
         match self.mode {

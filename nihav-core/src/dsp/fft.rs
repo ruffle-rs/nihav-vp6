@@ -1,21 +1,28 @@
+//! FFT and RDFT implementation.
 use std::f32::{self, consts};
 use std::ops::{Not, Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
 use std::fmt;
 
+/// Complex number.
 #[repr(C)]
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub struct FFTComplex {
+    /// Real part of the numner.
     pub re: f32,
+    /// Complex part of the number.
     pub im: f32,
 }
 
 impl FFTComplex {
+    /// Calculates `exp(i * val)`.
     pub fn exp(val: f32) -> Self {
         FFTComplex { re: val.cos(), im: val.sin() }
     }
+    /// Returns `-Im + i * Re`.
     pub fn rotate(self) -> Self {
         FFTComplex { re: -self.im, im: self.re }
     }
+    /// Multiplies complex number by scalar.
     pub fn scale(self, scale: f32) -> Self {
         FFTComplex { re: self.re * scale, im: self.im * scale }
     }
@@ -86,8 +93,10 @@ impl fmt::Display for FFTComplex {
     }
 }
 
+/// Complex number with zero value.
 pub const FFTC_ZERO: FFTComplex = FFTComplex { re: 0.0, im: 0.0 };
 
+/// Calculates forward or inverse FFT in the straightforward way.
 pub fn generic_fft(data: &mut [FFTComplex], forward: bool) {
     let mut tmp = Vec::with_capacity(data.len());
     tmp.resize(data.len(), FFTC_ZERO);
@@ -523,6 +532,7 @@ impl FFTMode {
     }
 }
 
+/// FFT working context.
 pub struct FFT {
     perms:  Vec<usize>,
     swaps:  Vec<usize>,
@@ -530,14 +540,17 @@ pub struct FFT {
 }
 
 impl FFT {
+    /// Calculates Fourier transform.
     pub fn do_fft(&mut self, src: &[FFTComplex], dst: &mut [FFTComplex]) {
         for k in 0..src.len() { dst[k] = src[self.perms[k]]; }
         self.do_fft_core(dst);
     }
+    /// Calculates inverse Fourier transform.
     pub fn do_ifft(&mut self, src: &[FFTComplex], dst: &mut [FFTComplex]) {
         for k in 0..src.len() { dst[k] = src[self.perms[k]]; }
         self.do_ifft_core(dst);
     }
+    /// Performs inplace FFT.
     pub fn do_fft_inplace(&mut self, data: &mut [FFTComplex]) {
         for idx in 0..self.swaps.len() {
             let nidx = self.swaps[idx];
@@ -547,6 +560,7 @@ impl FFT {
         }
         self.do_fft_core(data);
     }
+    /// Performs inplace inverse FFT.
     pub fn do_ifft_inplace(&mut self, data: &mut [FFTComplex]) {
         for idx in 0..self.swaps.len() {
             let nidx = self.swaps[idx];
@@ -606,6 +620,9 @@ impl FFT {
     }
 }
 
+/// [`FFT`] context creator.
+///
+/// [`FFT`]: ./struct.FFT.html
 pub struct FFTBuilder {
 }
 
@@ -683,6 +700,7 @@ impl FFTBuilder {
             }
         }
     }
+    /// Constructs a new `FFT` context.
     pub fn new_fft(size: usize, forward: bool) -> FFT {
         let mut ffts: Vec<(FFTMode, FFTData)> = Vec::with_capacity(1);
         let mut perms: Vec<usize> = Vec::with_capacity(size);
@@ -725,6 +743,7 @@ impl FFTBuilder {
     }
 }
 
+/// RDFT working context.
 pub struct RDFT {
     table:  Vec<FFTComplex>,
     fft:    FFT,
@@ -738,10 +757,12 @@ fn crossadd(a: FFTComplex, b: FFTComplex) -> FFTComplex {
 }
 
 impl RDFT {
+    /// Calculates RDFT.
     pub fn do_rdft(&mut self, src: &[FFTComplex], dst: &mut [FFTComplex]) {
         dst.copy_from_slice(src);
         self.do_rdft_inplace(dst);
     }
+    /// Calculates inplace RDFT.
     pub fn do_rdft_inplace(&mut self, buf: &mut [FFTComplex]) {
         if !self.fwd {
             for n in 0..self.size/2 {
@@ -790,10 +811,14 @@ impl RDFT {
     }
 }
 
+/// [`RDFT`] context creator.
+///
+/// [`RDFT`]: ./struct.FFT.html
 pub struct RDFTBuilder {
 }
 
 impl RDFTBuilder {
+    /// Constructs a new `RDFT` context.
     pub fn new_rdft(size: usize, forward: bool, forward_fft: bool) -> RDFT {
         let mut table: Vec<FFTComplex> = Vec::with_capacity(size / 4);
         let (base, scale) = if forward { (consts::PI / (size as f32), 0.5) } else { (-consts::PI / (size as f32), 1.0) };
