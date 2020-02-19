@@ -1,5 +1,7 @@
+//! Various pixel block manipulation functions.
 use crate::frame::*;
 
+/// Puts YUV420 16x16 macroblock data onto picture in the requested place.
 pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i16;64]; 6]) {
     let stridey = buf.get_stride(0);
     let strideu = buf.get_stride(1);
@@ -54,6 +56,7 @@ pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     }
 }
 
+/// Adds YUV420 16x16 macroblock coefficients to the picture in the requested place.
 pub fn add_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i16;64]; 6]) {
     let stridey = buf.get_stride(0);
     let strideu = buf.get_stride(1);
@@ -108,6 +111,7 @@ pub fn add_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
     }
 }
 
+/// Copies block from the picture with pixels beyond the picture borders being replaced with replicated edge pixels.
 pub fn edge_emu(src: &NAVideoBuffer<u8>, xpos: isize, ypos: isize, bw: usize, bh: usize, dst: &mut [u8], dstride: usize, comp: usize) {
     let stride = src.get_stride(comp);
     let offs   = src.get_offset(comp);
@@ -131,8 +135,27 @@ pub fn edge_emu(src: &NAVideoBuffer<u8>, xpos: isize, ypos: isize, bw: usize, bh
     }
 }
 
+/// A generic type for motion interpolation function used by [`copy_blocks`]
+///
+/// The function expects following parameters:
+/// * destination buffer
+/// * destination buffer stride
+/// * source buffer
+/// * source buffer stride
+/// * block width
+/// * block height
+///
+/// [`copy_blocks`]: ./fn.copy_blocks.html
 pub type BlkInterpFunc = fn(&mut [u8], usize, &[u8], usize, usize, usize);
 
+/// Performs motion compensation on YUV420 macroblock.
+///
+/// Arguments:
+/// * `dx` and `dy` - destination coordinates
+/// * `sx` and `sy` - source coordinates
+/// * `bw` and `bh` - block dimensions
+/// * `preborder` and `postborder` - number of pixels before and after interpolated one used by the interpolation filter.
+/// * `mode` - interpolation mode (essentially the index for the `interp` array)
 pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
                    dx: usize, dy: usize, sx: isize, sy: isize, bw: usize, bh: usize,
                    preborder: usize, postborder: usize,
@@ -185,6 +208,11 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
     }
 }
 
+/// Performs motion compensation on arbitrary block on some plane.
+///
+/// See [`copy_blocks`] for the arguments explanation.
+///
+/// [`copy_blocks`]: ./fn.copy_blocks.html
 pub fn copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>, comp: usize,
                   dx: usize, dy: usize, mv_x: i16, mv_y: i16, bw: usize, bh: usize,
                   preborder: usize, postborder: usize,
