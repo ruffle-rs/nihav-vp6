@@ -1,3 +1,4 @@
+//! Packets and decoded frames functionality.
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt;
@@ -5,22 +6,32 @@ use std::sync::Arc;
 pub use crate::formats::*;
 pub use crate::refs::*;
 
+/// Audio stream information.
 #[allow(dead_code)]
 #[derive(Clone,Copy,PartialEq)]
 pub struct NAAudioInfo {
+    /// Sample rate.
     pub sample_rate: u32,
+    /// Number of channels.
     pub channels:    u8,
+    /// Audio sample format.
     pub format:      NASoniton,
+    /// Length of one audio block in samples.
     pub block_len:   usize,
 }
 
 impl NAAudioInfo {
+    /// Constructs a new `NAAudioInfo` instance.
     pub fn new(sr: u32, ch: u8, fmt: NASoniton, bl: usize) -> Self {
         NAAudioInfo { sample_rate: sr, channels: ch, format: fmt, block_len: bl }
     }
+    /// Returns audio sample rate.
     pub fn get_sample_rate(&self) -> u32 { self.sample_rate }
+    /// Returns the number of channels.
     pub fn get_channels(&self) -> u8 { self.channels }
+    /// Returns sample format.
     pub fn get_format(&self) -> NASoniton { self.format }
+    /// Returns one audio block duration in samples.
     pub fn get_block_len(&self) -> usize { self.block_len }
 }
 
@@ -30,24 +41,36 @@ impl fmt::Display for NAAudioInfo {
     }
 }
 
+/// Video stream information.
 #[allow(dead_code)]
 #[derive(Clone,Copy,PartialEq)]
 pub struct NAVideoInfo {
+    /// Picture width.
     width:      usize,
+    /// Picture height.
     height:     usize,
+    /// Picture is stored downside up.
     flipped:    bool,
+    /// Picture pixel format.
     format:     NAPixelFormaton,
 }
 
 impl NAVideoInfo {
+    /// Constructs a new `NAVideoInfo` instance.
     pub fn new(w: usize, h: usize, flip: bool, fmt: NAPixelFormaton) -> Self {
         NAVideoInfo { width: w, height: h, flipped: flip, format: fmt }
     }
+    /// Returns picture width.
     pub fn get_width(&self)  -> usize { self.width as usize }
+    /// Returns picture height.
     pub fn get_height(&self) -> usize { self.height as usize }
+    /// Returns picture orientation.
     pub fn is_flipped(&self) -> bool { self.flipped }
+    /// Returns picture pixel format.
     pub fn get_format(&self) -> NAPixelFormaton { self.format }
+    /// Sets new picture width.
     pub fn set_width(&mut self, w: usize)  { self.width  = w; }
+    /// Sets new picture height.
     pub fn set_height(&mut self, h: usize) { self.height = h; }
 }
 
@@ -57,32 +80,40 @@ impl fmt::Display for NAVideoInfo {
     }
 }
 
+/// A list of possible stream information types.
 #[derive(Clone,Copy,PartialEq)]
 pub enum NACodecTypeInfo {
+    /// No codec present.
     None,
+    /// Audio codec information.
     Audio(NAAudioInfo),
+    /// Video codec information.
     Video(NAVideoInfo),
 }
 
 impl NACodecTypeInfo {
+    /// Returns video stream information.
     pub fn get_video_info(&self) -> Option<NAVideoInfo> {
         match *self {
             NACodecTypeInfo::Video(vinfo) => Some(vinfo),
             _ => None,
         }
     }
+    /// Returns audio stream information.
     pub fn get_audio_info(&self) -> Option<NAAudioInfo> {
         match *self {
             NACodecTypeInfo::Audio(ainfo) => Some(ainfo),
             _ => None,
         }
     }
+    /// Reports whether the current stream is video stream.
     pub fn is_video(&self) -> bool {
         match *self {
             NACodecTypeInfo::Video(_) => true,
             _ => false,
         }
     }
+    /// Reports whether the current stream is audio stream.
     pub fn is_audio(&self) -> bool {
         match *self {
             NACodecTypeInfo::Audio(_) => true,
@@ -102,6 +133,10 @@ impl fmt::Display for NACodecTypeInfo {
     }
 }
 
+/// Decoded video frame.
+///
+/// NihAV frames are stored in native type (8/16/32-bit elements) inside a single buffer.
+/// In case of image with several components those components are stored sequentially and can be accessed in the buffer starting at corresponding component offset.
 #[derive(Clone)]
 pub struct NAVideoBuffer<T> {
     info:    NAVideoInfo,
@@ -111,14 +146,20 @@ pub struct NAVideoBuffer<T> {
 }
 
 impl<T: Clone> NAVideoBuffer<T> {
+    /// Returns the component offset (0 for all unavailable offsets).
     pub fn get_offset(&self, idx: usize) -> usize {
         if idx >= self.offs.len() { 0 }
         else { self.offs[idx] }
     }
+    /// Returns picture info.
     pub fn get_info(&self) -> NAVideoInfo { self.info }
+    /// Returns an immutable reference to the data.
     pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
+    /// Returns a mutable reference to the data.
     pub fn get_data_mut(&mut self) -> Option<&mut Vec<T>> { self.data.as_mut() }
+    /// Returns the number of components in picture format.
     pub fn get_num_components(&self) -> usize { self.offs.len() }
+    /// Creates a copy of current `NAVideoBuffer`.
     pub fn copy_buffer(&mut self) -> Self {
         let mut data: Vec<T> = Vec::with_capacity(self.data.len());
         data.clone_from(self.data.as_ref());
@@ -128,20 +169,28 @@ impl<T: Clone> NAVideoBuffer<T> {
         strides.clone_from(&self.strides);
         NAVideoBuffer { info: self.info, data: NABufferRef::new(data), offs, strides }
     }
+    /// Returns stride (distance between subsequent lines) for the requested component.
     pub fn get_stride(&self, idx: usize) -> usize {
         if idx >= self.strides.len() { return 0; }
         self.strides[idx]
     }
+    /// Returns requested component dimensions.
     pub fn get_dimensions(&self, idx: usize) -> (usize, usize) {
         get_plane_size(&self.info, idx)
     }
+    /// Converts current instance into buffer reference.
     pub fn into_ref(self) -> NABufferRef<Self> {
         NABufferRef::new(self)
     }
 }
 
+/// A specialised type for reference-counted `NAVideoBuffer`.
 pub type NAVideoBufferRef<T> = NABufferRef<NAVideoBuffer<T>>;
 
+/// Decoded audio frame.
+///
+/// NihAV frames are stored in native type (8/16/32-bit elements) inside a single buffer.
+/// In case of planar audio samples for each channel are stored sequentially and can be accessed in the buffer starting at corresponding channel offset.
 #[derive(Clone)]
 pub struct NAAudioBuffer<T> {
     info:   NAAudioInfo,
@@ -153,15 +202,22 @@ pub struct NAAudioBuffer<T> {
 }
 
 impl<T: Clone> NAAudioBuffer<T> {
+    /// Returns the start position of requested channel data.
     pub fn get_offset(&self, idx: usize) -> usize {
         if idx >= self.offs.len() { 0 }
         else { self.offs[idx] }
     }
+    /// Returns the distance between the start of one channel and the next one.
     pub fn get_stride(&self) -> usize { self.stride }
+    /// Returns audio format information.
     pub fn get_info(&self) -> NAAudioInfo { self.info }
+    /// Returns channel map.
     pub fn get_chmap(&self) -> &NAChannelMap { &self.chmap }
+    /// Returns an immutable reference to the data.
     pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
+    /// Returns a mutable reference to the data.
     pub fn get_data_mut(&mut self) -> Option<&mut Vec<T>> { self.data.as_mut() }
+    /// Clones current `NAAudioBuffer` into a new one.
     pub fn copy_buffer(&mut self) -> Self {
         let mut data: Vec<T> = Vec::with_capacity(self.data.len());
         data.clone_from(self.data.as_ref());
@@ -169,32 +225,47 @@ impl<T: Clone> NAAudioBuffer<T> {
         offs.clone_from(&self.offs);
         NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap().clone(), len: self.len, stride: self.stride }
     }
+    /// Return the length of frame in samples.
     pub fn get_length(&self) -> usize { self.len }
 }
 
 impl NAAudioBuffer<u8> {
+    /// Constructs a new `NAAudioBuffer` instance.
     pub fn new_from_buf(info: NAAudioInfo, data: NABufferRef<Vec<u8>>, chmap: NAChannelMap) -> Self {
         let len = data.len();
         NAAudioBuffer { info, data, chmap, offs: Vec::new(), len, stride: 0 }
     }
 }
 
+/// A list of possible decoded frame types.
 #[derive(Clone)]
 pub enum NABufferType {
+    /// 8-bit video buffer.
     Video      (NAVideoBufferRef<u8>),
+    /// 16-bit video buffer (i.e. every component or packed pixel fits into 16 bits).
     Video16    (NAVideoBufferRef<u16>),
+    /// 32-bit video buffer (i.e. every component or packed pixel fits into 32 bits).
     Video32    (NAVideoBufferRef<u32>),
+    /// Packed video buffer.
     VideoPacked(NAVideoBufferRef<u8>),
+    /// Audio buffer with 8-bit unsigned integer audio.
     AudioU8    (NAAudioBuffer<u8>),
+    /// Audio buffer with 16-bit signed integer audio.
     AudioI16   (NAAudioBuffer<i16>),
+    /// Audio buffer with 32-bit signed integer audio.
     AudioI32   (NAAudioBuffer<i32>),
+    /// Audio buffer with 32-bit floating point audio.
     AudioF32   (NAAudioBuffer<f32>),
+    /// Packed audio buffer.
     AudioPacked(NAAudioBuffer<u8>),
+    /// Buffer with generic data (e.g. subtitles).
     Data       (NABufferRef<Vec<u8>>),
+    /// No data present.
     None,
 }
 
 impl NABufferType {
+    /// Returns the offset to the requested component or channel.
     pub fn get_offset(&self, idx: usize) -> usize {
         match *self {
             NABufferType::Video(ref vb)       => vb.get_offset(idx),
@@ -208,6 +279,7 @@ impl NABufferType {
             _ => 0,
         }
     }
+    /// Returns information for video frames.
     pub fn get_video_info(&self) -> Option<NAVideoInfo> {
         match *self {
             NABufferType::Video(ref vb)       => Some(vb.get_info()),
@@ -217,6 +289,7 @@ impl NABufferType {
             _ => None,
         }
     }
+    /// Returns reference to 8-bit (or packed) video buffer.
     pub fn get_vbuf(&self) -> Option<NAVideoBufferRef<u8>> {
         match *self {
             NABufferType::Video(ref vb)       => Some(vb.clone()),
@@ -224,18 +297,21 @@ impl NABufferType {
             _ => None,
         }
     }
+    /// Returns reference to 16-bit video buffer.
     pub fn get_vbuf16(&self) -> Option<NAVideoBufferRef<u16>> {
         match *self {
             NABufferType::Video16(ref vb)     => Some(vb.clone()),
             _ => None,
         }
     }
+    /// Returns reference to 32-bit video buffer.
     pub fn get_vbuf32(&self) -> Option<NAVideoBufferRef<u32>> {
         match *self {
             NABufferType::Video32(ref vb)     => Some(vb.clone()),
             _ => None,
         }
     }
+    /// Returns information for audio frames.
     pub fn get_audio_info(&self) -> Option<NAAudioInfo> {
         match *self {
             NABufferType::AudioU8(ref ab)     => Some(ab.get_info()),
@@ -246,6 +322,7 @@ impl NABufferType {
             _ => None,
         }
     }
+    /// Returns audio channel map.
     pub fn get_chmap(&self) -> Option<&NAChannelMap> {
         match *self {
             NABufferType::AudioU8(ref ab)     => Some(ab.get_chmap()),
@@ -256,6 +333,7 @@ impl NABufferType {
             _ => None,
         }
     }
+    /// Returns audio frame duration in samples.
     pub fn get_audio_length(&self) -> usize {
         match *self {
             NABufferType::AudioU8(ref ab)     => ab.get_length(),
@@ -266,6 +344,7 @@ impl NABufferType {
             _ => 0,
         }
     }
+    /// Returns the distance between starts of two channels.
     pub fn get_audio_stride(&self) -> usize {
         match *self {
             NABufferType::AudioU8(ref ab)     => ab.get_stride(),
@@ -276,6 +355,7 @@ impl NABufferType {
             _ => 0,
         }
     }
+    /// Returns reference to 8-bit (or packed) audio buffer.
     pub fn get_abuf_u8(&self) -> Option<NAAudioBuffer<u8>> {
         match *self {
             NABufferType::AudioU8(ref ab) => Some(ab.clone()),
@@ -283,18 +363,21 @@ impl NABufferType {
             _ => None,
         }
     }
+    /// Returns reference to 16-bit audio buffer.
     pub fn get_abuf_i16(&self) -> Option<NAAudioBuffer<i16>> {
         match *self {
             NABufferType::AudioI16(ref ab) => Some(ab.clone()),
             _ => None,
         }
     }
+    /// Returns reference to 32-bit integer audio buffer.
     pub fn get_abuf_i32(&self) -> Option<NAAudioBuffer<i32>> {
         match *self {
             NABufferType::AudioI32(ref ab) => Some(ab.clone()),
             _ => None,
         }
     }
+    /// Returns reference to 32-bit floating point audio buffer.
     pub fn get_abuf_f32(&self) -> Option<NAAudioBuffer<f32>> {
         match *self {
             NABufferType::AudioF32(ref ab) => Some(ab.clone()),
@@ -304,17 +387,26 @@ impl NABufferType {
 }
 
 const NA_SIMPLE_VFRAME_COMPONENTS: usize = 4;
+/// Simplified decoded frame data.
 pub struct NASimpleVideoFrame<'a, T: Copy> {
+    /// Widths of each picture component.
     pub width:      [usize; NA_SIMPLE_VFRAME_COMPONENTS],
+    /// Heights of each picture component.
     pub height:     [usize; NA_SIMPLE_VFRAME_COMPONENTS],
+    /// Orientation (upside-down or downside-up) flag.
     pub flip:       bool,
+    /// Strides for each component.
     pub stride:     [usize; NA_SIMPLE_VFRAME_COMPONENTS],
+    /// Start of each component.
     pub offset:     [usize; NA_SIMPLE_VFRAME_COMPONENTS],
+    /// Number of components.
     pub components: usize,
+    /// Pointer to the picture pixel data.
     pub data:       &'a mut [T],
 }
 
 impl<'a, T:Copy> NASimpleVideoFrame<'a, T> {
+    /// Constructs a new instance of `NASimpleVideoFrame` from `NAVideoBuffer`.
     pub fn from_video_buf(vbuf: &'a mut NAVideoBuffer<T>) -> Option<Self> {
         let vinfo = vbuf.get_info();
         let components = vinfo.format.components as usize;
@@ -345,12 +437,18 @@ impl<'a, T:Copy> NASimpleVideoFrame<'a, T> {
     }
 }
 
+/// A list of possible frame allocator errors.
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum AllocatorError {
+    /// Requested picture dimensions are too large.
     TooLargeDimensions,
+    /// Invalid input format.
     FormatError,
 }
 
+/// Constructs a new video buffer with requested format.
+///
+/// `align` is power of two alignment for image. E.g. the value of 5 means that frame dimensions will be padded to be multiple of 32.
 pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType, AllocatorError> {
     let fmt = &vinfo.format;
     let mut new_size: usize = 0;
@@ -460,6 +558,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     }
 }
 
+/// Constructs a new audio buffer for the requested format and length.
 #[allow(clippy::collapsible_if)]
 pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelMap) -> Result<NABufferType, AllocatorError> {
     let mut offs: Vec<usize> = Vec::new();
@@ -502,16 +601,22 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
     }
 }
 
+/// Constructs a new buffer for generic data.
 pub fn alloc_data_buffer(size: usize) -> Result<NABufferType, AllocatorError> {
     let data: Vec<u8> = vec![0; size];
     let buf: NABufferRef<Vec<u8>> = NABufferRef::new(data);
     Ok(NABufferType::Data(buf))
 }
 
+/// Creates a clone of current buffer.
 pub fn copy_buffer(buf: NABufferType) -> NABufferType {
     buf.clone()
 }
 
+/// Video frame pool.
+///
+/// This structure allows codec to effectively reuse old frames instead of allocating and de-allocating frames every time.
+/// Caller can also reserve some frames for its own purposes e.g. display queue.
 pub struct NAVideoBufferPool<T:Copy> {
     pool:       Vec<NAVideoBufferRef<T>>,
     max_len:    usize,
@@ -519,6 +624,7 @@ pub struct NAVideoBufferPool<T:Copy> {
 }
 
 impl<T:Copy> NAVideoBufferPool<T> {
+    /// Constructs a new `NAVideoBufferPool` instance.
     pub fn new(max_len: usize) -> Self {
         Self {
             pool:       Vec::with_capacity(max_len),
@@ -526,9 +632,11 @@ impl<T:Copy> NAVideoBufferPool<T> {
             add_len: 0,
         }
     }
+    /// Sets the number of buffers reserved for the user.
     pub fn set_dec_bufs(&mut self, add_len: usize) {
         self.add_len = add_len;
     }
+    /// Returns an unused buffer from the pool.
     pub fn get_free(&mut self) -> Option<NAVideoBufferRef<T>> {
         for e in self.pool.iter() {
             if e.get_num_refs() == 1 {
@@ -537,17 +645,22 @@ impl<T:Copy> NAVideoBufferPool<T> {
         }
         None
     }
+    /// Clones provided frame data into a free pool frame.
     pub fn get_copy(&mut self, rbuf: &NAVideoBufferRef<T>) -> Option<NAVideoBufferRef<T>> {
         let mut dbuf = self.get_free()?;
         dbuf.data.copy_from_slice(&rbuf.data);
         Some(dbuf)
     }
+    /// Clears the pool from all frames.
     pub fn reset(&mut self) {
         self.pool.truncate(0);
     }
 }
 
 impl NAVideoBufferPool<u8> {
+    /// Allocates the target amount of video frames using [`alloc_video_buffer`].
+    ///
+    /// [`alloc_video_buffer`]: ./fn.alloc_video_buffer.html
     pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
         let nbufs = self.max_len + self.add_len - self.pool.len();
         for _ in 0..nbufs {
@@ -565,6 +678,9 @@ impl NAVideoBufferPool<u8> {
 }
 
 impl NAVideoBufferPool<u16> {
+    /// Allocates the target amount of video frames using [`alloc_video_buffer`].
+    ///
+    /// [`alloc_video_buffer`]: ./fn.alloc_video_buffer.html
     pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
         let nbufs = self.max_len + self.add_len - self.pool.len();
         for _ in 0..nbufs {
@@ -580,6 +696,9 @@ impl NAVideoBufferPool<u16> {
 }
 
 impl NAVideoBufferPool<u32> {
+    /// Allocates the target amount of video frames using [`alloc_video_buffer`].
+    ///
+    /// [`alloc_video_buffer`]: ./fn.alloc_video_buffer.html
     pub fn prealloc_video(&mut self, vinfo: NAVideoInfo, align: u8) -> Result<(), AllocatorError> {
         let nbufs = self.max_len + self.add_len - self.pool.len();
         for _ in 0..nbufs {
@@ -594,6 +713,7 @@ impl NAVideoBufferPool<u32> {
     }
 }
 
+/// Information about codec contained in a stream.
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct NACodecInfo {
@@ -602,9 +722,11 @@ pub struct NACodecInfo {
     extradata:  Option<Arc<Vec<u8>>>,
 }
 
+/// A specialised type for reference-counted `NACodecInfo`.
 pub type NACodecInfoRef = Arc<NACodecInfo>;
 
 impl NACodecInfo {
+    /// Constructs a new instance of `NACodecInfo`.
     pub fn new(name: &'static str, p: NACodecTypeInfo, edata: Option<Vec<u8>>) -> Self {
         let extradata = match edata {
             None => None,
@@ -612,27 +734,36 @@ impl NACodecInfo {
         };
         NACodecInfo { name, properties: p, extradata }
     }
+    /// Constructs a new reference-counted instance of `NACodecInfo`.
     pub fn new_ref(name: &'static str, p: NACodecTypeInfo, edata: Option<Arc<Vec<u8>>>) -> Self {
         NACodecInfo { name, properties: p, extradata: edata }
     }
+    /// Converts current instance into a reference-counted one.
     pub fn into_ref(self) -> NACodecInfoRef { Arc::new(self) }
+    /// Returns codec information.
     pub fn get_properties(&self) -> NACodecTypeInfo { self.properties }
+    /// Returns additional initialisation data required by the codec.
     pub fn get_extradata(&self) -> Option<Arc<Vec<u8>>> {
         if let Some(ref vec) = self.extradata { return Some(vec.clone()); }
         None
     }
+    /// Returns codec name.
     pub fn get_name(&self) -> &'static str { self.name }
+    /// Reports whether it is a video codec.
     pub fn is_video(&self) -> bool {
         if let NACodecTypeInfo::Video(_) = self.properties { return true; }
         false
     }
+    /// Reports whether it is an audio codec.
     pub fn is_audio(&self) -> bool {
         if let NACodecTypeInfo::Audio(_) = self.properties { return true; }
         false
     }
+    /// Constructs a new empty reference-counted instance of `NACodecInfo`.
     pub fn new_dummy() -> Arc<Self> {
         Arc::new(DUMMY_CODEC_INFO)
     }
+    /// Updates codec infomation.
     pub fn replace_info(&self, p: NACodecTypeInfo) -> Arc<Self> {
         Arc::new(NACodecInfo { name: self.name, properties: p, extradata: self.extradata.clone() })
     }
@@ -652,27 +783,42 @@ impl fmt::Display for NACodecInfo {
     }
 }
 
+/// Default empty codec information.
 pub const DUMMY_CODEC_INFO: NACodecInfo = NACodecInfo {
                                 name: "none",
                                 properties: NACodecTypeInfo::None,
                                 extradata: None };
 
+/// A list of accepted option values.
 #[derive(Debug,Clone)]
 pub enum NAValue {
+    /// Empty value.
     None,
+    /// Integer value.
     Int(i32),
+    /// Long integer value.
     Long(i64),
+    /// String value.
     String(String),
+    /// Binary data value.
     Data(Arc<Vec<u8>>),
 }
 
+/// A list of recognized frame types.
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum FrameType {
+    /// Intra frame type.
     I,
+    /// Inter frame type.
     P,
+    /// Bidirectionally predicted frame.
     B,
+    /// Skip frame.
+    ///
+    /// When such frame is encountered then last frame should be used again if it is needed.
     Skip,
+    /// Some other frame type.
     Other,
 }
 
@@ -688,6 +834,7 @@ impl fmt::Display for FrameType {
     }
 }
 
+/// Timestamp information.
 #[derive(Debug,Clone,Copy)]
 pub struct NATimeInfo {
     pts:            Option<u64>,
@@ -698,16 +845,24 @@ pub struct NATimeInfo {
 }
 
 impl NATimeInfo {
+    /// Constructs a new `NATimeInfo` instance.
     pub fn new(pts: Option<u64>, dts: Option<u64>, duration: Option<u64>, tb_num: u32, tb_den: u32) -> Self {
         NATimeInfo { pts, dts, duration, tb_num, tb_den }
     }
+    /// Returns presentation timestamp.
     pub fn get_pts(&self) -> Option<u64> { self.pts }
+    /// Returns decoding timestamp.
     pub fn get_dts(&self) -> Option<u64> { self.dts }
+    /// Returns duration.
     pub fn get_duration(&self) -> Option<u64> { self.duration }
+    /// Sets new presentation timestamp.
     pub fn set_pts(&mut self, pts: Option<u64>) { self.pts = pts; }
+    /// Sets new decoding timestamp.
     pub fn set_dts(&mut self, dts: Option<u64>) { self.dts = dts; }
+    /// Sets new duration.
     pub fn set_duration(&mut self, dur: Option<u64>) { self.duration = dur; }
 
+    /// Converts time in given scale into timestamp in given base.
     pub fn time_to_ts(time: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
         let tb_num = tb_num as u64;
         let tb_den = tb_den as u64;
@@ -729,6 +884,7 @@ impl NATimeInfo {
             }
         }
     }
+    /// Converts timestamp in given base into time in given scale.
     pub fn ts_to_time(ts: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
         let tb_num = tb_num as u64;
         let tb_den = tb_den as u64;
@@ -751,6 +907,7 @@ impl NATimeInfo {
     }
 }
 
+/// Decoded frame information.
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct NAFrame {
@@ -763,6 +920,7 @@ pub struct NAFrame {
     options:        HashMap<String, NAValue>,
 }
 
+/// A specialised type for reference-counted `NAFrame`.
 pub type NAFrameRef = Arc<NAFrame>;
 
 fn get_plane_size(info: &NAVideoInfo, idx: usize) -> (usize, usize) {
@@ -775,6 +933,7 @@ fn get_plane_size(info: &NAVideoInfo, idx: usize) -> (usize, usize) {
 }
 
 impl NAFrame {
+    /// Constructs a new `NAFrame` instance.
     pub fn new(ts:             NATimeInfo,
                ftype:          FrameType,
                keyframe:       bool,
@@ -783,23 +942,39 @@ impl NAFrame {
                buffer:         NABufferType) -> Self {
         NAFrame { ts, id: 0, buffer, info, ftype, key: keyframe, options }
     }
+    /// Returns frame format information.
     pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
+    /// Returns frame type.
     pub fn get_frame_type(&self) -> FrameType { self.ftype }
+    /// Reports whether the frame is a keyframe.
     pub fn is_keyframe(&self) -> bool { self.key }
+    /// Sets new frame type.
     pub fn set_frame_type(&mut self, ftype: FrameType) { self.ftype = ftype; }
+    /// Sets keyframe flag.
     pub fn set_keyframe(&mut self, key: bool) { self.key = key; }
+    /// Returns frame timestamp.
     pub fn get_time_information(&self) -> NATimeInfo { self.ts }
+    /// Returns frame presentation time.
     pub fn get_pts(&self) -> Option<u64> { self.ts.get_pts() }
+    /// Returns frame decoding time.
     pub fn get_dts(&self) -> Option<u64> { self.ts.get_dts() }
+    /// Returns picture ID.
     pub fn get_id(&self) -> i64 { self.id }
+    /// Returns frame display duration.
     pub fn get_duration(&self) -> Option<u64> { self.ts.get_duration() }
+    /// Sets new presentation timestamp.
     pub fn set_pts(&mut self, pts: Option<u64>) { self.ts.set_pts(pts); }
+    /// Sets new decoding timestamp.
     pub fn set_dts(&mut self, dts: Option<u64>) { self.ts.set_dts(dts); }
+    /// Sets new picture ID.
     pub fn set_id(&mut self, id: i64) { self.id = id; }
+    /// Sets new duration.
     pub fn set_duration(&mut self, dur: Option<u64>) { self.ts.set_duration(dur); }
 
+    /// Returns a reference to the frame data.
     pub fn get_buffer(&self) -> NABufferType { self.buffer.clone() }
 
+    /// Converts current instance into a reference-counted one.
     pub fn into_ref(self) -> NAFrameRef { Arc::new(self) }
 }
 
@@ -814,19 +989,19 @@ impl fmt::Display for NAFrame {
     }
 }
 
-/// Possible stream types.
+/// A list of possible stream types.
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
 pub enum StreamType {
-    /// video stream
+    /// Video stream.
     Video,
-    /// audio stream
+    /// Audio stream.
     Audio,
-    /// subtitles
+    /// Subtitles.
     Subtitles,
-    /// any data stream (or might be an unrecognized audio/video stream)
+    /// Any data stream (or might be an unrecognized audio/video stream).
     Data,
-    /// nonexistent stream
+    /// Nonexistent stream.
     None,
 }
 
@@ -842,6 +1017,7 @@ impl fmt::Display for StreamType {
     }
 }
 
+/// Stream data.
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct NAStream {
@@ -853,8 +1029,10 @@ pub struct NAStream {
     tb_den:         u32,
 }
 
+/// A specialised reference-counted `NAStream` type.
 pub type NAStreamRef = Arc<NAStream>;
 
+/// Downscales the timebase by its greatest common denominator.
 pub fn reduce_timebase(tb_num: u32, tb_den: u32) -> (u32, u32) {
     if tb_num == 0 { return (tb_num, tb_den); }
     if (tb_den % tb_num) == 0 { return (1, tb_den / tb_num); }
@@ -871,21 +1049,30 @@ pub fn reduce_timebase(tb_num: u32, tb_den: u32) -> (u32, u32) {
 }
 
 impl NAStream {
+    /// Constructs a new `NAStream` instance.
     pub fn new(mt: StreamType, id: u32, info: NACodecInfo, tb_num: u32, tb_den: u32) -> Self {
         let (n, d) = reduce_timebase(tb_num, tb_den);
         NAStream { media_type: mt, id, num: 0, info: info.into_ref(), tb_num: n, tb_den: d }
     }
+    /// Returns stream id.
     pub fn get_id(&self) -> u32 { self.id }
+    /// Returns stream type.
     pub fn get_media_type(&self) -> StreamType { self.media_type }
+    /// Returns stream number assigned by demuxer.
     pub fn get_num(&self) -> usize { self.num }
+    /// Sets stream number.
     pub fn set_num(&mut self, num: usize) { self.num = num; }
+    /// Returns codec information.
     pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
+    /// Returns stream timebase.
     pub fn get_timebase(&self) -> (u32, u32) { (self.tb_num, self.tb_den) }
+    /// Sets new stream timebase.
     pub fn set_timebase(&mut self, tb_num: u32, tb_den: u32) {
         let (n, d) = reduce_timebase(tb_num, tb_den);
         self.tb_num = n;
         self.tb_den = d;
     }
+    /// Converts current instance into a reference-counted one.
     pub fn into_ref(self) -> NAStreamRef { Arc::new(self) }
 }
 
@@ -895,6 +1082,7 @@ impl fmt::Display for NAStream {
     }
 }
 
+/// Packet with compressed data.
 #[allow(dead_code)]
 pub struct NAPacket {
     stream:         NAStreamRef,
@@ -905,17 +1093,25 @@ pub struct NAPacket {
 }
 
 impl NAPacket {
+    /// Constructs a new `NAPacket` instance.
     pub fn new(str: NAStreamRef, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
         NAPacket { stream: str, ts, keyframe: kf, buffer: NABufferRef::new(vec) }
     }
+    /// Returns information about the stream packet belongs to.
     pub fn get_stream(&self) -> NAStreamRef { self.stream.clone() }
+    /// Returns packet timestamp.
     pub fn get_time_information(&self) -> NATimeInfo { self.ts }
+    /// Returns packet presentation timestamp.
     pub fn get_pts(&self) -> Option<u64> { self.ts.get_pts() }
+    /// Returns packet decoding timestamp.
     pub fn get_dts(&self) -> Option<u64> { self.ts.get_dts() }
+    /// Returns packet duration.
     pub fn get_duration(&self) -> Option<u64> { self.ts.get_duration() }
+    /// Reports whether this is a keyframe packet.
     pub fn is_keyframe(&self) -> bool { self.keyframe }
+    /// Returns a reference to packet data.
     pub fn get_buffer(&self) -> NABufferRef<Vec<u8>> { self.buffer.clone() }
 }
 
@@ -935,8 +1131,11 @@ impl fmt::Display for NAPacket {
     }
 }
 
+/// A trait for creating `NAFrame` using information from `NAPacket`.
 pub trait FrameFromPacket {
+    /// Creates new frame with metadata from `NAPacket`.
     fn new_from_pkt(pkt: &NAPacket, info: NACodecInfoRef, buf: NABufferType) -> NAFrame;
+    /// Sets frame timestamp from `NAPacket`.
     fn fill_timestamps(&mut self, pkt: &NAPacket);
 }
 
