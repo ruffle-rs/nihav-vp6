@@ -985,6 +985,11 @@ impl NAFrame {
 
     /// Converts current instance into a reference-counted one.
     pub fn into_ref(self) -> NAFrameRef { Arc::new(self) }
+
+    /// Creates new frame with metadata from `NAPacket`.
+    pub fn new_from_pkt(pkt: &NAPacket, info: NACodecInfoRef, buf: NABufferType) -> NAFrame {
+        NAFrame::new(pkt.ts, FrameType::Other, pkt.keyframe, info, /*HashMap::new(),*/ buf)
+    }
 }
 
 impl fmt::Display for NAFrame {
@@ -1144,21 +1149,3 @@ impl fmt::Display for NAPacket {
         write!(f, "{}", ostr)
     }
 }
-
-/// A trait for creating `NAFrame` using information from `NAPacket`.
-pub trait FrameFromPacket {
-    /// Creates new frame with metadata from `NAPacket`.
-    fn new_from_pkt(pkt: &NAPacket, info: NACodecInfoRef, buf: NABufferType) -> NAFrame;
-    /// Sets frame timestamp from `NAPacket`.
-    fn fill_timestamps(&mut self, pkt: &NAPacket);
-}
-
-impl FrameFromPacket for NAFrame {
-    fn new_from_pkt(pkt: &NAPacket, info: NACodecInfoRef, buf: NABufferType) -> NAFrame {
-        NAFrame::new(pkt.ts, FrameType::Other, pkt.keyframe, info, /*HashMap::new(),*/ buf)
-    }
-    fn fill_timestamps(&mut self, pkt: &NAPacket) {
-        self.ts = pkt.get_time_information();
-    }
-}
-
