@@ -1,6 +1,6 @@
 //! Packets and decoded frames functionality.
 use std::cmp::max;
-use std::collections::HashMap;
+//use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 pub use crate::formats::*;
@@ -926,7 +926,7 @@ pub struct NAFrame {
     pub frame_type:     FrameType,
     /// Keyframe flag.
     pub key:            bool,
-        options:        HashMap<String, NAValue>,
+//        options:        HashMap<String, NAValue>,
 }
 
 /// A specialised type for reference-counted `NAFrame`.
@@ -947,9 +947,9 @@ impl NAFrame {
                ftype:          FrameType,
                keyframe:       bool,
                info:           NACodecInfoRef,
-               options:        HashMap<String, NAValue>,
+               /*options:        HashMap<String, NAValue>,*/
                buffer:         NABufferType) -> Self {
-        NAFrame { ts, id: 0, buffer, info, frame_type: ftype, key: keyframe, options }
+        NAFrame { ts, id: 0, buffer, info, frame_type: ftype, key: keyframe/*, options*/ }
     }
     /// Returns frame format information.
     pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
@@ -1155,7 +1155,7 @@ pub trait FrameFromPacket {
 
 impl FrameFromPacket for NAFrame {
     fn new_from_pkt(pkt: &NAPacket, info: NACodecInfoRef, buf: NABufferType) -> NAFrame {
-        NAFrame::new(pkt.ts, FrameType::Other, pkt.keyframe, info, HashMap::new(), buf)
+        NAFrame::new(pkt.ts, FrameType::Other, pkt.keyframe, info, /*HashMap::new(),*/ buf)
     }
     fn fill_timestamps(&mut self, pkt: &NAPacket) {
         self.ts = pkt.get_time_information();
