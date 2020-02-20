@@ -7,6 +7,9 @@ edition = "2018"
 [dependencies.nihav_core]
 path = "../nihav-core"
 
+[dependencies.nihav_registry]
+path = "../nihav-registry"
+
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
 features = ["h263", "mdct", "fft", "dsp_window"]

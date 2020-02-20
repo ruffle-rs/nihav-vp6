@@ -21,7 +21,7 @@
 //! }
 //! ```
 use std::io::SeekFrom;
-use crate::io::byteio::ByteReader;
+use nihav_core::io::byteio::ByteReader;
 
 /// Format detection score.
 #[derive(Debug,Clone,Copy,PartialEq)]

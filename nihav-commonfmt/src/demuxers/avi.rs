@@ -1,5 +1,5 @@
 use nihav_core::demuxers::*;
-use nihav_core::register;
+use nihav_registry::register;
 use nihav_core::demuxers::DemuxerError::*;
 
 macro_rules! mktag {

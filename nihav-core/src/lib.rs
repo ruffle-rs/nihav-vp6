@@ -15,9 +15,6 @@ pub mod frame;
 #[allow(clippy::too_many_arguments)]
 pub mod io;
 pub mod refs;
-pub mod register;
-#[allow(clippy::unreadable_literal)]
-pub mod detect;
 pub mod reorder;
 pub mod scale;
 pub mod soundcvt;

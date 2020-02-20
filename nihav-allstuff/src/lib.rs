@@ -45,9 +45,12 @@ pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
 }
 
 #[cfg(test)]
+extern crate nihav_registry;
+
+#[cfg(test)]
 mod test {
     use super::*;
-    use nihav_core::register::get_codec_description;
+    use nihav_registry::register::get_codec_description;
 
     #[test]
     fn test_descriptions() {

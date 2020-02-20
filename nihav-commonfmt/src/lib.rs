@@ -1,5 +1,6 @@
 extern crate nihav_core;
 extern crate nihav_codec_support;
+extern crate nihav_registry;
 
 #[cfg(feature="decoders")]
 #[allow(clippy::unreadable_literal)]

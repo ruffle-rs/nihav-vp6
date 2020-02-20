@@ -12,3 +12,6 @@ nihav_game = { path = "../nihav-game" }
 nihav_indeo = { path = "../nihav-indeo" }
 nihav_rad = { path = "../nihav-rad" }
 nihav_realmedia = { path = "../nihav-realmedia" }
+
+[dev-dependencies]
+nihav_registry = { path = "../nihav-registry" }
