@@ -1,5 +1,6 @@
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
+use nihav_codec_support::codecs::{MV, ZERO_MV};
 use super::vpcommon::*;
 
 pub const TOKEN_LARGE: u8 = 5;

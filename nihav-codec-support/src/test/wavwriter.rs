@@ -1,6 +1,6 @@
 //! Audio output in WAV format.
-use crate::io::byteio::*;
-use crate::frame::*;
+use nihav_core::io::byteio::*;
+use nihav_core::frame::*;
 use std::io::SeekFrom;
 
 /// WAVE output writer.

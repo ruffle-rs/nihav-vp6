@@ -1,5 +1,6 @@
 use nihav_core::codecs::*;
-use nihav_core::codecs::blockdsp::*;
+use nihav_codec_support::codecs::blockdsp;
+use nihav_codec_support::codecs::blockdsp::*;
 
 pub const VP_YUVA420_FORMAT: NAPixelFormaton = NAPixelFormaton{
         model:      ColorModel::YUV(YUVSubmodel::YUVJ),

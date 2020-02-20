@@ -1,6 +1,7 @@
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::frame::*;
-use nihav_core::codecs::{NADecoder, NADecoderSupport, MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
+use nihav_core::codecs::{NADecoder, NADecoderSupport, DecoderError, DecoderResult};
+use nihav_codec_support::codecs::{MV, ZERO_MV, IPBShuffler};
 use nihav_core::io::byteio::{MemoryReader,ByteReader};
 use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 use nihav_core::io::intcode::*;

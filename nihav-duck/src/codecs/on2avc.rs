@@ -4,8 +4,8 @@ use nihav_core::io::byteio::read_u16le;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::io::intcode::*;
-use nihav_core::dsp::fft::*;
-use nihav_core::dsp::mdct::IMDCT;
+use nihav_codec_support::dsp::fft::*;
+use nihav_codec_support::dsp::mdct::IMDCT;
 
 use std::str::FromStr;
 

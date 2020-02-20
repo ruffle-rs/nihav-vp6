@@ -1,5 +1,6 @@
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
+use nihav_codec_support::codecs::{MV, ZIGZAG};
 use super::vpcommon::*;
 use super::vp56::*;
 

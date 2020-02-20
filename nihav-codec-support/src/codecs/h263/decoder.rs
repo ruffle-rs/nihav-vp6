@@ -1,10 +1,11 @@
 //use std::mem;
-use crate::frame::*;
+use nihav_core::codecs::DecoderError;
+use nihav_core::frame::*;
 use super::super::*;
 use super::super::blockdsp;
 use super::*;
 //use super::code::*;
-use crate::formats;
+use nihav_core::formats;
 
 #[allow(dead_code)]
 struct MVInfo {

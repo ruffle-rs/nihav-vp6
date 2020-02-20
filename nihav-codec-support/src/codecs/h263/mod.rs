@@ -1,5 +1,6 @@
-use super::{DecoderResult, MV, ZERO_MV};
-use crate::frame::NAVideoBuffer;
+use nihav_core::codecs::DecoderResult;
+use super::{MV, ZERO_MV};
+use nihav_core::frame::NAVideoBuffer;
 
 #[allow(clippy::many_single_char_names)]
 pub mod code;

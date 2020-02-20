@@ -7,8 +7,8 @@ use nihav_core::frame::*;
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
-use nihav_core::dsp::fft::*;
-use nihav_core::dsp::window::*;
+use nihav_codec_support::dsp::fft::*;
+use nihav_codec_support::dsp::window::*;
 
 const BANDS:      usize =  32;
 const COEFFS:     usize = 256;

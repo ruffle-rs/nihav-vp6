@@ -1,9 +1,10 @@
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::frame::{NABufferType, NAVideoInfo, NAVideoBuffer, NAVideoBufferRef, FrameType, alloc_video_buffer};
-use nihav_core::codecs::{NADecoderSupport, MV, ZERO_MV, DecoderError, DecoderResult, IPBShuffler};
+use nihav_core::codecs::{NADecoderSupport, DecoderError, DecoderResult};
+use nihav_codec_support::codecs::{MV, ZERO_MV, IPBShuffler};
 use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 use nihav_core::io::intcode::*;
-use nihav_core::data::GenericCache;
+use nihav_codec_support::data::GenericCache;
 use std::mem;
 
 use super::rv34codes::*;

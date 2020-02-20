@@ -9,12 +9,3 @@ default = ["decoders", "demuxers"]
 
 decoders = []
 demuxers = []
-
-blockdsp = []
-h263 = ["blockdsp"]
-
-dsp = []
-dct = ["dsp"]
-fft = ["dsp"]
-mdct = ["fft", "dsp"]
-dsp_window = ["dsp"]

@@ -1,11 +1,11 @@
 //! Routines for testing decoders.
 use std::fs::File;
 use std::io::prelude::*;
-use crate::frame::*;
-use crate::codecs::*;
-use crate::demuxers::*;
-//use crate::io::byteio::*;
-use crate::scale::*;
+use nihav_core::frame::*;
+use nihav_core::codecs::*;
+use nihav_core::demuxers::*;
+//use nihav_core::io::byteio::*;
+use nihav_core::scale::*;
 use super::wavwriter::WavWriter;
 use super::md5::MD5;
 pub use super::ExpectedTestResult;
@@ -435,8 +435,8 @@ fn frame_checksum(md5: &mut MD5, frm: NAFrameRef) {
 ///
 /// Test RealVideo 4 decoder in test stream:
 /// ```no_run
-/// use nihav_core::test::ExpectedTestResult;
-/// use nihav_core::test::dec_video::test_decoding;
+/// use nihav_codec_support::test::ExpectedTestResult;
+/// use nihav_codec_support::test::dec_video::test_decoding;
 /// use nihav_core::codecs::RegisteredDecoders;
 /// use nihav_core::demuxers::RegisteredDemuxers;
 ///

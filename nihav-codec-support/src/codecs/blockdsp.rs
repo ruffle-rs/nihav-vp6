@@ -1,5 +1,5 @@
 //! Various pixel block manipulation functions.
-use crate::frame::*;
+use nihav_core::frame::*;
 
 /// Puts YUV420 16x16 macroblock data onto picture in the requested place.
 pub fn put_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[[i16;64]; 6]) {

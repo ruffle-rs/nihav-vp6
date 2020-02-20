@@ -2,6 +2,7 @@ use nihav_core::io::bitreader::*;
 use nihav_core::formats;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
+use nihav_codec_support::codecs::ZIGZAG;
 use super::ivi::*;
 use super::ivibr::*;
 

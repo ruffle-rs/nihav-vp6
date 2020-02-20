@@ -3,6 +3,7 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
+use nihav_codec_support::codecs::{IPShuffler, HAMShuffler};
 
 const SKIP_BLOCK: u8 = 0;
 const SCALED_BLOCK: u8 = 1;

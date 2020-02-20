@@ -1,7 +1,7 @@
 use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
-use nihav_core::dsp::mdct::IMDCT;
+use nihav_codec_support::dsp::mdct::IMDCT;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::byteio::{ByteReader, MemoryReader};
 use nihav_core::io::codebook::*;

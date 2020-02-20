@@ -8,6 +8,10 @@ edition = "2018"
 path = "../nihav-core"
 features = []
 
+[dependencies.nihav_codec_support]
+path = "../nihav-codec-support"
+features = []
+
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt" }
 

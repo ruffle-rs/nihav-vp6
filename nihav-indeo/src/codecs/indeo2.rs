@@ -2,6 +2,7 @@ use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::formats;
 use nihav_core::codecs::*;
+use nihav_codec_support::codecs::HAMShuffler;
 
 static INDEO2_DELTA_TABLE: [[u8; 256]; 4] = [
     [

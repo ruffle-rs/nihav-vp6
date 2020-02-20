@@ -1,6 +1,7 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
-use nihav_core::data::GenericCache;
+use nihav_codec_support::codecs::{MV, ZERO_MV};
+use nihav_codec_support::data::GenericCache;
 use super::vpcommon::*;
 use super::vp7data::*;
 use super::vp7dsp::*;

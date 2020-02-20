@@ -1,7 +1,8 @@
 use std::mem;
 use std::ptr;
 use nihav_core::codecs::*;
-use nihav_core::codecs::blockdsp::*;
+use nihav_codec_support::codecs::{MV, ZERO_MV, ZIGZAG};
+use nihav_codec_support::codecs::blockdsp::*;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::io::intcode::*;

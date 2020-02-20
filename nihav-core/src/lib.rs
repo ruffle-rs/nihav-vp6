@@ -21,14 +21,3 @@ pub mod detect;
 pub mod reorder;
 pub mod scale;
 pub mod soundcvt;
-
-#[cfg(feature="dsp")]
-#[allow(clippy::excessive_precision)]
-#[allow(clippy::identity_op)]
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::unreadable_literal)]
-pub mod dsp;
-
-pub mod data;
-
-pub mod test;

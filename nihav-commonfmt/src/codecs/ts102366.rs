@@ -2,7 +2,7 @@ use nihav_core::formats::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
-use nihav_core::dsp::fft::*;
+use nihav_codec_support::dsp::fft::*;
 use std::str::FromStr;
 use std::f32::consts;
 

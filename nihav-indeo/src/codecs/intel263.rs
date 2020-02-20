@@ -3,10 +3,11 @@ use nihav_core::io::codebook::*;
 use nihav_core::formats;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
-use nihav_core::codecs::h263::*;
-use nihav_core::codecs::h263::decoder::*;
-use nihav_core::codecs::h263::data::*;
-use nihav_core::codecs::h263::code::H263BlockDSP;
+use nihav_codec_support::codecs::{MV, ZIGZAG};
+use nihav_codec_support::codecs::h263::*;
+use nihav_codec_support::codecs::h263::decoder::*;
+use nihav_codec_support::codecs::h263::data::*;
+use nihav_codec_support::codecs::h263::code::H263BlockDSP;
 
 #[allow(dead_code)]
 struct Tables {

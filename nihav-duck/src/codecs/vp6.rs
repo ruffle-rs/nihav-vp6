@@ -1,6 +1,7 @@
 use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
-use nihav_core::codecs::blockdsp::edge_emu;
+use nihav_codec_support::codecs::{MV, ZIGZAG};
+use nihav_codec_support::codecs::blockdsp::edge_emu;
 use super::vpcommon::*;
 use super::vp56::*;
 

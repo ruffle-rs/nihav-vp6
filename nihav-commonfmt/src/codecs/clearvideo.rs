@@ -3,6 +3,7 @@ use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::formats;
 use nihav_core::codecs::*;
+use nihav_codec_support::codecs::{HAMShuffler, MV, ZERO_MV, ZIGZAG};
 
 struct CLVDCCodeReader { }
 struct CLVACCodeReader { }

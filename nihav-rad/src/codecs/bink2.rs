@@ -4,6 +4,7 @@ use nihav_core::io::byteio::*;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::codebook::*;
 use nihav_core::io::intcode::*;
+use nihav_codec_support::codecs::{IPShuffler, MV, ZERO_MV};
 
 macro_rules! mktag {
     ($a:expr, $b:expr, $c:expr, $d:expr) => ({

@@ -1,4 +1,5 @@
 extern crate nihav_core;
+extern crate nihav_codec_support;
 
 mod codecs;
 

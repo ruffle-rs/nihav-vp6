@@ -1,5 +1,6 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
+use nihav_codec_support::codecs::HAMShuffler;
 
 #[derive(Default)]
 struct MidividDecoder {

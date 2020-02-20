@@ -1,5 +1,6 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
+use nihav_codec_support::codecs::HAMShuffler;
 use std::str::FromStr;
 
 macro_rules! lz_op {

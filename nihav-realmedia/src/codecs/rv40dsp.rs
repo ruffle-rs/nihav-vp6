@@ -1,6 +1,6 @@
 use nihav_core::frame::{FrameType, NAVideoBuffer};
-use nihav_core::codecs::MV;
-use nihav_core::codecs::blockdsp::edge_emu;
+use nihav_codec_support::codecs::MV;
+use nihav_codec_support::codecs::blockdsp::edge_emu;
 use super::rv3040::{RV34DSP, RV34MBInfo};
 
 fn clip8(a: i16) -> u8 {

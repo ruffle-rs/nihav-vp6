@@ -4,7 +4,7 @@ use nihav_core::codecs::*;
 use nihav_core::io::bitreader::*;
 use nihav_core::io::byteio::*;
 use nihav_core::io::codebook::*;
-use nihav_core::dsp::mdct::IMDCT;
+use nihav_codec_support::dsp::mdct::IMDCT;
 use std::f32::consts;
 
 #[derive(Clone,Copy,PartialEq)]

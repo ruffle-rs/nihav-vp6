@@ -10,7 +10,7 @@
 ///
 /// Create a cache for one line and use top pixel for prediction:
 /// ```
-/// use nihav_core::data::GenericCache;
+/// use nihav_codec_support::data::GenericCache;
 ///
 /// # let width = 640;
 /// # let height = 480;

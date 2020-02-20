@@ -1,6 +1,6 @@
 use nihav_core::codecs::*;
-use nihav_core::dsp::dct::*;
-use nihav_core::dsp::fft::*;
+use nihav_codec_support::dsp::dct::*;
+use nihav_codec_support::dsp::fft::*;
 use nihav_core::io::bitreader::*;
 use std::f32::consts;
 use std::str::FromStr;

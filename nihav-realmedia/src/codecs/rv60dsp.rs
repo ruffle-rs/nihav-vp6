@@ -1,6 +1,6 @@
 use nihav_core::frame::{NAVideoBuffer, NASimpleVideoFrame};
-use nihav_core::codecs::MV;
-use nihav_core::codecs::blockdsp::edge_emu;
+use nihav_codec_support::codecs::MV;
+use nihav_codec_support::codecs::blockdsp::edge_emu;
 
 fn clip8(val: i16) -> u8 { val.min(255).max(0) as u8 }
 
