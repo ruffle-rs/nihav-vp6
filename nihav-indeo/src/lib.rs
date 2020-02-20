@@ -9,7 +9,7 @@ extern crate nihav_codec_support;
 #[allow(clippy::verbose_bit_mask)]
 mod codecs;
 
-pub use codecs::indeo_register_all_codecs;
+pub use crate::codecs::indeo_register_all_codecs;
 
 #[cfg(test)]
 extern crate nihav_commonfmt;

@@ -12,10 +12,10 @@ extern crate nihav_codec_support;
 #[allow(clippy::useless_let_if_seq)]
 mod codecs;
 #[cfg(feature="decoders")]
-pub use codecs::rad_register_all_codecs;
+pub use crate::codecs::rad_register_all_codecs;
 
 #[cfg(feature="demuxers")]
 #[allow(clippy::cast_lossless)]
 mod demuxers;
 #[cfg(feature="demuxers")]
-pub use demuxers::rad_register_all_demuxers;
+pub use crate::demuxers::rad_register_all_demuxers;

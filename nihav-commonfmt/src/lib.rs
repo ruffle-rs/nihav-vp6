@@ -9,12 +9,12 @@ extern crate nihav_registry;
 mod codecs;
 
 #[cfg(feature="decoders")]
-pub use codecs::generic_register_all_codecs;
+pub use crate::codecs::generic_register_all_codecs;
 
 #[cfg(feature="demuxers")]
 mod demuxers;
 #[cfg(feature="demuxers")]
-pub use demuxers::generic_register_all_demuxers;
+pub use crate::demuxers::generic_register_all_demuxers;
 
 #[cfg(test)]
 extern crate nihav_realmedia;
