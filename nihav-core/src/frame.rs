@@ -46,13 +46,13 @@ impl fmt::Display for NAAudioInfo {
 #[derive(Clone,Copy,PartialEq)]
 pub struct NAVideoInfo {
     /// Picture width.
-    width:      usize,
+    pub width:      usize,
     /// Picture height.
-    height:     usize,
+    pub height:     usize,
     /// Picture is stored downside up.
-    flipped:    bool,
+    pub flipped:    bool,
     /// Picture pixel format.
-    format:     NAPixelFormaton,
+    pub format:     NAPixelFormaton,
 }
 
 impl NAVideoInfo {
@@ -837,11 +837,16 @@ impl fmt::Display for FrameType {
 /// Timestamp information.
 #[derive(Debug,Clone,Copy)]
 pub struct NATimeInfo {
-    pts:            Option<u64>,
-    dts:            Option<u64>,
-    duration:       Option<u64>,
-    tb_num:         u32,
-    tb_den:         u32,
+    /// Presentation timestamp.
+    pub pts:            Option<u64>,
+    /// Decode timestamp.
+    pub dts:            Option<u64>,
+    /// Duration (in timebase units).
+    pub duration:       Option<u64>,
+    /// Timebase numerator.
+    pub tb_num:         u32,
+    /// Timebase denominator.
+    pub tb_den:         u32,
 }
 
 impl NATimeInfo {
@@ -911,13 +916,17 @@ impl NATimeInfo {
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct NAFrame {
-    ts:             NATimeInfo,
-    id:             i64,
-    buffer:         NABufferType,
-    info:           NACodecInfoRef,
-    ftype:          FrameType,
-    key:            bool,
-    options:        HashMap<String, NAValue>,
+    /// Frame timestamp.
+    pub ts:             NATimeInfo,
+    /// Frame ID.
+    pub id:             i64,
+        buffer:         NABufferType,
+        info:           NACodecInfoRef,
+    /// Frame type.
+    pub frame_type:     FrameType,
+    /// Keyframe flag.
+    pub key:            bool,
+        options:        HashMap<String, NAValue>,
 }
 
 /// A specialised type for reference-counted `NAFrame`.
@@ -940,16 +949,16 @@ impl NAFrame {
                info:           NACodecInfoRef,
                options:        HashMap<String, NAValue>,
                buffer:         NABufferType) -> Self {
-        NAFrame { ts, id: 0, buffer, info, ftype, key: keyframe, options }
+        NAFrame { ts, id: 0, buffer, info, frame_type: ftype, key: keyframe, options }
     }
     /// Returns frame format information.
     pub fn get_info(&self) -> NACodecInfoRef { self.info.clone() }
     /// Returns frame type.
-    pub fn get_frame_type(&self) -> FrameType { self.ftype }
+    pub fn get_frame_type(&self) -> FrameType { self.frame_type }
     /// Reports whether the frame is a keyframe.
     pub fn is_keyframe(&self) -> bool { self.key }
     /// Sets new frame type.
-    pub fn set_frame_type(&mut self, ftype: FrameType) { self.ftype = ftype; }
+    pub fn set_frame_type(&mut self, ftype: FrameType) { self.frame_type = ftype; }
     /// Sets keyframe flag.
     pub fn set_keyframe(&mut self, key: bool) { self.key = key; }
     /// Returns frame timestamp.
@@ -980,7 +989,7 @@ impl NAFrame {
 
 impl fmt::Display for NAFrame {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut ostr = format!("frame type {}", self.ftype);
+        let mut ostr = format!("frame type {}", self.frame_type);
         if let Some(pts) = self.ts.pts { ostr = format!("{} pts {}", ostr, pts); }
         if let Some(dts) = self.ts.dts { ostr = format!("{} dts {}", ostr, dts); }
         if let Some(dur) = self.ts.duration { ostr = format!("{} duration {}", ostr, dur); }
@@ -1021,12 +1030,15 @@ impl fmt::Display for StreamType {
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct NAStream {
-    media_type:     StreamType,
-    id:             u32,
-    num:            usize,
-    info:           NACodecInfoRef,
-    tb_num:         u32,
-    tb_den:         u32,
+        media_type:     StreamType,
+    /// Stream ID.
+    pub id:             u32,
+        num:            usize,
+        info:           NACodecInfoRef,
+    /// Timebase numerator.
+    pub tb_num:         u32,
+    /// Timebase denominator.
+    pub tb_den:         u32,
 }
 
 /// A specialised reference-counted `NAStream` type.
@@ -1085,10 +1097,12 @@ impl fmt::Display for NAStream {
 /// Packet with compressed data.
 #[allow(dead_code)]
 pub struct NAPacket {
-    stream:         NAStreamRef,
-    ts:             NATimeInfo,
-    buffer:         NABufferRef<Vec<u8>>,
-    keyframe:       bool,
+        stream:         NAStreamRef,
+    /// Packet timestamp.
+    pub ts:             NATimeInfo,
+        buffer:         NABufferRef<Vec<u8>>,
+    /// Keyframe flag.
+    pub keyframe:       bool,
 //    options:        HashMap<String, NAValue<'a>>,
 }
 
