@@ -1111,7 +1111,7 @@ const IMC_CB_SELECTOR: [[usize; BANDS]; 4] = [
 mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
-    use nihav_core::test::dec_video::*;
+    use nihav_codec_support::test::dec_video::*;
     use crate::indeo_register_all_codecs;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]

@@ -1248,7 +1248,7 @@ pub fn get_decoder() -> Box<dyn NADecoder + Send> {
 mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
-    use nihav_core::test::dec_video::test_decode_audio;
+    use nihav_codec_support::test::dec_video::test_decode_audio;
     use crate::generic_register_all_codecs;
     use nihav_realmedia::realmedia_register_all_demuxers;
     #[test]
