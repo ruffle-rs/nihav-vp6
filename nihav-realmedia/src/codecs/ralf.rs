@@ -489,9 +489,8 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_codecs(&mut dec_reg);
 
-        let file = "assets/RV/rv40_ralf.rmvb";
-        test_decode_audio("realmedia", file, Some(2000), None/*Some("ralf")*/, &dmx_reg, &dec_reg);
-//panic!("end");
+        test_decoding("realmedia", "ralf", "assets/RV/rv40_ralf.rmvb", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x6cf18361, 0x9548b5ce, 0x5dfc0b5c, 0x2bd6f392]));
     }
 }
 
