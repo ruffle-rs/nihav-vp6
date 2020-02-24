@@ -562,16 +562,28 @@ pub fn get_decoder_audio() -> Box<dyn NADecoder + Send> {
 mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
-    use nihav_codec_support::test::dec_video::test_file_decoding;
+    use nihav_codec_support::test::dec_video::*;
     use crate::game_register_all_codecs;
     use crate::game_register_all_demuxers;
+
     #[test]
-    fn test_gdv() {
+    fn test_gdv_video() {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("gdv", "assets/Game/intro1.gdv", Some(10), true, false, None, &dmx_reg, &dec_reg);
+        test_decoding("gdv", "gdv-video", "assets/Game/intro1.gdv", Some(10), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x7ea302bf, 0xc3e210cf, 0x6e341376, 0x9e976056]));
+    }
+    #[test]
+    fn test_gdv_audio() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        game_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        game_register_all_codecs(&mut dec_reg);
+
+        test_decoding("gdv", "gdv-audio", "assets/Game/intro1.gdv", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0xd41d8cd9, 0x8f00b204, 0xe9800998, 0xecf8427e]));
     }
 }
