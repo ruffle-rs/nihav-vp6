@@ -194,13 +194,17 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-        let file = "assets/Game/MVDV.avi";
-        //let file = "assets/Game/bbglogo.avi";
-        //let file = "assets/Game/close.avi";
-        //let file = "assets/Game/inland.avi";
-        //let file = "assets/Game/midway.avi";
-        //let file = "assets/Game/midway.1.avi";
-        //let file = "assets/Game/open.avi";
-        test_file_decoding("avi", file, Some(16), true, false, None, &dmx_reg, &dec_reg);
+        test_decoding("avi", "midivid", "assets/Game/MVDV.avi", Some(16), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                        [0x383e1995, 0x32bf000d, 0x2067aa2e, 0x54425bd4],
+                        [0x91d0bff6, 0x5106cb75, 0x463ba358, 0xdc17d126],
+                        [0x4ce54833, 0xb4fd3e35, 0x639d3830, 0xb47f871b],
+                        [0x7c0c5604, 0x3c89e3ff, 0x05ae09f5, 0x7b725143],
+                        [0xc561ddd9, 0xa3515c8e, 0x6119b31a, 0xb1608e77],
+                        [0xa49bb9aa, 0xaf57e55b, 0xf351d4b0, 0x6289cd91],
+                        [0xc7add756, 0x45574231, 0x5f1d651b, 0x2ae29e0d],
+                        [0x7dd57d54, 0x4ec83f80, 0xef2e870b, 0x6cc310fe],
+                        [0xe9c5fed6, 0xa4a4bab2, 0x70f84ed6, 0xc9d8a010],
+                        [0x586ba118, 0x623fd7b9, 0x480fe7ab, 0xa1a5ad6f]]));
     }
 }
