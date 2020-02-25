@@ -495,7 +495,7 @@ impl NADecoder for SmackerAudioDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.bits = ainfo.get_format().get_bits();
-            let fmt = if self.bits == 8 { SND_U8_FORMAT } else { SND_S16P_FORMAT };
+            let fmt = if self.bits == 8 { SND_U8_FORMAT } else { SND_S16_FORMAT };
             self.chans = ainfo.get_channels() as usize;
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), fmt, 0);
             self.chmap = NAChannelMap::from_str(if ainfo.get_channels() == 2 {"L,R"} else {"C"}).unwrap();
@@ -540,10 +540,9 @@ impl NADecoder for SmackerAudioDecoder {
 
                 abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
                 let mut adata = abuf.get_abuf_i16().unwrap();
-                let offs: [usize; 2] = [0, adata.get_offset(1)];
                 let dst = adata.get_data_mut().unwrap();
                 for ch in 0..nch {
-                    dst[offs[ch]] = pred[ch];
+                    dst[ch] = pred[ch];
                 }
                 for i in nch..(unp_size >> 1) {
                     let idx = i & mask;
@@ -551,7 +550,7 @@ impl NADecoder for SmackerAudioDecoder {
                     let hi                      = br.read_tree8(&trees[idx * 2 + 1])? as u16;
                     let diff = (lo | (hi << 8)) as i16;
                     pred[idx] = pred[idx].wrapping_add(diff);
-                    dst[offs[idx] + (i >> 1)] = pred[idx];
+                    dst[i] = pred[idx];
                 }
             } else {
                 samples = unp_size / nch;
