@@ -213,11 +213,14 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
         let ts = NATimeInfo::new(Some(self.cur_pts), None, None, 1, 100000);
         for i in 0..NUM_AUDIO_TRACKS {
             if ((frame_flags >> (i + 1)) & 1) == 0 { continue; }
-            validate!(self.ainfo[i].is_present());
             let size                            = self.src.read_u32le()? as usize;
             validate!(size > 4);
             validate!(payload_size >= size);
             payload_size -= size;
+            if !self.ainfo[i].is_present() {
+                self.src.read_skip(size - 4)?;
+                continue;
+            }
             let strres = strmgr.get_stream(self.ainfo[i].id);
             validate!(strres.is_some());
             let stream = strres.unwrap();
