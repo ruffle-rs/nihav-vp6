@@ -612,21 +612,37 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_codecs(&mut dec_reg);
 
-        //let file = "assets/RAD/20130507_audio-distortion.smk";
-        //let file = "assets/RAD/ajfstr1.smk";
-        //let file = "assets/RAD/credits.smk";
-        let file = "assets/RAD/wetlogo.smk";
-        test_file_decoding("smacker", file, Some(1000), true, false, None, &dmx_reg, &dec_reg);
+        test_decoding("smacker", "smacker-video", "assets/RAD/credits.smk", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                            [0x0983944a, 0xa23503f8, 0x2602b589, 0x13b53480],
+                            [0xb6c2bf1e, 0x2ee5fa60, 0x9896a6dc, 0x760b5737],
+                            [0xc7c6d112, 0x2c3c5bac, 0x63684974, 0xa6573b1e],
+                            [0x100e2871, 0xbc670db7, 0x54a802e5, 0xb5ba0b07],
+                            [0xcd9d22ce, 0x7f195dc9, 0x93c47105, 0x6acf8aa7],
+                            [0x84e82fdb, 0x304f24a8, 0x17466d73, 0x20182c33],
+                            [0xfcae613f, 0xddab2bd4, 0x9d351ee5, 0x2d0aea24],
+                            [0xea32a37c, 0x94d76dda, 0xbb34ca1d, 0xfc9d8a25],
+                            [0x37855f28, 0xb508a386, 0x1f0bd981, 0x0f967e25],
+                            [0x9b9f453a, 0xf6e34fe7, 0x9279fd71, 0x850a4f36]]));
     }
     #[test]
-    fn test_smkaud() {
+    fn test_smkaud_u8() {
         let mut dmx_reg = RegisteredDemuxers::new();
         rad_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_codecs(&mut dec_reg);
 
-        //let file = "assets/RAD/20130507_audio-distortion.smk";
-        let file = "assets/RAD/wetlogo.smk";
-        test_decode_audio("smacker", file, None, None/*Some("smk")*/, &dmx_reg, &dec_reg);
+        test_decoding("smacker", "smacker-audio", "assets/RAD/wetlogo.smk", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0xc686b833, 0x0a203038, 0x012f6d9b, 0xa4186d44]));
+    }
+    #[test]
+    fn test_smkaud_s16() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        rad_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        rad_register_all_codecs(&mut dec_reg);
+
+        test_decoding("smacker", "smacker-audio", "assets/RAD/20130507_audio-distortion.smk", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x942a0922, 0x182bb5fd, 0x94ab7a59, 0x2028d810]));
     }
 }
