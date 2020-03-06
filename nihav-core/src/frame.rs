@@ -197,6 +197,7 @@ pub struct NAAudioBuffer<T> {
     data:   NABufferRef<Vec<T>>,
     offs:   Vec<usize>,
     stride: usize,
+    step:   usize,
     chmap:  NAChannelMap,
     len:    usize,
 }
@@ -209,6 +210,8 @@ impl<T: Clone> NAAudioBuffer<T> {
     }
     /// Returns the distance between the start of one channel and the next one.
     pub fn get_stride(&self) -> usize { self.stride }
+    /// Returns the distance between the samples in one channel.
+    pub fn get_step(&self) -> usize { self.step }
     /// Returns audio format information.
     pub fn get_info(&self) -> NAAudioInfo { self.info }
     /// Returns channel map.
@@ -223,7 +226,7 @@ impl<T: Clone> NAAudioBuffer<T> {
         data.clone_from(self.data.as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
         offs.clone_from(&self.offs);
-        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap().clone(), len: self.len, stride: self.stride }
+        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap().clone(), len: self.len, stride: self.stride, step: self.step }
     }
     /// Return the length of frame in samples.
     pub fn get_length(&self) -> usize { self.len }
@@ -233,7 +236,7 @@ impl NAAudioBuffer<u8> {
     /// Constructs a new `NAAudioBuffer` instance.
     pub fn new_from_buf(info: NAAudioInfo, data: NABufferRef<Vec<u8>>, chmap: NAChannelMap) -> Self {
         let len = data.len();
-        NAAudioBuffer { info, data, chmap, offs: Vec::new(), len, stride: 0 }
+        NAAudioBuffer { info, data, chmap, offs: Vec::new(), len, stride: 0, step: 0 }
     }
 }
 
@@ -352,6 +355,17 @@ impl NABufferType {
             NABufferType::AudioI32(ref ab)    => ab.get_stride(),
             NABufferType::AudioF32(ref ab)    => ab.get_stride(),
             NABufferType::AudioPacked(ref ab) => ab.get_stride(),
+            _ => 0,
+        }
+    }
+    /// Returns the distance between two samples in one channel.
+    pub fn get_audio_step(&self) -> usize {
+        match *self {
+            NABufferType::AudioU8(ref ab)     => ab.get_step(),
+            NABufferType::AudioI16(ref ab)    => ab.get_step(),
+            NABufferType::AudioI32(ref ab)    => ab.get_step(),
+            NABufferType::AudioF32(ref ab)    => ab.get_step(),
+            NABufferType::AudioPacked(ref ab) => ab.get_step(),
             _ => 0,
         }
     }
@@ -562,18 +576,29 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
 #[allow(clippy::collapsible_if)]
 pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelMap) -> Result<NABufferType, AllocatorError> {
     let mut offs: Vec<usize> = Vec::new();
-    if ainfo.format.is_planar() || (ainfo.channels == 1 && (ainfo.format.get_bits() % 8) == 0) {
+    if ainfo.format.is_planar() || ((ainfo.format.get_bits() % 8) == 0) {
         let len = nsamples.checked_mul(ainfo.channels as usize);
         if len == None { return Err(AllocatorError::TooLargeDimensions); }
         let length = len.unwrap();
-        let stride = nsamples;
-        for i in 0..ainfo.channels {
-            offs.push((i as usize) * stride);
+        let stride;
+        let step;
+        if ainfo.format.is_planar() {
+            stride = nsamples;
+            step   = 1;
+            for i in 0..ainfo.channels {
+                offs.push((i as usize) * stride);
+            }
+        } else {
+            stride = 1;
+            step   = ainfo.channels as usize;
+            for i in 0..ainfo.channels {
+                offs.push(i as usize);
+            }
         }
         if ainfo.format.is_float() {
             if ainfo.format.get_bits() == 32 {
                 let data: Vec<f32> = vec![0.0; length];
-                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride };
+                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
                 Ok(NABufferType::AudioF32(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -581,11 +606,11 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         } else {
             if ainfo.format.get_bits() == 8 && !ainfo.format.is_signed() {
                 let data: Vec<u8> = vec![0; length];
-                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride };
+                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
                 Ok(NABufferType::AudioU8(buf))
             } else if ainfo.format.get_bits() == 16 && ainfo.format.is_signed() {
                 let data: Vec<i16> = vec![0; length];
-                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride };
+                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
                 Ok(NABufferType::AudioI16(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
@@ -596,7 +621,7 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
         if len == None { return Err(AllocatorError::TooLargeDimensions); }
         let length = ainfo.format.get_audio_size(len.unwrap() as u64);
         let data: Vec<u8> = vec![0; length];
-        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride: 0 };
+        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride: 0, step: 0 };
         Ok(NABufferType::AudioPacked(buf))
     }
 }

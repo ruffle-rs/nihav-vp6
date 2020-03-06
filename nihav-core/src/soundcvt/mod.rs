@@ -368,6 +368,8 @@ Result<NABufferType, SoundConvertError> {
     }
     let mut dst_buf = ret.unwrap();
 
+    let sstep = src.get_audio_step();
+    let dstep = dst_buf.get_audio_step();
     let sr: Box<dyn SampleReader> = match src {
             NABufferType::AudioU8(ref ab) => {
                 let stride = ab.get_stride();
@@ -427,26 +429,34 @@ Result<NABufferType, SoundConvertError> {
     if !into_float {
         let mut svec = vec![0; src_chmap.num_channels()];
         let mut dvec = vec![0; dst_chmap.num_channels()];
-        for i in 0..nsamples {
-            sr.get_samples_i32(i, &mut svec);
+        let mut spos = 0;
+        let mut dpos = 0;
+        for _ in 0..nsamples {
+            sr.get_samples_i32(spos, &mut svec);
             if !channel_op.is_remix() {
                 apply_channel_op(&channel_op, &svec, &mut dvec);
             } else {
                 remix_i32(&channel_op, &svec, &mut dvec);
             }
-            sw.store_samples_i32(i, &dvec);
+            sw.store_samples_i32(dpos, &dvec);
+            spos += sstep;
+            dpos += dstep;
         }
     } else {
         let mut svec = vec![0.0; src_chmap.num_channels()];
         let mut dvec = vec![0.0; dst_chmap.num_channels()];
-        for i in 0..nsamples {
-            sr.get_samples_f32(i, &mut svec);
+        let mut spos = 0;
+        let mut dpos = 0;
+        for _ in 0..nsamples {
+            sr.get_samples_f32(spos, &mut svec);
             if !channel_op.is_remix() {
                 apply_channel_op(&channel_op, &svec, &mut dvec);
             } else {
                 remix_f32(&channel_op, &svec, &mut dvec);
             }
-            sw.store_samples_f32(i, &dvec);
+            sw.store_samples_f32(dpos, &dvec);
+            spos += sstep;
+            dpos += dstep;
         }
     }
     drop(sw);

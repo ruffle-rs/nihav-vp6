@@ -36,11 +36,19 @@ macro_rules! write_data {
         let nch = ainfo.get_channels() as usize;
         let mut offs: Vec<usize> = Vec::with_capacity(nch);
         for ch in 0..nch { offs.push($buf.get_offset(ch)); }
+        let is_planar = $buf.get_step() == 1;
         let data = $buf.get_data();
 
-        for i in 0..len {
-            for ch in 0..nch {
-                let sample = data[offs[ch] + i];
+        if is_planar {
+            for i in 0..len {
+                for ch in 0..nch {
+                    let sample = data[offs[ch] + i];
+                    $write($wr, sample)?;
+                }
+            }
+        } else {
+            for i in 0..len*nch {
+                let sample = data[i];
                 $write($wr, sample)?;
             }
         }
