@@ -534,6 +534,7 @@ impl BinkDecoder {
         self.run.data.resize(size, 0);
     }
     fn init_bundle_lengths(&mut self, w: usize, bw: usize) {
+        let w = (w + 7) & !7;
         self.btype.bits     = calc_len(w >> 3);
         self.sbtype.bits    = calc_len(w >> 4);
         self.colors.bits    = calc_len(bw * 64);
