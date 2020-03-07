@@ -126,7 +126,6 @@ impl<T:Copy> Bundle<T> {
             self.dec_pos = self.data.len();
             self.read_pos = self.data.len() - 1;
         }
-println!("    read {} of {} bits", len, self.bits);
         Ok(len)
     }
     fn get_val(&mut self) -> DecoderResult<T> {
@@ -575,25 +574,15 @@ impl BinkDecoder {
     }
     fn read_bundles_binkb(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         self.btype.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.colors.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.pattern.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.xoff.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.yoff.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.intradc.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.interdc.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.intraq.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.interq.read_binkb(br)?;
-println!("   @ {}", br.tell());
         self.nresidues.read_binkb(br)?;
-println!("   @ {}", br.tell());
         Ok(())
     }
     fn read_bundles(&mut self, br: &mut BitReader) -> DecoderResult<()> {
@@ -657,7 +646,6 @@ println!("   @ {}", br.tell());
         let ybias = if self.key_frame { -15 } else { 0 };
         let yoff = yoff1 + ybias;
 
-println!("     copy from {}.{} + {},{}({})", bx*8, by*8, xoff, yoff, ybias);
         let xpos = ((bx * 8) as isize) + (xoff as isize);
         let ypos = ((by * 8) as isize) + (yoff as isize);
         validate!((xpos >= 0) && (xpos + 8 <= (self.cur_w as isize)));
@@ -728,14 +716,11 @@ println!("     copy from {}.{} + {},{}({})", bx*8, by*8, xoff, yoff, ybias);
         self.cur_h = (height + 7) & !7;
         self.cur_plane = plane_no;
         self.init_bundle_lengths_binkb();
-println!(" plane {}", plane_no);
         for by in 0..bh {
             self.read_bundles_binkb(br)?;
-println!("  bline {} @ {}", by, br.tell());
             for bx in 0..bw {
                 let mut coeffs: [i32; 64] = [0; 64];
                 let btype = self.btype.get_val()?;
-println!("  blk {}.{} type {}", bx,by,btype);
                 match btype {
                     0 => { // skip
                         },
@@ -1230,7 +1215,6 @@ impl NADecoder for BinkDecoder {
             buf = bufinfo.get_vbuf().unwrap();
         }
 
-println!("decode frame {} b={} i={}", pkt.get_pts().unwrap(), self.is_ver_b, self.is_ver_i);
         let nplanes = if self.is_gray { 1 } else { 3 };
         if self.has_alpha {
             validate!(!self.is_ver_b);
