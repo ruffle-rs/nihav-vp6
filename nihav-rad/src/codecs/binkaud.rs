@@ -295,17 +295,23 @@ mod test {
     use crate::rad_register_all_demuxers;
 
     #[test]
-    fn test_bink_audio() {
+    fn test_bink_audio_dct() {
         let mut dmx_reg = RegisteredDemuxers::new();
         rad_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_codecs(&mut dec_reg);
 
-//        let file = "assets/RAD/ActivisionLogo.bik";
-        let file = "assets/RAD/original.bik";
-//        let file = "assets/RAD/Snd0a110c51.dee";
-//        let file = "assets/RAD/NEW.BIK";
-//        let file = "assets/RAD/ge_video_86l.bk2";
+        let file = "assets/RAD/ActivisionLogo.bik";
+        test_decode_audio("bink", file, None, None/*Some("bink")*/, &dmx_reg, &dec_reg);
+    }
+    #[test]
+    fn test_bink_audio_rdft() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        rad_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        rad_register_all_codecs(&mut dec_reg);
+
+        let file = "assets/RAD/NWCLOGO.BIK";
         test_decode_audio("bink", file, None, None/*Some("bink")*/, &dmx_reg, &dec_reg);
     }
 }
