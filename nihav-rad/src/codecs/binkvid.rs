@@ -1261,22 +1261,42 @@ mod test {
     use crate::rad_register_all_codecs;
     use crate::rad_register_all_demuxers;
     #[test]
+    fn test_binkvid_b() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        rad_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        rad_register_all_codecs(&mut dec_reg);
+
+        test_decoding("bink", "bink-video", "assets/RAD/NEW.BIK", Some(16), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                            [0x00edef7e, 0x7efad3b1, 0x7e8bdd74, 0x3f6b00ba],
+                            [0xbc40683f, 0xbeb1c5e4, 0x934777b5, 0x8a8a350d],
+                            [0x68b78627, 0x28ceb63d, 0xfdb1171a, 0x23e69d90],
+                            [0xc8d907a0, 0xb8d44079, 0x0286336b, 0x996479f3],
+                            [0x57bbe4ec, 0xdb8bb9c2, 0x0e6f1fd6, 0xe180125e],
+                            [0xd43c2ae0, 0x4010007f, 0x2a6360a1, 0xb5203a05],
+                            [0xa883acf6, 0x25843f92, 0x4ced9a46, 0x6d513ad9],
+                            [0x959e843f, 0x8d8182b9, 0x3f12d29b, 0x2af8d39f],
+                            [0x93840946, 0x1188c6d1, 0xd5499833, 0x62aac0c6],
+                            [0x4e5a56a6, 0x21517d9a, 0xbe1f270d, 0xe5621945],
+                            [0x1b133742, 0x1eb1bf0a, 0x68cab2e3, 0x92176b5d],
+                            [0x0cf78c43, 0x4bc15549, 0x3dd94323, 0x737eaaae],
+                            [0xdd731c4a, 0x801453b3, 0xa38bef3e, 0x285cfdfe],
+                            [0xe1fec4ee, 0x46737abc, 0x8c452209, 0xc8c6addd],
+                            [0x2978aa50, 0x5f1e6d5a, 0x1f5b0fba, 0xb8e32196],
+                            [0x2e1e95ab, 0x8e31a0b0, 0xfe998512, 0xea9397b6],
+                            [0xf7f6c0d8, 0x893e77a7, 0xdfe0309f, 0xf5e644e2]]));
+    }
+    #[test]
     fn test_binkvid() {
         let mut dmx_reg = RegisteredDemuxers::new();
         rad_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         rad_register_all_codecs(&mut dec_reg);
 
-        let file = "assets/RAD/NEW.BIK";
-        //let file = "assets/RAD/NWCLOGO.BIK";
-        test_file_decoding("bink", file, Some(42), true, false, None/*Some("bink-b")*/, &dmx_reg, &dec_reg);
-
-        //let file = "assets/RAD/bink_dct.bik";
-        //let file = "assets/RAD/day3-b.bik";
-        let file = "assets/RAD/ActivisionLogo.bik";
-        //let file = "assets/RAD/ATI-9700-Animusic-Movie-v1.0.bik";
-        //let file = "assets/RAD/original.bik";
-        test_file_decoding("bink", file, Some(42), true, false, None/*Some("bink-")*/, &dmx_reg, &dec_reg);
+        test_decoding("bink", "bink-video", "assets/RAD/ActivisionLogo.bik", Some(42),
+                      &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x41128884, 0x73a8c710, 0x5072ea4a, 0x8caca428]));
     }
 }
 
