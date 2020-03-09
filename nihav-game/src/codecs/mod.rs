@@ -12,6 +12,8 @@ pub mod bmv3;
 pub mod gremlinvideo;
 #[cfg(feature="decoder_midivid")]
 pub mod midivid;
+#[cfg(feature="decoder_midivid3")]
+pub mod midivid3;
 #[cfg(feature="decoder_vmd")]
 pub mod vmd;
 
@@ -34,6 +36,8 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "vmd-video", get_decoder: vmd::get_decoder_video },
 #[cfg(feature="decoder_midivid")]
     DecoderInfo { name: "midivid", get_decoder: midivid::get_decoder_video },
+#[cfg(feature="decoder_midivid3")]
+    DecoderInfo { name: "midivid3", get_decoder: midivid3::get_decoder_video },
 ];
 
 /// Registers all available codecs provided by this crate.

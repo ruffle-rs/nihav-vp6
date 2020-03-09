@@ -27,11 +27,12 @@ demuxer_vmd = ["demuxers"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
-all_video_decoders = ["decoder_bmv", "decoder_bmv3", "decoder_gdvvid", "decoder_midivid", "decoder_vmd"]
+all_video_decoders = ["decoder_bmv", "decoder_bmv3", "decoder_gdvvid", "decoder_midivid", "decoder_midivid3", "decoder_vmd"]
 decoder_bmv = ["decoders"]
 decoder_bmv3 = ["decoders"]
 decoder_gdvvid = ["decoders"]
 decoder_midivid = ["decoders"]
+decoder_midivid3 = ["decoders"]
 decoder_vmd = ["decoders"]
 
 all_audio_decoders = []
