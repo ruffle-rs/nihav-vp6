@@ -89,7 +89,7 @@ pub trait NADecoder {
     fn flush(&mut self);
 }
 
-/// Decoder information using during creating a decoder for requested codec.
+/// Decoder information used during creating a decoder for requested codec.
 #[derive(Clone,Copy)]
 pub struct DecoderInfo {
     /// Short decoder name.
