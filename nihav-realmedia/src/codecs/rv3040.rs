@@ -539,10 +539,23 @@ fn decode_slice_header(br: &mut BitReader, bd: &mut RV34BitstreamDecoder, slice_
     if slice_no < slice_offs.len() - 1 {
         let cur_pos = br.tell() as u32;
         br.seek((slice_offs[slice_no + 1] * 8) as u32)?;
-        let nhdr = bd.decode_slice_header(br, shdr.width, shdr.height)?;
+        if let Ok(nhdr) = bd.decode_slice_header(br, shdr.width, shdr.height) {
+            validate!(nhdr.start > shdr.start);
+            shdr.end = nhdr.start;
+        } else {
+            if slice_no + 2 < slice_offs.len() {
+                br.seek((slice_offs[slice_no + 2] * 8) as u32)?;
+                if let Ok(nhdr) = bd.decode_slice_header(br, shdr.width, shdr.height) {
+                    validate!(nhdr.start > shdr.start);
+                    shdr.end = nhdr.start;
+                } else {
+                    shdr.end = ((shdr.width + 15) >> 4) * ((shdr.height + 15) >> 4);
+                }
+            } else {
+                shdr.end = ((shdr.width + 15) >> 4) * ((shdr.height + 15) >> 4);
+            }
+        }
         br.seek(cur_pos)?;
-        validate!(nhdr.start > shdr.start);
-        shdr.end = nhdr.start;
     } else {
         shdr.end = ((shdr.width + 15) >> 4) * ((shdr.height + 15) >> 4);
     }
