@@ -38,6 +38,12 @@ macro_rules! filter {
                      -5 * el!($s, $o + 2 * $step)
                         + el!($s, $o + 3 * $step) + 32) >> 6) as i16)
         );
+    (33; $s: ident, $o: expr, $stride: expr) => (
+            clip8(((  el!($s, $o)
+                    + el!($s, $o + 1)
+                    + el!($s, $o + $stride)
+                    + el!($s, $o + 1 + $stride) + 2) >> 2) as i16)
+        );
 }
 
 macro_rules! mc_func {
@@ -130,6 +136,15 @@ macro_rules! mc_func {
             $ofilt(dst, didx, dstride, &buf, 2*bstride, $size);
         }
         );
+    (mc33; $name: ident, $size: expr) => (
+        fn $name (dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut sidx: usize, sstride: usize) {
+            for _ in 0..$size {
+                for x in 0..$size { dst[didx + x] = filter!(33; src, sidx + x, sstride); }
+                sidx += sstride;
+                didx += dstride;
+            }
+        }
+        );
 }
 mc_func!(copy; copy_16, 16);
 mc_func!(copy; copy_8,   8);
@@ -161,8 +176,8 @@ mc_func!(cm03; luma_mc_31_16, 16, luma_mc_01_16);
 mc_func!(cm03; luma_mc_31_8,   8, luma_mc_01_8);
 mc_func!(cm03; luma_mc_32_16, 16, luma_mc_02_16);
 mc_func!(cm03; luma_mc_32_8,   8, luma_mc_02_8);
-mc_func!(cm03; luma_mc_33_16, 16, luma_mc_03_16);
-mc_func!(cm03; luma_mc_33_8,   8, luma_mc_03_8);
+mc_func!(mc33; luma_mc_33_16, 16);
+mc_func!(mc33; luma_mc_33_8,   8);
 
 const RV40_CHROMA_BIAS: [[u16; 4]; 4] = [
     [ 0, 4, 8, 4 ],
