@@ -295,12 +295,12 @@ fn rv40_weak_loop_filter4(pix: &mut [u8], mut off: usize, step: usize, stride: u
         pix[off - step] = clip8(p0 + diff);
         pix[off       ] = clip8(q0 - diff);
 
-        if filter_p1 && ((p1 - p0).wrapping_abs() <= beta) {
+        if filter_p1 && ((p1 - p2).wrapping_abs() <= beta) {
             let p1_diff = ((p1 - p0) + (p1 - p2) - diff) >> 1;
             pix[off - 2*step] = clip8(p1 - clip_symm(p1_diff, lim_p1));
         }
 
-        if filter_q1 && ((q1 - q0).wrapping_abs() <= beta) {
+        if filter_q1 && ((q1 - q2).wrapping_abs() <= beta) {
             let q1_diff = ((q1 - q0) + (q1 - q2) + diff) >> 1;
             pix[off + step] = clip8(q1 - clip_symm(q1_diff, lim_q1));
         }
@@ -350,12 +350,12 @@ fn rv40_weak_loop_filter4_v(pix: &mut [u8], off: usize, stride: usize,
         ch[3 - 1] = clip8(p0 + diff);
         ch[3    ] = clip8(q0 - diff);
 
-        if filter_p1 && ((p1 - p0).wrapping_abs() <= beta) {
+        if filter_p1 && ((p1 - p2).wrapping_abs() <= beta) {
             let p1_diff = ((p1 - p0) + (p1 - p2) - diff) >> 1;
             ch[3 - 2] = clip8(p1 - clip_symm(p1_diff, lim_p1));
         }
 
-        if filter_q1 && ((q1 - q0).wrapping_abs() <= beta) {
+        if filter_q1 && ((q1 - q2).wrapping_abs() <= beta) {
             let q1_diff = ((q1 - q0) + (q1 - q2) + diff) >> 1;
             ch[3 + 1] = clip8(q1 - clip_symm(q1_diff, lim_q1));
         }
@@ -413,7 +413,7 @@ fn rv40_strong_loop_filter4(pix: &mut [u8], mut off: usize, step: usize, stride:
         let q3 = el!(pix, off + 3*step);
 
         let np0 = sfilter(p2, p1, p0, q0, q1,     RV40_DITHER_L[dmode + i], fmode != 0, lims);
-        let nq0 = sfilter(    p1, p0, q0, q1, q0, RV40_DITHER_R[dmode + i], fmode != 0, lims);
+        let nq0 = sfilter(    p1, p0, q0, q1, q2, RV40_DITHER_R[dmode + i], fmode != 0, lims);
 
         let np1 = sfilter(p3, p2, p1, np0, q0,              RV40_DITHER_L[dmode + i], fmode != 0, lims);
         let nq1 = sfilter(             p0, nq0, q1, q2, q3, RV40_DITHER_R[dmode + i], fmode != 0, lims);
@@ -424,8 +424,8 @@ fn rv40_strong_loop_filter4(pix: &mut [u8], mut off: usize, step: usize, stride:
         pix[off +   step] = nq1 as u8;
 
         if !chroma {
-            let np2 = sfilter(np0, np1, p2, p3, np1, 64, false, 0);
-            let nq2 = sfilter(nq0, nq1, q2, q3, q2,  64, false, 0);
+            let np2 = sfilter(np0, np1, p2, p3, p2, 64, false, 0);
+            let nq2 = sfilter(nq0, nq1, q2, q3, q2, 64, false, 0);
             pix[off - 3*step] = np2 as u8;
             pix[off + 2*step] = nq2 as u8;
         }
