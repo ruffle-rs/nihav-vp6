@@ -238,7 +238,7 @@ const RV30_EDGE1: [isize; 3] = [ 0, 1, 1 ];
 const RV30_EDGE2: [isize; 3] = [ 0, 2, 2 ];
 
 impl RV34DSP for RV30DSP {
-    fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, _ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, row: usize) {
+    fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, _ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, _mb_h: usize, row: usize) {
         let mut offs:   [usize; 3] = [0; 3];
         let mut stride: [usize; 3] = [0; 3];
 

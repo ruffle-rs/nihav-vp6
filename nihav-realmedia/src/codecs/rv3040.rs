@@ -503,7 +503,7 @@ pub trait RV34BitstreamDecoder {
 }
 
 pub trait RV34DSP {
-    fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, row: usize);
+    fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, mb_h: usize, row: usize);
     fn do_luma_mc(&self, frame: &mut NAVideoBuffer<u8>, prev_frame: &NAVideoBuffer<u8>, x: usize, y: usize, mv: MV, use16: bool, avg: bool);
     fn do_chroma_mc(&self, frame: &mut NAVideoBuffer<u8>, prev_frame: &NAVideoBuffer<u8>, x: usize, y: usize, comp: usize, mv: MV, use8: bool, avg: bool);
 }
@@ -1265,12 +1265,12 @@ impl RV34Decoder {
                 mb_pos += 1;
             }
             if hdr0.deblock && (mb_y >= 1) {
-                self.dsp.loop_filter(&mut buf, hdr0.ftype, &mbinfo, mb_w, mb_y - 1);
+                self.dsp.loop_filter(&mut buf, hdr0.ftype, &mbinfo, mb_w, mb_h, mb_y - 1);
             }
             imode.update();
         }
         if hdr0.deblock {
-            self.dsp.loop_filter(&mut buf, hdr0.ftype, &mbinfo, mb_w, mb_h - 1);
+            self.dsp.loop_filter(&mut buf, hdr0.ftype, &mbinfo, mb_w, mb_h, mb_h - 1);
         }
         if !self.is_b {
             self.ipbs.add_frame(buf.clone());

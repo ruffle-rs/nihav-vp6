@@ -566,7 +566,7 @@ const RV40_EDGE1: [isize; 4] = [ 0, 2, 2, 2 ];
 const RV40_EDGE2: [isize; 4] = [ 0, 3, 3, 3 ];
 
 impl RV34DSP for RV40DSP {
-    fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, _ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, row: usize) {
+    fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, _ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, mb_h: usize, row: usize) {
         // todo proper B-frame filtering?
         let mut offs:   [usize; 3] = [0; 3];
         let mut stride: [usize; 3] = [0; 3];
