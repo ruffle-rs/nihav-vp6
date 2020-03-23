@@ -380,7 +380,7 @@ fn sfilter(a: i16, b: i16, c: i16, d: i16, e: i16, dither: i16, clip: bool, lims
         } else if val > c + lims {
             c + lims
         } else {
-            c
+            val
         }
     } else {
         val
