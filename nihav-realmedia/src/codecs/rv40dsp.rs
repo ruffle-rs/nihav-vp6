@@ -580,6 +580,15 @@ fn check_pos(x: usize, y: usize, size: usize, w: usize, h: usize, dx: i16, dy: i
 const RV40_EDGE1: [isize; 4] = [ 0, 2, 2, 2 ];
 const RV40_EDGE2: [isize; 4] = [ 0, 3, 3, 3 ];
 
+const Y_TOP_ROW_MASK:   u32 = 0x000F;
+const Y_BOT_ROW_MASK:   u32 = 0xF000;
+const Y_LEFT_COL_MASK:  u32 = 0x1111;
+const Y_RIGHT_COL_MASK: u32 = 0x8888;
+const C_TOP_ROW_MASK:   u32 = 0x3;
+const C_BOT_ROW_MASK:   u32 = 0xC;
+const C_LEFT_COL_MASK:  u32 = 0x5;
+const C_RIGHT_COL_MASK: u32 = 0xA;
+
 impl RV34DSP for RV40DSP {
     fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, _ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, mb_h: usize, row: usize) {
         // todo proper B-frame filtering?
@@ -597,8 +606,12 @@ impl RV34DSP for RV40DSP {
         let data = frame.get_data_mut().unwrap();
         let dst: &mut [u8] = data.as_mut_slice();
 
+        let is_last_row = row == mb_h - 1;
+
         let mut mb_pos: usize = row * mb_w;
         let mut left_q: usize = 0;
+        let mut left_cbp = 0;
+        let mut left_dbk = 0;
         for mb_x in 0..mb_w {
             let q = mbinfo[mb_pos].q as usize;
             let alpha = RV40_ALPHA_TAB[q];
@@ -606,21 +619,45 @@ impl RV34DSP for RV40DSP {
             let beta_y = if small_frame { beta * 4 } else { beta * 3 };
             let beta_c = beta * 3;
 
-            let cur_dbk = mbinfo[mb_pos].deblock;
-            let cur_cbp = mbinfo[mb_pos].cbp_c;
-
             let is_strong = mbinfo[mb_pos].mbtype.is_intra_or_16();
-            let top_is_strong = is_strong || (row > 0 && mbinfo[mb_pos - mb_w].mbtype.is_intra_or_16());
-            let left_is_strong = is_strong || (mb_x > 0 && mbinfo[mb_pos - 1].mbtype.is_intra_or_16());
+            let top_is_strong = row > 0 && mbinfo[mb_pos - mb_w].mbtype.is_intra_or_16();
+            let left_is_strong = mb_x > 0 && mbinfo[mb_pos - 1].mbtype.is_intra_or_16();
+            let bot_is_strong = !is_last_row && mbinfo[mb_pos + mb_w].mbtype.is_intra_or_16();
+
+            let cur_dbk = mbinfo[mb_pos].deblock;
+            let cur_cbp = if is_strong { 0xFFFFFF } else { mbinfo[mb_pos].cbp };
+
+            let (top_cbp, top_dbk) = if row > 0 {
+                    (if top_is_strong { 0xFFFFFF } else { mbinfo[mb_pos - mb_w].cbp }, mbinfo[mb_pos - mb_w].deblock)
+                } else {
+                    (0, 0)
+                };
+            let (bot_cbp, bot_dbk) = if !is_last_row {
+                    (mbinfo[mb_pos + mb_w].cbp, mbinfo[mb_pos + mb_w].deblock)
+                } else {
+                    (0, 0)
+                };
+
+            let y_cbp = cur_cbp & 0xFFFF;
+            let y_to_deblock = (cur_dbk as u32) | ((bot_dbk as u32) << 16);
+            let mut y_h_deblock = y_to_deblock | ((y_cbp << 4) & !Y_TOP_ROW_MASK) | ((top_cbp & Y_BOT_ROW_MASK) >> 12);
+            let mut y_v_deblock = y_to_deblock | ((y_cbp << 1) & !Y_LEFT_COL_MASK) | ((left_cbp & Y_RIGHT_COL_MASK) >> 3);
+
+            if mb_x == 0 {
+                y_v_deblock &= !Y_LEFT_COL_MASK;
+            }
+            if row == 0 {
+                y_h_deblock &= !Y_TOP_ROW_MASK;
+            }
+            if is_last_row || is_strong || bot_is_strong {
+                y_h_deblock &= !(Y_TOP_ROW_MASK << 16);
+            }
 
             for y in 0..4 {
                 let yoff = offs[0] + mb_x * 16 + y * 4 * stride[0];
                 for x in 0..4 {
                     let bpos = x + y * 4;
-                    let filter_hor_down = (y != 3) && !is_strong;
-                    let filter_ver = (x > 0) || (mb_x > 0);
-                    let filter_hor_up = (row > 0) && (x == 0) && top_is_strong;
-                    let ver_strong = (x == 0) && (mb_x > 0) && left_is_strong;
+                    let ver_strong = (x == 0) && (mb_x > 0) && (is_strong || left_is_strong);
 
                     let cur_strength: usize;
                     if is_strong {
@@ -643,7 +680,7 @@ impl RV34DSP for RV40DSP {
                     } else if mb_x > 0 {
                         if left_is_strong {
                             left_strength = 2;
-                        } else if test_bit!(mbinfo[mb_pos - 1].deblock, bpos + 3) {
+                        } else if test_bit!(left_dbk, bpos + 3) {
                             left_strength = 1;
                         } else {
                             left_strength = 0;
@@ -657,6 +694,14 @@ impl RV34DSP for RV40DSP {
                         if is_strong {
                             bot_strength = 2;
                         } else if test_bit!(cur_dbk, bpos + 4) {
+                            bot_strength = 1;
+                        } else {
+                            bot_strength = 0;
+                        }
+                    } else if !is_last_row {
+                        if mbinfo[mb_pos + mb_w].mbtype.is_intra_or_16() {
+                            bot_strength = 2;
+                        } else if test_bit!(bot_dbk, x) {
                             bot_strength = 1;
                         } else {
                             bot_strength = 0;
@@ -677,7 +722,7 @@ impl RV34DSP for RV40DSP {
                     } else if row > 0 {
                         if top_is_strong {
                             top_strength = 2;
-                        } else if test_bit!(mbinfo[mb_pos - mb_w].deblock, bpos + 12) {
+                        } else if test_bit!(top_dbk, bpos + 12) {
                             top_strength = 1;
                         } else {
                             top_strength = 0;
@@ -696,19 +741,19 @@ impl RV34DSP for RV40DSP {
 
                     let dmode = if y > 0 { x + y * 4 } else { x * 4 };
 
-                    if filter_hor_down {
+                    if test_bit!(y_h_deblock, bpos + 4) {
                         rv40_loop_filter4_h(dst, yoff + 4 * stride[0] + x * 4, stride[0],
                                             dmode, lim_cur, lim_bottom, alpha, beta, beta_y, false, false);
                     }
-                    if filter_ver && !ver_strong {
+                    if test_bit!(y_v_deblock, bpos) && !ver_strong {
                         rv40_loop_filter4_v(dst, yoff + x * 4, stride[0],
                                             dmode, lim_left, lim_cur, alpha, beta, beta_y, false, false);
                     }
-                    if filter_hor_up {
+                    if (y == 0) && test_bit!(y_h_deblock, bpos) && (is_strong || top_is_strong) {
                         rv40_loop_filter4_h(dst, yoff + x * 4, stride[0],
                                             dmode, lim_top, lim_cur, alpha, beta, beta_y, false, true);
                     }
-                    if filter_ver && ver_strong {
+                    if test_bit!(y_v_deblock, bpos) && ver_strong {
                         rv40_loop_filter4_v(dst, yoff + x * 4, stride[0],
                                             dmode, lim_left, lim_cur, alpha, beta, beta_y, false, true);
                     }
@@ -716,20 +761,36 @@ impl RV34DSP for RV40DSP {
             }
 
             for comp in 1..3 {
+                let cshift = 16 - 4 + comp * 4;
+                let c_cur_cbp  = (cur_cbp  >> cshift) & 0xF;
+                let c_top_cbp  = (top_cbp  >> cshift) & 0xF;
+                let c_left_cbp = (left_cbp >> cshift) & 0xF;
+                let c_bot_cbp  = (bot_cbp  >> cshift) & 0xF;
+
+                let c_deblock = c_cur_cbp | (c_bot_cbp << 4);
+                let mut c_v_deblock = c_deblock | ((c_cur_cbp << 1) & !C_LEFT_COL_MASK) | ((c_left_cbp & C_RIGHT_COL_MASK) >> 1);
+                let mut c_h_deblock = c_deblock | ((c_cur_cbp & C_TOP_ROW_MASK) << 2) | ((c_top_cbp & C_BOT_ROW_MASK) >> 2);
+                if mb_x == 0 {
+                    c_v_deblock &= !C_LEFT_COL_MASK;
+                }
+                if row == 0 {
+                    c_h_deblock &= !C_TOP_ROW_MASK;
+                }
+                if is_last_row || is_strong || bot_is_strong {
+                    c_h_deblock &= !(C_TOP_ROW_MASK << 4);
+                }
+
                 for y in 0..2 {
                     let coff = offs[comp] + mb_x * 8 + y * 4 * stride[comp];
                     for x in 0..2 {
-                        let bpos = x + y * 2 + (comp - 1) * 4;
+                        let bpos = x + y * 2;
 
-                        let filter_hor_down = (y != 1) && !is_strong;
-                        let filter_ver = (x > 0) || (mb_x > 0);
-                        let filter_hor_up = (row > 0) && (x == 0) && top_is_strong;
-                        let ver_strong = (x == 0) && (mb_x > 0) && left_is_strong;
+                        let ver_strong = (x == 0) && (is_strong || left_is_strong);
 
                         let cur_strength: usize;
                         if is_strong {
                             cur_strength = 2;
-                        } else if test_bit!(cur_cbp, bpos) {
+                        } else if test_bit!(c_cur_cbp, bpos) {
                             cur_strength = 1;
                         } else {
                             cur_strength = 0;
@@ -739,7 +800,7 @@ impl RV34DSP for RV40DSP {
                         if x > 0 {
                             if is_strong {
                                 left_strength = 2;
-                            } else if test_bit!(cur_cbp, bpos - 1) {
+                            } else if test_bit!(c_cur_cbp, bpos - 1) {
                                 left_strength = 1;
                             } else {
                                 left_strength = 0;
@@ -747,7 +808,7 @@ impl RV34DSP for RV40DSP {
                         } else if mb_x > 0 {
                             if left_is_strong {
                                 left_strength = 2;
-                            } else if test_bit!(mbinfo[mb_pos - 1].cbp_c, bpos + 1) {
+                            } else if test_bit!(c_left_cbp, bpos + 1) {
                                 left_strength = 1;
                             } else {
                                 left_strength = 0;
@@ -757,10 +818,18 @@ impl RV34DSP for RV40DSP {
                         }
 
                         let bot_strength: usize;
-                        if y == 0 {
+                        if y != 3 {
                             if is_strong {
                                 bot_strength = 2;
-                            } else if test_bit!(cur_cbp, bpos + 2) {
+                            } else if test_bit!(c_cur_cbp, bpos + 2) {
+                                bot_strength = 1;
+                            } else {
+                                bot_strength = 0;
+                            }
+                        } else if !is_last_row {
+                            if mbinfo[mb_pos + mb_w].mbtype.is_intra_or_16() {
+                                bot_strength = 2;
+                            } else if test_bit!(c_bot_cbp, x) {
                                 bot_strength = 1;
                             } else {
                                 bot_strength = 0;
@@ -773,7 +842,7 @@ impl RV34DSP for RV40DSP {
                         if y > 0 {
                             if is_strong {
                                 top_strength = 2;
-                            } else if test_bit!(cur_cbp, bpos - 2) {
+                            } else if test_bit!(c_cur_cbp, bpos - 2) {
                                 top_strength = 1;
                             } else {
                                 top_strength = 0;
@@ -781,7 +850,7 @@ impl RV34DSP for RV40DSP {
                         } else if row > 0 {
                             if top_is_strong {
                                 top_strength = 2;
-                            } else if test_bit!(mbinfo[mb_pos - mb_w].cbp_c, bpos + 2) {
+                            } else if test_bit!(c_top_cbp, bpos + 2) {
                                 top_strength = 1;
                             } else {
                                 top_strength = 0;
@@ -798,19 +867,19 @@ impl RV34DSP for RV40DSP {
                         let lim_left    = RV40_FILTER_CLIP_TBL[left_strength][l_q];
                         let lim_bottom  = RV40_FILTER_CLIP_TBL [bot_strength][q];
 
-                        if filter_hor_down {
+                        if test_bit!(c_h_deblock, bpos + 2) {
                             rv40_loop_filter4_h(dst, coff + 4 * stride[comp] + x * 4, stride[comp],
                                                 x * 8, lim_cur, lim_bottom, alpha, beta, beta_c, true, false);
                         }
-                        if filter_ver && !ver_strong {
+                        if test_bit!(c_v_deblock, bpos) && !ver_strong {
                             rv40_loop_filter4_v(dst, coff + x * 4, stride[comp],
                                                 y * 8, lim_left, lim_cur, alpha, beta, beta_c, true, false);
                         }
-                        if filter_hor_up {
+                        if (y == 0) && test_bit!(c_h_deblock, bpos) && (is_strong || top_is_strong) {
                             rv40_loop_filter4_h(dst, coff + x * 4, stride[comp],
                                                 x * 8, lim_top, lim_cur, alpha, beta, beta_c, true, true);
                         }
-                        if filter_ver && ver_strong {
+                        if test_bit!(c_v_deblock, bpos) && ver_strong {
                             rv40_loop_filter4_v(dst, coff + x * 4, stride[comp],
                                                 y * 8, lim_left, lim_cur, alpha, beta, beta_c, true, true);
                         }
@@ -819,6 +888,8 @@ impl RV34DSP for RV40DSP {
             }
 
             left_q = q;
+            left_dbk = cur_dbk;
+            left_cbp = cur_cbp;
 
             mb_pos += 1;
         }
