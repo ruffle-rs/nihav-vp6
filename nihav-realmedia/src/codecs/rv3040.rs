@@ -1255,6 +1255,7 @@ impl RV34Decoder {
                     sstate.q_dc = bd.quant_dc(true, q);
                     self.decode_mb_intra(&sstate, &imode, &mut buf, &mut br, is_16)?;
                 } else {
+                    sstate.q_dc = bd.quant_dc(false, q);
                     imode.fill_block(0);
                     self.decode_mb_inter(&sstate, &mbh, &mut buf, &mut br, is_16)?;
                 }
