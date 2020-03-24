@@ -277,6 +277,7 @@ impl NABufferType {
             NABufferType::VideoPacked(ref vb) => vb.get_offset(idx),
             NABufferType::AudioU8(ref ab)     => ab.get_offset(idx),
             NABufferType::AudioI16(ref ab)    => ab.get_offset(idx),
+            NABufferType::AudioI32(ref ab)    => ab.get_offset(idx),
             NABufferType::AudioF32(ref ab)    => ab.get_offset(idx),
             NABufferType::AudioPacked(ref ab) => ab.get_offset(idx),
             _ => 0,
