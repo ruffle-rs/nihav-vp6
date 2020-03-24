@@ -396,7 +396,7 @@ pub fn vp_copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>
     let src_y = sy - (pre as isize);
     {
         let tmp_buf = NASimpleVideoFrame::from_video_buf(&mut mc_buf).unwrap();
-        edge_emu(src.as_ref(), src_x, src_y, bsize, bsize, &mut tmp_buf.data[tmp_buf.offset[comp]..], tmp_buf.stride[comp], comp);
+        edge_emu(src.as_ref(), src_x, src_y, bsize, bsize, &mut tmp_buf.data[tmp_buf.offset[comp]..], tmp_buf.stride[comp], comp, 0);
 //        copy_block(&mut tmp_buf, src, comp, 0, 0, src_x as i16, src_y as i16,
 //                   bsize, bsize, 0, 0, 0, interp);
         if (sx & 7) != 0 {

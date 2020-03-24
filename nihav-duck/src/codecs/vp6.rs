@@ -557,7 +557,7 @@ fn get_block(dst: &mut [u8], dstride: usize, src: NAVideoBufferRef<u8>, comp: us
     if (sx - 2 < 0) || (sx + 8 + 2 > (w as isize)) ||
        (sy - 2 < 0) || (sy + 8 + 2 > (h as isize)) {
         edge_emu(&src, sx - 2, sy - 2, 8 + 2 + 2, 8 + 2 + 2,
-                 dst, dstride, comp);
+                 dst, dstride, comp, 0);
     } else {
         let sstride = src.get_stride(comp);
         let soff    = src.get_offset(comp);

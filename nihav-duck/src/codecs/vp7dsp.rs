@@ -582,7 +582,7 @@ fn mc_block(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize, ypos: usiz
     let ref_y = (ypos as isize) + ((mvy >> 3) as isize) - (EDGE_PRE as isize);
 
     let (src, sstride) = if (ref_x < 0) || (ref_x + bsize > wa) || (ref_y < 0) || (ref_y + bsize > ha) {
-            edge_emu(&reffrm, ref_x, ref_y, bsize as usize, bsize as usize, mc_buf, 32, plane);
+            edge_emu(&reffrm, ref_x, ref_y, bsize as usize, bsize as usize, mc_buf, 32, plane, 0);
             (mc_buf as &[u8], 32)
         } else {
             let off     = reffrm.get_offset(plane);
@@ -647,7 +647,7 @@ pub fn mc_block_special(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize
             let bw = size + EDGE_PRE + EDGE_POST + add;
             let bh = (end_y - start_y) as usize;
             let bo = if xstep >= 0 { 0 } else { add };
-            edge_emu(&reffrm, start_x + (bo as isize), start_y, bw, bh, mc_buf, 128, plane);
+            edge_emu(&reffrm, start_x + (bo as isize), start_y, bw, bh, mc_buf, 128, plane, 0);
             (&mc_buf[bo..], (128 + xstep) as usize)
         };
     let mx = (mvx & 7) as usize;

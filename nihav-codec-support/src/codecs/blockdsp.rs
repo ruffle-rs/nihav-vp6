@@ -112,12 +112,21 @@ pub fn add_blocks(buf: &mut NAVideoBuffer<u8>, xpos: usize, ypos: usize, blk: &[
 }
 
 /// Copies block from the picture with pixels beyond the picture borders being replaced with replicated edge pixels.
-pub fn edge_emu(src: &NAVideoBuffer<u8>, xpos: isize, ypos: isize, bw: usize, bh: usize, dst: &mut [u8], dstride: usize, comp: usize) {
+pub fn edge_emu(src: &NAVideoBuffer<u8>, xpos: isize, ypos: isize, bw: usize, bh: usize, dst: &mut [u8], dstride: usize, comp: usize, align: u8) {
     let stride = src.get_stride(comp);
     let offs   = src.get_offset(comp);
-    let (w, h) = src.get_dimensions(comp);
+    let (w_, h_) = src.get_dimensions(comp);
+    let (hss, vss) = src.get_info().get_format().get_chromaton(comp).unwrap().get_subsampling();
     let data = src.get_data();
     let framebuf: &[u8] = data.as_slice();
+
+    let (w, h) = if align == 0 {
+            (w_, h_)
+        } else {
+            let wa = if align > hss { (1 << (align - hss)) - 1 } else { 0 };
+            let ha = if align > vss { (1 << (align - vss)) - 1 } else { 0 };
+            ((w_ + wa) & !wa, (h_ + ha) & !ha)
+        };
 
     for y in 0..bh {
         let srcy;
@@ -182,7 +191,7 @@ pub fn copy_blocks(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
             let bw_ = (if comp > 0 { bw/2 } else { bw }) + ((pre + post) as usize);
             let bh_ = (if comp > 0 { bh/2 } else { bh }) + ((pre + post) as usize);
             edge_emu(src, sx_ - pre, sy_ - pre, bw_, bh_,
-                     ebuf.as_mut_slice(), ebuf_stride, comp);
+                     ebuf.as_mut_slice(), ebuf_stride, comp, 0);
             let bw_ = if comp > 0 { bw/2 } else { bw };
             let bh_ = if comp > 0 { bh/2 } else { bh };
             (interp[mode])(&mut dbuf[doff + x + y * dstride..], dstride, ebuf.as_slice(), ebuf_stride, bw_, bh_);
@@ -233,7 +242,7 @@ pub fn copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>, c
         let doff    = dst.offset[comp];
         let edge = (pre + post) as usize;
         edge_emu(&src, sx - pre, sy - pre, bw + edge, bh + edge,
-                 ebuf.as_mut_slice(), ebuf_stride, comp);
+                 ebuf.as_mut_slice(), ebuf_stride, comp, 0);
         (interp[mode])(&mut dst.data[doff + dx + dy * dstride..], dstride,
                        ebuf.as_slice(), ebuf_stride, bw, bh);
     } else {

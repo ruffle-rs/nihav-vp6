@@ -491,7 +491,7 @@ impl RV60DSP {
                 luma_mc(dst, doffset, dstride, src, soffset, sstride, w, h, cx, cy);
             } else {
                 let mut ebuf: [u8; 70*70] = [0; 70*70];
-                edge_emu(prev_frame, (x as isize) + (dx as isize) - 2, (y as isize) + (dy as isize) - 2, w+5, h+5, &mut ebuf, 70, 0);
+                edge_emu(prev_frame, (x as isize) + (dx as isize) - 2, (y as isize) + (dy as isize) - 2, w+5, h+5, &mut ebuf, 70, 0, 0);
                 luma_mc(dst, doffset, dstride, &ebuf, 70*2 + 2, 70, w, h, cx, cy);
             }
         }
@@ -519,7 +519,7 @@ impl RV60DSP {
                 chroma_mc(frame.data, doffset, dstride, src, soffset, sstride, cw, ch, cx, cy);
             } else {
                 let mut ebuf: [u8; 40*40] = [0; 40*40];
-                edge_emu(prev_frame, ((x >> 1) as isize) + (dx as isize), ((y >> 1) as isize) + (dy as isize), cw+1, ch+1, &mut ebuf, 40, comp);
+                edge_emu(prev_frame, ((x >> 1) as isize) + (dx as isize), ((y >> 1) as isize) + (dy as isize), cw+1, ch+1, &mut ebuf, 40, comp, 0);
                 chroma_mc(frame.data, doffset, dstride, &ebuf, 0, 40, cw, ch, cx, cy);
             }
         }

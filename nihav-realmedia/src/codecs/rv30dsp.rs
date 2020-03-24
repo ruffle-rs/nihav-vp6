@@ -401,7 +401,7 @@ impl RV34DSP for RV30DSP {
             self.luma_mc[if use16 { 0 } else { 1 }][mode](dst, doffset, dstride, src, soffset, sstride);
         } else {
             let mut ebuf: [u8; 32*20] = [0; 32*20];
-            edge_emu(prev_frame, (x as isize) + (dx as isize) - 1, (y as isize) + (dy as isize) - 1, 16+3, 16+3, &mut ebuf, 32, 0);
+            edge_emu(prev_frame, (x as isize) + (dx as isize) - 1, (y as isize) + (dy as isize) - 1, 16+3, 16+3, &mut ebuf, 32, 0, 4);
             self.luma_mc[if use16 { 0 } else { 1 }][mode](dst, doffset, dstride, &ebuf, 32 + 1, 32);
         }
     }
@@ -428,7 +428,7 @@ impl RV34DSP for RV30DSP {
             rv30_chroma_mc(dst, doffset, dstride, src, soffset, sstride, size, cx, cy);
         } else {
             let mut ebuf: [u8; 16*10] = [0; 16*10];
-            edge_emu(prev_frame, (x as isize) + (dx as isize), (y as isize) + (dy as isize), 8+1, 8+1, &mut ebuf, 16, comp);
+            edge_emu(prev_frame, (x as isize) + (dx as isize), (y as isize) + (dy as isize), 8+1, 8+1, &mut ebuf, 16, comp, 4);
             rv30_chroma_mc(dst, doffset, dstride, &ebuf, 0, 16, size, cx, cy);
         }
     }
