@@ -376,10 +376,26 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_codecs(&mut dec_reg);
 
-//         test_file_decoding("realmedia", "assets/RV/rv40_ralf.rmvb", Some(1000), true, false, /*None*/Some("rv40"));
-        test_file_decoding("realmedia", "assets/RV/rv40_weighted_mc.rmvb", Some(400), true, false, None/*Some("rv40")*/, &dmx_reg, &dec_reg);
-//         test_file_decoding("realmedia", "assets/RV/rv40_weighted_mc_2.rmvb", Some(1000), true, false, /*None*/Some("rv40"));
-//panic!("end");
+        test_decoding("realmedia", "realvideo4", "assets/RV/rv40_weighted_mc.rmvb", Some(1500),
+                      &dmx_reg, &dec_reg,ExpectedTestResult::MD5Frames(vec![
+                            [0x27cf336a, 0xc1686c50, 0x5304783d, 0x6e77ffa2],
+                            [0x91f236c7, 0x3bda2d38, 0x961a0243, 0xda803cf1],
+                            [0x4075d7e8, 0xbcd7f85b, 0x1c0dd34b, 0x405d0a5d],
+                            [0x642498b7, 0xb57aa202, 0x69ea0d23, 0x1cc0794f],
+                            [0x1c1a4df8, 0x7e3fbd7d, 0x7fdeb57f, 0xf5d65179],
+                            [0x86a5dcdd, 0xd66caabf, 0xdfe1fc99, 0xb3443375],
+                            [0x86846664, 0xbee4268d, 0xc1e017e6, 0xc9d984c8],
+                            [0x0ecbe176, 0x81e5aca6, 0xb7bda49c, 0x34007e7b],
+                            [0x48c8a90e, 0xed003b8a, 0xc9e7e9a6, 0x54b1eca8],
+                            [0x540cbc0b, 0x6d7afaa8, 0xb0951c1f, 0xed22089e],
+                            [0x73190f85, 0x9cd72603, 0x1063ca54, 0xd4f82c7f],
+                            [0xef6206e8, 0x6affb292, 0xe12b7c9c, 0x37416240],
+                            [0x59f61c91, 0x66b2a632, 0x46556395, 0x74fbc1de],
+                            [0xd75635ca, 0x60d13826, 0xfa41d914, 0x9cfded0e],
+                            [0x7a8c4396, 0x6f3eda39, 0x4238dbaf, 0xa9052803]]));
+        test_decoding("realmedia", "realvideo4", "assets/RV/rv40_weighted_mc_2.rmvb", Some(2000),
+                      &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x4224b9d6, 0x32e3ff63, 0x02df9e60, 0xfa0548ee]));
     }
 }
 
