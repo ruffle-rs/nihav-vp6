@@ -536,6 +536,9 @@ fn decode_slice_header(br: &mut BitReader, bd: &mut RV34BitstreamDecoder, slice_
     validate!(slice_no < slice_offs.len());
     br.seek((slice_offs[slice_no] * 8) as u32)?;
     let mut shdr = bd.decode_slice_header(br, old_width, old_height)?;
+    if ((shdr.width == 0) || (shdr.height == 0)) && (shdr.ftype != FrameType::I) {
+        return Err(DecoderError::MissingReference);
+    }
     if slice_no < slice_offs.len() - 1 {
         let cur_pos = br.tell() as u32;
         br.seek((slice_offs[slice_no + 1] * 8) as u32)?;
@@ -566,6 +569,9 @@ const RV34_MB_MAX_SIZES: [usize; 6] = [ 0x2F, 0x62, 0x18B, 0x62F, 0x18BF, 0x23FF
 const RV34_SLICE_START_BITS: [u8; 6] = [ 6, 7, 9, 11, 13, 14 ];
 
 pub fn get_slice_start_offset_bits(w: usize, h: usize) -> u8 {
+    if (w == 0) || (h == 0) {
+        return 0;
+    }
     let mb_size = ((w + 15) >> 4) * ((h + 15) >> 4) - 1;
     let mut idx: usize = 0;
     while (idx < 5) && (RV34_MB_MAX_SIZES[idx] < mb_size) { idx += 1; }
