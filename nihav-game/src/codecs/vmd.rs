@@ -180,6 +180,9 @@ impl VMDVideoDecoder {
                                                   br.read_skip(1)?;
         let flags                               = br.read_byte()?;
         let has_pal = (flags & 0x02) != 0;
+        if (frame_x == 0xFFFF) && (frame_y == 0xFFFF) && (frame_l == 0xFFFF) && (frame_d == 0xFFFF) {
+            return Ok(false);
+        }
         validate!(frame_l >= frame_x && frame_d >= frame_y);
         validate!(frame_l < self.width && frame_d < self.height);
 
