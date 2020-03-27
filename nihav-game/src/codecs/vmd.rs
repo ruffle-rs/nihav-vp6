@@ -414,7 +414,7 @@ impl NADecoder for VMDAudioDecoder {
                 for _ in 0..nblocks {
                     if (mask & 1) != 0 {
                         for i in 0..self.blk_align * channels {
-                            dst[doff + i] = 0;
+                            dst[doff + i] = 128;
                         }
                     } else if channels == 1 {
                         for i in 0..self.blk_size {
