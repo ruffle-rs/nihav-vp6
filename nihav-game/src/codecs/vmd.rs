@@ -2,6 +2,7 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_codec_support::codecs::HAMShuffler;
 use std::str::FromStr;
+use std::sync::Arc;
 
 macro_rules! lz_op {
     (read; $dst:ident, $dpos:expr, $window:ident, $wpos:expr, $br:expr, $dst_size:expr) => {
@@ -278,12 +279,24 @@ pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(VMDVideoDecoder::new())
 }
 
+#[derive(Clone,Copy,PartialEq)]
+enum VMDAudioMode {
+    U8,
+    DPCM,
+    StereoDPCM,
+}
+
 struct VMDAudioDecoder {
     ainfo:      NAAudioInfo,
+    info:       Arc<NACodecInfo>,
     chmap:      NAChannelMap,
-    is16bit:    bool,
     blk_align:  usize,
     blk_size:   usize,
+    mode:       VMDAudioMode,
+    pred:       [i32; 2],
+    last_byte:  Option<u8>,
+    is_odd:     bool,
+    ch:         usize,
 }
 
 const SOL_AUD_STEPS16: [i16; 128] = [
@@ -309,10 +322,15 @@ impl VMDAudioDecoder {
     fn new() -> Self {
         Self {
             ainfo:  NAAudioInfo::new(0, 1, SND_S16P_FORMAT, 0),
+            info:   NACodecInfo::new_dummy(),
             chmap:  NAChannelMap::new(),
-            is16bit: false,
             blk_align: 0,
             blk_size: 0,
+            mode:   VMDAudioMode::U8,
+            pred:   [0; 2],
+            last_byte: None,
+            is_odd: false,
+            ch:     0,
         }
     }
     fn decode_16bit(&self, dst: &mut [i16], off1: usize, br: &mut ByteReader, nblocks: usize, mut mask: u32) -> DecoderResult<()> {
@@ -336,12 +354,7 @@ impl VMDAudioDecoder {
                 let mut ch = 0;
                 let flip_ch = if channels == 2 { 1 } else { 0 };
                 for _ in channels..self.blk_align*channels {
-                    let b                           = br.read_byte()? as usize;
-                    if (b & 0x80) != 0 {
-                        pred[ch] -= i32::from(SOL_AUD_STEPS16[b & 0x7F]);
-                    } else {
-                        pred[ch] += i32::from(SOL_AUD_STEPS16[b & 0x7F]);
-                    }
+                    pred[ch] = Self::pred16(pred[ch], br.read_byte()?);
                     //pred[ch] = pred[ch].max(-32768).min(32767);
                     dst[off[ch]] = pred[ch] as i16;
                     off[ch] += 1;
@@ -353,25 +366,55 @@ impl VMDAudioDecoder {
         validate!(br.left() == 0);
         Ok(())
     }
+    fn pred16(pred: i32, val: u8) -> i32 {
+        if (val & 0x80) != 0 {
+            pred - i32::from(SOL_AUD_STEPS16[(val & 0x7F) as usize])
+        } else {
+            pred + i32::from(SOL_AUD_STEPS16[(val & 0x7F) as usize])
+        }
+    }
+    fn cvt_u8(val: u8) -> u8 {
+        if val < 128 {
+            127 - val
+        } else {
+            val
+        }
+    }
 }
 
 impl NADecoder for VMDAudioDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let fmt;
+            let channels = ainfo.get_channels() as usize;
+            let edata = info.get_extradata();
+            let flags = if let Some(ref buf) = edata {
+                    validate!(buf.len() >= 2);
+                    (buf[0] as u16) | ((buf[1] as u16) << 8)
+                } else {
+                    0
+                };
+            validate!((channels == 1) ^ ((flags & 0x8200) != 0));
             if ainfo.get_format().get_bits() == 8 {
-                fmt = SND_U8_FORMAT;
-                self.is16bit = false;
                 self.blk_size = ainfo.get_block_len();
-                self.blk_align = ainfo.get_block_len() / (ainfo.get_channels() as usize);
+                self.blk_align = ainfo.get_block_len() / channels;
+                if (flags & 0x8000) == 0 {
+                    fmt = SND_U8_FORMAT;
+                    self.mode = VMDAudioMode::U8;
+                } else {
+                    fmt = SND_S16_FORMAT;
+                    self.mode = VMDAudioMode::StereoDPCM;
+                    self.is_odd = (channels == 2) && ((self.blk_size & 1) != 0);
+                }
             } else {
                 fmt = SND_S16P_FORMAT;
-                self.is16bit = true;
-                self.blk_size = (ainfo.get_block_len() + 1) * (ainfo.get_channels() as usize);
+                self.blk_size = (ainfo.get_block_len() + 1) * channels;
                 self.blk_align = ainfo.get_block_len();
+                self.mode = VMDAudioMode::DPCM;
             };
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), fmt, ainfo.get_block_len());
-            self.chmap = NAChannelMap::from_str(if ainfo.get_channels() == 1 { "C" } else { "L,R" }).unwrap();
+            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo.clone()));
+            self.chmap = NAChannelMap::from_str(if channels == 1 { "C" } else { "L,R" }).unwrap();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)
@@ -398,44 +441,99 @@ impl NADecoder for VMDAudioDecoder {
                 mask    = 0;
                 nblocks = 1;
             }
-            let samples = nblocks * self.blk_align;
+            let mut samples = nblocks * self.blk_align;
+            if self.mode == VMDAudioMode::StereoDPCM && self.is_odd {
+                samples += (nblocks + if self.last_byte.is_some() { 1 } else { 0 }) / 2;
+            }
             let abuf = alloc_audio_buffer(self.ainfo, samples, self.chmap.clone())?;
-            if self.is16bit {
-                let mut adata = abuf.get_abuf_i16().unwrap();
-                let off1 = adata.get_offset(1);
-                let mut dst = adata.get_data_mut().unwrap();
-                self.decode_16bit(&mut dst, off1, &mut br, nblocks, mask)?;
-            } else {
-                let mut adata = abuf.get_abuf_u8().unwrap();
-                let dst = adata.get_data_mut().unwrap();
-                let mut doff = 0;
-                let mut mask = mask;
-                let channels = self.chmap.num_channels();
-                for _ in 0..nblocks {
-                    if (mask & 1) != 0 {
-                        for i in 0..self.blk_align * channels {
-                            dst[doff + i] = 128;
-                        }
-                    } else if channels == 1 {
-                        for i in 0..self.blk_size {
-                            dst[doff + i]       = br.read_byte()?;
-                        }
-                    } else {
-                        for i in 0..self.blk_size {
-                            let val             = br.read_byte()?;
-                            if val < 128 {
-                                dst[doff + i] = 127 - val;
-                            } else {
+            match self.mode {
+                VMDAudioMode::DPCM => {
+                    let mut adata = abuf.get_abuf_i16().unwrap();
+                    let off1 = adata.get_offset(1);
+                    let mut dst = adata.get_data_mut().unwrap();
+                    self.decode_16bit(&mut dst, off1, &mut br, nblocks, mask)?;
+                },
+                VMDAudioMode::U8 => {
+                    let mut adata = abuf.get_abuf_u8().unwrap();
+                    let dst = adata.get_data_mut().unwrap();
+                    let mut doff = 0;
+                    let mut mask = mask;
+                    let channels = self.chmap.num_channels();
+                    for _ in 0..nblocks {
+                        if (mask & 1) != 0 {
+                            for i in 0..self.blk_align * channels {
+                                dst[doff + i] = 128;
+                            }
+                        } else if channels == 1 {
+                            for i in 0..self.blk_size {
+                                dst[doff + i]       = br.read_byte()?;
+                            }
+                        } else {
+                            for i in 0..self.blk_size {
+                                let val             = Self::cvt_u8(br.read_byte()?);
                                 dst[doff + i] = val;
                             }
                         }
+                        doff += self.blk_align * channels;
+                        mask >>= 1;
                     }
-                    doff += self.blk_align * channels;
-                    mask >>= 1;
-                }
-            }
+                },
+                VMDAudioMode::StereoDPCM => {
+                    let mut adata = abuf.get_abuf_i16().unwrap();
+                    let dst = adata.get_data_mut().unwrap();
+                    let mut doff = 0;
+                    let mut mask = mask;
+                    let mut ch = self.ch;
+                    for _ in 0..nblocks {
+                        let put_sample = self.last_byte.is_some();
+                        if let (true, Some(val)) = (self.is_odd, self.last_byte) {
+                            self.pred[ch] = Self::pred16(self.pred[ch], val);
+                            dst[doff] = self.pred[ch] as i16;
+                            doff += 1;
+                            ch ^= 1;
+                            self.last_byte = None;
+                        }
+                        if (mask & 1) != 0 {
+                            for i in 0..self.blk_align {
+                                dst[doff + i * 2 + 0] = self.pred[ch]     as i16;
+                                dst[doff + i * 2 + 1] = self.pred[ch ^ 1] as i16;
+                            }
+                            if self.is_odd {
+                                if put_sample {
+                                    dst[doff + self.blk_align * 2] = self.pred[ch] as i16;
+                                    doff += 1;
+                                    ch ^= 1;
+                                } else {
+                                    self.last_byte = Some(0);
+                                }
+                            }
+                        } else {
+                            for i in 0..self.blk_align {
+                                self.pred[ch] = Self::pred16(self.pred[ch], br.read_byte()?);
+                                dst[doff + i * 2] = self.pred[ch] as i16;
+                                self.pred[ch ^ 1] = Self::pred16(self.pred[ch ^ 1], br.read_byte()?);
+                                dst[doff + i * 2 + 1] = self.pred[ch ^ 1] as i16;
+                            }
+                            if self.is_odd {
+                                let val                     = br.read_byte()?;
+                                if put_sample {
+                                    self.pred[ch] = Self::pred16(self.pred[ch], val);
+                                    dst[doff + self.blk_align * 2] = self.pred[ch] as i16;
+                                    doff += 1;
+                                    ch ^= 1;
+                                } else {
+                                    self.last_byte = Some(val);
+                                }
+                            }
+                        }
+                        doff += self.blk_align * 2;
+                        mask >>= 1;
+                    }
+                    self.ch = ch;
+                },
+            };
 
-            let mut frm = NAFrame::new_from_pkt(pkt, info, abuf);
+            let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), abuf);
             frm.set_duration(Some(samples as u64));
             frm.set_keyframe(true);
             Ok(frm.into_ref())

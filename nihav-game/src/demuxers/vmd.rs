@@ -67,8 +67,10 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
                 block_size = bsize;
             }
 
+            let mut aedata: Vec<u8> = Vec::with_capacity(2);
+            aedata.extend_from_slice(&header[810..][..2]);
             let ahdr = NAAudioInfo::new(srate, channels, if is16bit { SND_S16P_FORMAT } else { SND_U8_FORMAT }, block_size);
-            let ainfo = NACodecInfo::new("vmd-audio", NACodecTypeInfo::Audio(ahdr), None);
+            let ainfo = NACodecInfo::new("vmd-audio", NACodecTypeInfo::Audio(ahdr), Some(aedata));
             self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate)).unwrap();
         } else {
             block_size = 0;
