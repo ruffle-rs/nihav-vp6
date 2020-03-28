@@ -563,21 +563,48 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-//        let file = "assets/Game/1491.VMD";
-        let file = "assets/Game/128.vmd";
-        test_file_decoding("vmd", file, Some(10), true, false, None/*Some("vmd")*/, &dmx_reg, &dec_reg);
+        test_decoding("vmd", "vmd-video", "assets/Game/2832.VMD", Some(10), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                            [0xd29e0214, 0xf38ad154, 0xccbd381f, 0x3de1109c],
+                            [0x904074eb, 0x202b1d6f, 0xe3f68538, 0xf0db641c],
+                            [0x9c8b1b6c, 0xe205b8dc, 0xbfb07406, 0x993ace41],
+                            [0x71ce4220, 0x8747fd05, 0x854dd86d, 0x2664cde5],
+                            [0x3bc65fa4, 0xebb95292, 0xe0a0fea6, 0x0acfdea1],
+                            [0x33982045, 0x8d11b69b, 0xac254a75, 0x63896a21],
+                            [0xa667db33, 0x90e122d3, 0x2243da15, 0xcc4bffd2],
+                            [0x518621c1, 0xb91412bc, 0x12312869, 0x141ef647],
+                            [0x3069977e, 0x68fd3fa0, 0x2bfdb00d, 0x1e694684],
+                            [0x246c12aa, 0x15137fb0, 0xa4b0fc3e, 0x626a2676],
+                            [0x72cce7e3, 0x98506d04, 0xd4d8bbaf, 0x3cc5e32d]]));
     }
     #[test]
-    fn test_vmd_audio() {
+    fn test_vmd_audio_u8() {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         game_register_all_codecs(&mut dec_reg);
 
-//        let file = "assets/Game/1491.VMD";
-        let file = "assets/Game/128.vmd";
-//        let file = "assets/Game/1000.VMD";
-//        let file = "assets/Game/235.VMD";
-        test_decode_audio("vmd", file, None, None/*Some("vmd")*/, &dmx_reg, &dec_reg);
+        test_decoding("vmd", "vmd-audio", "assets/Game/1491.VMD", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x75037601, 0xbc7b3976, 0x6e1c948b, 0xf05a3d6c]));
+    }
+    #[test]
+    fn test_vmd_audio_s16_old() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        game_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        game_register_all_codecs(&mut dec_reg);
+
+        test_decoding("vmd", "vmd-audio", "assets/Game/2832.VMD", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x32dcdf0e, 0xee058684, 0x43ed5bf1, 0x2ff18b5a]));
+    }
+    #[test]
+    fn test_vmd_audio_s16_new() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        game_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        game_register_all_codecs(&mut dec_reg);
+
+        test_decoding("vmd", "vmd-audio", "assets/Game/1000.VMD", None, &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0xc36215d3, 0x96530a80, 0x89f1fa8e, 0x49da302b]));
     }
 }
