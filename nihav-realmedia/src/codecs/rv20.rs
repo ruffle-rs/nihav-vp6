@@ -4,8 +4,9 @@ use nihav_core::formats;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
 use nihav_codec_support::codecs::{MV, ZIGZAG};
+use nihav_codec_support::codecs::blockdsp;
 use nihav_codec_support::codecs::h263::*;
-use nihav_codec_support::codecs::h263::code::H263BlockDSP;
+use nihav_codec_support::codecs::h263::code::{H263_INTERP_FUNCS, H263_INTERP_AVG_FUNCS, h263_filter_row};
 use nihav_codec_support::codecs::h263::decoder::*;
 use nihav_codec_support::codecs::h263::data::*;
 
@@ -38,7 +39,7 @@ struct RealVideo20Decoder {
     h:          usize,
     minor_ver:  u8,
     rpr:        RPRInfo,
-    bdsp:       H263BlockDSP,
+    bdsp:       Box<dyn BlockDSP + Send>,
     base_ts:    u64,
     last_ts:    u16,
     next_ts:    u16,
@@ -71,9 +72,81 @@ struct RV20SliceInfo {
     h:      usize,
 }
 
+#[derive(Default)]
+struct RV20BlockDSP {}
+
 impl RV20SliceInfo {
     fn new(ftype: Type, seq: u32, qscale: u8, mb_x: usize, mb_y: usize, mb_pos: usize, w: usize, h: usize) -> Self {
         RV20SliceInfo { ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h }
+    }
+}
+
+macro_rules! idct {
+    ($src: expr, $sstep: expr, $dst: expr, $dstep: expr, $bias: expr, $shift: expr, $dtype: tt) => {
+        let s0 = $src[0]          as i32;
+        let s1 = $src[$sstep]     as i32;
+        let s2 = $src[$sstep * 2] as i32;
+        let s3 = $src[$sstep * 3] as i32;
+        let s4 = $src[$sstep * 4] as i32;
+        let s5 = $src[$sstep * 5] as i32;
+        let s6 = $src[$sstep * 6] as i32;
+        let s7 = $src[$sstep * 7] as i32;
+
+        let t0 = (s0 + s4).wrapping_mul(1448);
+        let t1 = (s0 - s4).wrapping_mul(1448);
+        let t2 = s2.wrapping_mul(1892) + s6.wrapping_mul(784);
+        let t3 = s2.wrapping_mul(784)  - s6.wrapping_mul(1892);
+        let t4 = s1.wrapping_mul(2009) + s3.wrapping_mul(1703)
+               + s5.wrapping_mul(1138) + s7.wrapping_mul(400);
+        let t5 = s1.wrapping_mul(1703) - s3.wrapping_mul(400)
+               - s5.wrapping_mul(2009) - s7.wrapping_mul(1138);
+        let t6 = s1.wrapping_mul(1138) - s3.wrapping_mul(2009)
+               + s5.wrapping_mul(400)  + s7.wrapping_mul(1703);
+        let t7 = s1.wrapping_mul(400)  - s3.wrapping_mul(1138)
+               + s5.wrapping_mul(1703) - s7.wrapping_mul(2009);
+
+        let t8 = t0 + t2;
+        let t9 = t0 - t2;
+        let ta = t1 + t3;
+        let tb = t1 - t3;
+
+        $dst[0]          = ((t8 + t4 + $bias) >> $shift) as $dtype;
+        $dst[$dstep]     = ((ta + t5 + $bias) >> $shift) as $dtype;
+        $dst[$dstep * 2] = ((tb + t6 + $bias) >> $shift) as $dtype;
+        $dst[$dstep * 3] = ((t9 + t7 + $bias) >> $shift) as $dtype;
+        $dst[$dstep * 4] = ((t9 - t7 + $bias) >> $shift) as $dtype;
+        $dst[$dstep * 5] = ((tb - t6 + $bias) >> $shift) as $dtype;
+        $dst[$dstep * 6] = ((ta - t5 + $bias) >> $shift) as $dtype;
+        $dst[$dstep * 7] = ((t8 - t4 + $bias) >> $shift) as $dtype;
+    }
+}
+
+impl BlockDSP for RV20BlockDSP {
+    fn idct(&self, blk: &mut [i16; 64]) {
+        let mut tmp = [0i32; 64];
+        for (dst, src) in tmp.chunks_mut(8).zip(blk.chunks(8)) {
+            idct!(src, 1, dst, 1, 0, 4, i32);
+        }
+        for i in 0..8 {
+            idct!(&tmp[i..], 8, &mut blk[i..], 8, 1 << 19, 20, i16);
+        }
+    }
+    fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
+        let srcx = ((mv.x >> 1) as isize) + (xpos as isize);
+        let srcy = ((mv.y >> 1) as isize) + (ypos as isize);
+        let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+
+        blockdsp::copy_blocks(dst, src, xpos, ypos, srcx, srcy, w, h, 0, 1, mode, H263_INTERP_FUNCS);
+    }
+    fn avg_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
+        let srcx = ((mv.x >> 1) as isize) + (xpos as isize);
+        let srcy = ((mv.y >> 1) as isize) + (ypos as isize);
+        let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+
+        blockdsp::copy_blocks(dst, src, xpos, ypos, srcx, srcy, w, h, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+    }
+    fn filter_row(&self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo) {
+        h263_filter_row(buf, mb_y, mb_w, cbpi)
     }
 }
 
@@ -457,7 +530,7 @@ impl RealVideo20Decoder {
             h:              0,
             minor_ver:      0,
             rpr:            RPRInfo { present: false, bits: 0, widths: [0; 8], heights: [0; 8] },
-            bdsp:           H263BlockDSP::new(),
+            bdsp:           Box::new(RV20BlockDSP::default()),
             base_ts:        0,
             last_ts:        0,
             next_ts:        0,
@@ -506,7 +579,7 @@ impl NADecoder for RealVideo20Decoder {
 
         let mut ibr = RealVideo20BR::new(&src, &self.tables, self.w, self.h, self.minor_ver, self.rpr);
 
-        let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp)?;
+        let bufinfo = self.dec.parse_frame(&mut ibr, self.bdsp.as_ref())?;
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         let ftype = self.dec.get_frame_type();
