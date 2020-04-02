@@ -348,7 +348,7 @@ impl H263BlockDSP {
 }
 
 #[allow(clippy::erasing_op)]
-fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
+fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usize) {
     let stride = buf.get_stride(comp);
     let dptr = buf.get_data_mut().unwrap();
     let buf = dptr.as_mut_slice();
@@ -357,28 +357,22 @@ fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
         let b = buf[off - 1 * stride + x] as i16;
         let c = buf[off + 0 * stride + x] as i16;
         let d = buf[off + 1 * stride + x] as i16;
-        let diff = ((a - d) * 3 + (c - b) * 8) >> 4;
-        if (diff != 0) && (diff >= -32) && (diff < 32) {
-            let d0 = diff.abs() * 2 - (q as i16);
-            let d1 = if d0 < 0 { 0 } else { d0 };
-            let d2 = diff.abs() - d1;
-            let d3 = if d2 < 0 { 0 } else { d2 };
+        let diff = ((a - d) + (c - b) * 4) / 8;
+        if (diff != 0) && (diff > -24) && (diff < 24) {
+            let d1a = (diff.abs() - 2 * (diff.abs() - (strength as i16)).max(0)).max(0);
+            let d1  = if d1a < 0 { 0 } else { d1a };
+            let hd1 = d1a / 2;
+            let d2  = ((a - d) / 4).max(-hd1).min(hd1);
 
-            let delta = if diff < 0 { -d3 } else { d3 };
-
-            let b1 = b + delta;
-            if      b1 < 0   { buf[off - 1 * stride + x] = 0; }
-            else if b1 > 255 { buf[off - 1 * stride + x] = 0xFF; }
-            else             { buf[off - 1 * stride + x] = b1 as u8; }
-            let c1 = c - delta;
-            if      c1 < 0   { buf[off + x] = 0; }
-            else if c1 > 255 { buf[off + x] = 0xFF; }
-            else             { buf[off + x] = c1 as u8; }
+            buf[off - 2 * stride + x] = (a - d2) as u8;
+            buf[off - 1 * stride + x] = (b + d1).max(0).min(255) as u8;
+            buf[off + 0 * stride + x] = (c - d1).max(0).min(255) as u8;
+            buf[off + 1 * stride + x] = (d + d2) as u8;
         }
     }
 }
 
-fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
+fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usize) {
     let stride = buf.get_stride(comp);
     let dptr = buf.get_data_mut().unwrap();
     let buf = dptr.as_mut_slice();
@@ -387,26 +381,25 @@ fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, q: u8, off: usize) {
         let b = buf[off - 1 + y * stride] as i16;
         let c = buf[off + 0 + y * stride] as i16;
         let d = buf[off + 1 + y * stride] as i16;
-        let diff = ((a - d) * 3 + (c - b) * 8) >> 4;
-        if (diff != 0) && (diff >= -32) && (diff < 32) {
-            let d0 = diff.abs() * 2 - (q as i16);
-            let d1 = if d0 < 0 { 0 } else { d0 };
-            let d2 = diff.abs() - d1;
-            let d3 = if d2 < 0 { 0 } else { d2 };
+        let diff = (a - d + (c - b) * 4) / 8;
+        if (diff != 0) && (diff > -24) && (diff < 24) {
+            let d1a = (diff.abs() - 2 * (diff.abs() - (strength as i16)).max(0)).max(0);
+            let d1  = if d1a < 0 { 0 } else { d1a };
+            let hd1 = d1a / 2;
+            let d2  = ((a - d) / 4).max(-hd1).min(hd1);
 
-            let delta = if diff < 0 { -d3 } else { d3 };
-
-            let b1 = b + delta;
-            if      b1 < 0   { buf[off - 1 + y * stride] = 0; }
-            else if b1 > 255 { buf[off - 1 + y * stride] = 0xFF; }
-            else             { buf[off - 1 + y * stride] = b1 as u8; }
-            let c1 = c - delta;
-            if      c1 < 0   { buf[off + y * stride] = 0; }
-            else if c1 > 255 { buf[off + y * stride] = 0xFF; }
-            else             { buf[off + y * stride] = c1 as u8; }
+            buf[off - 2 + y * stride] = (a - d2) as u8;
+            buf[off - 1 + y * stride] = (b + d1).max(0).min(255) as u8;
+            buf[off     + y * stride] = (c - d1).max(0).min(255) as u8;
+            buf[off + 1 + y * stride] = (d + d2) as u8;
         }
     }
 }
+
+const FILTER_STRENGTH: [u8; 32] = [
+    1,  1,  2,  2,  3,  3,  4,  4,  4,  5,  5,  5,  6,  6,  7,  7,
+    7,  8,  8,  8,  9,  9,  9, 10, 10, 10, 11, 11, 11, 12, 12, 12
+];
 
 pub fn h263_filter_row(buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo) {
     let stride  = buf.get_stride(0);
@@ -416,9 +409,10 @@ pub fn h263_filter_row(buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cb
         let coded0 = cbpi.is_coded(mb_x, 0);
         let coded1 = cbpi.is_coded(mb_x, 1);
         let q = cbpi.get_q(mb_w + mb_x);
+        let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
         if mb_y != 0 {
-            if coded0 && cbpi.is_coded_top(mb_x, 0) { deblock_hor(buf, 0, q, coff); }
-            if coded1 && cbpi.is_coded_top(mb_x, 1) { deblock_hor(buf, 0, q, coff + 8); }
+            if coded0 && cbpi.is_coded_top(mb_x, 0) { deblock_hor(buf, 0, str, coff); }
+            if coded1 && cbpi.is_coded_top(mb_x, 1) { deblock_hor(buf, 0, str, coff + 8); }
         }
         let coff = off + 8 * stride;
         if cbpi.is_coded(mb_x, 2) && coded0 { deblock_hor(buf, 0, q, coff); }
@@ -434,14 +428,16 @@ pub fn h263_filter_row(buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cb
         let ccur0 = cbpi.is_coded(mb_x, 0);
         let ccur1 = cbpi.is_coded(mb_x, 1);
         let q = cbpi.get_q(mb_w + mb_x);
+        let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
         if mb_y != 0 {
             let coff = off - 8 * stride;
             let qtop = cbpi.get_q(mb_x);
-            if leftt && ctop0 { deblock_ver(buf, 0, qtop, coff); }
-            if ctop0 && ctop1 { deblock_ver(buf, 0, qtop, coff + 8); }
+            let strtop = if qtop < 32 { FILTER_STRENGTH[qtop as usize] } else { 0 };
+            if leftt && ctop0 { deblock_ver(buf, 0, strtop, coff); }
+            if ctop0 && ctop1 { deblock_ver(buf, 0, strtop, coff + 8); }
         }
-        if leftc && ccur0 { deblock_ver(buf, 0, q, off); }
-        if ccur0 && ccur1 { deblock_ver(buf, 0, q, off + 8); }
+        if leftc && ccur0 { deblock_ver(buf, 0, str, off); }
+        if ccur0 && ccur1 { deblock_ver(buf, 0, str, off + 8); }
         leftt = ctop1;
         leftc = ccur1;
         off += 16;
@@ -457,8 +453,9 @@ pub fn h263_filter_row(buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cb
             let ctv = cbpi.is_coded_top(mb_x, 5);
             let ccv = cbpi.is_coded(mb_x, 5);
             let q = cbpi.get_q(mb_w + mb_x);
-            if ctu && ccu { deblock_hor(buf, 1, q, offu + mb_x * 8); }
-            if ctv && ccv { deblock_hor(buf, 2, q, offv + mb_x * 8); }
+            let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
+            if ctu && ccu { deblock_hor(buf, 1, str, offu + mb_x * 8); }
+            if ctv && ccv { deblock_hor(buf, 2, str, offv + mb_x * 8); }
         }
         let mut leftu = false;
         let mut leftv = false;
@@ -468,8 +465,9 @@ pub fn h263_filter_row(buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cb
             let ctu = cbpi.is_coded_top(mb_x, 4);
             let ctv = cbpi.is_coded_top(mb_x, 5);
             let qt = cbpi.get_q(mb_x);
-            if leftu && ctu { deblock_ver(buf, 1, qt, offu + mb_x * 8); }
-            if leftv && ctv { deblock_ver(buf, 2, qt, offv + mb_x * 8); }
+            let strt = if qt < 32 { FILTER_STRENGTH[qt as usize] } else { 0 };
+            if leftu && ctu { deblock_ver(buf, 1, strt, offu + mb_x * 8); }
+            if leftv && ctv { deblock_ver(buf, 2, strt, offv + mb_x * 8); }
             leftu = ctu;
             leftv = ctv;
         }
