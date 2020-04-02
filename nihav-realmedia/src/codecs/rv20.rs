@@ -39,6 +39,9 @@ struct RealVideo20Decoder {
     minor_ver:  u8,
     rpr:        RPRInfo,
     bdsp:       H263BlockDSP,
+    base_ts:    u64,
+    last_ts:    u16,
+    next_ts:    u16,
 }
 
 struct RealVideo20BR<'a> {
@@ -54,6 +57,7 @@ struct RealVideo20BR<'a> {
     mb_pos_bits: u8,
     minor_ver:  u8,
     rpr:        RPRInfo,
+    pts:        u16,
 }
 
 struct RV20SliceInfo {
@@ -110,6 +114,7 @@ impl<'a> RealVideo20BR<'a> {
             mb_pos_bits: mbpb,
             minor_ver,
             rpr,
+            pts:        0,
         }
     }
 
@@ -382,6 +387,7 @@ impl<'a> RealVideo20BR<'a> {
             } else {
                 br.read(13)? << 3
             };
+        self.pts = seq as u16;
         let w;
         let h;
         if self.rpr.present {
@@ -452,6 +458,9 @@ impl RealVideo20Decoder {
             minor_ver:      0,
             rpr:            RPRInfo { present: false, bits: 0, widths: [0; 8], heights: [0; 8] },
             bdsp:           H263BlockDSP::new(),
+            base_ts:        0,
+            last_ts:        0,
+            next_ts:        0,
         }
     }
 }
@@ -500,8 +509,20 @@ impl NADecoder for RealVideo20Decoder {
         let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp)?;
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
+        let ftype = self.dec.get_frame_type();
+        let pts = ibr.pts;
+        if ftype != FrameType::B {
+            self.last_ts = self.next_ts;
+            self.next_ts = pts;
+            if self.last_ts > self.next_ts {
+                self.base_ts += 1 << 16;
+            }
+        }
+        let ts_diff = self.next_ts.wrapping_sub(pts);
+        let ts = self.base_ts + (self.next_ts as u64) - (ts_diff as u64);
         frm.set_keyframe(self.dec.is_intra());
-        frm.set_frame_type(self.dec.get_frame_type());
+        frm.set_frame_type(ftype);
+        frm.set_pts(Some(ts >> 3));
         Ok(frm.into_ref())
     }
     fn flush(&mut self) {
