@@ -157,7 +157,7 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "imc",    "Intel Music Coder"),
 
     desc!(video;    "realvideo1", "Real Video 1"),
-    desc!(video;    "realvideo2", "Real Video 2"),
+    desc!(video;    "realvideo2", "Real Video 2", CODEC_CAP_REORDER),
     desc!(video;    "realvideo3", "Real Video 3", CODEC_CAP_REORDER),
     desc!(video;    "realvideo4", "Real Video 4", CODEC_CAP_REORDER),
     desc!(video;    "realvideo6", "Real Video 6", CODEC_CAP_REORDER),
