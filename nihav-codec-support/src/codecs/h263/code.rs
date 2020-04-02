@@ -417,8 +417,8 @@ pub fn h263_filter_row(buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cb
         let coded1 = cbpi.is_coded(mb_x, 1);
         let q = cbpi.get_q(mb_w + mb_x);
         if mb_y != 0 {
-	        if coded0 && cbpi.is_coded_top(mb_x, 0) { deblock_hor(buf, 0, q, coff); }
-	        if coded1 && cbpi.is_coded_top(mb_x, 1) { deblock_hor(buf, 0, q, coff + 8); }
+            if coded0 && cbpi.is_coded_top(mb_x, 0) { deblock_hor(buf, 0, q, coff); }
+            if coded1 && cbpi.is_coded_top(mb_x, 1) { deblock_hor(buf, 0, q, coff + 8); }
         }
         let coff = off + 8 * stride;
         if cbpi.is_coded(mb_x, 2) && coded0 { deblock_hor(buf, 0, q, coff); }
@@ -435,10 +435,10 @@ pub fn h263_filter_row(buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cb
         let ccur1 = cbpi.is_coded(mb_x, 1);
         let q = cbpi.get_q(mb_w + mb_x);
         if mb_y != 0 {
-	        let coff = off - 8 * stride;
-	        let qtop = cbpi.get_q(mb_x);
-	        if leftt && ctop0 { deblock_ver(buf, 0, qtop, coff); }
-        	if ctop0 && ctop1 { deblock_ver(buf, 0, qtop, coff + 8); }
+            let coff = off - 8 * stride;
+            let qtop = cbpi.get_q(mb_x);
+            if leftt && ctop0 { deblock_ver(buf, 0, qtop, coff); }
+            if ctop0 && ctop1 { deblock_ver(buf, 0, qtop, coff + 8); }
         }
         if leftc && ccur0 { deblock_ver(buf, 0, q, off); }
         if ccur0 && ccur1 { deblock_ver(buf, 0, q, off + 8); }
@@ -452,26 +452,26 @@ pub fn h263_filter_row(buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cb
     let offv = buf.get_offset(2) + mb_y * 8 * stridev;
     if mb_y != 0 {
         for mb_x in 0..mb_w {
-	        let ctu = cbpi.is_coded_top(mb_x, 4);
-        	let ccu = cbpi.is_coded(mb_x, 4);
-        	let ctv = cbpi.is_coded_top(mb_x, 5);
-        	let ccv = cbpi.is_coded(mb_x, 5);
-        	let q = cbpi.get_q(mb_w + mb_x);
-        	if ctu && ccu { deblock_hor(buf, 1, q, offu + mb_x * 8); }
-        	if ctv && ccv { deblock_hor(buf, 2, q, offv + mb_x * 8); }
+            let ctu = cbpi.is_coded_top(mb_x, 4);
+            let ccu = cbpi.is_coded(mb_x, 4);
+            let ctv = cbpi.is_coded_top(mb_x, 5);
+            let ccv = cbpi.is_coded(mb_x, 5);
+            let q = cbpi.get_q(mb_w + mb_x);
+            if ctu && ccu { deblock_hor(buf, 1, q, offu + mb_x * 8); }
+            if ctv && ccv { deblock_hor(buf, 2, q, offv + mb_x * 8); }
         }
         let mut leftu = false;
         let mut leftv = false;
         let offu = buf.get_offset(1) + (mb_y - 1) * 8 * strideu;
         let offv = buf.get_offset(2) + (mb_y - 1) * 8 * stridev;
         for mb_x in 0..mb_w {
-	        let ctu = cbpi.is_coded_top(mb_x, 4);
-	        let ctv = cbpi.is_coded_top(mb_x, 5);
-	        let qt = cbpi.get_q(mb_x);
-        	if leftu && ctu { deblock_ver(buf, 1, qt, offu + mb_x * 8); }
-        	if leftv && ctv { deblock_ver(buf, 2, qt, offv + mb_x * 8); }
-        	leftu = ctu;
-        	leftv = ctv;
+            let ctu = cbpi.is_coded_top(mb_x, 4);
+            let ctv = cbpi.is_coded_top(mb_x, 5);
+            let qt = cbpi.get_q(mb_x);
+            if leftu && ctu { deblock_ver(buf, 1, qt, offu + mb_x * 8); }
+            if leftv && ctv { deblock_ver(buf, 2, qt, offv + mb_x * 8); }
+            leftu = ctu;
+            leftv = ctv;
         }
     }
 }
