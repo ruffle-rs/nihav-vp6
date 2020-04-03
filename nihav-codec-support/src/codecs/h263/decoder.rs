@@ -22,7 +22,7 @@ impl MVInfo {
     fn reset(&mut self, mb_w: usize, mb_start: usize, mvmode: MVMode) {
         self.mb_start  = mb_start;
         self.mb_w      = mb_w;
-        self.mb_stride = mb_w * 2;
+        self.mb_stride = mb_w * 2 + 2;
         self.mv.resize(self.mb_stride * 3, ZERO_MV);
         self.mvmode    = mvmode;
     }
