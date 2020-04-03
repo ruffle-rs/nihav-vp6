@@ -53,13 +53,15 @@ impl RMVideoStream {
         self.frame.resize(frame_size + self.hdr_size, 0);
         self.frame[0] = (num_slices - 1) as u8;
         self.frame_pos = 0;
-        self.add_slice(1, data);
+        self.add_slice(1, data).unwrap();
     }
-    fn add_slice(&mut self, slice_no: usize, data: &[u8]) {
+    fn add_slice(&mut self, slice_no: usize, data: &[u8]) -> DemuxerResult<()> {
+        validate!(self.hdr_size + self.frame_pos + data.len() <= self.frame.len());
         self.write_slice_info(slice_no);
         let dslice = &mut self.frame[self.hdr_size + self.frame_pos..][..data.len()];
         dslice.copy_from_slice(data);
         self.frame_pos += data.len();
+        Ok(())
     }
     fn write_slice_info(&mut self, slice_no: usize) {
         let off = 1 + (slice_no - 1) * 8;
@@ -580,7 +582,7 @@ println!(" got ainfo {:?}", ainfo);
                                 if packet_num == 1 {
                                     vstr.start_slice(num_pkts, frame_size as usize, slice_buf.as_slice());
                                 } else {
-                                    vstr.add_slice(packet_num as usize, slice_buf.as_slice());
+                                    vstr.add_slice(packet_num as usize, slice_buf.as_slice())?;
                                 }
                                 if (packet_num as usize) < num_pkts {
                                     return Err(DemuxerError::TryAgain);
@@ -610,7 +612,7 @@ println!(" got ainfo {:?}", ainfo);
                                 if packet_num == 1 && frame_size == tail_size {
                                     vstr.start_slice(num_pkts, frame_size as usize, slice_buf.as_slice());
                                 } else {
-                                    vstr.add_slice(packet_num as usize, slice_buf.as_slice());
+                                    vstr.add_slice(packet_num as usize, slice_buf.as_slice())?;
                                 }
 
                                 while src.tell() < pos + (payload_size as u64) {
