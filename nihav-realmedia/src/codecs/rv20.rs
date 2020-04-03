@@ -209,8 +209,8 @@ impl<'a> RealVideo20BR<'a> {
                 };
 
         let rl_cb = if sstate.is_iframe { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
-        let q_add = if quant == 0 || sstate.is_iframe { 0i16 } else { ((quant - 1) | 1) as i16 };
-        let q = if plane_no == 0 { (quant * 2) as i16 } else { H263_CHROMA_QUANT[quant as usize] as i16 };
+        let q = if plane_no == 0 { (quant * 2) as i16 } else { (H263_CHROMA_QUANT[quant as usize] * 2) as i16 };
+        let q_add = if q == 0 || sstate.is_iframe { 0i16 } else { (((q >> 1) - 1) | 1) as i16 };
         while idx < 64 {
             let code = br.read_cb(rl_cb)?;
             let run;
@@ -221,7 +221,11 @@ impl<'a> RealVideo20BR<'a> {
                 level = code.get_level();
                 last  = code.is_last();
                 if br.read_bool()? { level = -level; }
-                level = (level * q) + q_add;
+                if level >= 0 {
+                    level = (level * q) + q_add;
+                } else {
+                    level = (level * q) - q_add;
+                }
             } else {
                 last  = br.read_bool()?;
                 run   = br.read(6)? as u8;
@@ -231,7 +235,11 @@ impl<'a> RealVideo20BR<'a> {
                     let top = br.read_s(6)? as i16;
                     level = (top << 5) | low;
                 }
-                level = (level * q) + q_add;
+                if level >= 0 {
+                    level = (level * q) + q_add;
+                } else {
+                    level = (level * q) - q_add;
+                }
                 if level < -2048 { level = -2048; }
                 if level >  2047 { level =  2047; }
             }
