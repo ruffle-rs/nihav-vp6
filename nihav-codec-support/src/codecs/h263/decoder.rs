@@ -141,9 +141,9 @@ pub struct H263BaseDecoder {
 
 #[inline]
 fn clip_dc(dc: i16) -> i16 {
-    if dc < 0 { 0 }
-    else if dc > 2046 { 2046 }
-    else { (dc + 1) & !1 }
+    if dc <= 0 { 0 }
+    else if dc > 2046 { 2047 }
+    else { dc | 1 }
 }
 
 #[inline]
