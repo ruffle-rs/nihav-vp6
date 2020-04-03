@@ -353,7 +353,7 @@ impl H263BaseDecoder {
                             self.mv_data.push(BlockMVInfo::Inter_1MV(mv));
                         }
                         if let Some(ref srcbuf) = self.ipbs.get_lastref() {
-                            bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, mv);
+                            bdsp.copy_blocks(&mut buf, srcbuf.clone(), mb_x * 16, mb_y * 16, mv);
                         }
                         if pinfo.is_pb() {
                             mvi2.predict(mb_x, 0, false, binfo.get_mv(0), sstate.first_line, sstate.first_mb);
@@ -362,11 +362,9 @@ impl H263BaseDecoder {
                         let mut mv: [MV; 4] = [ZERO_MV, ZERO_MV, ZERO_MV, ZERO_MV];
                         for blk_no in 0..4 {
                             mv[blk_no] = mvi.predict(mb_x, blk_no, true, binfo.get_mv(blk_no), sstate.first_line, sstate.first_mb);
-                            if let Some(ref srcbuf) = self.ipbs.get_lastref() {
-                                bdsp.copy_blocks(&mut buf, srcbuf,
-                                                 mb_x * 16 + (blk_no & 1) * 8,
-                                                 mb_y * 16 + (blk_no & 2) * 4, 8, 8, mv[blk_no]);
-                            }
+                        }
+                        if let Some(ref srcbuf) = self.ipbs.get_lastref() {
+                            bdsp.copy_blocks8x8(&mut buf, srcbuf.clone(), mb_x * 16, mb_y * 16, &mv);
                         }
                         if pinfo.is_pb() {
                             for blk_no in 0..4 {
@@ -392,7 +390,7 @@ impl H263BaseDecoder {
                         mvi2.set_zero_mv(mb_x);
                     }
                     if let Some(ref srcbuf) = self.ipbs.get_lastref() {
-                        bdsp.copy_blocks(&mut buf, srcbuf, mb_x * 16, mb_y * 16, 16, 16, ZERO_MV);
+                        bdsp.copy_blocks(&mut buf, srcbuf.clone(), mb_x * 16, mb_y * 16, ZERO_MV);
                     }
                 } else {
                     let ref_mv_info = self.mv_data[mb_pos];
@@ -416,26 +414,28 @@ impl H263BaseDecoder {
                         }
                         if let (Some(ref fwd_buf), Some(ref bck_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
                             if has_fwd && has_bwd {
-                                bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, fwd_mv);
-                                bdsp.avg_blocks (&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, bwd_mv);
+                                bdsp.copy_blocks(&mut buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, fwd_mv);
+                                bdsp.avg_blocks (&mut buf, bck_buf.clone(), mb_x * 16, mb_y * 16, bwd_mv);
                             } else if has_fwd {
-                                bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, fwd_mv);
+                                bdsp.copy_blocks(&mut buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, fwd_mv);
                             } else {
-                                bdsp.copy_blocks(&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, bwd_mv);
+                                bdsp.copy_blocks(&mut buf, bck_buf.clone(), mb_x * 16, mb_y * 16, bwd_mv);
                             }
                         }
                     } else {
                         if let BlockMVInfo::Inter_4MV(mvs) = ref_mv_info {
+                            let mut mv_f = [ZERO_MV; 4];
+                            let mut mv_b = [ZERO_MV; 4];
                             for blk_no in 0..4 {
                                 let ref_mv = mvs[blk_no];
                                 let ref_mv_fwd = ref_mv.scale(bsdiff, tsdiff);
                                 let ref_mv_bwd = ref_mv - ref_mv_fwd;
-                                let xoff = mb_x * 16 + (blk_no & 1) * 8;
-                                let yoff = mb_y * 16 + (blk_no & 2) * 4;
-                                if let (Some(ref fwd_buf), Some(ref bck_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
-                                    bdsp.copy_blocks(&mut buf, fwd_buf, xoff, yoff, 8, 8, ref_mv_fwd);
-                                    bdsp.avg_blocks (&mut buf, bck_buf, xoff, yoff, 8, 8, ref_mv_bwd);
-                                }
+                                mv_f[blk_no] = ref_mv_fwd;
+                                mv_b[blk_no] = ref_mv_bwd;
+                            }
+                            if let (Some(ref fwd_buf), Some(ref bck_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
+                                bdsp.copy_blocks8x8(&mut buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, &mv_f);
+                                bdsp.avg_blocks8x8 (&mut buf, bck_buf.clone(), mb_x * 16, mb_y * 16, &mv_b);
                             }
                         } else {
                             let ref_mv = if let BlockMVInfo::Inter_1MV(mv_) = ref_mv_info { mv_ } else { ZERO_MV };
@@ -443,8 +443,8 @@ impl H263BaseDecoder {
                             let ref_mv_bwd = MV::b_sub(ref_mv, ref_mv_fwd, ZERO_MV, bsdiff, tsdiff);
 
                             if let (Some(ref fwd_buf), Some(ref bck_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
-                                bdsp.copy_blocks(&mut buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_fwd);
-                                bdsp.avg_blocks (&mut buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, ref_mv_bwd);
+                                bdsp.copy_blocks(&mut buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, ref_mv_fwd);
+                                bdsp.avg_blocks (&mut buf, bck_buf.clone(), mb_x * 16, mb_y * 16, ref_mv_bwd);
                             }
                         }
                         mvi.set_zero_mv(mb_x);
@@ -534,10 +534,10 @@ impl H263BaseDecoder {
         let fmt = formats::YUV420_FORMAT;
         let vinfo = NAVideoInfo::new(self.w, self.h, false, fmt);
         let bufinfo = alloc_video_buffer(vinfo, 4)?;
-        let mut b_buf = bufinfo.get_vbuf().unwrap();
+        let b_buf = bufinfo.get_vbuf().unwrap();
 
         if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
-            recon_b_frame(&mut b_buf, fwd_buf, bck_buf, self.mb_w, self.mb_h, self.b_data.as_slice(), bdsp);
+            recon_b_frame(b_buf, fwd_buf.clone(), bck_buf.clone(), self.mb_w, self.mb_h, self.b_data.as_slice(), bdsp);
         }
 
         self.b_data.truncate(0);
@@ -545,7 +545,7 @@ impl H263BaseDecoder {
     }
 }
 
-fn recon_b_frame(b_buf: &mut NAVideoBuffer<u8>, bck_buf: &NAVideoBuffer<u8>, fwd_buf: &NAVideoBuffer<u8>,
+fn recon_b_frame(mut b_buf: NAVideoBufferRef<u8>, bck_buf: NAVideoBufferRef<u8>, fwd_buf: NAVideoBufferRef<u8>,
                  mb_w: usize, mb_h: usize, b_data: &[BMB], bdsp: &BlockDSP) {
     let mut cbpi = CBPInfo::new();
     let mut cur_mb = 0;
@@ -557,22 +557,18 @@ fn recon_b_frame(b_buf: &mut NAVideoBuffer<u8>, bck_buf: &NAVideoBuffer<u8>, fwd
             let cbp    = b_data[cur_mb].cbp;
             cbpi.set_cbp(mb_x, cbp);
             if num_mv == 1 {
-                bdsp.copy_blocks(b_buf, fwd_buf, mb_x * 16, mb_y * 16, 16, 16, b_data[cur_mb].mv_b[0]);
+                bdsp.copy_blocks(&mut b_buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, b_data[cur_mb].mv_b[0]);
                 if !is_fwd {
-                    bdsp.avg_blocks(b_buf, bck_buf, mb_x * 16, mb_y * 16, 16, 16, b_data[cur_mb].mv_f[0]);
+                    bdsp.avg_blocks(&mut b_buf, bck_buf.clone(), mb_x * 16, mb_y * 16, b_data[cur_mb].mv_f[0]);
                 }
             } else {
-                for blk_no in 0..4 {
-                    let xpos = mb_x * 16 + (blk_no & 1) * 8;
-                    let ypos = mb_y * 16 + (blk_no & 2) * 4;
-                    bdsp.copy_blocks(b_buf, fwd_buf, xpos, ypos, 8, 8, b_data[cur_mb].mv_b[blk_no]);
-                    if !is_fwd {
-                        bdsp.avg_blocks(b_buf, bck_buf, xpos, ypos, 8, 8, b_data[cur_mb].mv_f[blk_no]);
-                    }
+                bdsp.copy_blocks8x8(&mut b_buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, &b_data[cur_mb].mv_b);
+                if !is_fwd {
+                    bdsp.avg_blocks8x8(&mut b_buf, bck_buf.clone(), mb_x * 16, mb_y * 16, &b_data[cur_mb].mv_f);
                 }
             }
             if cbp != 0 {
-                blockdsp::add_blocks(b_buf, mb_x, mb_y, &b_data[cur_mb].blk);
+                blockdsp::add_blocks(&mut b_buf, mb_x, mb_y, &b_data[cur_mb].blk);
             }
             cur_mb += 1;
         }

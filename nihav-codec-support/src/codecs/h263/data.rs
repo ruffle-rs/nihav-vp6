@@ -63,6 +63,8 @@ pub const H263_MBTYPE_B: &[(u8, u8)] = &[
     (7,  6), (4,  6), (5,  6), (1,  6), (1,  7), (1,  8), (1, 10)
 ];
 
+pub const H263_CHROMA_ROUND: [i16; 16] = [ 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1 ];
+
 // 0x1 - direct, 0x2 - has quant, 0x4 - has CBP, 0x8 - has dquant, 0x10 - has fwd, 0x20 - has bwd, 0x40 - intra
 
 pub const H263_MBB_CAP_CODED:    u8 = 0x2;

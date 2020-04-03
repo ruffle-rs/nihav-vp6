@@ -1,6 +1,6 @@
 use nihav_core::codecs::DecoderResult;
 use super::{MV, ZERO_MV};
-use nihav_core::frame::NAVideoBuffer;
+use nihav_core::frame::{NAVideoBuffer, NAVideoBufferRef};
 
 #[allow(clippy::many_single_char_names)]
 pub mod code;
@@ -19,8 +19,10 @@ pub trait BlockDecoder {
 
 pub trait BlockDSP {
     fn idct(&self, blk: &mut [i16; 64]);
-    fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV);
-    fn avg_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV);
+    fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV);
+    fn copy_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]);
+    fn avg_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV);
+    fn avg_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]);
     fn filter_row(&self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo);
 }
 

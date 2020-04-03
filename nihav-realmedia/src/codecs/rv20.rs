@@ -131,19 +131,63 @@ impl BlockDSP for RV20BlockDSP {
             idct!(&tmp[i..], 8, &mut blk[i..], 8, 1 << 19, 20, i16);
         }
     }
-    fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
-        let srcx = ((mv.x >> 1) as isize) + (xpos as isize);
-        let srcy = ((mv.y >> 1) as isize) + (ypos as isize);
+    fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV) {
         let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+        let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
 
-        blockdsp::copy_blocks(dst, src, xpos, ypos, srcx, srcy, w, h, 0, 1, mode, H263_INTERP_FUNCS);
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        blockdsp::copy_block(&mut dst, src.clone(), 0, xpos, ypos, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, H263_INTERP_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 1, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 2, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_FUNCS);
     }
-    fn avg_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, xpos: usize, ypos: usize, w: usize, h: usize, mv: MV) {
-        let srcx = ((mv.x >> 1) as isize) + (xpos as isize);
-        let srcy = ((mv.y >> 1) as isize) + (ypos as isize);
-        let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+    fn copy_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
 
-        blockdsp::copy_blocks(dst, src, xpos, ypos, srcx, srcy, w, h, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        for i in 0..4 {
+            let xadd = (i & 1) * 8;
+            let yadd = (i & 2) * 4;
+            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+        }
+
+        let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
+        let cmx = (sum_mv.x >> 3) + H263_CHROMA_ROUND[(sum_mv.x & 0xF) as usize];
+        let cmy = (sum_mv.y >> 3) + H263_CHROMA_ROUND[(sum_mv.y & 0xF) as usize];
+        let mode = ((cmx & 1) + (cmy & 1) * 2) as usize;
+        for plane in 1..3 {
+            blockdsp::copy_block(&mut dst, src.clone(), plane, xpos >> 1, ypos >> 1, cmx >> 1, cmy >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+        }
+    }
+    fn avg_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV) {
+        let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+        let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
+
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        blockdsp::copy_block(&mut dst, src.clone(), 0, xpos, ypos, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 1, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_AVG_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 2, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_AVG_FUNCS);
+    }
+    fn avg_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        for i in 0..4 {
+            let xadd = (i & 1) * 8;
+            let yadd = (i & 2) * 4;
+            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        }
+
+        let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
+        let cmx = (sum_mv.x >> 3) + H263_CHROMA_ROUND[(sum_mv.x & 0xF) as usize];
+        let cmy = (sum_mv.y >> 3) + H263_CHROMA_ROUND[(sum_mv.y & 0xF) as usize];
+        let mode = ((cmx & 1) + (cmy & 1) * 2) as usize;
+        for plane in 1..3 {
+            blockdsp::copy_block(&mut dst, src.clone(), plane, xpos >> 1, ypos >> 1, cmx >> 1, cmy >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        }
     }
     fn filter_row(&self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo) {
         h263_filter_row(buf, mb_y, mb_w, cbpi)
