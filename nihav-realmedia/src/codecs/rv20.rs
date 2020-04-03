@@ -684,7 +684,29 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("realmedia", "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm", /*None*/Some(3000), true, false, None/*Some("rv20")*/, &dmx_reg, &dec_reg);
-//        test_file_decoding("realmedia", "assets/RV/rv20_cook_640x352_realproducer_plus_8.51.rm", /*None*/Some(1000), true, false, Some("rv20"));
+        test_decoding("realmedia", "realvideo2",
+                      "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm",
+                      Some(1000), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x8ce88686, 0x03ca3bb9, 0x0d18347b, 0xccdb0bc5],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
+                        [0xa2008d4c, 0xf4684b3a, 0xecd0526c, 0xf0742a77],
+                        [0xafe0df5b, 0x29cd2418, 0x29a265c7, 0x9b4f2218],
+                        [0x0e0529df, 0xf1cc3f03, 0x03986b0d, 0xd2033c08],
+                        [0x4662b5ab, 0xaca5ca35, 0x4d089fb2, 0xc6a3df1e],
+                        [0x22c978cf, 0x6887a9ba, 0xe74c9316, 0x8cbdd29b],
+                        [0x12d8b88f, 0x59ebe632, 0xbcfaa336, 0xadbdd9ad],
+                        [0x0d99c67b, 0x3231302f, 0x3612b0d0, 0x38b5414d],
+                        [0x2f65b75e, 0x1239d563, 0x832ce096, 0x568a9bc2]]));
     }
 }
