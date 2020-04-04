@@ -158,6 +158,7 @@ impl<'a> RealVideo10BR<'a> {
         if !coded { return Ok(()); }
 
         let rl_cb = &self.tables.rl_cb; // could be aic too
+        let quant = if plane_no == 0 { quant } else { H263_CHROMA_QUANT[quant as usize] };
         let q_add = if quant == 0 { 0i16 } else { ((quant - 1) | 1) as i16 };
         let q = (quant * 2) as i16;
         while idx < 64 {
@@ -170,7 +171,11 @@ impl<'a> RealVideo10BR<'a> {
                 level = code.get_level();
                 last  = code.is_last();
                 if br.read_bool()? { level = -level; }
-                level = (level * q) + q_add;
+                if level >= 0 {
+                    level = (level * q) + q_add;
+                } else {
+                    level = (level * q) - q_add;
+                }
             } else {
                 last  = br.read_bool()?;
                 run   = br.read(6)? as u8;
@@ -180,7 +185,11 @@ impl<'a> RealVideo10BR<'a> {
                     let top = br.read_s(6)? as i16;
                     level = (top << 5) | low;
                 }
-                level = (level * q) + q_add;
+                if level >= 0 {
+                    level = (level * q) + q_add;
+                } else {
+                    level = (level * q) - q_add;
+                }
                 if level < -2048 { level = -2048; }
                 if level >  2047 { level =  2047; }
             }
