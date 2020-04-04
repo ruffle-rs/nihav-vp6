@@ -353,6 +353,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
         if self.slice_no < self.num_slices {
             let pos = self.br.tell();
             let shdr2 = self.read_slice_header()?;
+            validate!(shdr2.mb_pos > shdr.mb_pos);
             mb_count = shdr2.mb_pos - shdr.mb_pos;
             self.br.seek(pos as u32)?;
         } else {
