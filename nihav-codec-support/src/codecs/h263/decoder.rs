@@ -213,6 +213,10 @@ impl H263BaseDecoder {
         }
         let is_b = pinfo.mode == Type::B;
 
+        if is_b && (self.mv_data.len() < self.mb_w * self.mb_h) {
+            return Err(DecoderError::MissingReference);
+        }
+
         let tsdiff = if pinfo.is_pb() { pinfo.ts.wrapping_sub(self.last_ts) >> 1 }
                      else { self.last_ts.wrapping_sub(self.next_ts) >> 1 };
         let bsdiff = if pinfo.is_pb() { (pinfo.get_pbinfo().get_trb() as u16) << 7 }
