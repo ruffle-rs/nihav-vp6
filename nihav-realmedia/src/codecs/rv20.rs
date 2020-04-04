@@ -194,6 +194,16 @@ impl BlockDSP for RV20BlockDSP {
     }
 }
 
+fn get_mb_pos_bits(mb_w: usize, mb_h: usize) -> u8 {
+    let max_pos = mb_w * mb_h - 1;
+    for i in 0..H263_MBB.len() {
+        if max_pos <= H263_MBB[i].blocks {
+            return H263_MBB[i].bits;
+        }
+    }
+    0
+}
+
 impl<'a> RealVideo20BR<'a> {
     fn new(src: &'a [u8], tables: &'a Tables, width: usize, height: usize, minor_ver: u8, rpr: RPRInfo) -> Self {
         let nslices = (src[0] as usize) + 1;
@@ -210,14 +220,6 @@ impl<'a> RealVideo20BR<'a> {
         let soff = nslices * 8 + 1;
         let mb_w = (width  + 15) >> 4;
         let mb_h = (height + 15) >> 4;
-        let max_pos = mb_w * mb_h - 1;
-        let mut mbpb = 0;
-        for i in 0..H263_MBB.len() {
-            if max_pos <= H263_MBB[i].blocks {
-                mbpb = H263_MBB[i].bits;
-                break;
-            }
-        }
         RealVideo20BR {
             br:         BitReader::new(&src[soff..], BitReaderMode::BE),
             tables,
@@ -228,7 +230,7 @@ impl<'a> RealVideo20BR<'a> {
             h:          height,
             mb_w,
             mb_h,
-            mb_pos_bits: mbpb,
+            mb_pos_bits: get_mb_pos_bits(mb_w, mb_h),
             minor_ver,
             rpr,
             pts:        0,
@@ -354,6 +356,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
             let pos = self.br.tell();
             let shdr2 = self.read_slice_header()?;
             validate!(shdr2.mb_pos > shdr.mb_pos);
+            validate!(shdr2.w == shdr.w && shdr2.h == shdr.h);
             mb_count = shdr2.mb_pos - shdr.mb_pos;
             self.br.seek(pos as u32)?;
         } else {
@@ -526,6 +529,9 @@ impl<'a> RealVideo20BR<'a> {
                 h = self.rpr.heights[rpr - 1];
                 validate!((w != 0) && (h != 0));
             }
+            self.mb_w = (w + 15) >> 4;
+            self.mb_h = (h + 15) >> 4;
+            self.mb_pos_bits = get_mb_pos_bits(self.mb_w, self.mb_h);
         } else {
             w = self.w;
             h = self.h;
@@ -616,10 +622,11 @@ impl NADecoder for RealVideo20Decoder {
                 self.rpr.present = false;
             } else {
                 self.rpr.present = true;
-                self.rpr.bits    = ((rprb >> 1) + 1) as u8;
-                for i in 4..(src.len()/2) {
-                    self.rpr.widths [i - 4] = (src[i * 2]     as usize) * 4;
-                    self.rpr.heights[i - 4] = (src[i * 2 + 1] as usize) * 4;
+                self.rpr.bits    = ((rprb >> 1) + 1).min(3) as u8;
+                let num_dim = ((src.len() - 8) / 2).min(self.rpr.widths.len() - 1);
+                for i in 0..num_dim {
+                    self.rpr.widths [i] = (src[i * 2 + 8] as usize) * 4;
+                    self.rpr.heights[i] = (src[i * 2 + 9] as usize) * 4;
                 }
             }
             Ok(())
