@@ -70,14 +70,15 @@ struct RV20SliceInfo {
     mb_pos: usize,
     w:      usize,
     h:      usize,
+    loop_filter: bool,
 }
 
 #[derive(Default)]
 struct RV20BlockDSP {}
 
 impl RV20SliceInfo {
-    fn new(ftype: Type, seq: u32, qscale: u8, mb_x: usize, mb_y: usize, mb_pos: usize, w: usize, h: usize) -> Self {
-        RV20SliceInfo { ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h }
+    fn new(ftype: Type, seq: u32, qscale: u8, mb_x: usize, mb_y: usize, mb_pos: usize, w: usize, h: usize, loop_filter: bool) -> Self {
+        RV20SliceInfo { ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h, loop_filter }
     }
 }
 
@@ -342,7 +343,7 @@ impl<'a> BlockDecoder for RealVideo20BR<'a> {
             mb_count = self.mb_w * self.mb_h;
         }*/
 
-        let plusinfo = Some(PlusInfo::new(shdr.ftype == Type::I, false, false, false));
+        let plusinfo = Some(PlusInfo::new(shdr.ftype == Type::I, shdr.loop_filter, false, false));
         let picinfo = PicInfo::new(shdr.w, shdr.h, shdr.ftype, MVMode::Long, false, false, shdr.qscale, shdr.seq as u16, None, plusinfo);
         Ok(picinfo)
     }
@@ -508,8 +509,11 @@ impl<'a> RealVideo20BR<'a> {
         validate!(marker == 0);
         let qscale      = br.read(5)? as u8;
         validate!(qscale > 0);
+        let loop_filter;
         if self.minor_ver >= 2 {
-            br.skip(1)?; // loop filter
+            loop_filter = br.read_bool()?;
+        } else {
+            loop_filter = false;
         }
         let seq = if self.minor_ver <= 1 {
                 br.read(8)?  << 8
@@ -547,7 +551,7 @@ impl<'a> RealVideo20BR<'a> {
             br.skip(5)?;
         }
 
-        Ok(RV20SliceInfo::new(ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h))
+        Ok(RV20SliceInfo::new(ftype, seq, qscale, mb_x, mb_y, mb_pos, w, h, loop_filter))
     }
 }
 
@@ -709,12 +713,12 @@ mod test {
                         [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
                         [0x319d142d, 0x607a7c28, 0x526a2794, 0xa6e7864f],
                         [0xa2008d4c, 0xf4684b3a, 0xecd0526c, 0xf0742a77],
-                        [0xafe0df5b, 0x29cd2418, 0x29a265c7, 0x9b4f2218],
+                        [0xed26067a, 0x861f385e, 0x3562e478, 0x586d0cb6],
                         [0x0e0529df, 0xf1cc3f03, 0x03986b0d, 0xd2033c08],
-                        [0x4662b5ab, 0xaca5ca35, 0x4d089fb2, 0xc6a3df1e],
+                        [0x9343a151, 0xc7622835, 0x9edb29c2, 0xd96928fa],
                         [0x22c978cf, 0x6887a9ba, 0xe74c9316, 0x8cbdd29b],
-                        [0x12d8b88f, 0x59ebe632, 0xbcfaa336, 0xadbdd9ad],
-                        [0x0d99c67b, 0x3231302f, 0x3612b0d0, 0x38b5414d],
-                        [0x2f65b75e, 0x1239d563, 0x832ce096, 0x568a9bc2]]));
+                        [0x3ff51b06, 0x1460e151, 0xd8536d37, 0x31121464],
+                        [0x2912d269, 0x01f00c4b, 0x22f714f8, 0xf81abe8b],
+                        [0x875be308, 0x390d5b71, 0xe4108ce3, 0x1f39fed4]]));
     }
 }
