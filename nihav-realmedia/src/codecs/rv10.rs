@@ -401,7 +401,7 @@ impl RealVideo10Decoder {
 
         RealVideo10Decoder{
             info:           NACodecInfoRef::default(),
-            dec:            H263BaseDecoder::new_with_opts(false, false, false),
+            dec:            H263BaseDecoder::new_with_opts(0),
             tables,
             w:              0,
             h:              0,

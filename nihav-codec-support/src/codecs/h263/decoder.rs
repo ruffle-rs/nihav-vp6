@@ -119,6 +119,10 @@ struct PredCoeffs {
 
 const ZERO_PRED_COEFFS: PredCoeffs = PredCoeffs { hor: [[0; 8]; 6], ver: [[0; 8]; 6] };
 
+pub const H263DEC_OPT_USES_GOB: u32     = 0x0001;
+pub const H263DEC_OPT_SLICE_RESET: u32  = 0x0002;
+pub const H263DEC_OPT_HAS_B_FRAMES: u32 = 0x0004;
+
 pub struct H263BaseDecoder {
     w:          usize,
     h:          usize,
@@ -156,7 +160,10 @@ fn clip_ac(ac: i16) -> i16 {
 
 #[allow(dead_code)]
 impl H263BaseDecoder {
-    pub fn new_with_opts(is_gob: bool, slice_reset: bool, may_have_b_frames: bool) -> Self {
+    pub fn new_with_opts(options: u32) -> Self {
+        let is_gob              = (options & H263DEC_OPT_USES_GOB) != 0;
+        let slice_reset         = (options & H263DEC_OPT_SLICE_RESET) != 0;
+        let may_have_b_frames   = (options & H263DEC_OPT_HAS_B_FRAMES) != 0;
         H263BaseDecoder{
             w: 0, h: 0, mb_w: 0, mb_h: 0, num_mb: 0,
             ftype: Type::Special,
@@ -171,10 +178,10 @@ impl H263BaseDecoder {
         }
     }
     pub fn new(is_gob: bool) -> Self {
-        Self::new_with_opts(is_gob, true, false)
+        Self::new_with_opts(H263DEC_OPT_SLICE_RESET | (if is_gob { H263DEC_OPT_USES_GOB } else { 0 }))
     }
     pub fn new_b_frames(is_gob: bool) -> Self {
-        Self::new_with_opts(is_gob, true, true)
+        Self::new_with_opts(H263DEC_OPT_SLICE_RESET | H263DEC_OPT_HAS_B_FRAMES | (if is_gob { H263DEC_OPT_USES_GOB } else { 0 }))
     }
 
     pub fn is_intra(&self) -> bool { self.ftype == Type::I }
