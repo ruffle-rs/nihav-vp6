@@ -433,7 +433,7 @@ impl NADecoder for RealVideo10Decoder {
             let mic_ver = ver & 0xFF;
 println!("ver {:06X} -> {}", ver, mic_ver);
             validate!(maj_ver == 1);
-            self.new_ver = mic_ver > 1;
+            self.new_ver = mic_ver > 0;
             if mic_ver == 2 {
                 self.dec = H263BaseDecoder::new_with_opts(H263DEC_OPT_HAS_OBMC);
             }
