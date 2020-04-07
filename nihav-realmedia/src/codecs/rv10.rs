@@ -258,6 +258,7 @@ impl<'a> BlockDecoder for RealVideo10BR<'a> {
                     if dquant {
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                        validate!(q < 32);
                     }
                     Ok(BlockInfo::new(Type::I, cbp, q))
                 },
@@ -276,6 +277,7 @@ impl<'a> BlockDecoder for RealVideo10BR<'a> {
                         if dquant {
                             let idx = br.read(2)? as usize;
                             q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                            validate!(q < 32);
                         }
                         let binfo = BlockInfo::new(Type::I, cbp, q);
                         return Ok(binfo);
@@ -289,6 +291,7 @@ impl<'a> BlockDecoder for RealVideo10BR<'a> {
                     if dquant {
                         let idx = br.read(2)? as usize;
                         q = ((q as i16) + (H263_DQUANT_TAB[idx] as i16)) as u8;
+                        validate!(q < 32);
                     }
                     let mut binfo = BlockInfo::new(Type::P, cbp, q);
                     if !is_4x4 {
