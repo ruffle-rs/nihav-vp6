@@ -473,13 +473,48 @@ mod test {
     use crate::realmedia_register_all_codecs;
     use crate::realmedia_register_all_demuxers;
     #[test]
-    fn test_rv10() {
+    fn test_rv10_old() {
         let mut dmx_reg = RegisteredDemuxers::new();
         realmedia_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("realmedia", "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm", Some(1000), true, false, None/*Some("rv10")*/, &dmx_reg, &dec_reg);
+        test_decoding("realmedia", "realvideo1", "assets/RV/thankyou.rm",
+                      Some(1000), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x8bba459c, 0xe6e8e01c, 0x36f90595, 0xb268adee],
+                            [0x32ca9567, 0xedc13b6f, 0xbee77cfd, 0xc7ebe24b],
+                            [0xcf1865b6, 0xea7cf1b2, 0x30a5a622, 0xe5775b0d],
+                            [0x8d984cfd, 0xcbc81a8d, 0x71d5b37a, 0x74115bba],
+                            [0x7ec2a9e8, 0x291fc62a, 0x5fc62722, 0xf2072b87],
+                            [0xa150585b, 0x9d608fe7, 0xb8d42676, 0x070103f7],
+                            [0x8aadd96f, 0xa02e0627, 0xa89e104f, 0xf47d1227],
+                            [0xa4416bb1, 0xc9ca7a61, 0xad43de90, 0x3e9ec5b7]]));
+    }
+    #[test]
+    fn test_rv10_obmc() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        realmedia_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        realmedia_register_all_codecs(&mut dec_reg);
+
+        test_decoding("realmedia", "realvideo1",
+                      "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm",
+                      Some(1000), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x23599d2e, 0xf7212b24, 0x6b34b848, 0xbca84641],
+                            [0x23599d2e, 0xf7212b24, 0x6b34b848, 0xbca84641],
+                            [0x23599d2e, 0xf7212b24, 0x6b34b848, 0xbca84641],
+                            [0x23599d2e, 0xf7212b24, 0x6b34b848, 0xbca84641],
+                            [0x23599d2e, 0xf7212b24, 0x6b34b848, 0xbca84641],
+                            [0x23599d2e, 0xf7212b24, 0x6b34b848, 0xbca84641],
+                            [0x23599d2e, 0xf7212b24, 0x6b34b848, 0xbca84641],
+                            [0x23599d2e, 0xf7212b24, 0x6b34b848, 0xbca84641],
+                            [0x5cb179dc, 0x56ce9d07, 0x2439dd68, 0x80fec0bf],
+                            [0x00de945d, 0xf44b71d3, 0x1dd93df9, 0x468bdcd5],
+                            [0x7deb3aae, 0x8856c5da, 0x53011115, 0xed91377b],
+                            [0x73afc311, 0xa61d36dc, 0x4e6ba0a3, 0x6dc64514],
+                            [0xee35a8ce, 0x8edf5f32, 0x601d238f, 0xe5fa7ea7],
+                            [0xe9aeaaa9, 0x876a221b, 0xe2d70923, 0x611849fd],
+                            [0x0ff535cf, 0xf9e6ee1c, 0xed3a822c, 0x915056c0]]));
     }
 }
 
