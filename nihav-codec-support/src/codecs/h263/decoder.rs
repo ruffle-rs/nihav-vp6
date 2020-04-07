@@ -4,7 +4,8 @@ use nihav_core::frame::*;
 use super::super::*;
 use super::super::blockdsp;
 use super::*;
-//use super::code::*;
+use super::code::{H263_INTERP_FUNCS, obmc_filter};
+use super::data::H263_CHROMA_ROUND;
 use nihav_core::formats;
 
 #[allow(dead_code)]
@@ -122,6 +123,7 @@ const ZERO_PRED_COEFFS: PredCoeffs = PredCoeffs { hor: [[0; 8]; 6], ver: [[0; 8]
 pub const H263DEC_OPT_USES_GOB: u32     = 0x0001;
 pub const H263DEC_OPT_SLICE_RESET: u32  = 0x0002;
 pub const H263DEC_OPT_HAS_B_FRAMES: u32 = 0x0004;
+pub const H263DEC_OPT_HAS_OBMC: u32     = 0x0008;
 
 pub struct H263BaseDecoder {
     w:          usize,
@@ -140,8 +142,11 @@ pub struct H263BaseDecoder {
     is_gob:     bool,
     slice_reset: bool,
     may_have_b_frames: bool,
+    has_obmc:   bool,
     mv_data:    Vec<BlockMVInfo>,
     blk:        [[i16; 64]; 6],
+    obmc_buf:   NAVideoBufferRef<u8>,
+    obmc_blk:   Vec<(Type, BMB)>,
 }
 
 #[inline]
@@ -164,6 +169,11 @@ impl H263BaseDecoder {
         let is_gob              = (options & H263DEC_OPT_USES_GOB) != 0;
         let slice_reset         = (options & H263DEC_OPT_SLICE_RESET) != 0;
         let may_have_b_frames   = (options & H263DEC_OPT_HAS_B_FRAMES) != 0;
+        let has_obmc            = (options & H263DEC_OPT_HAS_OBMC) != 0;
+
+        let vbuf = alloc_video_buffer(NAVideoInfo::new(64, 64, false, YUV420_FORMAT), 4).unwrap();
+        let obmc_buf = vbuf.get_vbuf().unwrap();
+
         H263BaseDecoder{
             w: 0, h: 0, mb_w: 0, mb_h: 0, num_mb: 0,
             ftype: Type::Special,
@@ -172,9 +182,11 @@ impl H263BaseDecoder {
             has_b: false, b_data: Vec::new(),
             pred_coeffs: Vec::new(),
             is_gob, slice_reset,
-            may_have_b_frames,
+            may_have_b_frames, has_obmc,
             mv_data: Vec::new(),
             blk: [[0; 64]; 6],
+            obmc_buf,
+            obmc_blk: Vec::new(),
         }
     }
     pub fn new(is_gob: bool) -> Self {
@@ -277,6 +289,121 @@ impl H263BaseDecoder {
         }
         Ok(())
     }
+    fn get_obmc_mv(&self, mb_idx: usize, blk_no: usize, cur_mv: MV) -> MV {
+        let (mbt, ref bi) = self.obmc_blk[mb_idx];
+        if mbt == Type::I {
+            cur_mv
+        } else if mbt == Type::Skip {
+            ZERO_MV
+        } else if bi.num_mv == 1 {
+            bi.mv_f[0]
+        } else {
+            bi.mv_f[blk_no]
+        }
+    }
+    fn reconstruct_obmc(&mut self, buf: &mut NAVideoBuffer<u8>, slice_start: usize, start: usize, end: usize, slice_end: bool) -> usize {
+        let mut mb_x = start % self.mb_w;
+        let mut mb_y = start / self.mb_w;
+        let mut mb_pos = start;
+        while mb_pos < end {
+            let has_top  = mb_pos >= slice_start + self.mb_w;
+            let has_left = (mb_x > 0) && (mb_pos > slice_start);
+            let has_right = (mb_x + 1 < self.mb_w) && (mb_pos + 1 < end);
+            let has_bottom = mb_pos + self.mb_w < end;
+
+            if !has_bottom && !slice_end {
+                break;
+            }
+
+            let (mbt, ref bi) = self.obmc_blk[mb_pos];
+            if mbt == Type::P || mbt == Type::Skip {
+                let single_mv = bi.num_mv != 4;
+                for blk in 0..4 {
+                    let cur_mv = if single_mv { bi.mv_f[0] } else { bi.mv_f[blk] };
+                    let top_mv = if (blk & 2) == 0 {
+                            if has_top {
+                                self.get_obmc_mv(mb_pos - self.mb_w, blk + 2, cur_mv)
+                            } else { cur_mv }
+                        } else {
+                            if single_mv { cur_mv } else { bi.mv_f[blk - 2] }
+                        };
+                    let left_mv = if (blk & 1) == 0 {
+                            if has_left {
+                                self.get_obmc_mv(mb_pos - 1, blk + 1, cur_mv)
+                            } else { cur_mv }
+                        } else {
+                            if single_mv { cur_mv } else { bi.mv_f[blk - 1] }
+                        };
+                    let bottom_mv = if (blk & 2) != 0 {
+                            if has_bottom {
+                                self.get_obmc_mv(mb_pos + self.mb_w, blk - 2, cur_mv)
+                            } else { cur_mv }
+                        } else {
+                            if single_mv { cur_mv } else { bi.mv_f[blk + 2] }
+                        };
+                    let right_mv = if (blk & 1) != 0 {
+                            if has_right {
+                                self.get_obmc_mv(mb_pos + 1, blk - 1, cur_mv)
+                            } else { cur_mv }
+                        } else {
+                            if single_mv { cur_mv } else { bi.mv_f[blk + 1] }
+                        };
+                    
+                    let mut obmcbuf = NASimpleVideoFrame::from_video_buf(&mut self.obmc_buf).unwrap();
+
+                    if let Some(ref srcbuf) = self.ipbs.get_lastref() {
+                        let dx = (mb_x * 16 + (blk & 1) * 8) as i16;
+                        let dy = (mb_y * 16 + (blk & 2) * 4) as i16;
+
+                        let block_params = [(8, 0, top_mv), (0, 8, left_mv), (8, 8, cur_mv), (16, 8, right_mv), (8, 16, bottom_mv)];
+
+                        for (off_x, off_y, mv) in block_params.iter() {
+                            let mx = dx + (mv.x >> 1) - off_x;
+                            let my = dy + (mv.y >> 1) - off_y;
+                            let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+                            blockdsp::copy_block(&mut obmcbuf, srcbuf.clone(), 0,
+                                                 *off_x as usize, *off_y as usize, mx, my,
+                                                 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+                        }
+                        let stride = buf.get_stride(0);
+                        let off = buf.get_offset(0) + (dx as usize) + (dy as usize) * stride;
+                        let data = buf.get_data_mut().unwrap();
+                        obmc_filter(&mut data[off..], stride, obmcbuf.data, obmcbuf.stride[0]);
+                    }
+                }
+                if let Some(ref srcbuf) = self.ipbs.get_lastref() {
+                    let mut dst = NASimpleVideoFrame::from_video_buf(buf).unwrap();
+                    let xpos = mb_x * 8;
+                    let ypos = mb_y * 8;
+
+                    let (mvx, mvy, cmode) = if single_mv {
+                            let mv = bi.mv_f[0];
+                            let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
+                            (mv.x >> 2, mv.y >> 2, cmode)
+                        } else {
+                            let sum_mv = bi.mv_f[0] + bi.mv_f[1] + bi.mv_f[2] + bi.mv_f[3];
+                            let cmx = (sum_mv.x >> 3) + H263_CHROMA_ROUND[(sum_mv.x & 0xF) as usize];
+                            let cmy = (sum_mv.y >> 3) + H263_CHROMA_ROUND[(sum_mv.y & 0xF) as usize];
+                            let cmode = ((cmx & 1) + (cmy & 1) * 2) as usize;
+                            (cmx, cmy, cmode)
+                        };
+                    blockdsp::copy_block(&mut dst, srcbuf.clone(), 1, xpos, ypos, mvx, mvy, 8, 8, 0, 1, cmode, H263_INTERP_FUNCS);
+                    blockdsp::copy_block(&mut dst, srcbuf.clone(), 2, xpos, ypos, mvx, mvy, 8, 8, 0, 1, cmode, H263_INTERP_FUNCS);
+                }
+                if mbt != Type::Skip {
+                    blockdsp::add_blocks(buf, mb_x, mb_y, &bi.blk);
+                }
+            }
+
+            mb_pos += 1;
+            mb_x   += 1;
+            if mb_x == self.mb_w {
+                mb_x = 0;
+                mb_y += 1;
+            }
+        }
+        mb_pos
+    }
     pub fn parse_frame(&mut self, bd: &mut BlockDecoder, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
         let pinfo = bd.decode_pichdr()?;
         let mut mvi = MVInfo::new();
@@ -291,6 +418,16 @@ impl H263BaseDecoder {
         self.num_mb = self.mb_w * self.mb_h;
         self.ftype = pinfo.mode;
         self.has_b = pinfo.is_pb();
+
+        let do_obmc = self.has_obmc && (pinfo.mode == Type::P);
+
+        if do_obmc {
+            let capacity = self.obmc_blk.capacity();
+            if capacity < self.num_mb {
+                self.obmc_blk.reserve(self.num_mb - capacity);
+            }
+            self.obmc_blk.truncate(0);
+        }
 
         if self.has_b {
             self.mv_data.truncate(0);
@@ -335,11 +472,18 @@ impl H263BaseDecoder {
             self.pred_coeffs.resize(self.mb_w * self.mb_h, ZERO_PRED_COEFFS);
         }
         sstate.quant = slice.quant;
+        let mut obmc_start = 0;
+        let mut slice_start = 0;
         for mb_y in 0..self.mb_h {
             for mb_x in 0..self.mb_w {
                 self.blk = [[0; 64]; 6];
 
                 if slice.is_at_end(mb_pos) || (slice.needs_check() && mb_pos > 0 && bd.is_slice_end()) {
+                    if do_obmc {
+                        self.reconstruct_obmc(&mut buf, slice_start, obmc_start, mb_pos, true);
+                        obmc_start = mb_pos;
+                        slice_start = mb_pos;
+                    }
                     slice = bd.decode_slice_header(&pinfo)?;
                     if !self.is_gob && self.slice_reset {
                         mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
@@ -369,6 +513,10 @@ impl H263BaseDecoder {
                     } else if pinfo.is_pb() {
                         mvi2.predict(mb_x, 0, false, binfo.get_mv2(0), sstate.first_line, sstate.first_mb);
                     }
+                    if do_obmc {
+//todo: use MV from PB-part if available
+                        self.obmc_blk.push((Type::I, BMB::new()));
+                    }
                 } else if (binfo.mode != Type::B) && !binfo.is_skipped() {
                     if binfo.get_num_mvs() == 1 {
                         let mv = mvi.predict(mb_x, 0, false, binfo.get_mv(0), sstate.first_line, sstate.first_mb);
@@ -380,6 +528,12 @@ impl H263BaseDecoder {
                         }
                         if pinfo.is_pb() {
                             mvi2.predict(mb_x, 0, false, binfo.get_mv(0), sstate.first_line, sstate.first_mb);
+                        }
+                        if do_obmc {
+                            let mut blki = BMB::new();
+                            blki.mv_f[0] = mv;
+                            blki.num_mv  = 1;
+                            self.obmc_blk.push((Type::P, blki));
                         }
                     } else {
                         let mut mv: [MV; 4] = [ZERO_MV, ZERO_MV, ZERO_MV, ZERO_MV];
@@ -397,9 +551,20 @@ impl H263BaseDecoder {
                         if save_b_data {
                             self.mv_data.push(BlockMVInfo::Inter_4MV(mv));
                         }
+                        if do_obmc {
+                            let mut blki = BMB::new();
+                            blki.mv_f   = mv;
+                            blki.num_mv = 4;
+                            self.obmc_blk.push((Type::P, blki));
+                        }
                     }
                     self.decode_inter_mb(bd, bdsp, &binfo, &sstate)?;
-                    blockdsp::add_blocks(&mut buf, mb_x, mb_y, &self.blk);
+                    if !do_obmc {
+                        blockdsp::add_blocks(&mut buf, mb_x, mb_y, &self.blk);
+                    } else {
+                        let (_, ref mut bi) = self.obmc_blk[mb_pos];
+                        bi.blk = self.blk;
+                    }
                     if is_b && !pinfo.is_pb() {
                         mvi2.set_zero_mv(mb_x);
                     }
@@ -409,8 +574,12 @@ impl H263BaseDecoder {
                     if is_b || pinfo.is_pb() {
                         mvi2.set_zero_mv(mb_x);
                     }
-                    if let Some(ref srcbuf) = self.ipbs.get_lastref() {
-                        bdsp.copy_blocks(&mut buf, srcbuf.clone(), mb_x * 16, mb_y * 16, ZERO_MV);
+                    if !do_obmc {
+                        if let Some(ref srcbuf) = self.ipbs.get_lastref() {
+                            bdsp.copy_blocks(&mut buf, srcbuf.clone(), mb_x * 16, mb_y * 16, ZERO_MV);
+                        }
+                    } else {
+                        self.obmc_blk.push((Type::Skip, BMB::new()));
                     }
                 } else {
                     recon_b_mb(&mut buf, &mut self.ipbs, bdsp, &mut mvi, &mut mvi2, mb_pos, self.mb_w, &sstate, &binfo, &self.mv_data, bsdiff, tsdiff);
@@ -460,7 +629,9 @@ impl H263BaseDecoder {
                 sstate.next_mb();
                 mb_pos += 1;
             }
-            if let Some(plusinfo) = pinfo.plusinfo {
+            if do_obmc && (mb_pos > obmc_start + self.mb_w) {
+                obmc_start = self.reconstruct_obmc(&mut buf, slice_start, obmc_start, mb_pos - self.mb_w, false);
+            } else if let Some(plusinfo) = pinfo.plusinfo {
                 if plusinfo.deblock {
                     bdsp.filter_row(&mut buf, mb_y, self.mb_w, &cbpi);
                 }
@@ -471,6 +642,9 @@ impl H263BaseDecoder {
             }
             cbpi.update_row();
             sstate.new_row();
+        }
+        if do_obmc {
+            self.reconstruct_obmc(&mut buf, slice_start, obmc_start, mb_pos, true);
         }
 
         if pinfo.mode.is_ref() {

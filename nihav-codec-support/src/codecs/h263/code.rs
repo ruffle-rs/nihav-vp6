@@ -540,3 +540,108 @@ impl BlockDSP for H263BlockDSP {
         h263_filter_row(buf, mb_y, mb_w, cbpi)
     }
 }
+
+macro_rules! obmc_filter {
+    ($src: expr, $base_off: expr, $off0: expr, $w0: expr, $off1: expr, $w1: expr, $off2: expr, $w2: expr) => ({
+        let a = $src[$base_off + $off0] as u16;
+        let b = $src[$base_off + $off1] as u16;
+        let c = $src[$base_off + $off2] as u16;
+        ((a * $w0 + b * $w1 + c * $w2 + 4) >> 3) as u8
+    })
+}
+pub fn obmc_filter(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize) {
+    let top_off    = 8  + sstride * 0;
+    let left_off   = 0  + sstride * 8;
+    let right_off  = 16 + sstride * 8;
+    let bottom_off = 8  + sstride * 16;
+    let cur_off    = 8  + sstride * 8;
+
+    let mut doff = 0;
+    let mut soff = 0;
+
+    dst[doff + 0] = obmc_filter!(src, soff + 0, left_off,  2, top_off, 2, cur_off, 4);
+    dst[doff + 1] = obmc_filter!(src, soff + 1, left_off,  1, top_off, 2, cur_off, 5);
+    dst[doff + 2] = obmc_filter!(src, soff + 2, left_off,  1, top_off, 2, cur_off, 5);
+    dst[doff + 3] = obmc_filter!(src, soff + 3, left_off,  1, top_off, 2, cur_off, 5);
+    dst[doff + 4] = obmc_filter!(src, soff + 4, right_off, 1, top_off, 2, cur_off, 5);
+    dst[doff + 5] = obmc_filter!(src, soff + 5, right_off, 1, top_off, 2, cur_off, 5);
+    dst[doff + 6] = obmc_filter!(src, soff + 6, right_off, 1, top_off, 2, cur_off, 5);
+    dst[doff + 7] = obmc_filter!(src, soff + 7, right_off, 2, top_off, 2, cur_off, 4);
+    doff += dstride;
+    soff += sstride;
+
+    dst[doff + 0] = obmc_filter!(src, soff + 0, left_off,  2, top_off, 1, cur_off, 5);
+    dst[doff + 1] = obmc_filter!(src, soff + 1, left_off,  2, top_off, 1, cur_off, 5);
+    dst[doff + 2] = obmc_filter!(src, soff + 2, left_off,  1, top_off, 2, cur_off, 5);
+    dst[doff + 3] = obmc_filter!(src, soff + 3, left_off,  1, top_off, 2, cur_off, 5);
+    dst[doff + 4] = obmc_filter!(src, soff + 4, right_off, 1, top_off, 2, cur_off, 5);
+    dst[doff + 5] = obmc_filter!(src, soff + 5, right_off, 1, top_off, 2, cur_off, 5);
+    dst[doff + 6] = obmc_filter!(src, soff + 6, right_off, 2, top_off, 1, cur_off, 5);
+    dst[doff + 7] = obmc_filter!(src, soff + 7, right_off, 2, top_off, 1, cur_off, 5);
+    doff += dstride;
+    soff += sstride;
+
+    dst[doff + 0] = obmc_filter!(src, soff + 0, left_off,  2, top_off, 1, cur_off, 5);
+    dst[doff + 1] = obmc_filter!(src, soff + 1, left_off,  2, top_off, 1, cur_off, 5);
+    dst[doff + 2] = obmc_filter!(src, soff + 2, left_off,  1, top_off, 1, cur_off, 6);
+    dst[doff + 3] = obmc_filter!(src, soff + 3, left_off,  1, top_off, 1, cur_off, 6);
+    dst[doff + 4] = obmc_filter!(src, soff + 4, right_off, 1, top_off, 1, cur_off, 6);
+    dst[doff + 5] = obmc_filter!(src, soff + 5, right_off, 1, top_off, 1, cur_off, 6);
+    dst[doff + 6] = obmc_filter!(src, soff + 6, right_off, 2, top_off, 1, cur_off, 5);
+    dst[doff + 7] = obmc_filter!(src, soff + 7, right_off, 2, top_off, 1, cur_off, 5);
+    doff += dstride;
+    soff += sstride;
+
+    dst[doff + 0] = obmc_filter!(src, soff + 0, left_off,  2, top_off, 1, cur_off, 5);
+    dst[doff + 1] = obmc_filter!(src, soff + 1, left_off,  2, top_off, 1, cur_off, 5);
+    dst[doff + 2] = obmc_filter!(src, soff + 2, left_off,  1, top_off, 1, cur_off, 6);
+    dst[doff + 3] = obmc_filter!(src, soff + 3, left_off,  1, top_off, 1, cur_off, 6);
+    dst[doff + 4] = obmc_filter!(src, soff + 4, right_off, 1, top_off, 1, cur_off, 6);
+    dst[doff + 5] = obmc_filter!(src, soff + 5, right_off, 1, top_off, 1, cur_off, 6);
+    dst[doff + 6] = obmc_filter!(src, soff + 6, right_off, 2, top_off, 1, cur_off, 5);
+    dst[doff + 7] = obmc_filter!(src, soff + 7, right_off, 2, top_off, 1, cur_off, 5);
+    doff += dstride;
+    soff += sstride;
+
+    dst[doff + 0] = obmc_filter!(src, soff + 0, left_off,  2, bottom_off, 1, cur_off, 5);
+    dst[doff + 1] = obmc_filter!(src, soff + 1, left_off,  2, bottom_off, 1, cur_off, 5);
+    dst[doff + 2] = obmc_filter!(src, soff + 2, left_off,  1, bottom_off, 1, cur_off, 6);
+    dst[doff + 3] = obmc_filter!(src, soff + 3, left_off,  1, bottom_off, 1, cur_off, 6);
+    dst[doff + 4] = obmc_filter!(src, soff + 4, right_off, 1, bottom_off, 1, cur_off, 6);
+    dst[doff + 5] = obmc_filter!(src, soff + 5, right_off, 1, bottom_off, 1, cur_off, 6);
+    dst[doff + 6] = obmc_filter!(src, soff + 6, right_off, 2, bottom_off, 1, cur_off, 5);
+    dst[doff + 7] = obmc_filter!(src, soff + 7, right_off, 2, bottom_off, 1, cur_off, 5);
+    doff += dstride;
+    soff += sstride;
+
+    dst[doff + 0] = obmc_filter!(src, soff + 0, left_off,  2, bottom_off, 1, cur_off, 5);
+    dst[doff + 1] = obmc_filter!(src, soff + 1, left_off,  2, bottom_off, 1, cur_off, 5);
+    dst[doff + 2] = obmc_filter!(src, soff + 2, left_off,  1, bottom_off, 1, cur_off, 6);
+    dst[doff + 3] = obmc_filter!(src, soff + 3, left_off,  1, bottom_off, 1, cur_off, 6);
+    dst[doff + 4] = obmc_filter!(src, soff + 4, right_off, 1, bottom_off, 1, cur_off, 6);
+    dst[doff + 5] = obmc_filter!(src, soff + 5, right_off, 1, bottom_off, 1, cur_off, 6);
+    dst[doff + 6] = obmc_filter!(src, soff + 6, right_off, 2, bottom_off, 1, cur_off, 5);
+    dst[doff + 7] = obmc_filter!(src, soff + 7, right_off, 2, bottom_off, 1, cur_off, 5);
+    doff += dstride;
+    soff += sstride;
+
+    dst[doff + 0] = obmc_filter!(src, soff + 0, left_off,  2, bottom_off, 1, cur_off, 5);
+    dst[doff + 1] = obmc_filter!(src, soff + 1, left_off,  2, bottom_off, 1, cur_off, 5);
+    dst[doff + 2] = obmc_filter!(src, soff + 2, left_off,  1, bottom_off, 2, cur_off, 5);
+    dst[doff + 3] = obmc_filter!(src, soff + 3, left_off,  1, bottom_off, 2, cur_off, 5);
+    dst[doff + 4] = obmc_filter!(src, soff + 4, right_off, 1, bottom_off, 2, cur_off, 5);
+    dst[doff + 5] = obmc_filter!(src, soff + 5, right_off, 1, bottom_off, 2, cur_off, 5);
+    dst[doff + 6] = obmc_filter!(src, soff + 6, right_off, 2, bottom_off, 1, cur_off, 5);
+    dst[doff + 7] = obmc_filter!(src, soff + 7, right_off, 2, bottom_off, 1, cur_off, 5);
+    doff += dstride;
+    soff += sstride;
+
+    dst[doff + 0] = obmc_filter!(src, soff + 0, left_off,  2, bottom_off, 2, cur_off, 4);
+    dst[doff + 1] = obmc_filter!(src, soff + 1, left_off,  1, bottom_off, 2, cur_off, 5);
+    dst[doff + 2] = obmc_filter!(src, soff + 2, left_off,  1, bottom_off, 2, cur_off, 5);
+    dst[doff + 3] = obmc_filter!(src, soff + 3, left_off,  1, bottom_off, 2, cur_off, 5);
+    dst[doff + 4] = obmc_filter!(src, soff + 4, right_off, 1, bottom_off, 2, cur_off, 5);
+    dst[doff + 5] = obmc_filter!(src, soff + 5, right_off, 1, bottom_off, 2, cur_off, 5);
+    dst[doff + 6] = obmc_filter!(src, soff + 6, right_off, 1, bottom_off, 2, cur_off, 5);
+    dst[doff + 7] = obmc_filter!(src, soff + 7, right_off, 2, bottom_off, 2, cur_off, 4);
+}
