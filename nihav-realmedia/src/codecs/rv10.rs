@@ -431,7 +431,6 @@ impl NADecoder for RealVideo10Decoder {
             let ver = ((src[4] as u32) << 12) | ((src[5] as u32) << 4) | ((src[6] as u32) >> 4);
             let maj_ver = ver >> 16;
             let mic_ver = ver & 0xFF;
-println!("ver {:06X} -> {}", ver, mic_ver);
             validate!(maj_ver == 1);
             self.new_ver = mic_ver > 0;
             if mic_ver == 2 {
@@ -440,22 +439,14 @@ println!("ver {:06X} -> {}", ver, mic_ver);
             if (src[3] & 1) != 0 {
                 self.mvmode = MVMode::UMV;
             }
-{
-let mut br = BitReader::new(src, BitReaderMode::BE);
-println!("edata:");
-println!("{:08X}", br.read(32).unwrap());
-println!("{:08X}", br.read(32).unwrap());
-}
             Ok(())
         } else {
-println!("???");
             Err(DecoderError::InvalidData)
         }
     }
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 
-//println!(" decode frame size {}, {} slices", src.len(), src[0]+1);
         let mut ibr = RealVideo10BR::new(&src, &self.tables, self.w, self.h, self.new_ver, self.mvmode);
 
         let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp)?;
