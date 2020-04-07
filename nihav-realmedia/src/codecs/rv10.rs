@@ -158,7 +158,6 @@ impl<'a> RealVideo10BR<'a> {
         if !coded { return Ok(()); }
 
         let rl_cb = &self.tables.rl_cb; // could be aic too
-        let quant = if plane_no == 0 { quant } else { H263_CHROMA_QUANT[quant as usize] };
         let q_add = if quant == 0 { 0i16 } else { ((quant - 1) | 1) as i16 };
         let q = (quant * 2) as i16;
         while idx < 64 {
