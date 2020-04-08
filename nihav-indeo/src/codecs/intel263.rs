@@ -4,10 +4,11 @@ use nihav_core::formats;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
 use nihav_codec_support::codecs::{MV, ZIGZAG};
+use nihav_codec_support::codecs::blockdsp;
 use nihav_codec_support::codecs::h263::*;
+use nihav_codec_support::codecs::h263::code::{H263_INTERP_FUNCS, H263_INTERP_AVG_FUNCS};
 use nihav_codec_support::codecs::h263::decoder::*;
 use nihav_codec_support::codecs::h263::data::*;
-use nihav_codec_support::codecs::h263::code::H263BlockDSP;
 
 #[allow(dead_code)]
 struct Tables {
@@ -19,11 +20,14 @@ struct Tables {
     mv_cb:          Codebook<u8>,
 }
 
+#[derive(Default)]
+struct I263BlockDSP {}
+
 struct Intel263Decoder {
     info:    NACodecInfoRef,
     dec:     H263BaseDecoder,
     tables:  Tables,
-    bdsp:    H263BlockDSP,
+    bdsp:    I263BlockDSP,
     lastframe:  Option<NABufferType>,
     lastpts:    Option<u64>,
 }
@@ -35,6 +39,294 @@ struct Intel263BR<'a> {
     mb_w:   usize,
     is_pb:  bool,
     is_ipb: bool,
+}
+
+const W1: i32 = 2841;
+const W2: i32 = 2676;
+const W3: i32 = 2408;
+const W5: i32 = 1609;
+const W6: i32 = 1108;
+const W7: i32 =  565;
+const W8: i32 =  181;
+
+const ROW_SHIFT: u8 = 8;
+const COL_SHIFT: u8 = 14;
+
+#[allow(clippy::erasing_op)]
+fn idct_row(row: &mut [i16]) {
+    let in0 = ((i32::from(row[0])) << 11) + (1 << (ROW_SHIFT - 1));
+    let in1 =  (i32::from(row[4])) << 11;
+    let in2 =   i32::from(row[6]);
+    let in3 =   i32::from(row[2]);
+    let in4 =   i32::from(row[1]);
+    let in5 =   i32::from(row[7]);
+    let in6 =   i32::from(row[5]);
+    let in7 =   i32::from(row[3]);
+
+    let tmp = W7 * (in4 + in5);
+    let a4 = tmp + (W1 - W7) * in4;
+    let a5 = tmp - (W1 + W7) * in5;
+
+    let tmp = W3 * (in6 + in7);
+    let a6 = tmp - (W3 - W5) * in6;
+    let a7 = tmp - (W3 + W5) * in7;
+
+    let tmp = in0 + in1;
+
+    let a0 = in0 - in1;
+    let t1 = W6 * (in2 + in3);
+    let a2 = t1 - (W2 + W6) * in2;
+    let a3 = t1 + (W2 - W6) * in3;
+    let b1 = a4 + a6;
+
+    let b4 = a4 - a6;
+    let t2 = a5 - a7;
+    let b6 = a5 + a7;
+    let b7 = tmp + a3;
+    let b5 = tmp - a3;
+    let b3 = a0 + a2;
+    let b0 = a0 - a2;
+    let b2 = (W8 * (b4 + t2) + 128) >> 8;
+    let b4 = (W8 * (b4 - t2) + 128) >> 8;
+
+    row[0] = ((b7 + b1) >> ROW_SHIFT) as i16;
+    row[7] = ((b7 - b1) >> ROW_SHIFT) as i16;
+    row[1] = ((b3 + b2) >> ROW_SHIFT) as i16;
+    row[6] = ((b3 - b2) >> ROW_SHIFT) as i16;
+    row[2] = ((b0 + b4) >> ROW_SHIFT) as i16;
+    row[5] = ((b0 - b4) >> ROW_SHIFT) as i16;
+    row[3] = ((b5 + b6) >> ROW_SHIFT) as i16;
+    row[4] = ((b5 - b6) >> ROW_SHIFT) as i16;
+}
+
+#[allow(clippy::erasing_op)]
+fn idct_col(blk: &mut [i16; 64], off: usize) {
+    let in0 = ((i32::from(blk[off + 0*8])) << 8) + (1 << (COL_SHIFT - 1));
+    let in1 =  (i32::from(blk[off + 4*8])) << 8;
+    let in2 =   i32::from(blk[off + 6*8]);
+    let in3 =   i32::from(blk[off + 2*8]);
+    let in4 =   i32::from(blk[off + 1*8]);
+    let in5 =   i32::from(blk[off + 7*8]);
+    let in6 =   i32::from(blk[off + 5*8]);
+    let in7 =   i32::from(blk[off + 3*8]);
+
+    let tmp = W7 * (in4 + in5);
+    let a4 = (tmp + (W1 - W7) * in4) >> 3;
+    let a5 = (tmp - (W1 + W7) * in5) >> 3;
+
+    let tmp = W3 * (in6 + in7);
+    let a6 = (tmp - (W3 - W5) * in6) >> 3;
+    let a7 = (tmp - (W3 + W5) * in7) >> 3;
+
+    let tmp = in0 + in1;
+
+    let a0 = in0 - in1;
+    let t1 = W6 * (in2 + in3);
+    let a2 = (t1 - (W2 + W6) * in2) >> 3;
+    let a3 = (t1 + (W2 - W6) * in3) >> 3;
+    let b1 = a4 + a6;
+
+    let b4 = a4 - a6;
+    let t2 = a5 - a7;
+    let b6 = a5 + a7;
+    let b7 = tmp + a3;
+    let b5 = tmp - a3;
+    let b3 = a0 + a2;
+    let b0 = a0 - a2;
+    let b2 = (W8 * (b4 + t2) + 128) >> 8;
+    let b4 = (W8 * (b4 - t2) + 128) >> 8;
+
+    blk[off + 0*8] = ((b7 + b1) >> COL_SHIFT) as i16;
+    blk[off + 7*8] = ((b7 - b1) >> COL_SHIFT) as i16;
+    blk[off + 1*8] = ((b3 + b2) >> COL_SHIFT) as i16;
+    blk[off + 6*8] = ((b3 - b2) >> COL_SHIFT) as i16;
+    blk[off + 2*8] = ((b0 + b4) >> COL_SHIFT) as i16;
+    blk[off + 5*8] = ((b0 - b4) >> COL_SHIFT) as i16;
+    blk[off + 3*8] = ((b5 + b6) >> COL_SHIFT) as i16;
+    blk[off + 4*8] = ((b5 - b6) >> COL_SHIFT) as i16;
+}
+
+const FILTER_STRENGTH: [u8; 32] = [
+    1,  1,  2,  2,  3,  3,  4,  4,  4,  5,  5,  5,  6,  6,  7,  7,
+    7,  8,  8,  8,  9,  9,  9, 10, 10, 10, 11, 11, 11, 12, 12, 12
+];
+
+#[allow(clippy::erasing_op)]
+fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usize) {
+    let stride = buf.get_stride(comp);
+    let dptr = buf.get_data_mut().unwrap();
+    let buf = dptr.as_mut_slice();
+    for x in 0..8 {
+        let a = buf[off - 2 * stride + x] as i16;
+        let b = buf[off - 1 * stride + x] as i16;
+        let c = buf[off + 0 * stride + x] as i16;
+        let d = buf[off + 1 * stride + x] as i16;
+        let diff = (3 * (a - d) + 8 * (c - b)) / 16;
+        if (diff != 0) && (diff > -24) && (diff < 24) {
+            let d1a = (diff.abs() - 2 * (diff.abs() - (strength as i16)).max(0)).max(0);
+            let d1  = if diff < 0 { -d1a } else { d1a };
+
+            buf[off - 1 * stride + x] = (b + d1).max(0).min(255) as u8;
+            buf[off + 0 * stride + x] = (c - d1).max(0).min(255) as u8;
+        }
+    }
+}
+
+fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usize) {
+    let stride = buf.get_stride(comp);
+    let dptr = buf.get_data_mut().unwrap();
+    let buf = dptr.as_mut_slice();
+    for y in 0..8 {
+        let a = buf[off - 2 + y * stride] as i16;
+        let b = buf[off - 1 + y * stride] as i16;
+        let c = buf[off + 0 + y * stride] as i16;
+        let d = buf[off + 1 + y * stride] as i16;
+        let diff = (3 * (a - d) + 8 * (c - b)) / 16;
+        if (diff != 0) && (diff > -24) && (diff < 24) {
+            let d1a = (diff.abs() - 2 * (diff.abs() - (strength as i16)).max(0)).max(0);
+            let d1  = if diff < 0 { -d1a } else { d1a };
+
+            buf[off - 1 + y * stride] = (b + d1).max(0).min(255) as u8;
+            buf[off     + y * stride] = (c - d1).max(0).min(255) as u8;
+        }
+    }
+}
+
+impl BlockDSP for I263BlockDSP {
+    fn idct(&self, blk: &mut [i16; 64]) {
+        for i in 0..8 { idct_row(&mut blk[i*8..(i+1)*8]); }
+        for i in 0..8 { idct_col(blk, i); }
+    }
+    fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV) {
+        let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+        let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
+
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        blockdsp::copy_block(&mut dst, src.clone(), 0, xpos, ypos, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, H263_INTERP_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 1, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 2, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_FUNCS);
+    }
+    fn copy_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        for i in 0..4 {
+            let xadd = (i & 1) * 8;
+            let yadd = (i & 2) * 4;
+            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+        }
+
+        let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
+        let cmx = (sum_mv.x >> 3) + H263_CHROMA_ROUND[(sum_mv.x & 0xF) as usize];
+        let cmy = (sum_mv.y >> 3) + H263_CHROMA_ROUND[(sum_mv.y & 0xF) as usize];
+        let mode = ((cmx & 1) + (cmy & 1) * 2) as usize;
+        for plane in 1..3 {
+            blockdsp::copy_block(&mut dst, src.clone(), plane, xpos >> 1, ypos >> 1, cmx >> 1, cmy >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+        }
+    }
+    fn avg_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV) {
+        let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+        let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
+
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        blockdsp::copy_block(&mut dst, src.clone(), 0, xpos, ypos, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 1, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_AVG_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 2, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_AVG_FUNCS);
+    }
+    fn avg_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        for i in 0..4 {
+            let xadd = (i & 1) * 8;
+            let yadd = (i & 2) * 4;
+            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        }
+
+        let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
+        let cmx = (sum_mv.x >> 3) + H263_CHROMA_ROUND[(sum_mv.x & 0xF) as usize];
+        let cmy = (sum_mv.y >> 3) + H263_CHROMA_ROUND[(sum_mv.y & 0xF) as usize];
+        let mode = ((cmx & 1) + (cmy & 1) * 2) as usize;
+        for plane in 1..3 {
+            blockdsp::copy_block(&mut dst, src.clone(), plane, xpos >> 1, ypos >> 1, cmx >> 1, cmy >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        }
+    }
+    fn filter_row(&self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo) {
+        let stride  = buf.get_stride(0);
+        let mut off = buf.get_offset(0) + mb_y * 16 * stride;
+        for mb_x in 0..mb_w {
+            let coff = off;
+            let coded0 = cbpi.is_coded(mb_x, 0);
+            let coded1 = cbpi.is_coded(mb_x, 1);
+            let q = cbpi.get_q(mb_w + mb_x);
+            let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
+            if mb_y != 0 {
+                if coded0 && cbpi.is_coded_top(mb_x, 0) { deblock_hor(buf, 0, str, coff); }
+                if coded1 && cbpi.is_coded_top(mb_x, 1) { deblock_hor(buf, 0, str, coff + 8); }
+            }
+            let coff = off + 8 * stride;
+            if cbpi.is_coded(mb_x, 2) && coded0 { deblock_hor(buf, 0, q, coff); }
+            if cbpi.is_coded(mb_x, 3) && coded1 { deblock_hor(buf, 0, q, coff + 8); }
+            off += 16;
+        }
+        let mut leftt = false;
+        let mut leftc = false;
+        let mut off = buf.get_offset(0) + mb_y * 16 * stride;
+        for mb_x in 0..mb_w {
+            let ctop0 = cbpi.is_coded_top(mb_x, 0);
+            let ctop1 = cbpi.is_coded_top(mb_x, 0);
+            let ccur0 = cbpi.is_coded(mb_x, 0);
+            let ccur1 = cbpi.is_coded(mb_x, 1);
+            let q = cbpi.get_q(mb_w + mb_x);
+            let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
+            if mb_y != 0 {
+                let coff = off - 8 * stride;
+                let qtop = cbpi.get_q(mb_x);
+                let strtop = if qtop < 32 { FILTER_STRENGTH[qtop as usize] } else { 0 };
+                if leftt && ctop0 { deblock_ver(buf, 0, strtop, coff); }
+                if ctop0 && ctop1 { deblock_ver(buf, 0, strtop, coff + 8); }
+            }
+            if leftc && ccur0 { deblock_ver(buf, 0, str, off); }
+            if ccur0 && ccur1 { deblock_ver(buf, 0, str, off + 8); }
+            leftt = ctop1;
+            leftc = ccur1;
+            off += 16;
+        }
+        let strideu = buf.get_stride(1);
+        let stridev = buf.get_stride(2);
+        let offu = buf.get_offset(1) + mb_y * 8 * strideu;
+        let offv = buf.get_offset(2) + mb_y * 8 * stridev;
+        if mb_y != 0 {
+            for mb_x in 0..mb_w {
+                let ctu = cbpi.is_coded_top(mb_x, 4);
+                let ccu = cbpi.is_coded(mb_x, 4);
+                let ctv = cbpi.is_coded_top(mb_x, 5);
+                let ccv = cbpi.is_coded(mb_x, 5);
+                let q = cbpi.get_q(mb_w + mb_x);
+                let str = if q < 32 { FILTER_STRENGTH[q as usize] } else { 0 };
+                if ctu && ccu { deblock_hor(buf, 1, str, offu + mb_x * 8); }
+                if ctv && ccv { deblock_hor(buf, 2, str, offv + mb_x * 8); }
+            }
+            let mut leftu = false;
+            let mut leftv = false;
+            let offu = buf.get_offset(1) + (mb_y - 1) * 8 * strideu;
+            let offv = buf.get_offset(2) + (mb_y - 1) * 8 * stridev;
+            for mb_x in 0..mb_w {
+                let ctu = cbpi.is_coded_top(mb_x, 4);
+                let ctv = cbpi.is_coded_top(mb_x, 5);
+                let qt = cbpi.get_q(mb_x);
+                let strt = if qt < 32 { FILTER_STRENGTH[qt as usize] } else { 0 };
+                if leftu && ctu { deblock_ver(buf, 1, strt, offu + mb_x * 8); }
+                if leftv && ctv { deblock_ver(buf, 2, strt, offv + mb_x * 8); }
+                leftu = ctu;
+                leftv = ctv;
+            }
+        }
+    }
 }
 
 fn check_marker<'a>(br: &mut BitReader<'a>) -> DecoderResult<()> {
@@ -369,7 +661,7 @@ impl Intel263Decoder {
             info:           NACodecInfo::new_dummy(),
             dec:            H263BaseDecoder::new(true),
             tables,
-            bdsp:           H263BlockDSP::new(),
+            bdsp:           I263BlockDSP::default(),
             lastframe:      None,
             lastpts:        None,
         }
