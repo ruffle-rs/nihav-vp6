@@ -751,6 +751,24 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         indeo_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("avi", "assets/Indeo/neal73_saber.avi", Some(16), true, false, None/*Some("i263")*/, &dmx_reg, &dec_reg);
+        test_decoding("avi", "intel263", "assets/Indeo/neal73_saber.avi", Some(16),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                        [0x698c4f70, 0xf727bfc1, 0x96e687e9, 0xc9e37073],
+                        [0xd41d8cd9, 0x8f00b204, 0xe9800998, 0xecf8427e],
+                        [0x95dfe457, 0xaaeeaca9, 0x9764c111, 0xdf055b1f],
+                        [0xac1d708c, 0x8e34aa47, 0x240b8f0e, 0x797b052b],
+                        [0x965fe621, 0xebb049da, 0x18345724, 0x748ea32f],
+                        [0x126c7492, 0x54d7457f, 0x9968a723, 0x89629378],
+                        [0x8c690125, 0x3de8da89, 0x6030b702, 0xbd3f09ab],
+                        [0xa9d3f7c7, 0xdfa1795c, 0x7ed34e86, 0x58b7cc26],
+                        [0xe500e50e, 0x2312197d, 0xb8e93f41, 0xe6890cd8],
+                        [0x2e8d8f15, 0xaf1c84fe, 0x05fec093, 0x3c383abb],
+                        [0x6a1def4b, 0xc3549acc, 0x9ed127be, 0x2872f751],
+                        [0x36599508, 0xe169caf9, 0xcdf6af6b, 0x29d167b8],
+                        [0xfe98869d, 0x2b16b94b, 0x97caaf72, 0xbf7cc0c1],
+                        [0x9fbfaf0a, 0xfa4ce8fc, 0xdc038ab8, 0x649c1eaa],
+                        [0x141749be, 0xfba7acd4, 0xd0372e02, 0x6b191bc5],
+                        [0x99252b73, 0x2ce009d9, 0xf6753c1d, 0x31892a08],
+                        [0xefe81436, 0x4ab365db, 0x57a0b058, 0x26a6ca02]]));
     }
 }
