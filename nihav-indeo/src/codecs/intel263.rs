@@ -79,7 +79,11 @@ impl<'a> Intel263BR<'a> {
                 level = code.get_level();
                 last  = code.is_last();
                 if br.read_bool()? { level = -level; }
-                level = (level * q) + q_add;
+                if level > 0 {
+                    level = (level * q) + q_add;
+                } else {
+                    level = (level * q) - q_add;
+                }
             } else {
                 last  = br.read_bool()?;
                 run   = br.read(6)? as u8;
@@ -89,7 +93,11 @@ impl<'a> Intel263BR<'a> {
                     let top = br.read_s(6)? as i16;
                     level = (top << 5) | low;
                 }
-                level = (level * q) + q_add;
+                if level > 0 {
+                    level = (level * q) + q_add;
+                } else {
+                    level = (level * q) - q_add;
+                }
                 if level < -2048 { level = -2048; }
                 if level >  2047 { level =  2047; }
             }
