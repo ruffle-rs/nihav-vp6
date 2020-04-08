@@ -671,8 +671,8 @@ impl H263BaseDecoder {
         let bufinfo = alloc_video_buffer(vinfo, 4)?;
         let b_buf = bufinfo.get_vbuf().unwrap();
 
-        if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_nextref(), self.ipbs.get_lastref()) {
-            recon_b_frame(b_buf, fwd_buf.clone(), bck_buf.clone(), self.mb_w, self.mb_h, self.b_data.as_slice(), bdsp);
+        if let (Some(ref bck_buf), Some(ref fwd_buf)) = (self.ipbs.get_b_bwdref(), self.ipbs.get_b_fwdref()) {
+            recon_b_frame(b_buf, bck_buf.clone(), fwd_buf.clone(), self.mb_w, self.mb_h, self.b_data.as_slice(), bdsp);
         }
 
         self.b_data.truncate(0);
@@ -755,14 +755,14 @@ fn recon_b_frame(mut b_buf: NAVideoBufferRef<u8>, bck_buf: NAVideoBufferRef<u8>,
             let cbp    = b_data[cur_mb].cbp;
             cbpi.set_cbp(mb_x, cbp);
             if num_mv == 1 {
-                bdsp.copy_blocks(&mut b_buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, b_data[cur_mb].mv_b[0]);
+                bdsp.copy_blocks(&mut b_buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, b_data[cur_mb].mv_f[0]);
                 if !is_fwd {
-                    bdsp.avg_blocks(&mut b_buf, bck_buf.clone(), mb_x * 16, mb_y * 16, b_data[cur_mb].mv_f[0]);
+                    bdsp.avg_blocks(&mut b_buf, bck_buf.clone(), mb_x * 16, mb_y * 16, b_data[cur_mb].mv_b[0]);
                 }
             } else {
-                bdsp.copy_blocks8x8(&mut b_buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, &b_data[cur_mb].mv_b);
+                bdsp.copy_blocks8x8(&mut b_buf, fwd_buf.clone(), mb_x * 16, mb_y * 16, &b_data[cur_mb].mv_f);
                 if !is_fwd {
-                    bdsp.avg_blocks8x8(&mut b_buf, bck_buf.clone(), mb_x * 16, mb_y * 16, &b_data[cur_mb].mv_f);
+                    bdsp.avg_blocks8x8(&mut b_buf, bck_buf.clone(), mb_x * 16, mb_y * 16, &b_data[cur_mb].mv_b);
                 }
             }
             if cbp != 0 {
