@@ -360,7 +360,7 @@ fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usiz
         let diff = ((a - d) + (c - b) * 4) / 8;
         if (diff != 0) && (diff > -24) && (diff < 24) {
             let d1a = (diff.abs() - 2 * (diff.abs() - (strength as i16)).max(0)).max(0);
-            let d1  = if d1a < 0 { 0 } else { d1a };
+            let d1  = if diff < 0 { -d1a } else { d1a };
             let hd1 = d1a / 2;
             let d2  = ((a - d) / 4).max(-hd1).min(hd1);
 
@@ -384,7 +384,7 @@ fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usiz
         let diff = (a - d + (c - b) * 4) / 8;
         if (diff != 0) && (diff > -24) && (diff < 24) {
             let d1a = (diff.abs() - 2 * (diff.abs() - (strength as i16)).max(0)).max(0);
-            let d1  = if d1a < 0 { 0 } else { d1a };
+            let d1  = if diff < 0 { -d1a } else { d1a };
             let hd1 = d1a / 2;
             let d2  = ((a - d) / 4).max(-hd1).min(hd1);
 
