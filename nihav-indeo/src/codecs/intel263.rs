@@ -24,6 +24,8 @@ struct Intel263Decoder {
     dec:     H263BaseDecoder,
     tables:  Tables,
     bdsp:    H263BlockDSP,
+    lastframe:  Option<NABufferType>,
+    lastpts:    Option<u64>,
 }
 
 struct Intel263BR<'a> {
@@ -360,6 +362,8 @@ impl Intel263Decoder {
             dec:            H263BaseDecoder::new(true),
             tables,
             bdsp:           H263BlockDSP::new(),
+            lastframe:      None,
+            lastpts:        None,
         }
     }
 }
@@ -381,28 +385,46 @@ impl NADecoder for Intel263Decoder {
         let src = pkt.get_buffer();
 
         if src.len() == 8 {
-            let bret = self.dec.get_bframe(&self.bdsp);
             let buftype;
-            let is_skip;
-            if let Ok(btype) = bret {
-                buftype = btype;
-                is_skip = false;
-            } else {
+            let ftype;
+            if self.lastframe.is_none() {
                 buftype = NABufferType::None;
-                is_skip = true;
+                ftype = FrameType::Skip;
+            } else {
+                let mut buf = None;
+                std::mem::swap(&mut self.lastframe, &mut buf);
+                buftype = buf.unwrap();
+                ftype = FrameType::B;
             }
             let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), buftype);
             frm.set_keyframe(false);
-            frm.set_frame_type(if is_skip { FrameType::Skip } else { FrameType::B });
+            frm.set_frame_type(ftype);
+            if self.lastpts.is_some() {
+                frm.set_pts(self.lastpts);
+                self.lastpts = None;
+            }
             return Ok(frm.into_ref());
         }
         let mut ibr = Intel263BR::new(&src, &self.tables);
 
         let bufinfo = self.dec.parse_frame(&mut ibr, &self.bdsp)?;
 
+        let mut cur_pts = pkt.get_pts();
+        if !self.dec.is_intra() {
+            let bret = self.dec.get_bframe(&self.bdsp);
+            if let Ok(b_buf) = bret {
+                self.lastframe = Some(b_buf);
+                self.lastpts = pkt.get_pts();
+                if let Some(pts) = pkt.get_pts() {
+                    cur_pts = Some(pts + 1);
+                }
+            }
+        }
+
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(self.dec.is_intra());
         frm.set_frame_type(if self.dec.is_intra() { FrameType::I } else { FrameType::P });
+        frm.set_pts(cur_pts);
         Ok(frm.into_ref())
     }
     fn flush(&mut self) {
