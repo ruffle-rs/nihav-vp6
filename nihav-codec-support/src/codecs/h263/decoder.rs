@@ -485,7 +485,7 @@ impl H263BaseDecoder {
                         slice_start = mb_pos;
                     }
                     slice = bd.decode_slice_header(&pinfo)?;
-                    if !self.is_gob && self.slice_reset {
+                    if self.is_gob || self.slice_reset {
                         mvi.reset(self.mb_w, mb_x, pinfo.get_mvmode());
                         if is_b || pinfo.is_pb() {
                             mvi2.reset(self.mb_w, mb_x, pinfo.get_mvmode());
