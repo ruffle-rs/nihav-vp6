@@ -83,6 +83,7 @@ pub type CodebookResult<T> = Result<T, CodebookError>;
 /// This should be used to create a list of codeword definitions for [`FullCodebookDescReader`].
 ///
 /// [`FullCodebookDescReader`]: ./struct.FullCodebookDescReader.html
+#[derive(Clone,Copy)]
 pub struct FullCodebookDesc<S> {
     /// Codeword bits.
     pub code: u32,
@@ -97,6 +98,7 @@ pub struct FullCodebookDesc<S> {
 /// This should be used to create a list of codeword definitions for [`ShortCodebookDescReader`].
 ///
 /// [`ShortCodebookDescReader`]: ./struct.ShortCodebookDescReader.html
+#[derive(Clone,Copy)]
 pub struct ShortCodebookDesc {
     /// Codeword bits.
     pub code: u32,
