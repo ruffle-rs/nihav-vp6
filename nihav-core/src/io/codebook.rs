@@ -16,7 +16,7 @@
 //!             ShortCodebookDesc { code: 0b01,   bits: 2 },
 //!             ShortCodebookDesc { code: 0b1,    bits: 1 });
 //! let mut cr = ShortCodebookDescReader::new(cb_desc);
-//! let cb = Codebook::new(&mut cr, CodebookMode::LSB).unwrap();
+//! let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
 //! ```
 //!
 //! Create a codebook using more flexible [`TableCodebookDescReader`] approach.
