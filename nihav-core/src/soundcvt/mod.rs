@@ -576,7 +576,7 @@ mod test {
                             block_len:      512,
                         };
         let mut src_frm = alloc_audio_buffer(src_ainfo, 42, chcfg51.clone()).unwrap();
-        if let NABufferType::AudioPacked(ref mut abuf) = src_frm {
+        if let NABufferType::AudioU8(ref mut abuf) = src_frm {
             let data = abuf.get_data_mut().unwrap();
             let mut idx = 0;
             for _ in 0..42 {
