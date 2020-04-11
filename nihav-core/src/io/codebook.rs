@@ -144,7 +144,7 @@ const TABLE_FILL_VALUE: u32 = 0x7F;
 const MAX_LUT_BITS: u8 = 10;
 
 fn fill_lut_msb(table: &mut Vec<u32>, off: usize,
-                code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) {
+                code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) -> CodebookResult<()> {
     if !esc {
         let fill_len  = lut_bits - bits;
         let fill_size = 1 << fill_len;
@@ -152,16 +152,19 @@ fn fill_lut_msb(table: &mut Vec<u32>, off: usize,
         let lut_value = (symidx << 8) | u32::from(bits);
         for j in 0..fill_size {
             let idx = (fill_code + j) as usize;
+            if table[idx + off] != TABLE_FILL_VALUE { return Err(CodebookError::InvalidCodebook); }
             table[idx + off] = lut_value;
         }
     } else {
         let idx = (code as usize) + off;
+        if table[idx] != TABLE_FILL_VALUE { return Err(CodebookError::InvalidCodebook); }
         table[idx] = (symidx << 8) | 0x80 | u32::from(bits);
     }
+    Ok(())
 }
 
 fn fill_lut_lsb(table: &mut Vec<u32>, off: usize,
-                code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) {
+                code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) -> CodebookResult<()> {
     if !esc {
         let fill_len  = lut_bits - bits;
         let fill_size = 1 << fill_len;
@@ -169,21 +172,24 @@ fn fill_lut_lsb(table: &mut Vec<u32>, off: usize,
         let step = lut_bits - fill_len;
         for j in 0..fill_size {
             let idx = (fill_code + (j << step)) as usize;
+            if table[idx + off] != TABLE_FILL_VALUE { return Err(CodebookError::InvalidCodebook); }
             table[idx + off] = (symidx << 8) | u32::from(bits);
         }
     } else {
         let idx = (code as usize) + off;
+        if table[idx] != TABLE_FILL_VALUE { return Err(CodebookError::InvalidCodebook); }
         table[idx] = (symidx << 8) | 0x80 | u32::from(bits);
     }
+    Ok(())
 }
 
 fn fill_lut(table: &mut Vec<u32>, mode: CodebookMode,
-            off: usize, code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) -> bool {
+            off: usize, code: u32, bits: u8, lut_bits: u8, symidx: u32, esc: bool) -> CodebookResult<bool> {
     match mode {
-        CodebookMode::MSB => fill_lut_msb(table, off, code, bits, lut_bits, symidx, esc),
-        CodebookMode::LSB => fill_lut_lsb(table, off, code, bits, lut_bits, symidx, esc),
+        CodebookMode::MSB => fill_lut_msb(table, off, code, bits, lut_bits, symidx, esc)?,
+        CodebookMode::LSB => fill_lut_lsb(table, off, code, bits, lut_bits, symidx, esc)?,
     };
-    bits > lut_bits
+    Ok(bits > lut_bits)
 }
 
 fn resize_table(table: &mut Vec<u32>, bits: u8) -> CodebookResult<u32> {
@@ -254,7 +260,7 @@ fn build_esc_lut(table: &mut Vec<u32>,
         let bits = code.bits;
         if code.bits <= MAX_LUT_BITS {
             fill_lut(table, mode, bucket.offset, code.code, bits,
-                     maxlen, code.idx as u32, false);
+                     maxlen, code.idx as u32, false)?;
         } else {
             let ckey = extract_lut_part(code.code, bits, MAX_LUT_BITS, mode);
             let cval = extract_esc_part(code.code, bits, MAX_LUT_BITS, mode);
@@ -268,7 +274,7 @@ fn build_esc_lut(table: &mut Vec<u32>,
         let maxlen = min(sec_bucket.maxlen, MAX_LUT_BITS);
         let new_off = resize_table(table, maxlen)?;
         fill_lut(table, mode, cur_offset, key, maxlen,
-                 MAX_LUT_BITS, new_off, true);
+                 MAX_LUT_BITS, new_off, true)?;
         sec_bucket.offset = new_off as usize;
     }
 
@@ -322,7 +328,7 @@ impl<S: Copy> Codebook<S> {
             let code = cb.code(i);
             if bits == 0 { continue; }
             if bits <= MAX_LUT_BITS {
-                fill_lut(&mut table, mode, 0, code, bits, maxbits, symidx, false);
+                fill_lut(&mut table, mode, 0, code, bits, maxbits, symidx, false)?;
             } else {
                 let ckey = extract_lut_part(code, bits, MAX_LUT_BITS, mode) as usize;
                 if table[ckey] == TABLE_FILL_VALUE {
@@ -330,7 +336,7 @@ impl<S: Copy> Codebook<S> {
                     if let Some(bucket) = escape_list.get_mut(&key) {
                         let maxlen = min(bucket.maxlen, MAX_LUT_BITS);
                         let new_off = resize_table(&mut table, maxlen)?;
-                        fill_lut(&mut table, mode, 0, key, maxlen, MAX_LUT_BITS, new_off, true);
+                        fill_lut(&mut table, mode, 0, key, maxlen, MAX_LUT_BITS, new_off, true)?;
                         bucket.offset = new_off as usize;
                     }
                 }
