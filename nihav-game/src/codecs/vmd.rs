@@ -374,11 +374,7 @@ impl VMDAudioDecoder {
         }
     }
     fn cvt_u8(val: u8) -> u8 {
-        if val < 128 {
-            127 - val
-        } else {
-            val
-        }
+        val ^ 0x80
     }
 }
 
