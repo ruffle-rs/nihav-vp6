@@ -472,7 +472,7 @@ impl<'a> ByteIO for MemoryReader<'a> {
     }
 
     fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
-        let copy_size = if self.buf.len() - self.pos < buf.len() { self.buf.len() } else { buf.len() };
+        let copy_size = if self.buf.len() - self.pos < buf.len() { self.buf.len() - self.pos } else { buf.len() };
         if copy_size == 0 { return Err(ByteIOError::EOF); }
         let dst = &mut buf[0..copy_size];
         dst.copy_from_slice(&self.buf[self.pos..][..copy_size]);
