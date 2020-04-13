@@ -6,6 +6,9 @@
 #[allow(clippy::unreadable_literal)]
 pub mod codecs;
 
+#[cfg(feature="compr")]
+pub mod compr;
+
 #[cfg(feature="demuxers")]
 pub mod demuxers;
 
