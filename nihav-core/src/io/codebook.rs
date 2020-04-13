@@ -127,9 +127,9 @@ pub trait CodebookDescReader<S> {
 /// The codebook structure for code reading.
 #[allow(dead_code)]
 pub struct Codebook<S> {
-    table: Vec<u32>,
-    syms:  Vec<S>,
-    lut_bits: u8,
+    pub table: Vec<u32>,
+    pub syms:  Vec<S>,
+    pub lut_bits: u8,
 }
 
 /// Trait allowing bitreader to use codebook for decoding bit sequences.
@@ -140,7 +140,7 @@ pub trait CodebookReader<S> {
     fn read_cb(&mut self, cb: &Codebook<S>) -> CodebookResult<S>;
 }
 
-const TABLE_FILL_VALUE: u32 = 0x7F;
+pub const TABLE_FILL_VALUE: u32 = 0x7F;
 const MAX_LUT_BITS: u8 = 10;
 
 fn fill_lut_msb(table: &mut Vec<u32>, off: usize,
