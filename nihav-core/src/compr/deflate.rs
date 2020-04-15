@@ -747,7 +747,7 @@ fn lengths_to_codes(lens: &[u8], codes: &mut [ShortCodebookDesc]) -> DecompressR
             *codes = ShortCodebookDesc { code: 0, bits: 0 };
         }
     }
-    
+
     Ok(())
 }
 

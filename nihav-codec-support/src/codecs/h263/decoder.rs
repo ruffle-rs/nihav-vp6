@@ -348,7 +348,7 @@ impl H263BaseDecoder {
                         } else {
                             if single_mv { cur_mv } else { bi.mv_f[blk + 1] }
                         };
-                    
+
                     let mut obmcbuf = NASimpleVideoFrame::from_video_buf(&mut self.obmc_buf).unwrap();
 
                     if let Some(ref srcbuf) = self.ipbs.get_lastref() {

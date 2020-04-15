@@ -305,7 +305,7 @@ fn scale_coef(val: i32, scale: i16) -> i32 {
 }
 
 macro_rules! idct_1d {
-    ($c0: expr, $c1: expr, $c2: expr, $c3: expr, $c4: expr, $c5: expr, $c6: expr, $c7: expr) => { 
+    ($c0: expr, $c1: expr, $c2: expr, $c3: expr, $c4: expr, $c5: expr, $c6: expr, $c7: expr) => {
         let t0 = $c0 + $c4;
         let t1 = $c0 - $c4;
         let t2 = $c2 + $c6;

@@ -5,7 +5,7 @@
 /// In the decoding process of many codecs there is a need to store some previously decoded information and only immediate top neighbours are used.
 /// This can be done by storing either the full information for the whole frame or just the top line and move information for last decoded row to the top every time when row decoding is done.
 /// `GenericCache` implements the second approach.
-/// 
+///
 /// # Examples
 ///
 /// Create a cache for one line and use top pixel for prediction:
