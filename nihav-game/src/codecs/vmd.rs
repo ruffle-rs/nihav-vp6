@@ -236,7 +236,7 @@ impl NADecoder for VMDVideoDecoder {
             if let Some(ref edata) = info.get_extradata() {
                 validate!(edata.len() == 0x330);
                 let unp_size = read_u32le(&edata[800..])? as usize;
-                validate!(unp_size < self.width * self.height * 3 + 64); // just for sanity
+                validate!(unp_size < self.width * self.height * 4 + 64); // just for sanity
                 self.buf.resize(unp_size, 0);
                 for i in 0..768 {
                     let el = edata[28 + i];
