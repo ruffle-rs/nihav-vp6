@@ -85,9 +85,11 @@ fn rle_unpack(br: &mut ByteReader, len: usize, dst: &mut [u8]) -> DecoderResult<
             let dst = &mut dst[dpos..][..len];
             br.read_buf(dst)?;
         } else {
-            let val = br.read_byte()?;
-            for i in 0..len {
-                dst[dpos + i] = val;
+            let val1 = br.read_byte()?;
+            let val2 = br.read_byte()?;
+            for i in (0..len).step_by(2) {
+                dst[dpos + i] = val1;
+                dst[dpos + i + 1] = val2;
             }
         }
         dpos += len;
