@@ -154,6 +154,8 @@ struct VMDVideoDecoder {
     buf:        Vec<u8>,
     width:      usize,
     height:     usize,
+    xoff:       usize,
+    yoff:       usize,
     hams:       HAMShuffler,
 }
 
@@ -165,6 +167,8 @@ impl VMDVideoDecoder {
             buf:        Vec::new(),
             width:      0,
             height:     0,
+            xoff:       0,
+            yoff:       0,
             hams:       HAMShuffler::default(),
         }
     }
@@ -184,8 +188,9 @@ impl VMDVideoDecoder {
         if (frame_x == 0xFFFF) && (frame_y == 0xFFFF) && (frame_l == 0xFFFF) && (frame_d == 0xFFFF) {
             return Ok(false);
         }
+        validate!(frame_x >= self.xoff && frame_y >= self.yoff);
         validate!(frame_l >= frame_x && frame_d >= frame_y);
-        validate!(frame_l < self.width && frame_d < self.height);
+        validate!(frame_l - self.xoff < self.width && frame_d - self.yoff < self.height);
 
         if has_pal {
                                                   br.read_skip(2)?;
@@ -202,7 +207,7 @@ impl VMDVideoDecoder {
 
         let w = frame_l + 1 - frame_x;
         let h = frame_d + 1 - frame_y;
-        let dpos = frame_x + frame_y * stride;
+        let dpos = frame_x - self.xoff + (frame_y - self.yoff) * stride;
 
         let method                              = br.read_byte()?;
         let is_intra;
@@ -237,6 +242,8 @@ impl NADecoder for VMDVideoDecoder {
                     let el = edata[28 + i];
                     self.pal[i] = (el << 2) | (el >> 4);
                 }
+                self.xoff = read_u16le(&edata[8..])? as usize;
+                self.yoff = read_u16le(&edata[10..])? as usize;
             }
 
             Ok(())
