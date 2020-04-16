@@ -185,17 +185,17 @@ impl VMDVideoDecoder {
     fn decode_frame(&mut self, br: &mut ByteReader) -> DecoderResult<bool> {
         let frame_x                             = br.read_u16le()? as usize;
         let frame_y                             = br.read_u16le()? as usize;
-        let frame_l                             = br.read_u16le()? as usize;
+        let frame_r                             = br.read_u16le()? as usize;
         let frame_d                             = br.read_u16le()? as usize;
                                                   br.read_skip(1)?;
         let flags                               = br.read_byte()?;
         let has_pal = (flags & 0x02) != 0 && !self.is_16bit && !self.is_24bit;
-        if (frame_x == 0xFFFF) && (frame_y == 0xFFFF) && (frame_l == 0xFFFF) && (frame_d == 0xFFFF) {
+        if (frame_x == 0xFFFF) && (frame_y == 0xFFFF) && (frame_r == 0xFFFF) && (frame_d == 0xFFFF) {
             return Ok(false);
         }
         validate!(frame_x >= self.xoff && frame_y >= self.yoff);
-        validate!(frame_l >= frame_x && frame_d >= frame_y);
-        validate!(frame_l - self.xoff < self.width && frame_d - self.yoff < self.height);
+        validate!(frame_r >= frame_x && frame_d >= frame_y);
+        validate!(frame_r - self.xoff < self.width && frame_d - self.yoff < self.height);
 
         if has_pal {
                                                   br.read_skip(2)?;
@@ -214,7 +214,7 @@ impl VMDVideoDecoder {
             } else {
                 3
             };
-        let w = (frame_l + 1 - frame_x) * bpp;
+        let w = (frame_r + 1 - frame_x) * bpp;
         let h = frame_d + 1 - frame_y;
         let stride = self.width;
         let dpos = (frame_x - self.xoff) * bpp + (frame_y - self.yoff) * stride;
