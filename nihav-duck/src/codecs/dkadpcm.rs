@@ -1,34 +1,7 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
+use nihav_codec_support::codecs::imaadpcm::*;
 use std::str::FromStr;
-
-const IMA_MAX_STEP: u8 = 88;
-struct IMAState {
-    predictor:  i32,
-    step:       usize,
-}
-
-impl IMAState {
-    fn new() -> Self {
-        Self {
-            predictor:  0,
-            step:       0,
-        }
-    }
-    fn reset(&mut self, predictor: i16, step: u8) {
-        self.predictor  = i32::from(predictor);
-        self.step       = step.min(IMA_MAX_STEP) as usize;
-    }
-    fn expand_sample(&mut self, nibble: u8) -> i16 {
-        let istep = (self.step as isize) + (IMA_STEPS[nibble as usize] as isize);
-        let sign = (nibble & 8) != 0;
-        let diff = (i32::from(2 * (nibble & 7) + 1) * IMA_STEP_TABLE[self.step]) >> 3;
-        let sample = if !sign { self.predictor + diff } else { self.predictor - diff };
-        self.predictor = sample.max(i32::from(std::i16::MIN)).min(i32::from(std::i16::MAX));
-        self.step = istep.max(0).min(IMA_MAX_STEP as isize) as usize;
-        self.predictor as i16
-    }
-}
 
 struct DuckADPCMDecoder {
     ainfo:      NAAudioInfo,
@@ -207,22 +180,3 @@ mod test {
                       ExpectedTestResult::MD5([0x04e40d15, 0xf65b3427, 0x1dd5181f, 0xf321b56f]));
     }
 }
-
-const IMA_STEPS: [i8; 16] = [
-    -1, -1, -1, -1, 2, 4, 6, 8,
-    -1, -1, -1, -1, 2, 4, 6, 8
-];
-
-const IMA_STEP_TABLE: [i32; 89] = [
-        7,     8,     9,    10,    11,    12,    13,    14,
-       16,    17,    19,    21,    23,    25,    28,    31,
-       34,    37,    41,    45,    50,    55,    60,    66,
-       73,    80,    88,    97,   107,   118,   130,   143,
-      157,   173,   190,   209,   230,   253,   279,   307,
-      337,   371,   408,   449,   494,   544,   598,   658,
-      724,   796,   876,   963,  1060,  1166,  1282,  1411,
-     1552,  1707,  1878,  2066,  2272,  2499,  2749,  3024,
-     3327,  3660,  4026,  4428,  4871,  5358,  5894,  6484,
-     7132,  7845,  8630,  9493, 10442, 11487, 12635, 13899,
-    15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767
-];
