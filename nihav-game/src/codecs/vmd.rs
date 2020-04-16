@@ -1,6 +1,5 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
-use nihav_codec_support::codecs::HAMShuffler;
 use nihav_codec_support::codecs::imaadpcm::*;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -155,11 +154,15 @@ struct VMDVideoDecoder {
     info:       NACodecInfoRef,
     pal:        [u8; 768],
     buf:        Vec<u8>,
+    framebuf:   Vec<u8>,
     width:      usize,
     height:     usize,
     xoff:       usize,
     yoff:       usize,
-    hams:       HAMShuffler,
+    is_16bit:   bool,
+    is_24bit:   bool,
+    ver1:       u8,
+    ver2:       u8,
 }
 
 impl VMDVideoDecoder {
@@ -168,26 +171,25 @@ impl VMDVideoDecoder {
             info:       NACodecInfoRef::default(),
             pal:        [0; 768],
             buf:        Vec::new(),
+            framebuf:   Vec::new(),
             width:      0,
             height:     0,
             xoff:       0,
             yoff:       0,
-            hams:       HAMShuffler::default(),
+            is_16bit:   false,
+            is_24bit:   false,
+            ver1:       0,
+            ver2:       0,
         }
     }
-    fn decode_frame(&mut self, br: &mut ByteReader, buf: &mut NAVideoBuffer<u8>) -> DecoderResult<bool> {
-        let paloff = buf.get_offset(1);
-        let stride = buf.get_stride(0);
-        let data = buf.get_data_mut().unwrap();
-        let dst = data.as_mut_slice();
-
+    fn decode_frame(&mut self, br: &mut ByteReader) -> DecoderResult<bool> {
         let frame_x                             = br.read_u16le()? as usize;
         let frame_y                             = br.read_u16le()? as usize;
         let frame_l                             = br.read_u16le()? as usize;
         let frame_d                             = br.read_u16le()? as usize;
                                                   br.read_skip(1)?;
         let flags                               = br.read_byte()?;
-        let has_pal = (flags & 0x02) != 0;
+        let has_pal = (flags & 0x02) != 0 && !self.is_16bit && !self.is_24bit;
         if (frame_x == 0xFFFF) && (frame_y == 0xFFFF) && (frame_l == 0xFFFF) && (frame_d == 0xFFFF) {
             return Ok(false);
         }
@@ -203,14 +205,19 @@ impl VMDVideoDecoder {
             }
         }
 
-        let dpal = &mut dst[paloff..][..768];
-        dpal.copy_from_slice(&self.pal[0..]);
-
         if br.left() == 0 { return Ok(false); }
 
-        let w = frame_l + 1 - frame_x;
+        let bpp = if (!self.is_16bit && !self.is_24bit) || self.ver1 < 2 {
+                1
+            } else if self.is_16bit {
+                2
+            } else {
+                3
+            };
+        let w = (frame_l + 1 - frame_x) * bpp;
         let h = frame_d + 1 - frame_y;
-        let dpos = frame_x - self.xoff + (frame_y - self.yoff) * stride;
+        let stride = self.width;
+        let dpos = (frame_x - self.xoff) * bpp + (frame_y - self.yoff) * stride;
 
         let method                              = br.read_byte()?;
         let is_intra;
@@ -219,21 +226,27 @@ impl VMDVideoDecoder {
             lz_unpack(br, &mut self.buf)?;
             let mut mr = MemoryReader::new_read(&self.buf);
             let mut buf_br = ByteReader::new(&mut mr);
-            is_intra = decode_frame_data(&mut buf_br, dst, dpos, stride, w, h, method & 0x7F)?;
+            is_intra = decode_frame_data(&mut buf_br, &mut self.framebuf, dpos, stride, w, h, method & 0x7F)?;
         } else {
-            is_intra = decode_frame_data(br, dst, dpos, stride, w, h, method & 0x7F)?;
+            is_intra = decode_frame_data(br, &mut self.framebuf, dpos, stride, w, h, method & 0x7F)?;
         }
         Ok(is_intra && frame_x == 0 && frame_y == 0 && w == self.width && h == self.height)
     }
 }
+
+const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+                                        comp_info: [
+                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: 10, comp_offs: 0, next_elem: 2 }),
+                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  5, comp_offs: 1, next_elem: 2 }),
+                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  0, comp_offs: 2, next_elem: 2 }),
+                                            None, None],
+                                        elem_size: 2, be: false, alpha: false, palette: false };
 
 impl NADecoder for VMDVideoDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             self.width  = vinfo.get_width();
             self.height = vinfo.get_height();
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(self.width, self.height, false, PAL8_FORMAT));
-            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             validate!(info.get_extradata().is_some());
 
             if let Some(ref edata) = info.get_extradata() {
@@ -247,7 +260,31 @@ impl NADecoder for VMDVideoDecoder {
                 }
                 self.xoff = read_u16le(&edata[8..])? as usize;
                 self.yoff = read_u16le(&edata[10..])? as usize;
+                self.ver1 = edata[2];
+                self.ver2 = edata[4];
+            } else {
+                unreachable!();
             }
+            let (disp_width, fmt) = if self.ver2 < 5 {
+                    (self.width, PAL8_FORMAT)
+                } else if self.ver2 < 13 {
+                    self.is_24bit = true;
+                    if self.ver1 >= 2 {
+                        self.width *= 3;
+                    }
+                    validate!(self.width % 3 == 0);
+                    (self.width / 3, RGB24_FORMAT)
+                } else {
+                    self.is_16bit = true;
+                    if self.ver1 >= 2 {
+                        self.width *= 2;
+                    }
+                    (self.width / 2, RGB555_FORMAT)
+                };
+            self.framebuf = vec!(0; self.width * self.height);
+
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(disp_width, self.height, false, fmt));
+            self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             Ok(())
         } else {
@@ -261,26 +298,40 @@ impl NADecoder for VMDVideoDecoder {
         let mut mr = MemoryReader::new_read(&src);
         let mut br = ByteReader::new(&mut mr);
 
-        let mut buf;
-        let bufret = self.hams.clone_ref();
-        if let Some(bbuf) = bufret {
-            buf = bbuf;
+        let is_intra = self.decode_frame(&mut br)?;
+
+        let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4)?;
+        let videobuf;
+        if !self.is_16bit {
+            let mut buf = bufinfo.get_vbuf().unwrap();
+            let stride = buf.get_stride(0);
+            let paloff = buf.get_offset(1);
+            let data = buf.get_data_mut().unwrap();
+            for (inrow, outrow) in self.framebuf.chunks(self.width).zip(data.chunks_mut(stride)) {
+                (&mut outrow[..self.width]).copy_from_slice(inrow);
+            }
+            if !self.is_24bit {
+                (&mut data[paloff..][..768]).copy_from_slice(&self.pal);
+            }
+            videobuf = if !self.is_24bit { NABufferType::Video(buf) } else { NABufferType::VideoPacked(buf) };
         } else {
-            let bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 4)?;
-            buf = bufinfo.get_vbuf().unwrap();
-            self.hams.add_frame(buf);
-            buf = self.hams.get_output_frame().unwrap();
+            let mut buf = bufinfo.get_vbuf16().unwrap();
+            let stride = buf.get_stride(0);
+            let data = buf.get_data_mut().unwrap();
+            for (inrow, outrow) in self.framebuf.chunks(self.width).zip(data.chunks_mut(stride)) {
+                for i in (0..self.width).step_by(2) {
+                    outrow[i >> 1] = read_u16le(&inrow[i..])?;
+                }
+            }
+            videobuf = NABufferType::Video16(buf);
         }
 
-        let is_intra = self.decode_frame(&mut br, &mut buf)?;
-
-        let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::Video(buf));
+        let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), videobuf);
         frm.set_keyframe(is_intra);
         frm.set_frame_type(if is_intra { FrameType::I } else { FrameType::P });
         Ok(frm.into_ref())
     }
     fn flush(&mut self) {
-        self.hams.clear();
     }
 }
 
