@@ -1,6 +1,7 @@
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_codec_support::codecs::HAMShuffler;
+use nihav_codec_support::codecs::imaadpcm::*;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -293,6 +294,7 @@ enum VMDAudioMode {
     U8,
     DPCM,
     StereoDPCM,
+    ADPCM,
 }
 
 struct VMDAudioDecoder {
@@ -413,9 +415,14 @@ impl NADecoder for VMDAudioDecoder {
                 }
             } else {
                 fmt = SND_S16P_FORMAT;
-                self.blk_size = (ainfo.get_block_len() + 1) * channels;
                 self.blk_align = ainfo.get_block_len();
-                self.mode = VMDAudioMode::DPCM;
+                if (flags & 0x10) == 0 {
+                    self.blk_size = (ainfo.get_block_len() + 1) * channels;
+                    self.mode = VMDAudioMode::DPCM;
+                } else {
+                    self.blk_size = ainfo.get_block_len() / 2 + 3;
+                    self.mode = VMDAudioMode::ADPCM;
+                }
             };
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), fmt, ainfo.get_block_len());
             self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo.clone()));
@@ -535,6 +542,36 @@ impl NADecoder for VMDAudioDecoder {
                         mask >>= 1;
                     }
                     self.ch = ch;
+                },
+                VMDAudioMode::ADPCM => {
+                    let mut adata = abuf.get_abuf_i16().unwrap();
+                    let dst = adata.get_data_mut().unwrap();
+                    let mut doff = 0;
+                    if self.chmap.num_channels() == 1 {
+                        let mut mask = mask;
+                        let mut ima = IMAState::new();
+                        for _ in 0..nblocks {
+                            if (mask & 1) != 0 {
+                                doff += (self.blk_size - 3) * 2;
+                                mask >>= 1;
+                                continue;
+                            }
+                            let pred                        = br.read_u16le()? as i16;
+                            let step                        = br.read_byte()?;
+                            validate!((step as usize) < IMA_STEP_TABLE.len());
+                            ima.reset(pred, step);
+                            for _ in 3..self.blk_size {
+                                let b                       = br.read_byte()?;
+                                dst[doff] = ima.expand_sample(b >> 4);
+                                doff += 1;
+                                dst[doff] = ima.expand_sample(b & 0xF);
+                                doff += 1;
+                            }
+                            mask >>= 1;
+                        }
+                    } else {
+                        return Err(DecoderError::InvalidData);
+                    }
                 },
             };
 
