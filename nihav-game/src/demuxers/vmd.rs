@@ -2,7 +2,10 @@ use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 use std::io::SeekFrom;
 
-const HEADER_SIZE: usize = 0x330;
+const OLD_HEADER_SIZE: usize = 0x330;
+const NEW_HEADER_SIZE: usize = 0x34;
+const HEADER1_SIZE: usize = 28;
+const HEADER2_OFF: usize = HEADER1_SIZE + 768;
 const FRAME_HDR_SIZE: usize = 10;
 
 const CHTYPE_VIDEO: u8 = 0x02;
@@ -31,8 +34,14 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 
-        let mut header: [u8; HEADER_SIZE] = [0; HEADER_SIZE];
-                                                src.read_buf(&mut header)?;
+        let mut header: [u8; OLD_HEADER_SIZE] = [0; OLD_HEADER_SIZE];
+                                                src.read_buf(&mut header[..HEADER1_SIZE])?;
+        let hdr_size = read_u16le(&header)? as usize + 2;
+        validate!(hdr_size == OLD_HEADER_SIZE || hdr_size == NEW_HEADER_SIZE);
+        if hdr_size == OLD_HEADER_SIZE {
+                                                src.read_buf(&mut header[HEADER1_SIZE..][..768])?;
+        }
+                                                src.read_buf(&mut header[HEADER2_OFF..])?;
 
         let mut width  = read_u16le(&header[12..])? as usize;
         let mut height = read_u16le(&header[14..])? as usize;
@@ -46,13 +55,20 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         let fpb     = read_u16le(&header[18..])? as usize;
         validate!(nframes > 0 && fpb > 0);
 
-        let mut edata: Vec<u8> = Vec::with_capacity(HEADER_SIZE);
+        let mut edata: Vec<u8> = Vec::with_capacity(OLD_HEADER_SIZE);
         edata.extend_from_slice(&header);
         let vhdr = NAVideoInfo::new(width, height, false, PAL8_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
         let vinfo = NACodecInfo::new(if !self.is_indeo { "vmd-video" } else { "indeo3" }, vci, Some(edata));
         self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 12)).unwrap();
 
+        let is_ext_audio = (hdr_size & 0xF) == 4;
+        let ext_audio_id = if is_ext_audio {
+                                                src.read_u16le()?
+            } else { 0 };
+        if is_ext_audio {
+            validate!(ext_audio_id >= 3 && ext_audio_id <= 6);
+        }
         let srate = u32::from(read_u16le(&header[804..])?);
         let block_size;
         if srate > 0 {
@@ -70,7 +86,12 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
             let mut aedata: Vec<u8> = Vec::with_capacity(2);
             aedata.extend_from_slice(&header[810..][..2]);
             let ahdr = NAAudioInfo::new(srate, channels, if is16bit { SND_S16P_FORMAT } else { SND_U8_FORMAT }, block_size);
-            let ainfo = NACodecInfo::new("vmd-audio", NACodecTypeInfo::Audio(ahdr), Some(aedata));
+            let ac_name = if !is_ext_audio {
+                    "vmd-audio"
+                } else {
+                    "unknown"
+                };
+            let ainfo = NACodecInfo::new(ac_name, NACodecTypeInfo::Audio(ahdr), Some(aedata));
             self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate)).unwrap();
         } else {
             block_size = 0;
