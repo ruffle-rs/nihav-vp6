@@ -462,13 +462,14 @@ impl NADecoder for VMDAudioDecoder {
                     self.is_odd = (channels == 2) && ((self.blk_size & 1) != 0);
                 }
             } else {
-                fmt = SND_S16P_FORMAT;
                 self.blk_align = ainfo.get_block_len();
                 if (flags & 0x10) == 0 {
+                    fmt = SND_S16P_FORMAT;
                     self.blk_size = (ainfo.get_block_len() + 1) * channels;
                     self.mode = VMDAudioMode::DPCM;
                 } else {
-                    self.blk_size = (ainfo.get_block_len() + 1) / 2 + 3;
+                    fmt = SND_S16_FORMAT;
+                    self.blk_size = (ainfo.get_block_len() * channels + 1) / 2 + 3 * channels;
                     self.mode = VMDAudioMode::ADPCM;
                 }
             };
@@ -597,6 +598,9 @@ impl NADecoder for VMDAudioDecoder {
                         let mut ima = IMAState::new();
                         for _ in 0..nblocks {
                             if (mask & 1) != 0 {
+                                for i in 0..self.blk_align {
+                                    dst[doff + i] = 0;
+                                }
                                 doff += self.blk_align;
                                 mask >>= 1;
                                 continue;
@@ -618,7 +622,35 @@ impl NADecoder for VMDAudioDecoder {
                             mask >>= 1;
                         }
                     } else {
-                        return Err(DecoderError::InvalidData);
+                        let mut mask = mask;
+                        let mut ima1 = IMAState::new();
+                        let mut ima2 = IMAState::new();
+                        for _ in 0..nblocks {
+                            if (mask & 1) != 0 {
+                                for i in 0..self.blk_align * 2 {
+                                    dst[doff + i] = 0;
+                                }
+                                doff += self.blk_align * 2;
+                                mask >>= 1;
+                                continue;
+                            }
+                            let pred1                       = br.read_u16le()? as i16;
+                            let pred2                       = br.read_u16le()? as i16;
+                            let step1                       = br.read_byte()?;
+                            let step2                       = br.read_byte()?;
+                            validate!((step1 as usize) < IMA_STEP_TABLE.len());
+                            validate!((step2 as usize) < IMA_STEP_TABLE.len());
+                            ima1.reset(pred1, step1);
+                            ima2.reset(pred2, step2);
+                            for _ in 0..self.blk_align {
+                                let b                       = br.read_byte()?;
+                                dst[doff] = ima1.expand_sample(b >> 4);
+                                doff += 1;
+                                dst[doff] = ima2.expand_sample(b & 0xF);
+                                doff += 1;
+                            }
+                            mask >>= 1;
+                        }
                     }
                 },
             };
