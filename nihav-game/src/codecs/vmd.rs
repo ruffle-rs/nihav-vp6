@@ -471,7 +471,7 @@ impl NADecoder for VMDAudioDecoder {
                     self.blk_size = (ainfo.get_block_len() + 1) * channels;
                     self.mode = VMDAudioMode::DPCM;
                 } else {
-                    self.blk_size = ainfo.get_block_len() / 2 + 3;
+                    self.blk_size = (ainfo.get_block_len() + 1) / 2 + 3;
                     self.mode = VMDAudioMode::ADPCM;
                 }
             };
@@ -603,7 +603,7 @@ impl NADecoder for VMDAudioDecoder {
                         let mut ima = IMAState::new();
                         for _ in 0..nblocks {
                             if (mask & 1) != 0 {
-                                doff += (self.blk_size - 3) * 2;
+                                doff += self.blk_align;
                                 mask >>= 1;
                                 continue;
                             }
@@ -611,11 +611,14 @@ impl NADecoder for VMDAudioDecoder {
                             let step                        = br.read_byte()?;
                             validate!((step as usize) < IMA_STEP_TABLE.len());
                             ima.reset(pred, step);
-                            for _ in 3..self.blk_size {
-                                let b                       = br.read_byte()?;
-                                dst[doff] = ima.expand_sample(b >> 4);
-                                doff += 1;
-                                dst[doff] = ima.expand_sample(b & 0xF);
+                            let mut b = 0;
+                            for i in 0..self.blk_align {
+                                if (i & 1) == 0 {
+                                    b                       = br.read_byte()?;
+                                    dst[doff] = ima.expand_sample(b >> 4);
+                                } else {
+                                    dst[doff] = ima.expand_sample(b & 0xF);
+                                }
                                 doff += 1;
                             }
                             mask >>= 1;
