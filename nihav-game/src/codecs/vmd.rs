@@ -435,9 +435,6 @@ impl VMDAudioDecoder {
             pred + i32::from(SOL_AUD_STEPS16[(val & 0x7F) as usize])
         }
     }
-    fn cvt_u8(val: u8) -> u8 {
-        val ^ 0x80
-    }
 }
 
 impl NADecoder for VMDAudioDecoder {
@@ -532,10 +529,7 @@ impl NADecoder for VMDAudioDecoder {
                                 dst[doff + i]       = br.read_byte()?;
                             }
                         } else {
-                            for i in 0..self.blk_size {
-                                let val             = Self::cvt_u8(br.read_byte()?);
-                                dst[doff + i] = val;
-                            }
+                            unreachable!();
                         }
                         doff += self.blk_align * channels;
                         mask >>= 1;
