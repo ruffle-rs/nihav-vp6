@@ -207,6 +207,11 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "bink2-video",   "Bink2 video"),
     desc!(audio;    "bink-audio-dct",   "Bink audio (DCT)"),
     desc!(audio;    "bink-audio-rdft",  "Bink audio (RDFT)"),
+
+    desc!(audio;    "lhst15f8",      "L&H StreamTalk 15kbps at 8 kHz"),
+    desc!(audio;    "lhst250f11",    "L&H StreamTalk 25kbps at 11 kHz"),
+    desc!(audio;    "lhst500f22",    "L&H StreamTalk 50kpbs at 22 kHz"),
+    desc!(audio;    "lhst48",        "L&H StreamTalk CELP Codec 4.8kbps at 8 kHz"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
