@@ -26,6 +26,7 @@ struct VMDDemuxer<'a> {
     aud_id:     usize,
     fno:        usize,
     is_indeo:   bool,
+    is_lhaud:   bool,
     frames:     Vec<FrameRec>,
 }
 
@@ -68,6 +69,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
             } else { 0 };
         if is_ext_audio {
             validate!(ext_audio_id >= 3 && ext_audio_id <= 6);
+            self.is_lhaud = true;
         }
         let srate = u32::from(read_u16le(&header[804..])?);
         let block_size;
@@ -89,7 +91,13 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
             let ac_name = if !is_ext_audio {
                     "vmd-audio"
                 } else {
-                    "unknown"
+                    match ext_audio_id {
+                        3 => "lhst15f8",
+                        4 => "lhst500f22",
+                        5 => "lhst250f11",
+                        6 => "lhst48",
+                        _ => "unknown",
+                    }
                 };
             let ainfo = NACodecInfo::new(ac_name, NACodecTypeInfo::Audio(ahdr), Some(aedata));
             self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate)).unwrap();
@@ -152,7 +160,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
 
         let is_video = cur_frame.chtype == CHTYPE_VIDEO;
         let mut buf: Vec<u8> = Vec::with_capacity(FRAME_HDR_SIZE + (cur_frame.size as usize));
-        if !self.is_indeo || !is_video {
+        if !(is_video && self.is_indeo) && !(!is_video && self.is_lhaud) {
             buf.extend_from_slice(&cur_frame.hdr);
             buf.resize(FRAME_HDR_SIZE + (cur_frame.size as usize), 0);
             self.src.read_buf(&mut buf[FRAME_HDR_SIZE..])?;
@@ -185,6 +193,7 @@ impl<'a> VMDDemuxer<'a> {
             aud_id:     0,
             fno:        0,
             is_indeo:   false,
+            is_lhaud:   false,
             frames:     Vec::new(),
         }
     }
