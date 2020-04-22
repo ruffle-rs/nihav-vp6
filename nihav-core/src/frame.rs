@@ -182,6 +182,21 @@ impl<T: Clone> NAVideoBuffer<T> {
     pub fn into_ref(self) -> NABufferRef<Self> {
         NABufferRef::new(self)
     }
+
+    fn print_contents(&self, datatype: &str) {
+        println!("{} video buffer size {}", datatype, self.data.len());
+        println!(" format {}", self.info);
+        print!(" offsets:");
+        for off in self.offs.iter() {
+            print!(" {}", *off);
+        }
+        println!();
+        print!(" strides:");
+        for stride in self.strides.iter() {
+            print!(" {}", *stride);
+        }
+        println!();
+    }
 }
 
 /// A specialised type for reference-counted `NAVideoBuffer`.
@@ -230,6 +245,17 @@ impl<T: Clone> NAAudioBuffer<T> {
     }
     /// Return the length of frame in samples.
     pub fn get_length(&self) -> usize { self.len }
+
+    fn print_contents(&self, datatype: &str) {
+        println!("Audio buffer with {} data, stride {}, step {}", datatype, self.stride, self.step);
+        println!(" format {}", self.info);
+        println!(" channel map {}", self.chmap);
+        print!(" offsets:");
+        for off in self.offs.iter() {
+            print!(" {}", *off);
+        }
+        println!();
+    }
 }
 
 impl NAAudioBuffer<u8> {
@@ -398,6 +424,22 @@ impl NABufferType {
             NABufferType::AudioF32(ref ab) => Some(ab.clone()),
             _ => None,
         }
+    }
+    /// Prints internal buffer layout.
+    pub fn print_buffer_metadata(&self) {
+        match *self {
+            NABufferType::Video(ref buf)        => buf.print_contents("8-bit"),
+            NABufferType::Video16(ref buf)      => buf.print_contents("16-bit"),
+            NABufferType::Video32(ref buf)      => buf.print_contents("32-bit"),
+            NABufferType::VideoPacked(ref buf)  => buf.print_contents("packed"),
+            NABufferType::AudioU8(ref buf)      => buf.print_contents("8-bit unsigned integer"),
+            NABufferType::AudioI16(ref buf)     => buf.print_contents("16-bit integer"),
+            NABufferType::AudioI32(ref buf)     => buf.print_contents("32-bit integer"),
+            NABufferType::AudioF32(ref buf)     => buf.print_contents("32-bit float"),
+            NABufferType::AudioPacked(ref buf)  => buf.print_contents("packed"),
+            NABufferType::Data(ref buf) => { println!("Data buffer, len = {}", buf.len()); },
+            NABufferType::None          => { println!("No buffer"); },
+        };
     }
 }
 
