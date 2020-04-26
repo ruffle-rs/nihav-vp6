@@ -370,10 +370,10 @@ impl<'a, S: Copy> CodebookReader<S> for BitReader<'a> {
             let bits = cb.table[lut_idx] & 0x7F;
             esc  = (cb.table[lut_idx] & 0x80) != 0;
             idx  = (cb.table[lut_idx] >> 8) as usize;
-            if (bits as isize) > self.left() {
+            let skip_bits = if esc { u32::from(lut_bits) } else { bits };
+            if (skip_bits as isize) > self.left() {
                 return Err(CodebookError::InvalidCode);
             }
-            let skip_bits = if esc { u32::from(lut_bits) } else { bits };
             self.skip(skip_bits as u32).unwrap();
             lut_bits = bits as u8;
         }
