@@ -199,6 +199,21 @@ const DETECTORS: &[DetectConditions] = &[
                      ]
     },
     DetectConditions {
+        demux_name: "mov",
+        extensions: ".mov",
+        conditions: &[CheckItem{offs: 4, cond: &CC::Or(&CC::Or(&CC::Str(b"mdat"),
+                                                               &CC::Str(b"moov")),
+                                                               &CC::Str(b"ftyp")) }],
+    },
+    DetectConditions {
+        demux_name: "mov",
+        extensions: ".mov",
+        conditions: &[CheckItem{offs:  0, cond: &CC::Str(b"\x00\x00\x00\x08wide") },
+                      CheckItem{offs: 12, cond: &CC::Or(&CC::Or(&CC::Str(b"mdat"),
+                                                                &CC::Str(b"moov")),
+                                                                &CC::Str(b"ftyp")) }],
+    },
+    DetectConditions {
         demux_name: "gdv",
         extensions: ".gdv",
         conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U32LE(0x29111994))}],
