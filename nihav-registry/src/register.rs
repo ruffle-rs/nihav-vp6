@@ -257,6 +257,50 @@ static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
     (0x0501, "on2avc-501"),
 ];
 
+static MOV_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+    (b"cvid", "cinepak"),
+    (b"jpeg", "jpeg"),
+    //(b"raw ", "raw"),
+    //(b"Yuv2", "raw"),
+    (b"smc ", "qt-smc"),
+    (b"rle ", "qt-rle"),
+    (b"rpza", "apple-video"),
+    (b"kpcd", "kodak-photocd"),
+    //(b"mpeg", "mpeg-video"),
+    (b"mjpa", "mjpeg-a"),
+    (b"mjpb", "mjpeg-b"),
+    (b"svqi", "sorenson-video"),
+
+    (b"IV31", "indeo3"),
+    (b"IV32", "indeo3"),
+
+    (b"UCOD", "clearvideo"),
+
+    (b"VP30", "vp3"),
+    (b"VP31", "vp3"),
+];
+
+static MOV_AUDIO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+    (b"NONE", "pcm"),
+    (b"raw ", "pcm"),
+    (b"twos", "pcm"),
+    (b"sowt", "pcm"),
+    (b"fl32", "pcm"),
+    (b"fl64", "pcm"),
+    (b"in24", "pcm"),
+    (b"in32", "pcm"),
+    (b"MAC3", "mace-3"),
+    (b"MAC6", "mace-6"),
+    (b"ima4", "ima-adpcm-qt"),
+    (b"ulaw", "ulaw"),
+    (b"alaw", "alaw"),
+    (b"dvca", "dv-audio"),
+    (b"QDMC", "qdesign-music"),
+    (b"QDM2", "qdesign-music2"),
+    (b"Qclp", "qualcomm-purevoice"),
+    //(b".mp3", "mpeg-layer3"),
+];
+
 /// Returns video codec short name for provided FOURCC (used in AVI format).
 pub fn find_codec_from_avi_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
     for (fourcc, name) in AVI_VIDEO_CODEC_REGISTER.iter() {
@@ -269,6 +313,22 @@ pub fn find_codec_from_avi_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
 pub fn find_codec_from_wav_twocc(tcc: u16) -> Option<&'static str> {
     for (twocc, name) in WAV_CODEC_REGISTER.iter() {
         if *twocc == tcc { return Some(name); }
+    }
+    None
+}
+
+/// Returns video codec short name for provided FOURCC (used in MOV format).
+pub fn find_codec_from_mov_video_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
+    for (fourcc, name) in MOV_VIDEO_CODEC_REGISTER.iter() {
+        if *fourcc == fcc { return Some(name); }
+    }
+    None
+}
+
+/// Returns known audio codec short name for provided FOURCC (used in MOV format).
+pub fn find_codec_from_mov_audio_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
+    for (fourcc, name) in MOV_AUDIO_CODEC_REGISTER.iter() {
+        if *fourcc == fcc { return Some(name); }
     }
     None
 }
