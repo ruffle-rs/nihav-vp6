@@ -21,8 +21,9 @@ nihav_realmedia = { path = "../nihav-realmedia" }
 default = ["all_decoders", "all_demuxers"]
 decoders = []
 demuxers = []
-all_demuxers = ["demuxer_avi"]
+all_demuxers = ["demuxer_avi", "demuxer_mov"]
 demuxer_avi = ["demuxers"]
+demuxer_mov = ["demuxers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 

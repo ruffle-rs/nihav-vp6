@@ -9,10 +9,14 @@ macro_rules! validate {
 #[cfg(feature="demuxer_avi")]
 #[allow(clippy::cast_lossless)]
 mod avi;
+#[cfg(feature="demuxer_mov")]
+mod mov;
 
 const DEMUXERS: &[&DemuxerCreator] = &[
 #[cfg(feature="demuxer_avi")]
     &avi::AVIDemuxerCreator {},
+#[cfg(feature="demuxer_mov")]
+    &mov::MOVDemuxerCreator {},
 ];
 
 /// Registers all available demuxers provided by this crate.
