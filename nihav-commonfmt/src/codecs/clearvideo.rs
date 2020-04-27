@@ -624,7 +624,6 @@ impl ClearVideoDecoder {
 
 impl NADecoder for ClearVideoDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
-        if info.get_extradata().is_none() { return Err(DecoderError::InvalidData); }
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
@@ -633,9 +632,11 @@ impl NADecoder for ClearVideoDecoder {
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, f, fmt));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.frmmgr.clear();
-            let edata = info.get_extradata().unwrap();
+            let edata = info.get_extradata().unwrap_or(std::sync::Arc::new(vec![]));
 //todo detect simply by extradata contents?
-            if !self.is_rm {
+            if edata.len() == 0 || edata.len() < 0x60 { // no or short extradata probably comes from MOV
+                self.tsize = 4;
+            } else if !self.is_rm {
                 let mut mr = MemoryReader::new_read(edata.as_slice());
                 let mut br = ByteReader::new(&mut mr);
                 br.read_skip(0x5E).unwrap();
