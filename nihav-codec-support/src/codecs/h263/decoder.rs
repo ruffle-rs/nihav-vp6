@@ -118,7 +118,7 @@ struct PredCoeffs {
     ver: [[i16; 8]; 6],
 }
 
-const ZERO_PRED_COEFFS: PredCoeffs = PredCoeffs { hor: [[0; 8]; 6], ver: [[0; 8]; 6] };
+const ZERO_PRED_COEFFS: PredCoeffs = PredCoeffs { hor: [[1024, 0, 0, 0, 0, 0, 0, 0]; 6], ver: [[1024, 0, 0, 0, 0, 0, 0, 0]; 6] };
 
 pub const H263DEC_OPT_USES_GOB: u32     = 0x0001;
 pub const H263DEC_OPT_SLICE_RESET: u32  = 0x0002;
@@ -466,7 +466,7 @@ impl H263BaseDecoder {
 
         let mut sstate = SliceState::new(pinfo.mode == Type::I);
         let mut mb_pos = 0;
-        let apply_acpred = (pinfo.mode == Type::I) && pinfo.plusinfo.is_some() && pinfo.plusinfo.unwrap().aic;
+        let apply_acpred = /*(pinfo.mode == Type::I) && */pinfo.plusinfo.is_some() && pinfo.plusinfo.unwrap().aic;
         if apply_acpred {
             self.pred_coeffs.truncate(0);
             self.pred_coeffs.resize(self.mb_w * self.mb_h, ZERO_PRED_COEFFS);
@@ -511,6 +511,7 @@ impl H263BaseDecoder {
                     if is_b {
                         mvi2.set_zero_mv(mb_x);
                     } else if pinfo.is_pb() {
+                        mvi.predict(mb_x, 0, false, binfo.get_mv2(0), sstate.first_line, sstate.first_mb);
                         mvi2.predict(mb_x, 0, false, binfo.get_mv2(0), sstate.first_line, sstate.first_mb);
                     }
                     if do_obmc {
