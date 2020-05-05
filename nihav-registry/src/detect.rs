@@ -248,6 +248,18 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b"SMK2"), &CC::Str(b"SMK4"))}],
     },
     DetectConditions {
+        demux_name: "vivo",
+        extensions: ".viv",
+        conditions: &[CheckItem{offs: 0, cond: &CC::In(Arg::U16BE(1), Arg::U16BE(0xFF))},
+                      CheckItem{offs: 2, cond: &CC::Str(b"\x0D\x0AVersion:Vivo/")}],
+    },
+    DetectConditions {
+        demux_name: "vivo",
+        extensions: ".viv",
+        conditions: &[CheckItem{offs: 0, cond: &CC::In(Arg::U16BE(1), Arg::U16BE(0xFF))},
+                      CheckItem{offs: 3, cond: &CC::Str(b"\x0D\x0AVersion:Vivo/")}],
+    },
+    DetectConditions {
         demux_name: "bmv",
         extensions: ".bmv",
         conditions: &[],

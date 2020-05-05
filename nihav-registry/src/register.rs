@@ -212,6 +212,11 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "lhst250f11",    "L&H StreamTalk 25kbps at 11 kHz"),
     desc!(audio;    "lhst500f22",    "L&H StreamTalk 50kpbs at 22 kHz"),
     desc!(audio;    "lhst48",        "L&H StreamTalk CELP Codec 4.8kbps at 8 kHz"),
+
+    desc!(video;    "vivo1",         "VivoActive Video 1.0"),
+    desc!(video;    "vivo2",         "VivoActive Video 2.0", CODEC_CAP_REORDER),
+    desc!(audio;    "g723.1",        "ITU G.723.1"),
+    desc!(audio;    "siren",         "Polycom Siren"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
