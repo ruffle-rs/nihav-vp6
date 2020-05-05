@@ -89,7 +89,7 @@ impl SirenDecoder {
         let vec_cb = [vec_cb0, vec_cb1, vec_cb2, vec_cb3, vec_cb4, vec_cb5, vec_cb6];
 
         let mut window = [0.0f32; SAMPLES];
-        generate_window(WindowType::Sine, 1.0 / 320.0 / 8.0, SAMPLES, true, &mut window);
+        generate_window(WindowType::Sine, 1.0 / 320.0 / 64.0, SAMPLES, true, &mut window);
 
         let mut quant_tab = [0.0; 64];
         for i in 0..64 {
