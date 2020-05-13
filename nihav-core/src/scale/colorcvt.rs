@@ -253,6 +253,7 @@ impl YuvToRgb {
 impl Kernel for YuvToRgb {
     fn init(&mut self, in_fmt: &ScaleInfo, dest_fmt: &ScaleInfo) -> ScaleResult<NABufferType> {
         let mut df = dest_fmt.fmt;
+        df.palette = false;
 //todo coeff selection
         make_yuv2rgb(YUV_PARAMS[2][0], YUV_PARAMS[2][1], &mut self.matrix);
         if let ColorModel::YUV(yuvsm) = in_fmt.fmt.get_model() {

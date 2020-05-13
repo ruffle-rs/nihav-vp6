@@ -146,6 +146,7 @@ impl Kernel for UnpackKernel {
         for i in 0..self.ncomps {
             df.comp_info[i] = chr[i];
         }
+        df.palette = false;
 println!(" [intermediate format {}]", df);
         let res = alloc_video_buffer(NAVideoInfo::new(in_fmt.width, in_fmt.height, false, df), 3);
         if res.is_err() { return Err(ScaleError::AllocError); }

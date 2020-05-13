@@ -23,6 +23,10 @@ mod colorcvt;
 mod repack;
 mod scale;
 
+mod palette;
+
+pub use crate::scale::palette::{palettise_frame, QuantisationMode, PaletteSearchMode};
+
 /// Image format information used by the converter.
 #[derive(Clone,Copy,PartialEq)]
 pub struct ScaleInfo {
@@ -84,6 +88,7 @@ const KERNELS: &[KernelDesc] = &[
     KernelDesc { name: "pack",          create: repack::create_pack },
     KernelDesc { name: "unpack",        create: repack::create_unpack },
     KernelDesc { name: "depal",         create: repack::create_depal },
+    KernelDesc { name: "palette",       create: palette::create_palettise },
     KernelDesc { name: "scale",         create: scale::create_scale },
     KernelDesc { name: "rgb_to_yuv",    create: colorcvt::create_rgb2yuv },
     KernelDesc { name: "yuv_to_rgb",    create: colorcvt::create_yuv2rgb },
@@ -227,6 +232,7 @@ println!("convert {} -> {}", ifmt, ofmt);
     let needs_convert = inname != outname;
     let scale_before_cvt = is_better_fmt(&ifmt, &ofmt) && needs_convert
                            && (ofmt.fmt.get_max_subsampling() == 0);
+    let needs_palettise = ofmt.fmt.palette;
 //todo stages for model and gamma conversion
 
     let mut stages: Option<Stage> = None;
@@ -264,9 +270,15 @@ println!("[adding scale]");
         cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
-    if needs_pack {
+    if needs_pack && !needs_palettise {
 println!("[adding pack]");
         let new_stage = Stage::new("pack", &cur_fmt, &ofmt)?;
+        //cur_fmt = new_stage.fmt_out;
+        add_stage!(stages, new_stage);
+    }
+    if needs_palettise {
+println!("[adding palettise]");
+        let new_stage = Stage::new("palette", &cur_fmt, &ofmt)?;
         //cur_fmt = new_stage.fmt_out;
         add_stage!(stages, new_stage);
     }
@@ -478,5 +490,24 @@ mod test {
         assert_eq!(odata[yoff], 28);
         assert_eq!(odata[uoff], 154);
         assert_eq!(odata[voff], 103);
+    }
+    #[test]
+    fn test_scale_and_convert_to_pal() {
+        let mut in_pic = alloc_video_buffer(NAVideoInfo::new(7, 3, false, YUV420_FORMAT), 3).unwrap();
+        fill_pic(&mut in_pic, 142);
+        let mut out_pic = alloc_video_buffer(NAVideoInfo::new(4, 4, false, PAL8_FORMAT), 0).unwrap();
+        fill_pic(&mut out_pic, 0);
+        let ifmt = get_scale_fmt_from_pic(&in_pic);
+        let ofmt = get_scale_fmt_from_pic(&out_pic);
+        let mut scaler = NAScale::new(ifmt, ofmt).unwrap();
+        scaler.convert(&in_pic, &mut out_pic).unwrap();
+        let obuf = out_pic.get_vbuf().unwrap();
+        let dataoff = obuf.get_offset(0);
+        let paloff  = obuf.get_offset(1);
+        let odata = obuf.get_data();
+        assert_eq!(odata[dataoff], 0);
+        assert_eq!(odata[paloff], 157);
+        assert_eq!(odata[paloff + 1], 99);
+        assert_eq!(odata[paloff + 2], 170);
     }
 }
