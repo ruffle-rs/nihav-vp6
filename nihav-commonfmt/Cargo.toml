@@ -27,7 +27,8 @@ demuxer_mov = ["demuxers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_clearvideo"]
+all_video_decoders = ["decoder_cinepak", "decoder_clearvideo"]
+decoder_cinepak = ["decoders"]
 decoder_clearvideo = ["decoders"]
 
 all_audio_decoders = ["decoder_pcm", "decoder_ts102366", "decoder_sipro", "decoder_atrac3", "decoder_aac"]

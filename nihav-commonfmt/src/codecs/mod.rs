@@ -4,6 +4,8 @@ macro_rules! validate {
     ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DecoderError::InvalidData); } };
 }
 
+#[cfg(feature="decoder_cinepak")]
+mod cinepak;
 #[cfg(feature="decoder_clearvideo")]
 mod clearvideo;
 
@@ -19,6 +21,8 @@ mod sipro;
 mod ts102366;
 
 const DECODERS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_cinepak")]
+    DecoderInfo { name: "cinepak", get_decoder: cinepak::get_decoder },
 #[cfg(feature="decoder_clearvideo")]
     DecoderInfo { name: "clearvideo", get_decoder: clearvideo::get_decoder },
 #[cfg(feature="decoder_clearvideo")]

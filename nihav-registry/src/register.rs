@@ -172,6 +172,8 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "atrac3",     "Sony Atrac3"),
     desc!(audio;    "sipro",      "Sipro Labs ADPCM"),
 
+    desc!(video;    "cinepak",    "Cinepak"),
+
     desc!(video;    "truemotion1",   "TrueMotion 1"),
     desc!(video-im; "truemotionrt",  "TrueMotion RT"),
     desc!(video;    "truemotion2",   "TrueMotion 2"),
@@ -229,6 +231,7 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"I263", "intel263"),
 
     (b"UCOD", "clearvideo"),
+    (b"cvid", "cinepak"),
 
     (b"MVDV", "midivid"),
     (b"MV30", "midivid3"),
