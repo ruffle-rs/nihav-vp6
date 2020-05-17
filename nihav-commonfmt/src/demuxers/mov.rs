@@ -40,6 +40,26 @@ fn read_chunk_header(br: &mut ByteReader) -> DemuxerResult<(u32, u64)> {
     }
 }
 
+fn read_palette(br: &mut ByteReader, size: u64, pal: &mut Vec<u16>) -> DemuxerResult<u64> {
+    let _seed           = br.read_u32be()?;
+    let _flags          = br.read_u16be()?;
+    let palsize         = (br.read_u16be()? as usize) + 1;
+    validate!(palsize <= 256);
+    validate!((palsize as u64) * 8 + 8 == size);
+    pal.resize(palsize * 4, 0);
+    for i in 0..palsize {
+        let a           = br.read_u16be()?;
+        let r           = br.read_u16be()?;
+        let g           = br.read_u16be()?;
+        let b           = br.read_u16be()?;
+        pal[i * 4]     = a;
+        pal[i * 4 + 1] = r;
+        pal[i * 4 + 2] = g;
+        pal[i * 4 + 3] = b;
+    }
+    Ok(size)
+}
+
 struct RootChunkHandler {
     ctype:  u32,
     parse:  fn(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64>,
@@ -144,6 +164,7 @@ fn read_moov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
 
 const MOOV_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"mvhd"), parse: read_mvhd },
+    RootChunkHandler { ctype: mktag!(b"ctab"), parse: read_ctab },
     RootChunkHandler { ctype: mktag!(b"trak"), parse: read_trak },
 ];
 
@@ -173,6 +194,10 @@ fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
     dmx.tb_den = tscale;
 
     Ok(KNOWN_MVHD_SIZE)
+}
+
+fn read_ctab(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
+    read_palette(&mut dmx.src, size, &mut dmx.pal)
 }
 
 fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
@@ -384,7 +409,8 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             let ctable_id       = br.read_u16be()?;
             validate!((depth <= 8) || (ctable_id == 0xFFFF));
             if ctable_id == 0 {
-unimplemented!();
+                let max_pal_size = start_pos + size - br.tell();
+                read_palette(br, max_pal_size, &mut track.pal)?;
             }
 // todo other atoms, put as extradata
             let cname = if let Some(name) = find_codec_from_mov_video_fourcc(&fcc) {
@@ -534,6 +560,7 @@ struct MOVDemuxer<'a> {
     cur_track:      usize,
     tb_den:         u32,
     duration:       u32,
+    pal:            Vec<u16>,
 }
 
 struct Track {
@@ -560,6 +587,7 @@ struct Track {
     cur_sample:     usize,
     samples_left:   usize,
     last_offset:    u64,
+    pal:            Vec<u16>,
 }
 
 impl Track {
@@ -588,6 +616,7 @@ impl Track {
             cur_sample:     0,
             samples_left:   0,
             last_offset:    0,
+            pal:            Vec::new(),
         }
     }
     read_chunk_list!(track; "trak", read_trak, TRAK_CHUNK_HANDLERS);
@@ -790,6 +819,7 @@ impl<'a> MOVDemuxer<'a> {
             cur_track:      0,
             tb_den:         0,
             duration:       0,
+            pal:            Vec::new(),
         }
     }
     fn read_root(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
