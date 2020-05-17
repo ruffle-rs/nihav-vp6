@@ -75,6 +75,7 @@ const IGNORED_CHUNKS: &[u32] = &[
 ];
 
 const ROOT_CHUNK_HANDLERS: &[RootChunkHandler] = &[
+    RootChunkHandler { ctype: mktag!(b"ftyp"), parse: read_ftyp },
     RootChunkHandler { ctype: mktag!(b"mdat"), parse: read_mdat },
     RootChunkHandler { ctype: mktag!(b"moov"), parse: read_moov },
 ];
@@ -150,6 +151,11 @@ fn skip_chunk(_track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResu
     Ok(size)
 }
 
+fn read_ftyp(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
+    dmx.src.skip64(size)?;
+    Ok(size)
+}
+
 fn read_mdat(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     dmx.mdat_pos  = dmx.src.tell();
     dmx.mdat_size = size;
@@ -166,6 +172,7 @@ const MOOV_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"mvhd"), parse: read_mvhd },
     RootChunkHandler { ctype: mktag!(b"ctab"), parse: read_ctab },
     RootChunkHandler { ctype: mktag!(b"trak"), parse: read_trak },
+    RootChunkHandler { ctype: mktag!(b"meta"), parse: read_meta },
 ];
 
 fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
@@ -198,6 +205,11 @@ fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
 
 fn read_ctab(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     read_palette(&mut dmx.src, size, &mut dmx.pal)
+}
+
+fn read_meta(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
+    dmx.src.skip64(size)?;
+    Ok(size)
 }
 
 fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
