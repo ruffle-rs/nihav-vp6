@@ -46,6 +46,7 @@ struct AVIDemuxer<'a> {
     sstate:         StreamState,
     tb_num:         u32,
     tb_den:         u32,
+    key_offs:       Vec<u64>,
 }
 
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -74,6 +75,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                 self.movi_size -= 1;
                 if self.movi_size == 0 { return Err(EOF); }
             }
+            let is_keyframe = self.key_offs.binary_search(&self.src.tell()).is_ok();
             self.src.read_buf(&mut tag)?;
             let size = self.src.read_u32le()? as usize;
             if mktag!(tag) == mktag!(b"JUNK") {
@@ -105,7 +107,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             }
             let (tb_num, tb_den) = stream.get_timebase();
             let ts = NATimeInfo::new(Some(self.cur_frame[stream_no as usize]), None, None, tb_num, tb_den);
-            let pkt = self.src.read_packet(stream, ts, false, size)?;
+            let pkt = self.src.read_packet(stream, ts, is_keyframe, size)?;
             self.cur_frame[stream_no as usize] += 1;
             self.movi_size -= size + 8;
 
@@ -145,6 +147,7 @@ impl<'a> AVIDemuxer<'a> {
             sstate: StreamState::new(),
             tb_num: 0,
             tb_den: 0,
+            key_offs: Vec::new(),
         }
     }
 
@@ -231,7 +234,7 @@ impl<'a> AVIDemuxer<'a> {
                 if ret.is_err() { break; }
                 let (csz, end) = ret.unwrap();
                 if end {
-                    let _res = parse_idx1(&mut self.src, strmgr, seek_idx, csz, self.movi_pos);
+                    let _res = parse_idx1(&mut self.src, strmgr, seek_idx, csz, self.movi_pos, &mut self.key_offs);
                     break;
                 }
                 rest_size -= csz;
@@ -435,7 +438,7 @@ fn parse_junk(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
     Ok(size)
 }
 
-fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64) -> DemuxerResult<usize> {
+fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<usize> {
     validate!((size & 15) == 0);
     let mut tag = [0u8; 4];
     let num_entries = size >> 4;
@@ -459,10 +462,12 @@ fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut S
                     let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
                     seek_idx.add_entry(stream_no as u32, SeekEntry { time, pts, pos: offset + movi_pos - 4 });
                 }
+                key_offs.push(offset);
             }
         }
         counter[stream_no] += 1;
     }
+    key_offs.sort_unstable();
     Ok(size)
 }
 
