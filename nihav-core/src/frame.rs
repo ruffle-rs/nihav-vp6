@@ -2,7 +2,7 @@
 use std::cmp::max;
 //use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc;
+pub use std::sync::Arc;
 pub use crate::formats::*;
 pub use crate::refs::*;
 
@@ -1167,6 +1167,18 @@ impl fmt::Display for NAStream {
     }
 }
 
+/// Side data that may accompany demuxed data.
+#[derive(Clone)]
+pub enum NASideData {
+    /// Palette information.
+    ///
+    /// This side data contains a flag signalling that palette has changed since previous time and a reference to the current palette.
+    /// Palette is stored in 8-bit RGBA format.
+    Palette(bool, Arc<[u8; 1024]>),
+    /// Generic user data.
+    UserData(Arc<Vec<u8>>),
+}
+
 /// Packet with compressed data.
 #[allow(dead_code)]
 pub struct NAPacket {
@@ -1177,6 +1189,8 @@ pub struct NAPacket {
     /// Keyframe flag.
     pub keyframe:       bool,
 //    options:        HashMap<String, NAValue<'a>>,
+    /// Packet side data (e.g. palette for paletted formats).
+    pub side_data:      Vec<NASideData>,
 }
 
 impl NAPacket {
@@ -1184,7 +1198,7 @@ impl NAPacket {
     pub fn new(str: NAStreamRef, ts: NATimeInfo, kf: bool, vec: Vec<u8>) -> Self {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
-        NAPacket { stream: str, ts, keyframe: kf, buffer: NABufferRef::new(vec) }
+        NAPacket { stream: str, ts, keyframe: kf, buffer: NABufferRef::new(vec), side_data: Vec::new() }
     }
     /// Returns information about the stream packet belongs to.
     pub fn get_stream(&self) -> NAStreamRef { self.stream.clone() }
@@ -1200,6 +1214,8 @@ impl NAPacket {
     pub fn is_keyframe(&self) -> bool { self.keyframe }
     /// Returns a reference to packet data.
     pub fn get_buffer(&self) -> NABufferRef<Vec<u8>> { self.buffer.clone() }
+    /// Adds side data for a packet.
+    pub fn add_side_data(&mut self, side_data: NASideData) { self.side_data.push(side_data); }
 }
 
 impl Drop for NAPacket {
