@@ -2,12 +2,22 @@ use nihav_core::io::byteio::{ByteReader,MemoryReader};
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::codecs::*;
 use nihav_codec_support::codecs::HAMShuffler;
+use std::io::SeekFrom;
+
+#[derive(Clone,Copy,PartialEq)]
+enum DecodeMode {
+    YUV,
+    Gray,
+    Palette,
+    Unknown,
+}
 
 struct CinepakDecoder {
     info:   NACodecInfoRef,
     frmmgr: HAMShuffler,
     cb_v1:  [[u8; 6]; 256],
     cb_v4:  [[u8; 6]; 256],
+    mode:   DecodeMode,
 }
 
 fn put_block(block: &[u8; 24], x: usize, y: usize, frm: &mut NASimpleVideoFrame<u8>) {
@@ -34,6 +44,16 @@ fn put_block(block: &[u8; 24], x: usize, y: usize, frm: &mut NASimpleVideoFrame<
     }
 }
 
+fn put_block_gray(block: &[u8; 24], x: usize, y: usize, frm: &mut NASimpleVideoFrame<u8>) {
+    let mut yoff = frm.offset[0] + x + y * frm.stride[0];
+    for i in 0..4 {
+        for j in 0..4 {
+            frm.data[yoff + j] = block[j + i * 4];
+        }
+        yoff += frm.stride[0];
+    }
+}
+
 impl CinepakDecoder {
     fn new() -> Self {
         CinepakDecoder {
@@ -41,6 +61,7 @@ impl CinepakDecoder {
             frmmgr: HAMShuffler::new(),
             cb_v1:  [[0; 6]; 256],
             cb_v4:  [[0; 6]; 256],
+            mode:   DecodeMode::Unknown,
         }
     }
     fn read_cb(br: &mut ByteReader, size: usize, cb: &mut [[u8; 6]; 256], is_yuv: bool) -> DecoderResult<()> {
@@ -185,7 +206,11 @@ impl CinepakDecoder {
                     block[22] = cb2[5]; block[23] = cb3[5];
                 }
                 mask >>= 1;
-                put_block(&block, x, y, frm);
+                if self.mode == DecodeMode::YUV {
+                    put_block(&block, x, y, frm);
+                } else {
+                    put_block_gray(&block, x, y, frm);
+                }
                 x += 4;
                 if x >= xend {
                     x = xoff;
@@ -202,10 +227,8 @@ impl CinepakDecoder {
 
 impl NADecoder for CinepakDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
-        if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-            let w = vinfo.get_width();
-            let h = vinfo.get_height();
-            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, YUV420_FORMAT));
+        if let NACodecTypeInfo::Video(_vinfo) = info.get_properties() {
+            let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, false, YUV420_FORMAT));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, None).into_ref();
             self.frmmgr.clear();
             Ok(())
@@ -229,9 +252,59 @@ impl NADecoder for CinepakDecoder {
 
         let is_intra = (flags & 1) == 0;
 
+        let mut mode = DecodeMode::Unknown;
+                                          br.read_skip(1)?;
+        let mut stripsize               = br.read_u24be()?;
+                                          br.read_skip(8)?;
+        while stripsize > 0 {
+            let ctype                   = br.read_byte()?;
+            let csize                   = br.read_u24be()?;
+            match ctype {
+                0x20 | 0x21 | 0x22 | 0x23 => {
+                    mode = DecodeMode::YUV;
+                    break;
+                },
+                0x24 | 0x25 | 0x26 | 0x27 => {
+                    mode = DecodeMode::Gray;
+                    break;
+                },
+                _ => {
+                                          br.read_skip(csize as usize)?;
+                    validate!(stripsize >= csize);
+                    stripsize -= csize;
+                },
+            };
+        }
+        validate!(mode != DecodeMode::Unknown);
+        br.seek(SeekFrom::Start(10))?;
+        for sd in pkt.side_data.iter() {
+            match *sd {
+                NASideData::Palette(_, _) => {
+                    mode = DecodeMode::Palette;
+                    break;
+                },
+                _ => {},
+            };
+        }
+
         if let Some(ref vinfo) = self.info.get_properties().get_video_info() {
-            if vinfo.width != width || vinfo.height != height {
-                let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(width, height, false, YUV420_FORMAT));
+            if vinfo.width != width || vinfo.height != height || self.mode != mode {
+                validate!(is_intra);
+                let fmt = match mode {
+                        DecodeMode::YUV     => YUV420_FORMAT,
+                        DecodeMode::Gray    => NAPixelFormaton {
+                                model: ColorModel::YUV(YUVSubmodel::YUVJ),
+                                components: 1,
+                                comp_info: [Some(NAPixelChromaton{h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1}), None, None, None, None],
+                                elem_size: 1,
+                                be: true,
+                                alpha: false,
+                                palette: false,
+                            },
+                        DecodeMode::Palette => PAL8_FORMAT,
+                        _ => unreachable!(),
+                    };
+                let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(width, height, false, fmt));
                 self.info = NACodecInfo::new_ref(self.info.get_name(), myinfo, None).into_ref();
                 self.frmmgr.clear();
             }
@@ -241,12 +314,32 @@ impl NADecoder for CinepakDecoder {
             let vinfo = self.info.get_properties().get_video_info().unwrap();
             let bufinfo = alloc_video_buffer(vinfo, 2)?;
             buf = bufinfo.get_vbuf().unwrap();
+            self.mode = mode;
         } else {
+            validate!(self.mode == mode);
             let bufret = self.frmmgr.clone_ref();
             if let Some(vbuf) = bufret {
                 buf = vbuf;
             } else {
                 return Err(DecoderError::MissingReference);
+            }
+        }
+        if self.mode == DecodeMode::Palette {
+            let paloff = buf.get_offset(1);
+            let data = buf.get_data_mut().unwrap();
+            let dpal = &mut data[paloff..];
+            for sd in pkt.side_data.iter() {
+                match *sd {
+                    NASideData::Palette(_, ref pal) => {
+                        for (dst, src) in dpal.chunks_mut(3).zip(pal.chunks(4)) {
+                            dst[0] = src[0];
+                            dst[1] = src[1];
+                            dst[2] = src[2];
+                        }
+                        break;
+                    },
+                    _ => {},
+                };
             }
         }
         let mut frm = NASimpleVideoFrame::from_video_buf(&mut buf).unwrap();
@@ -326,17 +419,37 @@ mod test {
         generic_register_all_codecs(&mut dec_reg);
         test_decoding("mov", "cinepak", "assets/Misc/dday.mov", Some(10), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x75d4d701, 0x897b4a37, 0xdc2bfb95, 0x3c8871a5],
-                        [0x4c67ee48, 0xbea36f9c, 0xde61338b, 0xec36cc90]]));
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0xb8411fa4, 0x3a35f646, 0x85e8e04a, 0xfff58785]]));
+    }
+    #[test]
+    fn test_cinepak_pal() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        generic_register_all_codecs(&mut dec_reg);
+        test_decoding("mov", "cinepak", "assets/Misc/catfight Tag team DT.mov", Some(10), &dmx_reg,
+                     &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                        [0x3f7ec8ea, 0x873a2bc6, 0xcc58336e, 0xe88c4ffd],
+                        [0x9665feab, 0xc035fb92, 0x5e4b8718, 0xd1c68877],
+                        [0x804f8838, 0x7f4b126e, 0x9efab284, 0xee62d451],
+                        [0xbb1930dd, 0x62d4a5d1, 0xca34d891, 0x31236269],
+                        [0xc23ec739, 0xbe683ffd, 0xecbc337b, 0x73a96b63],
+                        [0xa2fa75f2, 0x1dd937a8, 0x44e2074e, 0x1ac24467],
+                        [0x9ba0f1e5, 0xadbe5357, 0x4cfa785b, 0x16181d41],
+                        [0xe126c340, 0x6ceaac41, 0x64992bff, 0x8d4bc3c4],
+                        [0xba6b2510, 0xc40c2b85, 0x1c7d0199, 0x333d4860],
+                        [0x293fe1c2, 0x9f358a7e, 0x4fef6450, 0x8477a4ff],
+                        [0x4509095a, 0x65575fdd, 0x3a17ecc4, 0x37821bf9]]));
     }
 }
 
