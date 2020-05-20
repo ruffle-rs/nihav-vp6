@@ -40,22 +40,21 @@ fn read_chunk_header(br: &mut ByteReader) -> DemuxerResult<(u32, u64)> {
     }
 }
 
-fn read_palette(br: &mut ByteReader, size: u64, pal: &mut Vec<u16>) -> DemuxerResult<u64> {
+fn read_palette(br: &mut ByteReader, size: u64, pal: &mut [u8; 1024]) -> DemuxerResult<u64> {
     let _seed           = br.read_u32be()?;
     let _flags          = br.read_u16be()?;
     let palsize         = (br.read_u16be()? as usize) + 1;
     validate!(palsize <= 256);
     validate!((palsize as u64) * 8 + 8 == size);
-    pal.resize(palsize * 4, 0);
     for i in 0..palsize {
         let a           = br.read_u16be()?;
         let r           = br.read_u16be()?;
         let g           = br.read_u16be()?;
         let b           = br.read_u16be()?;
-        pal[i * 4]     = a;
-        pal[i * 4 + 1] = r;
-        pal[i * 4 + 2] = g;
-        pal[i * 4 + 3] = b;
+        pal[i * 4]     = (r >> 8) as u8;
+        pal[i * 4 + 1] = (g >> 8) as u8;
+        pal[i * 4 + 2] = (b >> 8) as u8;
+        pal[i * 4 + 3] = (a >> 8) as u8;
     }
     Ok(size)
 }
@@ -204,7 +203,10 @@ fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
 }
 
 fn read_ctab(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
-    read_palette(&mut dmx.src, size, &mut dmx.pal)
+    let mut pal = [0; 1024];
+    let size = read_palette(&mut dmx.src, size, &mut pal)?;
+    dmx.pal = Some(Arc::new(pal));
+    Ok(size)
 }
 
 fn read_meta(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
@@ -422,7 +424,9 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             validate!((depth <= 8) || (ctable_id == 0xFFFF));
             if ctable_id == 0 {
                 let max_pal_size = start_pos + size - br.tell();
-                read_palette(br, max_pal_size, &mut track.pal)?;
+                let mut pal = [0; 1024];
+                read_palette(br, max_pal_size, &mut pal)?;
+                track.pal = Some(Arc::new(pal));
             }
 // todo other atoms, put as extradata
             let cname = if let Some(name) = find_codec_from_mov_video_fourcc(&fcc) {
@@ -572,7 +576,7 @@ struct MOVDemuxer<'a> {
     cur_track:      usize,
     tb_den:         u32,
     duration:       u32,
-    pal:            Vec<u16>,
+    pal:            Option<Arc<[u8; 1024]>>,
 }
 
 struct Track {
@@ -599,7 +603,7 @@ struct Track {
     cur_sample:     usize,
     samples_left:   usize,
     last_offset:    u64,
-    pal:            Vec<u16>,
+    pal:            Option<Arc<[u8; 1024]>>,
 }
 
 impl Track {
@@ -628,7 +632,7 @@ impl Track {
             cur_sample:     0,
             samples_left:   0,
             last_offset:    0,
-            pal:            Vec::new(),
+            pal:            None,
         }
     }
     read_chunk_list!(track; "trak", read_trak, TRAK_CHUNK_HANDLERS);
@@ -795,12 +799,17 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             }
             let track = &mut self.tracks[self.cur_track];
             self.cur_track += 1;
+            let first = track.cur_sample == 0;
             if let Some((pts, offset, size)) = track.get_next_chunk() {
                 let str = strmgr.get_stream(track.track_str_id);
                 if str.is_none() { return Err(DemuxerError::InvalidData); }
                 let stream = str.unwrap();
                 self.src.seek(SeekFrom::Start(offset))?;
-                let pkt = self.src.read_packet(stream, pts, false, size)?;
+                let mut pkt = self.src.read_packet(stream, pts, false, size)?;
+                if let Some(ref pal) = track.pal {
+                    let side_data = NASideData::Palette(first, pal.clone());
+                    pkt.add_side_data(side_data);
+                }
                 return Ok(pkt);
             }
         }
@@ -831,7 +840,7 @@ impl<'a> MOVDemuxer<'a> {
             cur_track:      0,
             tb_den:         0,
             duration:       0,
-            pal:            Vec::new(),
+            pal:            None,
         }
     }
     fn read_root(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
