@@ -659,6 +659,16 @@ impl NAPixelFormaton {
         }
         mdepth
     }
+    /// Returns the total amount of bits needed for components.
+    pub fn get_total_depth(&self) -> u8 {
+        let mut depth = 0;
+        for chr in self.comp_info.iter() {
+            if let Some(ref chromaton) = chr {
+                depth += chromaton.depth;
+            }
+        }
+        depth
+    }
     /// Returns the maximum component subsampling.
     pub fn get_max_subsampling(&self) -> u8 {
         let mut ssamp = 0;
