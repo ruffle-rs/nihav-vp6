@@ -18,12 +18,15 @@ features = ["h263", "mdct", "fft", "dsp_window"]
 nihav_realmedia = { path = "../nihav-realmedia" }
 
 [features]
-default = ["all_decoders", "all_demuxers"]
+default = ["all_decoders", "all_demuxers", "all_muxers"]
 decoders = []
 demuxers = []
+muxers = []
 all_demuxers = ["demuxer_avi", "demuxer_mov"]
 demuxer_avi = ["demuxers"]
 demuxer_mov = ["demuxers"]
+all_muxers = ["muxer_avi"]
+muxer_avi = ["muxers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 

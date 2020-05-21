@@ -16,5 +16,10 @@ mod demuxers;
 #[cfg(feature="demuxers")]
 pub use crate::demuxers::generic_register_all_demuxers;
 
+#[cfg(feature="muxers")]
+mod muxers;
+#[cfg(feature="muxers")]
+pub use crate::muxers::generic_register_all_muxers;
+
 #[cfg(test)]
 extern crate nihav_realmedia;
