@@ -9,6 +9,9 @@ pub mod codecs;
 #[cfg(feature="compr")]
 pub mod compr;
 
+#[cfg(feature="muxers")]
+pub mod muxers;
+
 #[cfg(feature="demuxers")]
 pub mod demuxers;
 
