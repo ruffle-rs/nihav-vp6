@@ -317,10 +317,26 @@ pub fn find_codec_from_avi_fourcc(fcc: &[u8;4]) -> Option<&'static str> {
     None
 }
 
+/// Returns FOURCC (used in AVI format) for provided codec name.
+pub fn find_avi_fourcc(codecname: &str) -> Option<[u8; 4]> {
+    for (fourcc, name) in AVI_VIDEO_CODEC_REGISTER.iter() {
+        if *name == codecname { return Some(**fourcc); }
+    }
+    None
+}
+
 /// Returns known audio codec short name for provided TWOCC (used in WAV and AVI format).
 pub fn find_codec_from_wav_twocc(tcc: u16) -> Option<&'static str> {
     for (twocc, name) in WAV_CODEC_REGISTER.iter() {
         if *twocc == tcc { return Some(name); }
+    }
+    None
+}
+
+/// Returns TWOCC (used in WAV and AVI format for provided codec name.
+pub fn find_wav_twocc(codecname: &str) -> Option<u16> {
+    for (twocc, name) in WAV_CODEC_REGISTER.iter() {
+        if *name == codecname { return Some(*twocc); }
     }
     None
 }
