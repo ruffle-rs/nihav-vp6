@@ -292,7 +292,8 @@ impl<'a> AVIDemuxer<'a> {
                     newpal[i * 4]       = self.src.read_byte()?;
                     newpal[i * 4 + 1]   = self.src.read_byte()?;
                     newpal[i * 4 + 2]   = self.src.read_byte()?;
-                    newpal[i * 4 + 3]   = self.src.read_byte()?;
+                    newpal[i * 4 + 3]   = 0;
+                                          self.src.read_byte()?; // flags
                 }
                 pe.pal = Arc::new(newpal);
                 pe.changed = true;
@@ -415,10 +416,10 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
         if let Some(ref buf) = edata {
             let mut pal = [0u8; 1024];
             for (dpal, spal) in pal.chunks_mut(4).take(colors as usize).zip(buf.chunks(4)) {
-                dpal[0] = spal[0];
+                dpal[0] = spal[2];
                 dpal[1] = spal[1];
-                dpal[2] = spal[2];
-                dpal[3] = spal[3];
+                dpal[2] = spal[0];
+                dpal[3] = 0;
             }
             let pal = PalInfo { pal: Arc::new(pal), changed: true, stream_no: strmgr.get_num_streams() };
             dmx.pal.push(pal);
