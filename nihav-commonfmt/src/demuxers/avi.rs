@@ -34,6 +34,12 @@ impl StreamState {
     }
 }
 
+struct PalInfo {
+    pal:        Arc<[u8; 1024]>,
+    changed:    bool,
+    stream_no:  usize,
+}
+
 #[allow(dead_code)]
 struct AVIDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
@@ -47,6 +53,7 @@ struct AVIDemuxer<'a> {
     tb_num:         u32,
     tb_den:         u32,
     key_offs:       Vec<u64>,
+    pal:            Vec<PalInfo>,
 }
 
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -97,6 +104,12 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                 return Err(InvalidData);
             }
             let stream_no = (tag[0] - b'0') * 10 + (tag[1] - b'0');
+            if tag[2] == b'p' && tag[3] == b'c' {
+                self.parse_palette_change(stream_no as usize, size)?;
+                self.movi_size -= size;
+                if self.movi_size == 0 { return Err(EOF); }
+                continue;
+            }
             let str = strmgr.get_stream(stream_no as usize);
             if str.is_none() { return Err(InvalidData); }
             let stream = str.unwrap();
@@ -107,7 +120,14 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
             }
             let (tb_num, tb_den) = stream.get_timebase();
             let ts = NATimeInfo::new(Some(self.cur_frame[stream_no as usize]), None, None, tb_num, tb_den);
-            let pkt = self.src.read_packet(stream, ts, is_keyframe, size)?;
+            let mut pkt = self.src.read_packet(stream, ts, is_keyframe, size)?;
+            for pe in self.pal.iter_mut() {
+                if pe.stream_no == (stream_no as usize) {
+                    pkt.add_side_data(NASideData::Palette(pe.changed, pe.pal.clone()));
+                    pe.changed = false;
+                    break;
+                }
+            }
             self.cur_frame[stream_no as usize] += 1;
             self.movi_size -= size + 8;
 
@@ -148,6 +168,7 @@ impl<'a> AVIDemuxer<'a> {
             tb_num: 0,
             tb_den: 0,
             key_offs: Vec::new(),
+            pal: Vec::new(),
         }
     }
 
@@ -257,6 +278,30 @@ impl<'a> AVIDemuxer<'a> {
         self.src.read_buf(&mut edvec)?;
         Ok(Some(edvec))
     }
+
+    fn parse_palette_change(&mut self, stream_no: usize, size: usize) -> DemuxerResult<()> {
+        for pe in self.pal.iter_mut() {
+            if pe.stream_no == stream_no {
+                let start_clr           = self.src.read_byte()? as usize;
+                let len                 = self.src.read_byte()? as usize;
+                let _flags              = self.src.read_u16le()?;
+                validate!(start_clr + len <= 256);
+                validate!(len * 4 + 4 == size);
+                let mut newpal = *pe.pal;
+                for i in start_clr..(start_clr + len) {
+                    newpal[i * 4]       = self.src.read_byte()?;
+                    newpal[i * 4 + 1]   = self.src.read_byte()?;
+                    newpal[i * 4 + 2]   = self.src.read_byte()?;
+                    newpal[i * 4 + 3]   = self.src.read_byte()?;
+                }
+                pe.pal = Arc::new(newpal);
+                pe.changed = true;
+                return Ok(());
+            }
+        }
+        self.src.read_skip(size)?;
+        Ok(())
+    }
 }
 
 const RIFF_TAGS: &[[u32; 2]] = &[
@@ -358,6 +403,7 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
     let xdpi            = dmx.src.read_u32le()?;
     let ydpi            = dmx.src.read_u32le()?;
     let colors          = dmx.src.read_u32le()?;
+    validate!(colors <= 256);
     let imp_colors      = dmx.src.read_u32le()?;
 
     let flip = height < 0;
@@ -365,6 +411,19 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
     let vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, PAL8_FORMAT);
     let vci = NACodecTypeInfo::Video(vhdr);
     let edata = dmx.read_extradata(size - 40)?;
+    if colors > 0 {
+        if let Some(ref buf) = edata {
+            let mut pal = [0u8; 1024];
+            for (dpal, spal) in pal.chunks_mut(4).take(colors as usize).zip(buf.chunks(4)) {
+                dpal[0] = spal[0];
+                dpal[1] = spal[1];
+                dpal[2] = spal[2];
+                dpal[3] = spal[3];
+            }
+            let pal = PalInfo { pal: Arc::new(pal), changed: true, stream_no: strmgr.get_num_streams() };
+            dmx.pal.push(pal);
+        }
+    }
     let cname = match register::find_codec_from_avi_fourcc(&compression) {
                     None => "unknown",
                     Some(name) => name,
