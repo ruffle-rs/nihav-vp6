@@ -393,7 +393,7 @@ fn parse_strf(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
 fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     if size < 40 { return Err(InvalidData); }
     let bi_size         = dmx.src.read_u32le()?;
-    if (bi_size as usize) > size { return Err(InvalidData); }
+    if (bi_size as usize) < 40 { return Err(InvalidData); }
     let width           = dmx.src.read_u32le()?;
     let height          = dmx.src.read_u32le()? as i32;
     let planes          = dmx.src.read_u16le()?;
