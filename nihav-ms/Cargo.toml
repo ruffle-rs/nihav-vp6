@@ -1,0 +1,28 @@
+[package]
+name = "nihav_ms"
+version = "0.1.0"
+authors = ["Kostya Shishkov <kostya.shishkov@gmail.com>"]
+edition = "2018"
+
+[dependencies.nihav_core]
+path = "../nihav-core"
+features = []
+
+[dependencies.nihav_codec_support]
+path = "../nihav-codec-support"
+features = []
+
+[dev-dependencies]
+nihav_commonfmt = { path = "../nihav-commonfmt" }
+
+[features]
+default = ["all_decoders"]
+all_decoders = ["all_video_decoders", "all_audio_decoders"]
+decoders = []
+
+all_video_decoders = ["decoder_msvideo1"]
+decoder_msvideo1 = ["decoders"]
+
+all_audio_decoders = ["decoder_ima_adpcm_ms", "decoder_ms_adpcm"]
+decoder_ima_adpcm_ms = ["decoders"]
+decoder_ms_adpcm = ["decoders"]

@@ -10,6 +10,7 @@ nihav_commonfmt = { path = "../nihav-commonfmt" }
 nihav_duck = { path = "../nihav-duck" }
 nihav_game = { path = "../nihav-game" }
 nihav_indeo = { path = "../nihav-indeo" }
+nihav_ms = { path = "../nihav-ms" }
 nihav_rad = { path = "../nihav-rad" }
 nihav_realmedia = { path = "../nihav-realmedia" }
 

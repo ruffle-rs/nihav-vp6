@@ -174,6 +174,10 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
 
     desc!(video;    "cinepak",    "Cinepak"),
 
+    desc!(video;    "msvideo1",      "MS Video 1"),
+    desc!(audio;    "ms-adpcm",      "MS ADPCM"),
+    desc!(audio;    "ima-adpcm-ms",  "IMA ADPCM (MS variant)"),
+
     desc!(video;    "truemotion1",   "TrueMotion 1"),
     desc!(video-im; "truemotionrt",  "TrueMotion RT"),
     desc!(video;    "truemotion2",   "TrueMotion 2"),
@@ -222,6 +226,10 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+    (b"CRAM", "msvideo1"),
+    (b"MSVC", "msvideo1"),
+    (b"WHAM", "msvideo1"),
+
     (b"IF09", "indeo1"),
     (b"RT21", "indeo2"),
     (b"IV31", "indeo3"),
@@ -256,7 +264,9 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
     (0x0000, "pcm"),
     (0x0001, "pcm"),
+    (0x0002, "ms-adpcm"),
     (0x0003, "pcm"),
+    (0x0011, "ima-adpcm-ms"),
     (0x0061, "adpcm-dk4"),
     (0x0062, "adpcm-dk3"),
     (0x0401, "imc"),
