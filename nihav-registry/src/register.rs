@@ -262,7 +262,7 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
 ];
 
 static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
-    (0x0000, "pcm"),
+    (0x0000, "unknown"),
     (0x0001, "pcm"),
     (0x0002, "ms-adpcm"),
     (0x0003, "pcm"),
