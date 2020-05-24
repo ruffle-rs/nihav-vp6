@@ -202,8 +202,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     if twocc.is_none() {
                         return Err(MuxerError::UnsupportedFormat);
                     }
-                    let twocc = twocc.unwrap_or(0);
-                    self.bw.write_u16le(if twocc == 0 { 1 } else { twocc })?; // PCM hack
+                    self.bw.write_u16le(twocc.unwrap_or(0))?;
                     self.bw.write_u16le(ainfo.channels as u16)?;
                     self.bw.write_u32le(ainfo.sample_rate)?;
                     self.bw.write_u32le(0)?; // avg bytes per second
