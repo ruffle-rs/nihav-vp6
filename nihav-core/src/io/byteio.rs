@@ -267,6 +267,20 @@ impl<'a> ByteReader<'a> {
         self.io.peek_byte()
     }
 
+    /// Reads four-byte array from the stream.
+    pub fn read_tag(&mut self)  -> ByteIOResult<[u8; 4]> {
+        let mut buf = [0u8; 4];
+        self.io.read_buf(&mut buf)?;
+        Ok(buf)
+    }
+
+    /// Reads four-byte array from the stream without advancing read position.
+    pub fn peek_tag(&mut self)  -> ByteIOResult<[u8; 4]> {
+        let mut buf = [0u8; 4];
+        self.io.peek_buf(&mut buf)?;
+        Ok(buf)
+    }
+
     /// Reads 16-bit big-endian integer from the stream.
     pub fn read_u16be(&mut self) -> ByteIOResult<u16> {
         read_int!(self, u16, 2, to_be)
