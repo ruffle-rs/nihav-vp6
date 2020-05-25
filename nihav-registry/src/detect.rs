@@ -199,6 +199,13 @@ const DETECTORS: &[DetectConditions] = &[
                      ]
     },
     DetectConditions {
+        demux_name: "wav",
+        extensions: ".wav",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"RIFF") },
+                      CheckItem{offs: 8, cond: &CC::Str(b"WAVEfmt ") }
+                     ]
+    },
+    DetectConditions {
         demux_name: "mov",
         extensions: ".mov",
         conditions: &[CheckItem{offs: 4, cond: &CC::Or(&CC::Or(&CC::Str(b"mdat"),

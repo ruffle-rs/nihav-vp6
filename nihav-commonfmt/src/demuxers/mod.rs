@@ -11,12 +11,16 @@ macro_rules! validate {
 mod avi;
 #[cfg(feature="demuxer_mov")]
 mod mov;
+#[cfg(feature="demuxer_wav")]
+mod wav;
 
 const DEMUXERS: &[&DemuxerCreator] = &[
 #[cfg(feature="demuxer_avi")]
     &avi::AVIDemuxerCreator {},
 #[cfg(feature="demuxer_mov")]
     &mov::MOVDemuxerCreator {},
+#[cfg(feature="demuxer_wav")]
+    &wav::WAVDemuxerCreator {},
 ];
 
 /// Registers all available demuxers provided by this crate.
