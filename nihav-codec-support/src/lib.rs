@@ -14,6 +14,8 @@ pub mod dsp;
 
 pub mod data;
 
+pub mod imgwrite;
+
 pub mod test;
 
 extern crate nihav_core;

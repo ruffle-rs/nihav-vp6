@@ -1,194 +1,16 @@
 //! Routines for testing decoders.
 use std::fs::File;
-use std::io::prelude::*;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
 use nihav_core::demuxers::*;
 //use nihav_core::io::byteio::*;
-use nihav_core::scale::*;
+//use nihav_core::scale::*;
 use super::wavwriter::WavWriter;
 use super::md5::MD5;
+use crate::imgwrite::write_pnm;
 pub use super::ExpectedTestResult;
 
-const OUTPUT_PREFIX: &str = "assets/test_out";
-
-fn write_pgmyuv(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
-    if let NABufferType::None = frm.get_buffer() { return; }
-    let name = format!("{}/{}out{:02}_{:06}.pgm", OUTPUT_PREFIX, pfx, strno, num);
-    let mut ofile = File::create(name).unwrap();
-    let buf = frm.get_buffer().get_vbuf().unwrap();
-    let (w, h) = buf.get_dimensions(0);
-    let (w2, h2) = buf.get_dimensions(1);
-    let has_alpha = buf.get_info().get_format().has_alpha();
-    let mut tot_h = h + h2;
-    if has_alpha {
-        tot_h += h;
-    }
-    if w2 > w/2 {
-        tot_h += h2;
-    }
-    let hdr = format!("P5\n{} {}\n255\n", w, tot_h);
-    ofile.write_all(hdr.as_bytes()).unwrap();
-    let dta = buf.get_data();
-    let ls = buf.get_stride(0);
-    let mut idx = 0;
-    let mut idx2 = w;
-    let is_flipped = buf.get_info().is_flipped();
-    if is_flipped {
-        idx  += h * ls;
-        idx2 += h * ls;
-    }
-    for _ in 0..h {
-        if is_flipped {
-            idx  -= ls;
-            idx2 -= ls;
-        }
-        let line = &dta[idx..idx2];
-        ofile.write_all(line).unwrap();
-        if !is_flipped {
-            idx  += ls;
-            idx2 += ls;
-        }
-    }
-    if w2 <= w/2 {
-        let pad: Vec<u8> = vec![0xFF; (w - w2 * 2) / 2];
-        let mut base1 = buf.get_offset(1);
-        let stride1 = buf.get_stride(1);
-        let mut base2 = buf.get_offset(2);
-        let stride2 = buf.get_stride(2);
-        if is_flipped {
-            base1 += h2 * stride1;
-            base2 += h2 * stride2;
-        }
-        for _ in 0..h2 {
-            if is_flipped {
-                base1 -= stride1;
-                base2 -= stride2;
-            }
-            let bend1 = base1 + w2;
-            let line = &dta[base1..bend1];
-            ofile.write_all(line).unwrap();
-            ofile.write_all(pad.as_slice()).unwrap();
-
-            let bend2 = base2 + w2;
-            let line = &dta[base2..bend2];
-            ofile.write_all(line).unwrap();
-            ofile.write_all(pad.as_slice()).unwrap();
-
-            if !is_flipped {
-                base1 += stride1;
-                base2 += stride2;
-            }
-        }
-    } else {
-        let pad: Vec<u8> = vec![0xFF; w - w2];
-        let mut base1 = buf.get_offset(1);
-        let stride1 = buf.get_stride(1);
-        if is_flipped {
-            base1 += h2 * stride1;
-        }
-        for _ in 0..h2 {
-            if is_flipped {
-                base1 -= stride1;
-            }
-            let bend1 = base1 + w2;
-            let line = &dta[base1..bend1];
-            ofile.write_all(line).unwrap();
-            ofile.write_all(pad.as_slice()).unwrap();
-            if !is_flipped {
-                base1 += stride1;
-            }
-        }
-        let mut base2 = buf.get_offset(2);
-        let stride2 = buf.get_stride(2);
-        if is_flipped {
-            base2 += h2 * stride2;
-        }
-        for _ in 0..h2 {
-            if is_flipped {
-                base2 -= stride2;
-            }
-            let bend2 = base2 + w2;
-            let line = &dta[base2..bend2];
-            ofile.write_all(line).unwrap();
-            ofile.write_all(pad.as_slice()).unwrap();
-            if !is_flipped {
-                base2 += stride2;
-            }
-        }
-    }
-    if has_alpha {
-        let ls = buf.get_stride(3);
-        let mut idx = buf.get_offset(3);
-        let mut idx2 = idx + w;
-        if is_flipped {
-            idx  += h * ls;
-            idx2 += h * ls;
-        }
-        for _ in 0..h {
-            if is_flipped {
-                idx  -= ls;
-                idx2 -= ls;
-            }
-            let line = &dta[idx..idx2];
-            ofile.write_all(line).unwrap();
-            if !is_flipped {
-                idx  += ls;
-                idx2 += ls;
-            }
-        }
-    }
-}
-
-fn write_palppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
-    let name = format!("{}/{}out{:02}_{:06}.ppm", OUTPUT_PREFIX, pfx, strno, num);
-    let mut ofile = File::create(name).unwrap();
-    let buf = frm.get_buffer().get_vbuf().unwrap();
-    let (w, h) = buf.get_dimensions(0);
-    let paloff = buf.get_offset(1);
-    let hdr = format!("P6\n{} {}\n255\n", w, h);
-    ofile.write_all(hdr.as_bytes()).unwrap();
-    let dta = buf.get_data();
-    let ls = buf.get_stride(0);
-    let offs: [usize; 3] = [
-            buf.get_info().get_format().get_chromaton(0).unwrap().get_offset() as usize,
-            buf.get_info().get_format().get_chromaton(1).unwrap().get_offset() as usize,
-            buf.get_info().get_format().get_chromaton(2).unwrap().get_offset() as usize
-        ];
-    let mut idx  = 0;
-    let mut line: Vec<u8> = vec![0; w * 3];
-    for _ in 0..h {
-        let src = &dta[idx..(idx+w)];
-        for x in 0..w {
-            let pix = src[x] as usize;
-            line[x * 3 + 0] = dta[paloff + pix * 3 + offs[0]];
-            line[x * 3 + 1] = dta[paloff + pix * 3 + offs[1]];
-            line[x * 3 + 2] = dta[paloff + pix * 3 + offs[2]];
-        }
-        ofile.write_all(line.as_slice()).unwrap();
-        idx  += ls;
-    }
-}
-
-fn write_ppm(pfx: &str, strno: usize, num: u64, frm: NAFrameRef) {
-    let name = format!("{}/{}out{:02}_{:06}.ppm", OUTPUT_PREFIX, pfx, strno, num);
-    let mut ofile = File::create(name).unwrap();
-        let info = frm.get_buffer().get_video_info().unwrap();
-        let mut dpic = alloc_video_buffer(NAVideoInfo::new(info.get_width(), info.get_height(), false, RGB24_FORMAT), 0).unwrap();
-        let ifmt = ScaleInfo { width: info.get_width(), height: info.get_height(), fmt: info.get_format() };
-        let ofmt = ScaleInfo { width: info.get_width(), height: info.get_height(), fmt: RGB24_FORMAT };
-        let mut scaler = NAScale::new(ifmt, ofmt).unwrap();
-        scaler.convert(&frm.get_buffer(), &mut dpic).unwrap();
-        let buf = dpic.get_vbuf().unwrap();
-        let (w, h) = buf.get_dimensions(0);
-        let hdr = format!("P6\n{} {}\n255\n", w, h);
-        ofile.write_all(hdr.as_bytes()).unwrap();
-        let dta = buf.get_data();
-        let stride = buf.get_stride(0);
-        for src in dta.chunks(stride) {
-            ofile.write_all(&src[0..w*3]).unwrap();
-        }
-}
+const OUTPUT_PREFIX: &str = "assets/test_out/";
 
 /*fn open_wav_out(pfx: &str, strno: usize) -> WavWriter {
     let name = format!("assets/{}out{:02}.wav", pfx, strno);
@@ -252,18 +74,9 @@ pub fn test_file_decoding(demuxer: &str, name: &str, limit: Option<u64>,
             }
             let frm = dec.decode(dsupp, &pkt).unwrap();
             if pkt.get_stream().get_info().is_video() && video_pfx.is_some() && frm.get_frame_type() != FrameType::Skip {
-                let pfx = video_pfx.unwrap();
                 let pts = if let Some(fpts) = frm.get_pts() { fpts } else { pkt.get_pts().unwrap() };
-                let vinfo = frm.get_buffer().get_video_info().unwrap();
-                if vinfo.get_format().is_paletted() {
-                    write_palppm(pfx, streamno, pts, frm);
-                } else if vinfo.get_format().get_model().is_yuv() {
-                    write_pgmyuv(pfx, streamno, pts, frm);
-                } else if vinfo.get_format().get_model().is_rgb() {
-                    write_ppm(pfx, streamno, pts, frm);
-                } else {
-panic!(" unknown format");
-                }
+                let pfx = OUTPUT_PREFIX.to_owned() + video_pfx.unwrap_or("") + "out";
+                write_pnm(pfx.as_str(), streamno, pts, frm).unwrap();
             }
         }
     }
