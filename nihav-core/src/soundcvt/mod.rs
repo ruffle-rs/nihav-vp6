@@ -368,8 +368,8 @@ Result<NABufferType, SoundConvertError> {
     }
     let mut dst_buf = ret.unwrap();
 
-    let sstep = src.get_audio_step();
-    let dstep = dst_buf.get_audio_step();
+    let sstep = src.get_audio_step().max(1);
+    let dstep = dst_buf.get_audio_step().max(1);
     let sr: Box<dyn SampleReader> = match src {
             NABufferType::AudioU8(ref ab) => {
                 let stride = ab.get_stride();
