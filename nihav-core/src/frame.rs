@@ -1216,6 +1216,11 @@ impl NAPacket {
     pub fn get_buffer(&self) -> NABufferRef<Vec<u8>> { self.buffer.clone() }
     /// Adds side data for a packet.
     pub fn add_side_data(&mut self, side_data: NASideData) { self.side_data.push(side_data); }
+    /// Assigns packet to a new stream.
+    pub fn reassign(&mut self, str: NAStreamRef, ts: NATimeInfo) {
+        self.stream = str;
+        self.ts = ts;
+    }
 }
 
 impl Drop for NAPacket {
