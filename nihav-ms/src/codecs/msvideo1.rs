@@ -192,7 +192,6 @@ impl Video1Decoder {
 impl NADecoder for Video1Decoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
-println!("fmt {}", vinfo.get_format());
             self.is_16bit = !vinfo.get_format().palette;
             let fmt = if !self.is_16bit { PAL8_FORMAT } else { RGB555_FORMAT };
             self.width  = vinfo.get_width();
