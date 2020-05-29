@@ -652,6 +652,16 @@ pub struct FileWriter {
     file:     File,
 }
 
+/// Bytestream writer to memory.
+///
+/// Unlike [`MemoryWriter`] which writes to an array of fixed size, `GrowableMemoryWriter` grows output size when output size exceeds capacity.
+///
+/// [`MemoryWriter`]: ./struct.MemoryWriter.html
+pub struct GrowableMemoryWriter<'a> {
+    buf:    &'a mut Vec<u8>,
+    pos:    usize,
+}
+
 impl<'a> ByteWriter<'a> {
     /// Constructs a new instance of `ByteWriter`.
     pub fn new(io: &'a mut ByteIO) -> Self { ByteWriter { io } }
@@ -797,6 +807,86 @@ impl<'a> ByteIO for MemoryWriter<'a> {
 
     fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
         if self.pos + buf.len() > self.buf.len() { return Err(ByteIOError::WriteError); }
+        for i in 0..buf.len() {
+            self.buf[self.pos + i] = buf[i];
+        }
+        self.pos += buf.len();
+        Ok(())
+    }
+
+    fn tell(&mut self) -> u64 {
+        self.pos as u64
+    }
+
+    fn seek(&mut self, pos: SeekFrom) -> ByteIOResult<u64> {
+        let cur_pos  = self.pos       as i64;
+        let cur_size = self.buf.len() as i64;
+        match pos {
+            SeekFrom::Start(x)   => self.real_seek(x as i64),
+            SeekFrom::Current(x) => self.real_seek(cur_pos + x),
+            SeekFrom::End(x)     => self.real_seek(cur_size + x),
+        }
+    }
+
+    fn is_eof(&self) -> bool {
+        self.pos >= self.buf.len()
+    }
+
+    fn is_seekable(&mut self) -> bool {
+        true
+    }
+
+    fn size(&mut self) -> i64 {
+        self.buf.len() as i64
+    }
+}
+
+impl<'a> GrowableMemoryWriter<'a> {
+
+    /// Constructs a new instance of `GrowableMemoryWriter`.
+    pub fn new_write(buf: &'a mut Vec<u8>) -> Self {
+        GrowableMemoryWriter { buf, pos: 0 }
+    }
+
+    fn real_seek(&mut self, pos: i64) -> ByteIOResult<u64> {
+        if pos < 0 || (pos as usize) > self.buf.len() {
+            return Err(ByteIOError::WrongRange)
+        }
+        self.pos = pos as usize;
+        Ok(pos as u64)
+    }
+}
+
+impl<'a> ByteIO for GrowableMemoryWriter<'a> {
+    #[allow(unused_variables)]
+    fn read_byte(&mut self) -> ByteIOResult<u8> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn peek_byte(&mut self) -> ByteIOResult<u8> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    #[allow(unused_variables)]
+    fn peek_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
+        Err(ByteIOError::NotImplemented)
+    }
+
+    fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
+        if self.pos + buf.len() > self.buf.len() {
+            self.buf.resize(self.pos + buf.len(), 0);
+        }
         for i in 0..buf.len() {
             self.buf[self.pos + i] = buf[i];
         }
