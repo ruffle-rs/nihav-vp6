@@ -105,6 +105,7 @@ impl MuxerCreator for WAVMuxerCreator {
         Box::new(WAVMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "wav" }
+    fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::SingleAudio("any") }
 }
 
 #[cfg(test)]

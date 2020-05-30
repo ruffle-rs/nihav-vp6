@@ -295,6 +295,7 @@ impl MuxerCreator for AVIMuxerCreator {
         Box::new(AVIMuxer::new(bw))
     }
     fn get_name(&self) -> &'static str { "avi" }
+    fn get_capabilities(&self) -> MuxerCapabilities { MuxerCapabilities::Universal }
 }
 
 #[cfg(test)]

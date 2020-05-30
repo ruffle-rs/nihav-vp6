@@ -28,6 +28,27 @@ pub enum MuxerError {
 /// A specialised `Result` type for muxing operations.
 pub type MuxerResult<T> = Result<T, MuxerError>;
 
+/// Muxer capabilities.
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub enum MuxerCapabilities {
+    /// Muxer accepts single video stream with certain codec.
+    ///
+    /// Codec name `"any"` means various codecs are supported.
+    SingleVideo(&'static str),
+    /// Muxer accepts single audio stream with certain codec.
+    ///
+    /// Codec name `"any"` means various codecs are supported.
+    SingleAudio(&'static str),
+    /// Muxer accepts single video stream and single audio stream with defined codecs.
+    SingleVideoAndAudio(&'static str, &'static str),
+    /// Muxer accepts only video streams but can mux several video streams.
+    OnlyVideo,
+    /// Muxer accepts only audio streams but can mux several video streams..
+    OnlyAudio,
+    /// Muxer accepts variable amount of streams of any type.
+    Universal,
+}
+
 impl From<ByteIOError> for MuxerError {
     fn from(_: ByteIOError) -> Self { MuxerError::IOError }
 }
@@ -95,6 +116,8 @@ pub trait MuxerCreator {
     fn new_muxer<'a>(&self, bw: &'a mut ByteWriter<'a>) -> Box<dyn MuxCore<'a> + 'a>;
     /// Returns the name of current muxer creator (equal to the container name it can create).
     fn get_name(&self) -> &'static str;
+    /// Returns muxer capabilities for the current muxer.
+    fn get_capabilities(&self) -> MuxerCapabilities;
 }
 
 /// Creates muxer for a provided bytestream writer.
