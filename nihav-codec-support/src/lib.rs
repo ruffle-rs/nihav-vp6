@@ -18,4 +18,7 @@ pub mod imgwrite;
 
 pub mod test;
 
+#[cfg(feature="vq")]
+pub mod vq;
+
 extern crate nihav_core;
