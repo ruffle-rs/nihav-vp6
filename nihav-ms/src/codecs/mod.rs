@@ -10,7 +10,7 @@ pub mod msvideo1;
 #[cfg(feature="decoder_ima_adpcm_ms")]
 pub mod imaadpcm;
 
-#[cfg(feature="decoder_ms_adpcm")]
+#[cfg(any(feature="decoder_ms_adpcm", feature="encoder_ms_adpcm"))]
 pub mod msadpcm;
 
 const MS_CODECS: &[DecoderInfo] = &[
@@ -26,5 +26,22 @@ const MS_CODECS: &[DecoderInfo] = &[
 pub fn ms_register_all_codecs(rd: &mut RegisteredDecoders) {
     for decoder in MS_CODECS.iter() {
         rd.add_decoder(decoder.clone());
+    }
+}
+
+#[cfg(feature="encoder_msvideo1")]
+pub mod msvideo1enc;
+
+const MS_ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_msvideo1")]
+    EncoderInfo { name: "msvideo1", get_encoder: msvideo1enc::get_encoder },
+#[cfg(feature="encoder_ms_adpcm")]
+    EncoderInfo { name: "ms-adpcm", get_encoder: msadpcm::get_encoder },
+];
+
+/// Registers all available encoders provided by this crate.
+pub fn ms_register_all_encoders(re: &mut RegisteredEncoders) {
+    for encoder in MS_ENCODERS.iter() {
+        re.add_encoder(encoder.clone());
     }
 }

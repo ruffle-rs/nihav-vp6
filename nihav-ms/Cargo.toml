@@ -10,13 +10,13 @@ features = []
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = []
+features = ["vq"]
 
 [dev-dependencies]
 nihav_commonfmt = { path = "../nihav-commonfmt" }
 
 [features]
-default = ["all_decoders"]
+default = ["all_decoders", "all_encoders"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
@@ -26,3 +26,8 @@ decoder_msvideo1 = ["decoders"]
 all_audio_decoders = ["decoder_ima_adpcm_ms", "decoder_ms_adpcm"]
 decoder_ima_adpcm_ms = ["decoders"]
 decoder_ms_adpcm = ["decoders"]
+
+all_encoders = ["encoder_msvideo1", "encoder_ms_adpcm"]
+encoder_msvideo1 = ["encoders"]
+encoder_ms_adpcm = ["encoders"]
+encoders = []
