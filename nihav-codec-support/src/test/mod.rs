@@ -2,6 +2,7 @@
 //!
 //! This module provides functions that may be used in internal test to check that decoders produce output and that they produce expected output.
 pub mod dec_video;
+pub mod enc_video;
 pub mod wavwriter;
 
 mod md5; // for internal checksums only
