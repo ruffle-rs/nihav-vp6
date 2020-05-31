@@ -134,6 +134,12 @@ impl<'a> DemuxCore<'a> for VivoDemuxer<'a> {
     }
 }
 
+impl<'a> NAOptionHandler for VivoDemuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 impl<'a> VivoDemuxer<'a> {
     fn new(io: &'a mut ByteReader<'a>) -> Self {
         VivoDemuxer {

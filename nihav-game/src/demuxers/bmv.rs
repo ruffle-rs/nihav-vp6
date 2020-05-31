@@ -75,6 +75,12 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
     }
 }
 
+impl<'a> NAOptionHandler for BMVDemuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 impl<'a> BMVDemuxer<'a> {
     fn new(io: &'a mut ByteReader<'a>) -> Self {
         Self {
@@ -214,6 +220,12 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
     fn seek(&mut self, _time: u64, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
+}
+
+impl<'a> NAOptionHandler for BMV3Demuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
 impl<'a> BMV3Demuxer<'a> {

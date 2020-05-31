@@ -764,6 +764,12 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
     }
 }
 
+impl<'a> NAOptionHandler for RealMediaDemuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 fn read_chunk(src: &mut ByteReader) -> DemuxerResult<(u32, u32, u16)> {
     let id      = src.read_u32be()?;
 if id == 0 { return Ok((0, 0, 0)); }
@@ -1252,6 +1258,12 @@ println!(" got ainfo {:?}", ainfo);
     }
 }
 
+impl<'a> NAOptionHandler for RealAudioDemuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 impl<'a> RealAudioDemuxer<'a> {
     fn new(io: &'a mut ByteReader<'a>) -> Self {
         RealAudioDemuxer {
@@ -1589,6 +1601,12 @@ println!("R1M kind");
     fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
+}
+
+impl<'a> NAOptionHandler for RealIVRDemuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
 impl<'a> RealIVRDemuxer<'a> {

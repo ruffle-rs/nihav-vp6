@@ -1,6 +1,7 @@
 //! Demuxer definitions.
 pub use crate::frame::*;
 pub use crate::io::byteio::*;
+pub use crate::options::*;
 
 /// A list specifying general demuxing errors.
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -30,7 +31,7 @@ pub enum DemuxerError {
 pub type DemuxerResult<T> = Result<T, DemuxerError>;
 
 /// A trait for demuxing operations.
-pub trait DemuxCore<'a> {
+pub trait DemuxCore<'a>: NAOptionHandler {
     /// Opens the input stream, reads required headers and prepares everything for packet demuxing.
     fn open(&mut self, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex) -> DemuxerResult<()>;
     /// Demuxes a packet.
@@ -391,6 +392,18 @@ impl<'a> Demuxer<'a> {
     /// Returns internal seek index.
     pub fn get_seek_index(&self) -> &SeekIndex {
         &self.seek_idx
+    }
+}
+
+impl<'a> NAOptionHandler for Demuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] {
+        self.dmx.get_supported_options()
+    }
+    fn set_options(&mut self, options: &[NAOption]) {
+        self.dmx.set_options(options);
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        self.dmx.query_option_value(name)
     }
 }
 

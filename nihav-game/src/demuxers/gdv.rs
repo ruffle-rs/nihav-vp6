@@ -114,6 +114,11 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
         Err(DemuxerError::NotPossible)
     }
 }
+impl<'a> NAOptionHandler for GremlinVideoDemuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
 /*impl<'a> Drop for GremlinVideoDemuxer<'a> {
     #[allow(unused_variables)]
     fn drop(&mut self) {
