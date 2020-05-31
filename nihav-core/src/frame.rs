@@ -857,47 +857,6 @@ pub const DUMMY_CODEC_INFO: NACodecInfo = NACodecInfo {
                                 properties: NACodecTypeInfo::None,
                                 extradata: None };
 
-/// Option definition.
-#[derive(Debug)]
-pub struct NAOptionDefinition {
-    /// Option name.
-    pub name:           &'static str,
-    /// Option meaning.
-    pub description:    &'static str,
-    /// Minimal value for the option (if applicable).
-    pub min_value:      Option<NAValue>,
-    /// Maximum value for the option (if applicable).
-    pub max_value:      Option<NAValue>,
-}
-
-/// Option.
-#[derive(Clone,Debug,PartialEq)]
-pub struct NAOption {
-    /// Option name.
-    pub name:   String,
-    /// Option value.
-    pub value:  NAValue,
-}
-
-/// A list of accepted option values.
-#[derive(Debug,Clone,PartialEq)]
-pub enum NAValue {
-    /// Empty value.
-    None,
-    /// Boolean value.
-    Bool(bool),
-    /// Integer value.
-    Int(i32),
-    /// Long integer value.
-    Long(i64),
-    /// Floating point value.
-    Float(f32),
-    /// String value.
-    String(String),
-    /// Binary data value.
-    Data(Arc<Vec<u8>>),
-}
-
 /// A list of recognized frame types.
 #[derive(Debug,Clone,Copy,PartialEq)]
 #[allow(dead_code)]
