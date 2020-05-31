@@ -385,6 +385,12 @@ impl NAEncoder for MSADPCMEncoder {
     }
 }
 
+impl NAOptionHandler for MSADPCMEncoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub fn get_encoder() -> Box<dyn NAEncoder + Send> {
     Box::new(MSADPCMEncoder::new())
 }

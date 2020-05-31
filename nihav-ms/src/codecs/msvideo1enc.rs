@@ -479,6 +479,12 @@ impl NAEncoder for MSVideo1Encoder {
     }
 }
 
+impl NAOptionHandler for MSVideo1Encoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub fn get_encoder() -> Box<dyn NAEncoder + Send> {
     Box::new(MSVideo1Encoder::new())
 }

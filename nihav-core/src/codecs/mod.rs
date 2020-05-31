@@ -3,6 +3,7 @@ pub use crate::frame::*;
 use crate::io::byteio::ByteIOError;
 use crate::io::bitreader::BitReaderError;
 use crate::io::codebook::CodebookError;
+pub use crate::options::*;
 
 /// A list specifying general decoding errors.
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -231,7 +232,7 @@ impl Default for EncodeParameters {
 /// [`negotiate_format`]: ./trait.NAEncoder.html#tymethod.negotiate_format
 /// [`encode`]: ./trait.NAEncoder.html#tymethod.encode
 /// [`get_packet`]: ./trait.NAEncoder.html#tymethod.get_packet
-pub trait NAEncoder {
+pub trait NAEncoder: NAOptionHandler {
     /// Tries to negotiate input format.
     ///
     /// This function takes input encoding parameters and returns adjusted encoding parameters if input ones make sense.
