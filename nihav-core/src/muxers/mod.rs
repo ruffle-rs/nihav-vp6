@@ -2,6 +2,7 @@
 pub use crate::frame::*;
 pub use crate::io::byteio::*;
 pub use crate::demuxers::{StreamManager, StreamIter};
+pub use crate::options::*;
 
 /// A list specifying general muxing errors.
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -54,7 +55,7 @@ impl From<ByteIOError> for MuxerError {
 }
 
 /// A trait for muxing operations.
-pub trait MuxCore<'a> {
+pub trait MuxCore<'a>: NAOptionHandler {
     /// Prepares everything for packet muxing.
     fn create(&mut self, strmgr: &StreamManager) -> MuxerResult<()>;
     /// Queues a packet for muxing.

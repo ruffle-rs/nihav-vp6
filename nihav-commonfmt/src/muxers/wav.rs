@@ -98,6 +98,12 @@ impl<'a> MuxCore<'a> for WAVMuxer<'a> {
     }
 }
 
+impl<'a> NAOptionHandler for WAVMuxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub struct WAVMuxerCreator {}
 
 impl MuxerCreator for WAVMuxerCreator {
