@@ -1,3 +1,4 @@
+//! Routines for testing encoders and muxers.
 use std::fs::File;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
@@ -7,23 +8,39 @@ use nihav_core::scale::*;
 use nihav_core::soundcvt::*;
 use super::md5::MD5;
 
+/// Parameters for the source used in the test.
 pub struct DecoderTestParams {
+    /// Demuxer name e.g. `"mov"`.
     pub demuxer:        &'static str,
+    /// Input file name.
     pub in_name:        &'static str,
+    /// Timestamp for last decoded frame.
     pub limit:          Option<u64>,
+    /// Desired input stream type (that will be decoded and fed to the encoder).
     pub stream_type:    StreamType,
+    /// Registered demuxers.
     pub dmx_reg:        RegisteredDemuxers,
+    /// Registered decoders.
     pub dec_reg:        RegisteredDecoders,
 }
 
+/// Parameters for the encoding test output.
 pub struct EncoderTestParams {
+    /// Muxer name e.g. `"avi"`.
     pub muxer:          &'static str,
+    /// Encoder name.
     pub enc_name:       &'static str,
+    /// Output file name.
     pub out_name:       &'static str,
+    /// Registered muxers.
     pub mux_reg:        RegisteredMuxers,
+    /// Registered encoders.
     pub enc_reg:        RegisteredEncoders,
 }
 
+/// Tests muxer by making it mux raw streams from the input file.
+///
+/// Streams not fitting the output profile (e.g. a video stream or a second audio stream for WAV muxer) will be ignored.
 pub fn test_remuxing(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
@@ -104,6 +121,9 @@ pub fn test_remuxing(dec_config: &DecoderTestParams, enc_config: &EncoderTestPar
     mux.end().unwrap();
 }
 
+/// Tests muxer by making it mux raw streams from the input file and comparing MD5 hash of the result to the provided one.
+///
+/// Streams not fitting the output profile (e.g. a video stream or a second audio stream for WAV muxer) will be ignored.
 pub fn test_remuxing_md5(dec_config: &DecoderTestParams, muxer: &str, mux_reg: &RegisteredMuxers, md5_hash: [u32; 4]) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
@@ -189,6 +209,7 @@ pub fn test_remuxing_md5(dec_config: &DecoderTestParams, muxer: &str, mux_reg: &
     assert_eq!(hash, md5_hash);
 }
 
+/// Tests an encoder by decoding a stream from input file, feeding it to the encoder and muxing the result into output file.
 pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
