@@ -5,6 +5,7 @@ use nihav_core::demuxers::*;
 use nihav_core::muxers::*;
 use nihav_core::scale::*;
 use nihav_core::soundcvt::*;
+use super::md5::MD5;
 
 pub struct DecoderTestParams {
     pub demuxer:        &'static str,
@@ -21,6 +22,171 @@ pub struct EncoderTestParams {
     pub out_name:       &'static str,
     pub mux_reg:        RegisteredMuxers,
     pub enc_reg:        RegisteredEncoders,
+}
+
+pub fn test_remuxing(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams) {
+    let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
+    let mut file = File::open(dec_config.in_name).unwrap();
+    let mut fr = FileReader::new_read(&mut file);
+    let mut br = ByteReader::new(&mut fr);
+    let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
+
+    let mux_f = enc_config.mux_reg.find_muxer(enc_config.muxer).unwrap();
+    let out_name = "assets/test_out/".to_owned() + enc_config.out_name;
+    let file = File::create(&out_name).unwrap();
+    let mut fw = FileWriter::new_write(file);
+    let mut bw = ByteWriter::new(&mut fw);
+    let mut out_sm = StreamManager::new();
+    let mux_caps = mux_f.get_capabilities();
+    let mut stream_map: Vec<Option<usize>> = Vec::new();
+    let mut has_video = false;
+    let mut has_audio = false;
+    for stream in dmx.get_streams() {
+        let mut copy_stream = false;
+        match mux_caps {
+            MuxerCapabilities::SingleVideo(_) | MuxerCapabilities::OnlyVideo => {
+                copy_stream = stream.get_media_type() == StreamType::Video;
+                has_video = true;
+            },
+            MuxerCapabilities::SingleAudio(_) | MuxerCapabilities::OnlyAudio => {
+                copy_stream = stream.get_media_type() == StreamType::Audio;
+                has_audio = true;
+            },
+            MuxerCapabilities::SingleVideoAndAudio(_, _) => {
+                if stream.get_media_type() == StreamType::Video {
+                    copy_stream = !has_video;
+                    has_video = true;
+                }
+                if stream.get_media_type() == StreamType::Audio {
+                    copy_stream = !has_audio;
+                    has_audio = true;
+                }
+            },
+            MuxerCapabilities::Universal => {
+                if stream.get_media_type() == StreamType::Video {
+                    copy_stream = true;
+                    has_video = true;
+                }
+                if stream.get_media_type() == StreamType::Audio {
+                    copy_stream = true;
+                    has_audio = true;
+                }
+            }
+        };
+        if copy_stream {
+            let streamno = out_sm.add_stream(NAStream::clone(&stream)).unwrap();
+            stream_map.push(Some(streamno));
+            match mux_caps {
+                MuxerCapabilities::SingleVideo(_) | MuxerCapabilities::SingleAudio(_) => break,
+                _ => {},
+            };
+        } else {
+            stream_map.push(None);
+        }
+    }
+    assert!(out_sm.get_num_streams() > 0);
+    let mut mux = create_muxer(mux_f, out_sm, &mut bw).unwrap();
+
+    loop {
+        let pktres = dmx.get_frame();
+        if let Err(e) = pktres {
+            if e == DemuxerError::EOF { break; }
+            panic!("error");
+        }
+        let mut pkt = pktres.unwrap();
+        println!("Got {}", pkt);
+        if let Some(new_id) = stream_map[pkt.get_stream().id as usize] {
+            pkt.reassign(mux.get_stream(new_id).unwrap(), pkt.get_time_information());
+            mux.mux_frame(pkt).unwrap();
+        }
+    }
+
+    mux.end().unwrap();
+}
+
+pub fn test_remuxing_md5(dec_config: &DecoderTestParams, muxer: &str, mux_reg: &RegisteredMuxers, md5_hash: [u32; 4]) {
+    let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
+    let mut file = File::open(dec_config.in_name).unwrap();
+    let mut fr = FileReader::new_read(&mut file);
+    let mut br = ByteReader::new(&mut fr);
+    let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
+
+    let mux_f = mux_reg.find_muxer(muxer).unwrap();
+
+    let mut dst = Vec::with_capacity(1048576);
+    let mut gw = GrowableMemoryWriter::new_write(&mut dst);
+    let mut bw = ByteWriter::new(&mut gw);
+    let mut out_sm = StreamManager::new();
+    let mux_caps = mux_f.get_capabilities();
+    let mut stream_map: Vec<Option<usize>> = Vec::new();
+    let mut has_video = false;
+    let mut has_audio = false;
+    for stream in dmx.get_streams() {
+        let mut copy_stream = false;
+        match mux_caps {
+            MuxerCapabilities::SingleVideo(_) | MuxerCapabilities::OnlyVideo => {
+                copy_stream = stream.get_media_type() == StreamType::Video;
+                has_video = true;
+            },
+            MuxerCapabilities::SingleAudio(_) | MuxerCapabilities::OnlyAudio => {
+                copy_stream = stream.get_media_type() == StreamType::Audio;
+                has_audio = true;
+            },
+            MuxerCapabilities::SingleVideoAndAudio(_, _) => {
+                if stream.get_media_type() == StreamType::Video {
+                    copy_stream = !has_video;
+                    has_video = true;
+                }
+                if stream.get_media_type() == StreamType::Audio {
+                    copy_stream = !has_audio;
+                    has_audio = true;
+                }
+            },
+            MuxerCapabilities::Universal => {
+                if stream.get_media_type() == StreamType::Video {
+                    copy_stream = true;
+                    has_video = true;
+                }
+                if stream.get_media_type() == StreamType::Audio {
+                    copy_stream = true;
+                    has_audio = true;
+                }
+            }
+        };
+        if copy_stream {
+            let streamno = out_sm.add_stream(NAStream::clone(&stream)).unwrap();
+            stream_map.push(Some(streamno));
+            match mux_caps {
+                MuxerCapabilities::SingleVideo(_) | MuxerCapabilities::SingleAudio(_) => break,
+                _ => {},
+            };
+        } else {
+            stream_map.push(None);
+        }
+    }
+    assert!(out_sm.get_num_streams() > 0);
+    let mut mux = create_muxer(mux_f, out_sm, &mut bw).unwrap();
+
+    loop {
+        let pktres = dmx.get_frame();
+        if let Err(e) = pktres {
+            if e == DemuxerError::EOF { break; }
+            panic!("error");
+        }
+        let mut pkt = pktres.unwrap();
+        println!("Got {}", pkt);
+        if let Some(new_id) = stream_map[pkt.get_stream().id as usize] {
+            pkt.reassign(mux.get_stream(new_id).unwrap(), pkt.get_time_information());
+            mux.mux_frame(pkt).unwrap();
+        }
+    }
+
+    mux.end().unwrap();
+
+    let mut hash = [0; 4];
+    MD5::calculate_hash(dst.as_slice(), &mut hash);
+    println!("output hash {:08x}{:08x}{:08x}{:08x}", hash[0], hash[1], hash[2], hash[3]);
+    assert_eq!(hash, md5_hash);
 }
 
 pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters) {
