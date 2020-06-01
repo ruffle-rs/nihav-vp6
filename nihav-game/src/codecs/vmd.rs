@@ -335,6 +335,12 @@ impl NADecoder for VMDVideoDecoder {
     }
 }
 
+impl NAOptionHandler for VMDVideoDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 
 pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(VMDVideoDecoder::new())
@@ -665,6 +671,12 @@ impl NADecoder for VMDAudioDecoder {
     }
     fn flush(&mut self) {
     }
+}
+
+impl NAOptionHandler for VMDAudioDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
 pub fn get_decoder_audio() -> Box<dyn NADecoder + Send> {

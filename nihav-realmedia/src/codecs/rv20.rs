@@ -667,6 +667,12 @@ impl NADecoder for RealVideo20Decoder {
     }
 }
 
+impl NAOptionHandler for RealVideo20Decoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 struct MBB { blocks: usize, bits: u8 }
 const H263_MBB: &[MBB; 7] = &[
     MBB{ blocks:    47, bits:  6 },

@@ -715,6 +715,12 @@ impl NADecoder for VP6Decoder {
     }
 }
 
+impl NAOptionHandler for VP6Decoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub fn get_decoder_vp6() -> Box<NADecoder + Send> {
     Box::new(VP6Decoder::new(false))
 }

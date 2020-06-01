@@ -77,7 +77,7 @@ impl Default for NADecoderSupport {
 }
 
 /// Decoder trait.
-pub trait NADecoder {
+pub trait NADecoder: NAOptionHandler {
     /// Initialises the decoder.
     ///
     /// It takes [`NADecoderSupport`] allocated by the caller and `NACodecInfoRef` provided by demuxer.

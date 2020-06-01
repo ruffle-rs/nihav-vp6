@@ -503,6 +503,12 @@ impl NADecoder for BMV3VideoDecoder {
     }
 }
 
+impl NAOptionHandler for BMV3VideoDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 
 pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(BMV3VideoDecoder::new())
@@ -593,6 +599,12 @@ impl NADecoder for BMV3AudioDecoder {
     }
     fn flush(&mut self) {
     }
+}
+
+impl NAOptionHandler for BMV3AudioDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
 pub fn get_decoder_audio() -> Box<dyn NADecoder + Send> {

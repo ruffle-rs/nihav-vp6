@@ -536,6 +536,12 @@ impl NADecoder for Indeo5Decoder {
     }
 }
 
+impl NAOptionHandler for Indeo5Decoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 const INDEO5_PICTURE_SIZE_TAB: [[usize; 2]; 15] = [
     [640, 480], [320, 240], [160, 120], [704, 480], [352, 240], [352, 288], [176, 144],
     [240, 180], [640, 240], [704, 240], [80, 60], [88, 72], [0, 0], [0, 0], [0, 0]

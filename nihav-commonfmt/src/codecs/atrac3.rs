@@ -695,6 +695,12 @@ impl NADecoder for Atrac3Decoder {
     }
 }
 
+impl NAOptionHandler for Atrac3Decoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(Atrac3Decoder::new())
 }

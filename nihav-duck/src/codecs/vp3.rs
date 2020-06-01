@@ -1864,6 +1864,12 @@ impl NADecoder for VP34Decoder {
     }
 }
 
+impl NAOptionHandler for VP34Decoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub fn get_decoder_vp3() -> Box<NADecoder + Send> {
     Box::new(VP34Decoder::new(3))
 }

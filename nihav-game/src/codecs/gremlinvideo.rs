@@ -460,6 +460,12 @@ impl NADecoder for GremlinVideoDecoder {
     }
 }
 
+impl NAOptionHandler for GremlinVideoDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub fn get_decoder_video() -> Box<dyn NADecoder + Send> {
     Box::new(GremlinVideoDecoder::new())
 }
@@ -552,6 +558,12 @@ impl NADecoder for GremlinAudioDecoder {
     }
     fn flush(&mut self) {
     }
+}
+
+impl NAOptionHandler for GremlinAudioDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
 pub fn get_decoder_audio() -> Box<dyn NADecoder + Send> {

@@ -278,6 +278,12 @@ impl NADecoder for BinkAudioDecoder {
     }
 }
 
+impl NAOptionHandler for BinkAudioDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub fn get_decoder_dct() -> Box<dyn NADecoder + Send> {
     Box::new(BinkAudioDecoder::new(true))
 }

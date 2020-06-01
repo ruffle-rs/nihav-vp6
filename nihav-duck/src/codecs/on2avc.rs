@@ -1048,6 +1048,12 @@ impl NADecoder for AVCDecoder {
     }
 }
 
+impl NAOptionHandler for AVCDecoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+}
+
 pub fn get_decoder_500() -> Box<dyn NADecoder + Send> {
     Box::new(AVCDecoder::new(500))
 }

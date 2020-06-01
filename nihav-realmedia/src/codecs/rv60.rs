@@ -1,6 +1,7 @@
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::frame::*;
 use nihav_core::codecs::{NADecoder, NADecoderSupport, DecoderError, DecoderResult};
+use nihav_core::options::*;
 use nihav_codec_support::codecs::{MV, ZERO_MV, IPBShuffler};
 use nihav_core::io::byteio::{MemoryReader,ByteReader};
 use nihav_core::io::bitreader::{BitReader,BitReaderMode};
@@ -1519,6 +1520,12 @@ println!("???");
     fn flush(&mut self) {
         self.ipbs.clear();
     }
+}
+
+impl NAOptionHandler for RealVideo60Decoder {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
+    fn set_options(&mut self, _options: &[NAOption]) { }
+    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
