@@ -306,40 +306,33 @@ impl MuxerCreator for AVIMuxerCreator {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use std::fs::File;
+    use nihav_core::codecs::*;
     use nihav_core::demuxers::*;
-    use crate::demuxers::*;
+    use nihav_core::muxers::*;
+    use nihav_codec_support::test::enc_video::*;
+    use crate::*;
 
     #[test]
     fn test_avi_muxer() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
-        let mut file = File::open("assets/Indeo/laser05.avi").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
-        let dmx_f = dmx_reg.find_demuxer("avi").unwrap();
-        let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
-
-        let ofile = File::create("assets/test_out/muxed.avi").unwrap();
-        let mut fw = FileWriter::new_write(ofile);
-        let mut bw = ByteWriter::new(&mut fw);
-        let mut mux = AVIMuxer::new(&mut bw);
-
-        mux.create(dmx.get_stream_manager()).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame();
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-            mux.mux_frame(dmx.get_stream_manager(), pkt).unwrap();
-        }
-
-        mux.end().unwrap();
-panic!("end");
+        let dec_config = DecoderTestParams {
+                demuxer:        "avi",
+                in_name:        "assets/Indeo/laser05.avi",
+                limit:          None,
+                stream_type:    StreamType::None,
+                dmx_reg, dec_reg: RegisteredDecoders::new(),
+            };
+        let mut mux_reg = RegisteredMuxers::new();
+        generic_register_all_muxers(&mut mux_reg);
+        /*let enc_config = EncoderTestParams {
+                muxer:      "avi",
+                enc_name:   "",
+                out_name:   "muxed.avi",
+                mux_reg, enc_reg: RegisteredEncoders::new(),
+            };
+        test_remuxing(&dec_config, &enc_config);*/
+        test_remuxing_md5(&dec_config, "avi", &mux_reg,
+                          [0xa0fb0e47, 0x412e24dd, 0x6b89711c, 0x276fb799]);
     }
 }

@@ -116,55 +116,33 @@ impl MuxerCreator for WAVMuxerCreator {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use std::fs::File;
+    use nihav_core::codecs::*;
     use nihav_core::demuxers::*;
-    use crate::demuxers::*;
+    use nihav_core::muxers::*;
+    use nihav_codec_support::test::enc_video::*;
+    use crate::*;
 
     #[test]
     fn test_wav_muxer() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
-        let mut file = File::open("assets/Indeo/laser05.avi").unwrap();
-        let mut fr = FileReader::new_read(&mut file);
-        let mut br = ByteReader::new(&mut fr);
-        let dmx_f = dmx_reg.find_demuxer("avi").unwrap();
-        let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
-
-        let mut out_sm = StreamManager::new();
-        let mut out_streamno = 0;
-        for stream in dmx.get_streams() {
-            if stream.get_media_type() == StreamType::Audio {
-                let mut stream = NAStream::clone(&stream);
-                out_streamno = stream.id;
-                stream.id = 0;
-                out_sm.add_stream(stream);
-            }
-        }
-
-        let ofile = File::create("assets/test_out/muxed.wav").unwrap();
-        let mut fw = FileWriter::new_write(ofile);
-        let mut bw = ByteWriter::new(&mut fw);
-        let mut mux = WAVMuxer::new(&mut bw);
-
-        mux.create(&out_sm).unwrap();
-
-        loop {
-            let pktres = dmx.get_frame();
-            if let Err(e) = pktres {
-                if e == DemuxerError::EOF { break; }
-                panic!("error");
-            }
-            let mut pkt = pktres.unwrap();
-            println!("Got {}", pkt);
-            let pkt_str = pkt.get_stream();
-            if pkt_str.id == out_streamno {
-                pkt.reassign(out_sm.get_stream(0).unwrap(), pkt.get_time_information());
-                mux.mux_frame(&out_sm, pkt).unwrap();
-            }
-        }
-
-        mux.end().unwrap();
-panic!("end");
+        let dec_config = DecoderTestParams {
+                demuxer:        "avi",
+                in_name:        "assets/Indeo/laser05.avi",
+                limit:          None,
+                stream_type:    StreamType::None,
+                dmx_reg, dec_reg: RegisteredDecoders::new(),
+            };
+        let mut mux_reg = RegisteredMuxers::new();
+        generic_register_all_muxers(&mut mux_reg);
+        /*let enc_config = EncoderTestParams {
+                muxer:      "wav",
+                enc_name:   "",
+                out_name:   "muxed.wav",
+                mux_reg, enc_reg: RegisteredEncoders::new(),
+            };
+        test_remuxing(&dec_config, &enc_config);*/
+        test_remuxing_md5(&dec_config, "wav", &mux_reg,
+                          [0x1040ebe8, 0xe7a43e84, 0x49fbe234, 0xe870b6b3]);
     }
 }
