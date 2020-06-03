@@ -158,6 +158,10 @@ impl From<ByteIOError> for EncoderError {
     fn from(_: ByteIOError) -> Self { EncoderError::Bug }
 }
 
+impl From<AllocatorError> for EncoderError {
+    fn from(_: AllocatorError) -> Self { EncoderError::AllocError }
+}
+
 /// Encoding parameter flag to force constant bitrate mode.
 pub const ENC_MODE_CBR: u64 = 1 << 0;
 /// Encoding parameter flag to force constant framerate mode.
