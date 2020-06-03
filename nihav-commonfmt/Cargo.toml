@@ -12,15 +12,16 @@ path = "../nihav-registry"
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = ["h263", "mdct", "fft", "dsp_window"]
+features = ["h263", "mdct", "fft", "dsp_window", "vq"]
 
 [dev-dependencies]
 nihav_realmedia = { path = "../nihav-realmedia" }
 
 [features]
-default = ["all_decoders", "all_demuxers", "all_muxers"]
+default = ["all_decoders", "all_demuxers", "all_encoders", "all_muxers"]
 decoders = []
 demuxers = []
+encoders = []
 muxers = []
 all_demuxers = ["demuxer_avi", "demuxer_mov", "demuxer_wav"]
 demuxer_avi = ["demuxers"]
@@ -42,3 +43,8 @@ decoder_ts102366 = ["decoders"]
 decoder_sipro = ["decoders"]
 decoder_atrac3 = ["decoders"]
 decoder_aac = ["decoders"]
+
+all_encoders = ["all_video_encoders"]
+
+all_video_encoders = ["encoder_cinepak"]
+encoder_cinepak = ["encoders"]

@@ -46,3 +46,19 @@ pub fn generic_register_all_codecs(rd: &mut RegisteredDecoders) {
         rd.add_decoder(decoder.clone());
     }
 }
+
+#[cfg(feature="encoder_cinepak")]
+mod cinepakenc;
+
+const ENCODERS: &[EncoderInfo] = &[
+#[cfg(feature="encoder_cinepak")]
+    EncoderInfo { name: "cinepak", get_encoder: cinepakenc::get_encoder },
+];
+
+/// Registers all available encoders provided by this crate.
+pub fn generic_register_all_encoders(re: &mut RegisteredEncoders) {
+    for encoder in ENCODERS.iter() {
+        re.add_encoder(encoder.clone());
+    }
+}
+

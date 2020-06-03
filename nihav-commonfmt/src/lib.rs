@@ -10,6 +10,8 @@ mod codecs;
 
 #[cfg(feature="decoders")]
 pub use crate::codecs::generic_register_all_codecs;
+#[cfg(feature="encoders")]
+pub use crate::codecs::generic_register_all_encoders;
 
 #[cfg(feature="demuxers")]
 mod demuxers;
