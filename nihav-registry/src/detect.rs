@@ -332,6 +332,22 @@ pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, 
     result
 }
 
+/// Tries to detect container format for provided file name.
+pub fn detect_format_by_name(name: &str) -> Option<(&'static str)> {
+    if name.is_empty() {
+        return None;
+    }
+    let lname = name.to_lowercase();
+    for detector in DETECTORS {
+        for ext in detector.extensions.split(',') {
+            if lname.ends_with(ext) {
+                return Some(detector.demux_name);
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
