@@ -9,10 +9,14 @@ extern crate nihav_rad;
 extern crate nihav_realmedia;
 
 use nihav_core::codecs::RegisteredDecoders;
+use nihav_core::codecs::RegisteredEncoders;
 use nihav_core::demuxers::RegisteredDemuxers;
+use nihav_core::muxers::RegisteredMuxers;
 
 use nihav_commonfmt::generic_register_all_codecs;
 use nihav_commonfmt::generic_register_all_demuxers;
+use nihav_commonfmt::generic_register_all_encoders;
+use nihav_commonfmt::generic_register_all_muxers;
 
 use nihav_duck::duck_register_all_codecs;
 
@@ -22,6 +26,7 @@ use nihav_game::game_register_all_demuxers;
 use nihav_indeo::indeo_register_all_codecs;
 
 use nihav_ms::ms_register_all_codecs;
+use nihav_ms::ms_register_all_encoders;
 
 use nihav_rad::rad_register_all_codecs;
 use nihav_rad::rad_register_all_demuxers;
@@ -46,6 +51,17 @@ pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     game_register_all_demuxers(rd);
     rad_register_all_demuxers(rd);
     realmedia_register_all_demuxers(rd);
+}
+
+/// Registers all known encoders.
+pub fn nihav_register_all_encoders(re: &mut RegisteredEncoders) {
+    generic_register_all_encoders(re);
+    ms_register_all_encoders(re);
+}
+
+/// Registers all known demuxers.
+pub fn nihav_register_all_muxers(rm: &mut RegisteredMuxers) {
+    generic_register_all_muxers(rm);
 }
 
 #[cfg(test)]
