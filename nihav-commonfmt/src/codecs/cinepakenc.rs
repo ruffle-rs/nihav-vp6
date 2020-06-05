@@ -211,11 +211,30 @@ impl MaskWriter {
     }
 }
 
+#[derive(Clone,Copy,PartialEq)]
+enum QuantMode {
+    ELBG,
+    Hybrid,
+    MedianCut,
+}
+
+impl QuantMode {
+    fn to_string(&self) -> String {
+        match *self {
+            QuantMode::ELBG => "elbg".to_string(),
+            QuantMode::Hybrid => "hybrid".to_string(),
+            QuantMode::MedianCut => "mediancut".to_string(),
+        }
+    }
+}
+
 struct CinepakEncoder {
     stream:     Option<NAStreamRef>,
     lastfrm:    Option<NAVideoBufferRef<u8>>,
     pkt:        Option<NAPacket>,
     frmcount:   u8,
+    key_int:    u8,
+    qmode:      QuantMode,
     quality:    u8,
     nstrips:    usize,
     v1_entries: Vec<YUVCode>,
@@ -251,6 +270,8 @@ impl CinepakEncoder {
             pkt:        None,
             lastfrm:    None,
             frmcount:   0,
+            qmode:      QuantMode::ELBG,
+            key_int:    25,
             quality:    0,
             nstrips:    2,
             v1_entries: Vec::new(),
@@ -574,6 +595,28 @@ impl CinepakEncoder {
             unreachable!();
         }
     }
+    fn quant_vectors(&mut self) {
+        match self.qmode {
+            QuantMode::ELBG => {
+                let mut elbg_v1: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v1_cb);
+                let mut elbg_v4: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v4_cb);
+                elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb);
+                elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb);
+            },
+            QuantMode::Hybrid => {
+                quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb);
+                quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb);
+                let mut elbg_v1: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v1_cur_cb);
+                let mut elbg_v4: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v4_cur_cb);
+                elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb);
+                elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb);
+            },
+            QuantMode::MedianCut => {
+                quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb);
+                quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb);
+            },
+        };
+    }
     fn encode_intra(&mut self, bw: &mut ByteWriter, in_frm: &NAVideoBuffer<u8>) -> EncoderResult<bool> {
         let (width, height) = in_frm.get_dimensions(0);
         let mut strip_h = (height / self.nstrips + 3) & !3;
@@ -600,12 +643,7 @@ impl CinepakEncoder {
         while start_line < height {
             self.read_strip(in_frm, start_line, end_line);
 
-//            let mut elbg_v1: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v1_cb);
-//            let mut elbg_v4: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v4_cb);
-//            elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb);
-//            elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb);
-quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb);
-quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb);
+            self.quant_vectors();
             if self.grayscale {
                 for cw in self.v1_cur_cb.iter_mut() {
                     cw.u = 128;
@@ -735,12 +773,7 @@ quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb
             self.read_strip(in_frm, start_line, end_line);
             self.calc_skip_dist(in_frm, start_line, end_line);
 
-//            let mut elbg_v1: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v1_cb);
-//            let mut elbg_v4: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v4_cb);
-//            elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb);
-//            elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb);
-quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb);
-quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb);
+            self.quant_vectors();
             if self.grayscale {
                 for cw in self.v1_cur_cb.iter_mut() {
                     cw.u = 128;
@@ -928,7 +961,7 @@ impl NAEncoder for CinepakEncoder {
                 };
             self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, is_intra, dbuf));
             self.frmcount += 1;
-            if self.frmcount == 25 {
+            if self.frmcount == self.key_int {
                 self.frmcount = 0;
             }
             Ok(())
@@ -947,10 +980,60 @@ impl NAEncoder for CinepakEncoder {
     }
 }
 
+const ENCODER_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: "key_int", description: "Keyframe interval (0 - automatic)",
+        opt_type: NAOptionDefinitionType::Int(Some(0), Some(128)) },
+    NAOptionDefinition {
+        name: "nstrips", description: "Number of strips per frame (0 - automatic)",
+        opt_type: NAOptionDefinitionType::Int(Some(0), Some(16)) },
+    NAOptionDefinition {
+        name: "quant_mode", description: "Quantisation mode",
+        opt_type: NAOptionDefinitionType::String(Some(&["elbg", "hybrid", "mediancut"])) },
+];
+
 impl NAOptionHandler for CinepakEncoder {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { ENCODER_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+println!("option {}", option.name);
+            for opt_def in ENCODER_OPTS.iter() {
+                if opt_def.check(option).is_ok() {
+                    match option.name {
+                        "key_int" => {
+                            if let NAValue::Int(intval) = option.value {
+                                self.key_int = intval as u8;
+                            }
+                        },
+                        "nstrips" => {
+                            if let NAValue::Int(intval) = option.value {
+                                self.nstrips = intval as usize;
+                            }
+                        },
+                        "quant_mode" => {
+                            if let NAValue::String(ref str) = option.value {
+                                match str.as_str() {
+                                    "elbg"      => self.qmode = QuantMode::ELBG,
+                                    "hybrid"    => self.qmode = QuantMode::Hybrid,
+                                    "mediancut" => self.qmode = QuantMode::MedianCut,
+                                    _ => {},
+                                };
+                            }
+                        },
+                        _ => {},
+                    };
+                }
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        match name {
+            "key_int" => Some(NAValue::Int(i64::from(self.key_int))),
+            "nstrips" => Some(NAValue::Int(self.nstrips as i64)),
+            "quant_mode" => Some(NAValue::String(self.qmode.to_string())),
+            _ => None,
+        }
+    }
 }
 
 pub fn get_encoder() -> Box<dyn NAEncoder + Send> {
