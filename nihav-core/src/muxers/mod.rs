@@ -111,6 +111,18 @@ impl<'a> Muxer<'a> {
     }
 }
 
+impl<'a> NAOptionHandler for Muxer<'a> {
+    fn get_supported_options(&self) -> &[NAOptionDefinition] {
+        self.mux.get_supported_options()
+    }
+    fn set_options(&mut self, options: &[NAOption]) {
+        self.mux.set_options(options);
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        self.mux.query_option_value(name)
+    }
+}
+
 /// The trait for creating muxers.
 pub trait MuxerCreator {
     /// Creates new muxer instance that will use `ByteWriter` for output.
