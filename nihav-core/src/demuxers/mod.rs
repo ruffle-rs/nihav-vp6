@@ -94,6 +94,13 @@ impl StreamManager {
         self.ignored.push(false);
         Some(stream_num)
     }
+    /// Adds a new stream from reference-counted object.
+    pub fn add_stream_ref(&mut self, stream: NAStreamRef) -> Option<usize> {
+        let stream_num = self.streams.len();
+        self.streams.push(stream);
+        self.ignored.push(false);
+        Some(stream_num)
+    }
     /// Returns stream with the requested index.
     pub fn get_stream(&self, idx: usize) -> Option<NAStreamRef> {
         if idx < self.streams.len() {
