@@ -346,7 +346,9 @@ impl NAEncoder for MSADPCMEncoder {
                 let soniton = NASoniton::new(4, 0);
                 let out_ainfo = NAAudioInfo::new(ainfo.sample_rate, ainfo.channels, soniton, Self::calc_block_size(self.block_len, self.channels));
                 let info = NACodecInfo::new("ms-adpcm", NACodecTypeInfo::Audio(out_ainfo), None);
-                let stream = NAStream::new(StreamType::Audio, stream_id, info.clone(), self.block_len as u32, ainfo.sample_rate).into_ref();
+                let mut stream = NAStream::new(StreamType::Audio, stream_id, info.clone(), self.block_len as u32, ainfo.sample_rate);
+                stream.set_num(stream_id as usize);
+                let stream = stream.into_ref();
 
                 self.stream = Some(stream.clone());
                 self.samples = Vec::with_capacity(self.block_len * self.channels);
