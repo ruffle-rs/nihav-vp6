@@ -320,7 +320,7 @@ impl NAEncoder for MSADPCMEncoder {
                 if (outinfo.channels == 1) && ((outinfo.block_len & 1) == 1) {
                     outinfo.block_len += 1;
                 }
-                let mut ofmt = EncodeParameters::default();
+                let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Audio(outinfo);
                 return Ok(ofmt);
             }

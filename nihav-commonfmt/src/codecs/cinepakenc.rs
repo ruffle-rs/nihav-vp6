@@ -873,7 +873,7 @@ impl NAEncoder for CinepakEncoder {
             NACodecTypeInfo::Video(vinfo) => {
                 let pix_fmt = if vinfo.format == GRAY_FORMAT { GRAY_FORMAT } else { YUV420_FORMAT };
                 let outinfo = NAVideoInfo::new((vinfo.width + 3) & !3, (vinfo.height + 3) & !3, true, pix_fmt);
-                let mut ofmt = EncodeParameters::default();
+                let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Video(outinfo);
                 Ok(ofmt)
             }

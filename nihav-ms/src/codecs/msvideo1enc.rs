@@ -410,7 +410,7 @@ impl NAEncoder for MSVideo1Encoder {
             NACodecTypeInfo::Audio(_) => return Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {
                 let outinfo = NAVideoInfo::new((vinfo.width + 3) & !3, (vinfo.height + 3) & !3, true, RGB555_FORMAT);
-                let mut ofmt = EncodeParameters::default();
+                let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Video(outinfo);
                 Ok(ofmt)
             }
