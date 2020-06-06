@@ -44,7 +44,10 @@ decoder_sipro = ["decoders"]
 decoder_atrac3 = ["decoders"]
 decoder_aac = ["decoders"]
 
-all_encoders = ["all_video_encoders"]
+all_encoders = ["all_video_encoders", "all_audio_encoders"]
 
 all_video_encoders = ["encoder_cinepak"]
 encoder_cinepak = ["encoders"]
+
+all_audio_encoders = ["encoder_pcm"]
+encoder_pcm = ["encoders"]

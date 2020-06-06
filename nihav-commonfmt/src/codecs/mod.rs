@@ -13,7 +13,7 @@ mod clearvideo;
 mod aac;
 #[cfg(feature="decoder_atrac3")]
 mod atrac3;
-#[cfg(feature="decoder_pcm")]
+#[cfg(any(feature="decoder_pcm",feature="encoder_pcm"))]
 mod pcm;
 #[cfg(feature="decoder_sipro")]
 mod sipro;
@@ -53,6 +53,9 @@ mod cinepakenc;
 const ENCODERS: &[EncoderInfo] = &[
 #[cfg(feature="encoder_cinepak")]
     EncoderInfo { name: "cinepak", get_encoder: cinepakenc::get_encoder },
+
+#[cfg(feature="encoder_pcm")]
+    EncoderInfo { name: "pcm", get_encoder: pcm::get_encoder },
 ];
 
 /// Registers all available encoders provided by this crate.
