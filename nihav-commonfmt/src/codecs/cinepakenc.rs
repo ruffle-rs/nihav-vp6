@@ -998,7 +998,6 @@ impl NAOptionHandler for CinepakEncoder {
     fn get_supported_options(&self) -> &[NAOptionDefinition] { ENCODER_OPTS }
     fn set_options(&mut self, options: &[NAOption]) {
         for option in options.iter() {
-println!("option {}", option.name);
             for opt_def in ENCODER_OPTS.iter() {
                 if opt_def.check(option).is_ok() {
                     match option.name {
