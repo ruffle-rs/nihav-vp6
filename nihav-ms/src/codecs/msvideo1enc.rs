@@ -256,6 +256,7 @@ struct MSVideo1Encoder {
     lastfrm:    Option<NAVideoBufferRef<u16>>,
     quality:    u8,
     frmcount:   u8,
+    key_int:    u8,
 }
 
 impl MSVideo1Encoder {
@@ -267,6 +268,7 @@ impl MSVideo1Encoder {
             lastfrm:    None,
             quality:    0,
             frmcount:   0,
+            key_int:    25,
         }
     }
     fn get_block(src: &[u16], sstride: usize, buf: &mut [Pixel16; 16]) {
@@ -462,7 +464,7 @@ impl NAEncoder for MSVideo1Encoder {
             self.lastfrm = Some(cur_frm);
             self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, is_intra, dbuf));
             self.frmcount += 1;
-            if self.frmcount == 25 {
+            if self.frmcount == self.key_int {
                 self.frmcount = 0;
             }
             Ok(())
@@ -481,10 +483,36 @@ impl NAEncoder for MSVideo1Encoder {
     }
 }
 
+const ENCODER_OPTS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: KEYFRAME_OPTION, description: KEYFRAME_OPTION_DESC,
+        opt_type: NAOptionDefinitionType::Int(Some(0), Some(128)) },
+];
+
 impl NAOptionHandler for MSVideo1Encoder {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { ENCODER_OPTS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            for opt_def in ENCODER_OPTS.iter() {
+                if opt_def.check(option).is_ok() {
+                    match option.name {
+                        KEYFRAME_OPTION => {
+                            if let NAValue::Int(intval) = option.value {
+                                self.key_int = intval as u8;
+                            }
+                        },
+                        _ => {},
+                    };
+                }
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        match name {
+            KEYFRAME_OPTION => Some(NAValue::Int(i64::from(self.key_int))),
+            _ => None,
+        }
+    }
 }
 
 pub fn get_encoder() -> Box<dyn NAEncoder + Send> {
