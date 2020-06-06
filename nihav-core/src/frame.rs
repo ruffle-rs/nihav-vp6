@@ -233,6 +233,8 @@ impl<T: Clone> NAAudioBuffer<T> {
     pub fn get_chmap(&self) -> &NAChannelMap { &self.chmap }
     /// Returns an immutable reference to the data.
     pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
+    /// Returns reference to the data.
+    pub fn get_data_ref(&self) -> NABufferRef<Vec<T>> { self.data.clone() }
     /// Returns a mutable reference to the data.
     pub fn get_data_mut(&mut self) -> Option<&mut Vec<T>> { self.data.as_mut() }
     /// Clones current `NAAudioBuffer` into a new one.
@@ -1184,6 +1186,10 @@ impl NAPacket {
 //        let mut vec: Vec<u8> = Vec::new();
 //        vec.resize(size, 0);
         NAPacket { stream: str, ts, keyframe: kf, buffer: NABufferRef::new(vec), side_data: Vec::new() }
+    }
+    /// Constructs a new `NAPacket` instance reusing a buffer reference.
+    pub fn new_from_refbuf(str: NAStreamRef, ts: NATimeInfo, kf: bool, buffer: NABufferRef<Vec<u8>>) -> Self {
+        NAPacket { stream: str, ts, keyframe: kf, buffer, side_data: Vec::new() }
     }
     /// Returns information about the stream packet belongs to.
     pub fn get_stream(&self) -> NAStreamRef { self.stream.clone() }
