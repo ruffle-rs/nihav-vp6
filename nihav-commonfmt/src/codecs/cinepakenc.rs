@@ -1029,7 +1029,7 @@ impl NAOptionHandler for CinepakEncoder {
     }
     fn query_option_value(&self, name: &str) -> Option<NAValue> {
         match name {
-            "key_int" => Some(NAValue::Int(i64::from(self.key_int))),
+            KEYFRAME_OPTION => Some(NAValue::Int(i64::from(self.key_int))),
             "nstrips" => Some(NAValue::Int(self.nstrips as i64)),
             "quant_mode" => Some(NAValue::String(self.qmode.to_string())),
             _ => None,
