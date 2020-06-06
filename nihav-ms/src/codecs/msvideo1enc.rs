@@ -441,7 +441,7 @@ impl NAEncoder for MSVideo1Encoder {
 
                 self.stream = Some(stream.clone());
                 self.quality = encinfo.quality;
-                
+
                 Ok(stream)
             },
         }

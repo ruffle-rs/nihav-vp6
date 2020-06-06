@@ -15,7 +15,7 @@ struct AVIStream {
     strh_pos:   u64,
     nframes:    u32,
     is_video:   bool,
-    max_size:   u32,    
+    max_size:   u32,
 }
 
 struct AVIMuxer<'a> {

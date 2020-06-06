@@ -3,7 +3,7 @@ use nihav_core::io::byteio::*;
 use std::str::FromStr;
 
 const ADAPT_TABLE: [i32; 16] = [
-    230, 230, 230, 230, 307, 409, 512, 614, 
+    230, 230, 230, 230, 307, 409, 512, 614,
     768, 614, 512, 409, 307, 230, 230, 230
 ];
 const ADAPT_COEFFS: [[i32; 2]; 7] = [
@@ -354,7 +354,7 @@ impl NAEncoder for MSADPCMEncoder {
                 self.samples = Vec::with_capacity(self.block_len * self.channels);
                 self.srate = ainfo.sample_rate;
                 self.flush = false;
-                
+
                 Ok(stream)
             },
         }

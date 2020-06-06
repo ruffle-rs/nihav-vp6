@@ -258,7 +258,7 @@ pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &Encode
     let mut encoder = (encfunc)();
     let out_str = encoder.init(0, enc_params).unwrap();
     out_sm.add_stream(NAStream::clone(&out_str));
-    
+
     let mux_f = enc_config.mux_reg.find_muxer(enc_config.muxer).unwrap();
     let out_name = "assets/test_out/".to_owned() + enc_config.out_name;
     let file = File::create(&out_name).unwrap();

@@ -945,7 +945,7 @@ impl NAEncoder for CinepakEncoder {
 
                 let buf = alloc_video_buffer(out_info, 2)?;
                 self.lastfrm = Some(buf.get_vbuf().unwrap());
-                
+
                 Ok(stream)
             },
         }

@@ -307,7 +307,7 @@ fn read_hdlr(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
         println!("Unknown stream type");
         track.stream_type = StreamType::Data;
     }
-    
+
     Ok(KNOWN_HDLR_SIZE)
 }
 

@@ -147,7 +147,7 @@ impl Subframe {
 
         let max_energy = tgt_energy.max(fwd_energy).max(fwd_res_energy).max(bwd_energy).max(bwd_res_energy);
         let scale = norm_bits(max_energy, 31);
-        let tgt_energy     = tgt_energy     << scale >> 16; 
+        let tgt_energy     = tgt_energy     << scale >> 16;
         let fwd_energy     = fwd_energy     << scale >> 16;
         let fwd_res_energy = fwd_res_energy << scale >> 16;
         let bwd_energy     = bwd_energy     << scale >> 16;
