@@ -984,7 +984,7 @@ impl NAEncoder for CinepakEncoder {
 
 const ENCODER_OPTS: &[NAOptionDefinition] = &[
     NAOptionDefinition {
-        name: "key_int", description: "Keyframe interval (0 - automatic)",
+        name: KEYFRAME_OPTION, description: KEYFRAME_OPTION_DESC,
         opt_type: NAOptionDefinitionType::Int(Some(0), Some(128)) },
     NAOptionDefinition {
         name: "nstrips", description: "Number of strips per frame (0 - automatic)",
@@ -1002,7 +1002,7 @@ println!("option {}", option.name);
             for opt_def in ENCODER_OPTS.iter() {
                 if opt_def.check(option).is_ok() {
                     match option.name {
-                        "key_int" => {
+                        KEYFRAME_OPTION => {
                             if let NAValue::Int(intval) = option.value {
                                 self.key_int = intval as u8;
                             }

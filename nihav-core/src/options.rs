@@ -8,6 +8,11 @@
 use std::sync::Arc;
 use std::fmt;
 
+/// Common name for keyframe interval option.
+pub const KEYFRAME_OPTION: &'static str = "key_int";
+/// Common description for keyframe interval option.
+pub const KEYFRAME_OPTION_DESC: &'static str = "Keyframe interval (0 - automatic)";
+
 /// A list specifying option parsing and validating errors.
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum OptionError {
