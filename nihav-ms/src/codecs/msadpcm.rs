@@ -421,7 +421,7 @@ mod test {
         ms_register_all_codecs(&mut dec_reg);
 
         test_decoding("avi", "ms-adpcm", "assets/MS/dance.avi", None, &dmx_reg, &dec_reg,
-                      ExpectedTestResult::MD5([0x9d6619e1, 0x60d83560, 0xfe5c1fb7, 0xad5d130d]));
+                      ExpectedTestResult::MD5([0xf5e3fc84, 0xbcabc11c, 0x33c6874e, 0xe05ecd14]));
     }
     #[cfg(feature="encoder_ms_adpcm")]
     #[test]
