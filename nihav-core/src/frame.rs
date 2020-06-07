@@ -53,12 +53,15 @@ pub struct NAVideoInfo {
     pub flipped:    bool,
     /// Picture pixel format.
     pub format:     NAPixelFormaton,
+    /// Declared bits per sample.
+    pub bits:       u8,
 }
 
 impl NAVideoInfo {
     /// Constructs a new `NAVideoInfo` instance.
     pub fn new(w: usize, h: usize, flip: bool, fmt: NAPixelFormaton) -> Self {
-        NAVideoInfo { width: w, height: h, flipped: flip, format: fmt }
+        let bits = fmt.get_total_depth();
+        NAVideoInfo { width: w, height: h, flipped: flip, format: fmt, bits }
     }
     /// Returns picture width.
     pub fn get_width(&self)  -> usize { self.width as usize }

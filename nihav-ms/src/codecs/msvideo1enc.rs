@@ -559,6 +559,7 @@ mod test {
                 height:  0,
                 format:  RGB555_FORMAT,
                 flipped: true,
+                bits:    16,
             };
         let enc_params = EncodeParameters {
                 format:  NACodecTypeInfo::Video(dst_vinfo),

@@ -415,7 +415,8 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
 
     let flip = height < 0;
     let format = if bitcount > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
-    let vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, format);
+    let mut vhdr = NAVideoInfo::new(width as usize, if flip { -height as usize } else { height as usize}, flip, format);
+    vhdr.bits = (planes as u8) * (bitcount as u8);
     let vci = NACodecTypeInfo::Video(vhdr);
     let edata = dmx.read_extradata(size - 40)?;
     if colors > 0 {

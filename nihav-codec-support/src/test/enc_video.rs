@@ -271,7 +271,7 @@ pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &Encode
              vinfo)
         } else {
             (ScaleInfo { fmt: YUV420_FORMAT, width: 2, height: 2 },
-             NAVideoInfo { width: 2, height: 2, format: YUV420_FORMAT, flipped: false })
+             NAVideoInfo { width: 2, height: 2, format: YUV420_FORMAT, flipped: false, bits: 12 })
         };
     let ofmt = ifmt;
     let mut scaler = NAScale::new(ifmt, ofmt).unwrap();
