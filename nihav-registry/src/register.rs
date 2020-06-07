@@ -226,6 +226,9 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+    (&[1, 0, 0, 0], "msrle"),
+    (&[2, 0, 0, 0], "msrle"),
+
     (b"CRAM", "msvideo1"),
     (b"MSVC", "msvideo1"),
     (b"WHAM", "msvideo1"),

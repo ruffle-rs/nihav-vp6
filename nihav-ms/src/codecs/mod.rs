@@ -4,6 +4,9 @@ macro_rules! validate {
     ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DecoderError::InvalidData); } };
 }
 
+#[cfg(feature="decoder_msrle")]
+pub mod msrle;
+
 #[cfg(feature="decoder_msvideo1")]
 pub mod msvideo1;
 
@@ -14,6 +17,8 @@ pub mod imaadpcm;
 pub mod msadpcm;
 
 const MS_CODECS: &[DecoderInfo] = &[
+#[cfg(feature="decoder_msrle")]
+    DecoderInfo { name: "msrle", get_decoder: msrle::get_decoder },
 #[cfg(feature="decoder_msvideo1")]
     DecoderInfo { name: "msvideo1", get_decoder: msvideo1::get_decoder },
 #[cfg(feature="decoder_ima_adpcm_ms")]

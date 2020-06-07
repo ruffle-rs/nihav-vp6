@@ -20,7 +20,8 @@ default = ["all_decoders", "all_encoders"]
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 decoders = []
 
-all_video_decoders = ["decoder_msvideo1"]
+all_video_decoders = ["decoder_msrle", "decoder_msvideo1"]
+decoder_msrle = ["decoders"]
 decoder_msvideo1 = ["decoders"]
 
 all_audio_decoders = ["decoder_ima_adpcm_ms", "decoder_ms_adpcm"]
