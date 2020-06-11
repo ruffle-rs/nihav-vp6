@@ -1132,19 +1132,29 @@ impl<'a> RealMediaDemuxer<'a> {
         Ok(())
     }
     fn parse_index(&mut self, seek_idx: &mut SeekIndex, chunk_size: usize, ver: u16) -> DemuxerResult<()> {
-        if ver != 0 { return Ok(()); }
+        if ver != 0 && ver != 2 { return Ok(()); }
         let num_entries     = self.src.read_u32be()? as usize;
         let str_id          = self.src.read_u16be()? as u32;
         let _next_idx       = self.src.read_u32be()?;
-        validate!(chunk_size == num_entries * 14 + 10);
+        if ver == 2 {
+                              self.src.read_u32be()?;
+        }
+        if ver == 0 {
+            validate!(chunk_size == num_entries * 14 + 10);
+        } else {
+            validate!(chunk_size == num_entries * 18 + 14);
+        }
         if num_entries == 0 { return Ok(()); }
 
         seek_idx.add_stream(str_id);
         let idx = seek_idx.get_stream_index(str_id).unwrap();
         for _ in 0..num_entries {
-            let ver         = self.src.read_u16be()? as u32;
-            validate!(ver == 0);
+            let iver        = self.src.read_u16be()?;
+            validate!(iver == ver);
             let ts          = self.src.read_u32be()? as u64;
+            if ver == 2 {
+                              self.src.read_u32be()?;
+            }
             let pos         = self.src.read_u32be()? as u64;
             let _pkt_no     = self.src.read_u32be()?;
             idx.add_entry(SeekEntry { time: ts, pts: 0, pos });
