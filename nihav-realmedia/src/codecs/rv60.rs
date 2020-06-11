@@ -1597,7 +1597,20 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         realmedia_register_all_codecs(&mut dec_reg);
 
-        test_file_decoding("realmedia", "assets/RV/RV60.rmhd", Some(4000), true, false, None/*Some("rv60")*/, &dmx_reg, &dec_reg);
-//panic!("end");
+        test_decoding("realmedia", "realvideo6", "assets/RV/RV60.rmhd", Some(1000), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5Frames(vec![
+                            [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],
+                            [0xea406850, 0x400802b8, 0xac106fb6, 0xe1e2e766],
+                            [0x2b1f1807, 0x09edef33, 0x0e6c78c1, 0x3b3c8179],
+                            [0xb04e2626, 0x976e16f5, 0xc41a7a78, 0x2d8765da],
+                            [0xf4f30d97, 0x7f2876eb, 0x265ffad4, 0x3542a7c4],
+                            [0xa5082524, 0x38a86952, 0x35bf1fee, 0xfc830d3f],
+                            [0x75eab1a2, 0x62e2222f, 0xe96a20d9, 0x652140b4],
+                            [0x7590fa49, 0x78c83490, 0x239eeff9, 0x64282ac7],
+                            [0x70b19e9f, 0x66c1f866, 0xb8d7142a, 0xf3e424b2],
+                            [0xc2934123, 0x3bf72fc4, 0x12d8d123, 0x1f39525b],
+                            [0x13344919, 0xecd01190, 0x2f69079b, 0xbf4d7026],
+                            [0xcefb3284, 0xa9b36d4d, 0xf1aa6752, 0xaae17d44],
+                            [0x57f01275, 0xf8e883ea, 0x4865752e, 0xc760a777]]));
     }
 }
