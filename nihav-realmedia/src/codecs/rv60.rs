@@ -1,11 +1,12 @@
 use nihav_core::formats::YUV420_FORMAT;
 use nihav_core::frame::*;
-use nihav_core::codecs::{NADecoder, NADecoderSupport, DecoderError, DecoderResult};
+use nihav_core::codecs::{NADecoder, NADecoderSupport, DecoderError, DecoderResult, FrameSkipMode};
 use nihav_core::options::*;
 use nihav_codec_support::codecs::{MV, ZERO_MV, IPBShuffler};
 use nihav_core::io::byteio::{MemoryReader,ByteReader};
 use nihav_core::io::bitreader::{BitReader,BitReaderMode};
 use nihav_core::io::intcode::*;
+use std::str::FromStr;
 
 use super::rv60codes::*;
 use super::rv60dsp::*;
@@ -615,6 +616,7 @@ struct RealVideo60Decoder {
     ipbs:       IPBShuffler,
     dsp:        RV60DSP,
     ipred:      IntraPredContext,
+    skip_mode:  FrameSkipMode,
 
     avg_buf:    NAVideoBufferRef<u8>,
 
@@ -657,6 +659,7 @@ impl RealVideo60Decoder {
             cbs:        RV60Codebooks::init(),
             ipbs:       IPBShuffler::new(),
             ipred:      IntraPredContext::new(),
+            skip_mode:  FrameSkipMode::default(),
             dsp:        RV60DSP::new(),
             avg_buf,
             y_coeffs:   [0; 16 * 16],
@@ -1443,6 +1446,24 @@ println!("???");
         let hsize = (src[0] as usize) * 8 + 9;
         let mut br = BitReader::new(&src[hsize..], BitReaderMode::BE);
         let hdr = FrameHeader::read(&mut br)?;
+        match self.skip_mode {
+            FrameSkipMode::None => {},
+            FrameSkipMode::KeyframesOnly => {
+                if hdr.ftype == FrameType::B {
+                    let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::None);
+                    frm.set_frame_type(FrameType::Skip);
+                    return Ok(frm.into_ref());
+                }
+            },
+            FrameSkipMode::IntraOnly => {
+                if hdr.ftype != FrameType::I {
+                    let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), NABufferType::None);
+                    frm.set_frame_type(FrameType::Skip);
+                    return Ok(frm.into_ref());
+                }
+            },
+        };
+
         let mut slices: Vec<usize> = Vec::new();
         hdr.parse_slice_sizes(&mut br, &mut slices)?;
         match hdr.ftype {
@@ -1522,10 +1543,40 @@ println!("???");
     }
 }
 
+const DECODER_OPTIONS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name: FRAME_SKIP_OPTION, description: FRAME_SKIP_OPTION_DESC,
+        opt_type: NAOptionDefinitionType::String(Some(&[
+                FRAME_SKIP_OPTION_VAL_NONE,
+                FRAME_SKIP_OPTION_VAL_KEYFRAME,
+                FRAME_SKIP_OPTION_VAL_INTRA
+            ])) },
+];
+
 impl NAOptionHandler for RealVideo60Decoder {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { DECODER_OPTIONS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            for opt_def in DECODER_OPTIONS.iter() {
+                if opt_def.check(option).is_ok() {
+                    match (option.name, &option.value) {
+                        (FRAME_SKIP_OPTION, NAValue::String(ref str)) => {
+                            if let Ok(smode) = FrameSkipMode::from_str(str) {
+                                self.skip_mode = smode;
+                            }
+                        },
+                        _ => {},
+                    }
+                }
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        match name {
+            FRAME_SKIP_OPTION => Some(NAValue::String(self.skip_mode.to_string())),
+            _ => None,
+        }
+    }
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
