@@ -13,6 +13,17 @@ pub const KEYFRAME_OPTION: &'static str = "key_int";
 /// Common description for keyframe interval option.
 pub const KEYFRAME_OPTION_DESC: &'static str = "Keyframe interval (0 - automatic)";
 
+/// Common name for frame skipping mode.
+pub const FRAME_SKIP_OPTION: &'static str = "frame_skip";
+/// Common description for frame skipping mode.
+pub const FRAME_SKIP_OPTION_DESC: &'static str = "Frame skipping mode";
+/// Frame skipping option value for no skipped frames.
+pub const FRAME_SKIP_OPTION_VAL_NONE: &'static str = "none";
+/// Frame skipping option value for decoding only keyframes.
+pub const FRAME_SKIP_OPTION_VAL_KEYFRAME: &'static str = "keyframes";
+/// Frame skipping option value for decoding only intra frames.
+pub const FRAME_SKIP_OPTION_VAL_INTRA: &'static str = "intra";
+
 /// A list specifying option parsing and validating errors.
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub enum OptionError {

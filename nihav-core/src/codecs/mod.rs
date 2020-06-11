@@ -4,6 +4,7 @@ use crate::io::byteio::ByteIOError;
 use crate::io::bitreader::BitReaderError;
 use crate::io::codebook::CodebookError;
 pub use crate::options::*;
+pub use std::str::FromStr;
 
 /// A list specifying general decoding errors.
 #[derive(Debug,Clone,Copy,PartialEq)]
@@ -128,6 +129,46 @@ impl RegisteredDecoders {
     /// Provides an iterator over currently registered decoders.
     pub fn iter(&self) -> std::slice::Iter<DecoderInfo> {
         self.decs.iter()
+    }
+}
+
+/// Frame skipping mode for decoders.
+#[derive(Clone,Copy,PartialEq,Debug)]
+pub enum FrameSkipMode {
+    /// Decode all frames.
+    None,
+    /// Decode all key frames.
+    KeyframesOnly,
+    /// Decode only intra frames.
+    IntraOnly,
+}
+
+impl Default for FrameSkipMode {
+    fn default() -> Self {
+        FrameSkipMode::None
+    }
+}
+
+impl FromStr for FrameSkipMode {
+    type Err = DecoderError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            FRAME_SKIP_OPTION_VAL_NONE      => Ok(FrameSkipMode::None),
+            FRAME_SKIP_OPTION_VAL_KEYFRAME  => Ok(FrameSkipMode::KeyframesOnly),
+            FRAME_SKIP_OPTION_VAL_INTRA     => Ok(FrameSkipMode::IntraOnly),
+            _ => Err(DecoderError::InvalidData),
+        }
+    }
+}
+
+impl ToString for FrameSkipMode {
+    fn to_string(&self) -> String {
+        match *self {
+            FrameSkipMode::None             => FRAME_SKIP_OPTION_VAL_NONE.to_string(),
+            FrameSkipMode::KeyframesOnly    => FRAME_SKIP_OPTION_VAL_KEYFRAME.to_string(),
+            FrameSkipMode::IntraOnly        => FRAME_SKIP_OPTION_VAL_INTRA.to_string(),
+        }
     }
 }
 
