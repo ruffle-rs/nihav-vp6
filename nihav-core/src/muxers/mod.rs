@@ -164,4 +164,8 @@ impl RegisteredMuxers {
         }
         None
     }
+    /// Provides an iterator over currently registered muxers.
+    pub fn iter(&self) -> std::slice::Iter<&MuxerCreator> {
+        self.muxes.iter()
+    }
 }

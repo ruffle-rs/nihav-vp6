@@ -459,4 +459,8 @@ impl RegisteredDemuxers {
         }
         None
     }
+    /// Provides an iterator over currently registered demuxers.
+    pub fn iter(&self) -> std::slice::Iter<&DemuxerCreator> {
+        self.dmxs.iter()
+    }
 }
