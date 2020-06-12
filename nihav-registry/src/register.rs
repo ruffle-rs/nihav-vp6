@@ -175,6 +175,7 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "cinepak",    "Cinepak"),
 
     desc!(video;    "msvideo1",      "MS Video 1"),
+    desc!(video;    "msrle",         "MS RLE"),
     desc!(audio;    "ms-adpcm",      "MS ADPCM"),
     desc!(audio;    "ima-adpcm-ms",  "IMA ADPCM (MS variant)"),
 
