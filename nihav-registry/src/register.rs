@@ -146,6 +146,8 @@ pub fn get_codec_description(name: &str) -> Option<&'static CodecDescription> {
 
 static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio-ll; "pcm", "PCM"),
+    desc!(audio;    "alaw", "A-law PCM"),
+    desc!(audio;    "ulaw", "mu-law PCM"),
 
     desc!(video-im; "indeo1", "Intel Raw IF09"),
     desc!(video-im; "indeo2", "Intel Indeo 2"),
@@ -178,6 +180,18 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "msrle",         "MS RLE"),
     desc!(audio;    "ms-adpcm",      "MS ADPCM"),
     desc!(audio;    "ima-adpcm-ms",  "IMA ADPCM (MS variant)"),
+
+    desc!(video;    "qt-smc",               "Apple Graphics"),
+    desc!(video;    "qt-rle",               "Apple Animation"),
+    desc!(video;    "apple-video",          "Apple video"),
+    desc!(video;    "sorenson-video",       "Sorenson Video"),
+    desc!(video;    "sorenson-video3",      "Sorenson Video 3"),
+    desc!(audio;    "mace-3",               "MACE 3:1"),
+    desc!(audio;    "mace-6",               "MACE 6:1"),
+    desc!(audio;    "ima-adpcm-qt",         "IMA ADPCM (Apple variant)"),
+    desc!(audio;    "qdesign-music",        "QDesign Music"),
+    desc!(audio;    "qdesign-music2",       "QDesign Music v2"),
+    desc!(audio;    "qualcomm-purevoice",   "Qualcomm PureVoice"),
 
     desc!(video;    "truemotion1",   "TrueMotion 1"),
     desc!(video-im; "truemotionrt",  "TrueMotion RT"),
@@ -292,6 +306,7 @@ static MOV_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"mjpa", "mjpeg-a"),
     (b"mjpb", "mjpeg-b"),
     (b"svqi", "sorenson-video"),
+    (b"svq3", "sorenson-video3"),
 
     (b"IV31", "indeo3"),
     (b"IV32", "indeo3"),
