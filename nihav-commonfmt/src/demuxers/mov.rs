@@ -421,13 +421,15 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                                   br.read_skip(31)?; // actual compressor name
             let depth           = br.read_u16be()?;
             let ctable_id       = br.read_u16be()?;
-            validate!(((depth & 0x1F) <= 8) || (ctable_id == 0xFFFF));
+            let grayscale = depth > 0x20 || depth == 1;
+            let depth = if grayscale { depth & 0x1F } else { depth };
+            validate!(depth <= 8 || (ctable_id == 0xFFFF));
             if ctable_id == 0 {
                 let max_pal_size = start_pos + size - br.tell();
                 let mut pal = [0; 1024];
                 read_palette(br, max_pal_size, &mut pal)?;
                 track.pal = Some(Arc::new(pal));
-            } else if (depth & 0x20) == 0 && (depth & 0x1F) <= 8 {
+            } else if (depth <= 8) && !grayscale {
                 match depth & 0x1F {
                     2 => {
                         let mut pal = [0; 1024];
@@ -444,12 +446,12 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                     },
                     _ => {},
                 };
-            } else if (depth & 0x1F) <= 8 {
+            } else if grayscale {
                 let mut pal = [0; 1024];
                 let cdepth = depth & 0x1F;
                 let size = 1 << cdepth;
                 for i in 0..size {
-                    let mut clr = (size - 1 - i) as u8;
+                    let mut clr = ((size - 1 - i) as u8) << (8 - cdepth);
                     let mut off = 8 - cdepth;
                     while off >= cdepth {
                         clr |= clr >> (8 - off);
@@ -473,7 +475,8 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                     "unknown"
                 };
             let format = if depth > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
-            let vhdr = NAVideoInfo::new(width, height, false, format);
+            let mut vhdr = NAVideoInfo::new(width, height, false, format);
+            vhdr.bits = depth as u8;
             let edata;
             if br.tell() - start_pos + 4 < size {
 //todo skip various common atoms
