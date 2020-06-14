@@ -2,11 +2,56 @@ use nihav_core::formats::*;
 use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 
-struct PCMDecoder { chmap: NAChannelMap }
+#[derive(Clone,Copy,Debug,PartialEq)]
+enum PCMMode {
+    Infinity,
+    ALaw,
+    MuLaw,
+}
+
+struct PCMDecoder {
+    chmap:  NAChannelMap,
+    mode:   PCMMode,
+}
+
+fn cvt_alaw(val: u8) -> i16 {
+    let val = val ^ 0x55;
+    let sign = (val & 0x80) != 0;
+    let exp  = ((val >> 4) & 7) + 4;
+    let mant = (val & 0xF) + if exp != 0 { 16 } else { 0 };
+    let aval = i16::from(mant) << exp;
+    if sign { aval } else { -aval }
+}
+
+fn cvt_mulaw(val: u8) -> i16 {
+    let val = !val;
+    let sign = (val & 0x80) != 0;
+    let exp  = ((val >> 4) & 7) + 3;
+    let mant = (val & 0xF) | 0x10;
+    let aval = (i16::from(mant) << exp) - 128 - 4;
+    if !sign { aval } else { -aval }
+}
 
 impl PCMDecoder {
-    fn new() -> Self {
-        PCMDecoder { chmap: NAChannelMap::new() }
+    fn new(mode: PCMMode) -> Self {
+        PCMDecoder { chmap: NAChannelMap::new(), mode }
+    }
+    fn decode_xlaw(&self, pkt: &NAPacket, duration: u64, srate: u32) -> DecoderResult<NAFrameRef> {
+        let pktbuf = pkt.get_buffer();
+        let channels = self.chmap.num_channels();
+        let abuf = alloc_audio_buffer(NAAudioInfo::new(srate, channels as u8, SND_S16_FORMAT, 1), duration as usize, self.chmap.clone())?;
+        let mut buf = abuf.get_abuf_i16().unwrap();
+        let dst = buf.get_data_mut().unwrap();
+        for (src, dst) in pktbuf.chunks(channels).zip(dst.chunks_mut(channels)) {
+            for (isamp, dsamp) in src.iter().zip(dst.iter_mut()) {
+                *dsamp = if self.mode == PCMMode::ALaw { cvt_alaw(*isamp) } else { cvt_mulaw(*isamp) };
+            }
+        }
+        let info = pkt.get_stream().get_info();
+        let mut frm = NAFrame::new_from_pkt(pkt, info, abuf);
+        frm.set_duration(Some(duration));
+        frm.set_keyframe(true);
+        Ok(frm.into_ref())
     }
 }
 
@@ -47,6 +92,9 @@ impl NADecoder for PCMDecoder {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             let duration = get_duration(&ainfo, pkt.get_duration(), pkt.get_buffer().len());
+            if self.mode != PCMMode::Infinity {
+                return self.decode_xlaw(pkt, duration, ainfo.sample_rate);
+            }
             let pktbuf = pkt.get_buffer();
             let abuf = NAAudioBuffer::new_from_buf(ainfo, pktbuf, self.chmap.clone());
             let mut frm = NAFrame::new_from_pkt(pkt, info, NABufferType::AudioPacked(abuf));
@@ -68,7 +116,15 @@ impl NAOptionHandler for PCMDecoder {
 }
 
 pub fn get_decoder() -> Box<dyn NADecoder + Send> {
-    Box::new(PCMDecoder::new())
+    Box::new(PCMDecoder::new(PCMMode::Infinity))
+}
+
+pub fn get_a_law_decoder() -> Box<dyn NADecoder + Send> {
+    Box::new(PCMDecoder::new(PCMMode::ALaw))
+}
+
+pub fn get_mu_law_decoder() -> Box<dyn NADecoder + Send> {
+    Box::new(PCMDecoder::new(PCMMode::MuLaw))
 }
 
 struct PCMEncoder {

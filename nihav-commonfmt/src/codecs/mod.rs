@@ -30,6 +30,10 @@ const DECODERS: &[DecoderInfo] = &[
 
 #[cfg(feature="decoder_pcm")]
     DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },
+#[cfg(feature="decoder_pcm")]
+    DecoderInfo { name: "alaw", get_decoder: pcm::get_a_law_decoder },
+#[cfg(feature="decoder_pcm")]
+    DecoderInfo { name: "ulaw", get_decoder: pcm::get_mu_law_decoder },
 #[cfg(feature="decoder_sipro")]
     DecoderInfo { name: "sipro", get_decoder: sipro::get_decoder },
 #[cfg(feature="decoder_ts102366")]
