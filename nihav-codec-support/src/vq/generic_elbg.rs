@@ -56,9 +56,6 @@ impl<T: VQElement, TS: VQElementSum<T>> Cluster<T, TS> {
         }
     }
     fn calc_dist(&mut self) {
-        if self.count != 0 {
-            self.dist = (self.dist + self.count / 2) / self.count;
-        }
     }
 }
 
