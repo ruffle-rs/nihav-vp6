@@ -181,7 +181,7 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
         let mut rng = RNG::new();
         let mut iterations = 0usize;
         let mut do_elbg_step = true;
-        while (iterations < 20) && (dist < prev_dist - prev_dist / 1000) {
+        while (iterations < 20) && (dist < prev_dist - prev_dist / 100) {
             prev_dist = dist;
             for i in 0..dst.len() {
                 old_cb[i] = self.clusters[i].centroid;
