@@ -446,7 +446,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                     },
                     _ => {},
                 };
-            } else if grayscale {
+            } else if grayscale && ctable_id != 0xFFFF {
                 let mut pal = [0; 1024];
                 let cdepth = depth & 0x1F;
                 let size = 1 << cdepth;
