@@ -148,9 +148,9 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
         clu1.calc_dist();
         clu0.dist + clu1.dist
     }
-    pub fn quantise(&mut self, src: &[T], dst: &mut [T]) {
+    pub fn quantise(&mut self, src: &[T], dst: &mut [T]) -> usize {
         if src.len() < 1 || dst.len() != self.clusters.len() {
-            return;
+            return 0;
         }
         let mut old_cb = vec![T::default(); self.clusters.len()];
         let mut prev_dist = std::u64::MAX;
@@ -176,6 +176,7 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
         entries.push(Entry { val: lastval, count: run });
         drop(elements);
 
+        let mut cw_count = 0;
         let mut low_u:  Vec<usize> = Vec::with_capacity(self.clusters.len());
         let mut high_u: Vec<usize> = Vec::with_capacity(self.clusters.len());
         let mut rng = RNG::new();
@@ -183,10 +184,19 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
         let mut do_elbg_step = true;
         while (iterations < 20) && (dist < prev_dist - prev_dist / 100) {
             prev_dist = dist;
-            for i in 0..dst.len() {
-                old_cb[i] = self.clusters[i].centroid;
-                self.clusters[i].reset();
+
+            cw_count = 0;
+            for cluster in self.clusters.iter() {
+                if cluster.count == 0 {
+                    continue;
+                }
+                old_cb[cw_count] = cluster.centroid;
+                cw_count += 1;
             }
+            for cluster in self.clusters.iter_mut() {
+                cluster.reset();
+            }
+
             // put points into the nearest clusters
             indices.truncate(0);
             for entry in entries.iter() {
@@ -279,10 +289,16 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
             iterations += 1;
         }
         if dist < prev_dist {
-            for i in 0..dst.len() {
-                old_cb[i] = self.clusters[i].centroid;
+            cw_count = 0;
+            for cluster in self.clusters.iter() {
+                if cluster.count == 0 {
+                    continue;
+                }
+                old_cb[cw_count] = cluster.centroid;
+                cw_count += 1;
             }
         }
         dst.copy_from_slice(&old_cb);
+        cw_count
     }
 }
