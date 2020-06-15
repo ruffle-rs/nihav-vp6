@@ -113,8 +113,8 @@ impl CinepakDecoder {
         let mut v1_only = false;
         while br.left() > 0 {
             let id                      = br.read_byte()?;
-            if (id & 0xF0) == 0x20 {
-                validate!(((id & 1) != 0) ^ is_intra_strip);
+            if (id & 0xF0) == 0x20 && is_intra_strip {
+                validate!((id & 1) == 0);
             }
             let size                    = br.read_u24be()? as usize;
             validate!(size >= 4 && (size - 4 <= (br.left() as usize)));
@@ -158,7 +158,7 @@ impl CinepakDecoder {
         let mut y = yoff;
         let mut block = [0u8; 24];
         while br.left() > 0 {
-            let flags = if !v1_only { br.read_u32be()? } else { 0xFFFFFFFF };
+            let mut flags = if !v1_only { br.read_u32be()? } else { 0x00000000 };
             let mut mask = 1 << 31;
             while mask > 0 {
                 if !is_intra {
@@ -173,8 +173,12 @@ impl CinepakDecoder {
                                 return Ok(());
                             }
                         }
+                        continue;
                     }
-                    continue;
+                    if mask == 0 {
+                        flags           = br.read_u32be()?;
+                        mask = 1 << 31;
+                    }
                 }
                 if (flags & mask) == 0 {
                     let idx         = br.read_byte()? as usize;
@@ -426,15 +430,15 @@ mod test {
         test_decoding("mov", "cinepak", "assets/Misc/dday.mov", Some(10), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
-                        [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
+                        [0x94f227d5, 0xbaa646ef, 0xab78f751, 0x8e1f50da],
+                        [0x555de93a, 0x625e77f0, 0x95611bae, 0xbd715e9d],
+                        [0xb31b9ba7, 0xba6327f8, 0x5698954f, 0xc16fad2a],
+                        [0xda86ffb6, 0x58deb79d, 0x59f62c5b, 0x1bd2a2c5],
+                        [0x2f46c7eb, 0x8950ac76, 0xbc68c470, 0x12e3247a],
+                        [0x77d73950, 0xf76b28b0, 0x3552bb52, 0x38900a51],
+                        [0xf4f45bef, 0x91146af2, 0xdcf4d44e, 0x713bf36e],
+                        [0x8e06d350, 0x787f245e, 0x32426903, 0xf35f7dd3],
+                        [0x0e35ebc1, 0xfdb6c520, 0x2bf484dc, 0xcec78b63],
                         [0xb8411fa4, 0x3a35f646, 0x85e8e04a, 0xfff58785]]));
     }
     #[test]
