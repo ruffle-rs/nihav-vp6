@@ -272,7 +272,7 @@ impl CinepakEncoder {
             pkt:        None,
             lastfrm:    None,
             frmcount:   0,
-            qmode:      QuantMode::ELBG,
+            qmode:      QuantMode::MedianCut,
             key_int:    25,
             quality:    0,
             nstrips:    2,
