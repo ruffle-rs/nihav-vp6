@@ -51,7 +51,9 @@ impl<T: VQElement, TS: VQElementSum<T>> Cluster<T, TS> {
         self.dist += u64::from(self.centroid.dist(entry.val)) * entry.count;
     }
     fn calc_centroid(&mut self) {
-        self.centroid = self.sum.get_centroid();
+        if self.count > 0 {
+            self.centroid = self.sum.get_centroid();
+        }
     }
     fn calc_dist(&mut self) {
         if self.count != 0 {
