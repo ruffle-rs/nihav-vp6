@@ -534,7 +534,8 @@ fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut S
                     let (tb_num, tb_den) = str.get_timebase();
                     let pts = counter[stream_no];
                     let time = NATimeInfo::ts_to_time(pts, 1000, tb_num, tb_den);
-                    seek_idx.add_entry(stream_no as u32, SeekEntry { time, pts, pos: offset + movi_pos - 4 });
+                    validate!(offset >= movi_pos);
+                    seek_idx.add_entry(stream_no as u32, SeekEntry { time, pts, pos: offset });
                 }
                 key_offs.push(offset);
             }
