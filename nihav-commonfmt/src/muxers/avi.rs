@@ -253,6 +253,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         write_chunk_hdr(&mut self.bw, str.get_media_type(), str_num as u32)?;
         self.bw.write_u32le(chunk_len)?;
         self.bw.write_buf(pkt.get_buffer().as_slice())?;
+        if (self.bw.tell() & 1) != 0 {
+            self.bw.write_byte(0)?;
+        }
         Ok(())
     }
     fn flush(&mut self) -> MuxerResult<()> {
