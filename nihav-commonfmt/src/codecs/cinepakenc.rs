@@ -1078,6 +1078,7 @@ mod test {
                 height:  0,
                 format:  YUV420_FORMAT,
                 flipped: true,
+                bits:    12,
             };
         let enc_params = EncodeParameters {
                 format:  NACodecTypeInfo::Video(dst_vinfo),
