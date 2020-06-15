@@ -243,6 +243,8 @@ struct CinepakEncoder {
     v4_cb:      [YUVCode; 256],
     v1_cur_cb:  [YUVCode; 256],
     v4_cur_cb:  [YUVCode; 256],
+    v1_len:     usize,
+    v4_len:     usize,
     v1_idx:     Vec<u8>,
     v4_idx:     Vec<u8>,
     grayscale:  bool,
@@ -280,6 +282,8 @@ impl CinepakEncoder {
             v4_cb:      [YUVCode::default(); 256],
             v1_cur_cb:  [YUVCode::default(); 256],
             v4_cur_cb:  [YUVCode::default(); 256],
+            v1_len:     0,
+            v4_len:     0,
             grayscale:  false,
             rng:        RNG::new(),
             v1_idx:     Vec::new(),
@@ -339,7 +343,7 @@ impl CinepakEncoder {
             voff += vstride * 2;
         }
     }
-    fn find_nearest(codebook: &[YUVCode; 256], code: YUVCode) -> (u8, u32) {
+    fn find_nearest(codebook: &[YUVCode], code: YUVCode) -> (u8, u32) {
         let mut min_dist = std::u32::MAX;
         let mut idx = 0;
         for (i, cw) in codebook.iter().enumerate() {
@@ -600,22 +604,33 @@ impl CinepakEncoder {
             QuantMode::ELBG => {
                 let mut elbg_v1: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v1_cb);
                 let mut elbg_v4: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v4_cb);
-                elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb);
-                elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb);
+
+                for entry in self.v1_cb.iter_mut().skip(self.v1_len) {
+                    self.rng.fill_entry(entry);
+                }
+                for entry in self.v4_cb.iter_mut().skip(self.v4_len) {
+                    self.rng.fill_entry(entry);
+                }
+
+                self.v1_len = elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb);
+                self.v4_len = elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb);
             },
             QuantMode::Hybrid => {
                 quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb);
                 quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb);
                 let mut elbg_v1: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v1_cur_cb);
                 let mut elbg_v4: ELBG<YUVCode, YUVCodeSum> = ELBG::new(&self.v4_cur_cb);
-                elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb);
-                elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb);
+                self.v1_len = elbg_v1.quantise(&self.v1_entries, &mut self.v1_cur_cb);
+                self.v4_len = elbg_v4.quantise(&self.v4_entries, &mut self.v4_cur_cb);
             },
             QuantMode::MedianCut => {
-                quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb);
-                quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb);
+                self.v1_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v1_entries, &mut self.v1_cur_cb);
+                self.v4_len = quantise_median_cut::<YUVCode, YUVCodeSum>(&self.v4_entries, &mut self.v4_cur_cb);
             },
         };
+
+        for e in self.v1_cur_cb.iter_mut().skip(self.v1_len) { *e = YUVCode::default(); }
+        for e in self.v4_cur_cb.iter_mut().skip(self.v4_len) { *e = YUVCode::default(); }
     }
     fn encode_intra(&mut self, bw: &mut ByteWriter, in_frm: &NAVideoBuffer<u8>) -> EncoderResult<bool> {
         let (width, height) = in_frm.get_dimensions(0);
@@ -660,16 +675,16 @@ impl CinepakEncoder {
             self.masks.reset();
 
             for (v1_entry, v4_entries) in self.v1_entries.iter().zip(self.v4_entries.chunks(4)) {
-                let (v1_idx, v1_dist) = Self::find_nearest(&self.v1_cur_cb, *v1_entry);
+                let (v1_idx, v1_dist) = Self::find_nearest(&self.v1_cur_cb[..self.v1_len], *v1_entry);
                 if v1_dist == 0 {
                     self.masks.put_v1();
                     self.v1_idx.push(v1_idx);
                     continue;
                 }
-                let (v40_idx, v40_dist) = Self::find_nearest(&self.v4_cur_cb, v4_entries[0]);
-                let (v41_idx, v41_dist) = Self::find_nearest(&self.v4_cur_cb, v4_entries[1]);
-                let (v42_idx, v42_dist) = Self::find_nearest(&self.v4_cur_cb, v4_entries[2]);
-                let (v43_idx, v43_dist) = Self::find_nearest(&self.v4_cur_cb, v4_entries[3]);
+                let (v40_idx, v40_dist) = Self::find_nearest(&self.v4_cur_cb[..self.v4_len], v4_entries[0]);
+                let (v41_idx, v41_dist) = Self::find_nearest(&self.v4_cur_cb[..self.v4_len], v4_entries[1]);
+                let (v42_idx, v42_dist) = Self::find_nearest(&self.v4_cur_cb[..self.v4_len], v4_entries[2]);
+                let (v43_idx, v43_dist) = Self::find_nearest(&self.v4_cur_cb[..self.v4_len], v4_entries[3]);
                 if v40_dist + v41_dist + v42_dist + v43_dist > v1_dist {
                     self.masks.put_v4();
                     self.v4_idx.push(v40_idx);
@@ -796,7 +811,7 @@ impl CinepakEncoder {
                     self.masks.put_inter(true);
                     continue;
                 }
-                let (v1_idx, v1_dist) = Self::find_nearest(&self.v1_cur_cb, *v1_entry);
+                let (v1_idx, v1_dist) = Self::find_nearest(&self.v1_cur_cb[..self.v1_len], *v1_entry);
                 if skip_dist < v1_dist {
                     self.masks.put_inter(true);
                     continue;
@@ -808,10 +823,10 @@ impl CinepakEncoder {
                     self.v1_idx.push(v1_idx);
                     continue;
                 }
-                let (v40_idx, v40_dist) = Self::find_nearest(&self.v4_cur_cb, v4_entries[0]);
-                let (v41_idx, v41_dist) = Self::find_nearest(&self.v4_cur_cb, v4_entries[1]);
-                let (v42_idx, v42_dist) = Self::find_nearest(&self.v4_cur_cb, v4_entries[2]);
-                let (v43_idx, v43_dist) = Self::find_nearest(&self.v4_cur_cb, v4_entries[3]);
+                let (v40_idx, v40_dist) = Self::find_nearest(&self.v4_cur_cb[..self.v4_len], v4_entries[0]);
+                let (v41_idx, v41_dist) = Self::find_nearest(&self.v4_cur_cb[..self.v4_len], v4_entries[1]);
+                let (v42_idx, v42_dist) = Self::find_nearest(&self.v4_cur_cb[..self.v4_len], v4_entries[2]);
+                let (v43_idx, v43_dist) = Self::find_nearest(&self.v4_cur_cb[..self.v4_len], v4_entries[3]);
                 if v40_dist + v41_dist + v42_dist + v43_dist > v1_dist {
                     self.masks.put_v4();
                     self.v4_idx.push(v40_idx);
