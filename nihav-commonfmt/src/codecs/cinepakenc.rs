@@ -707,10 +707,10 @@ impl CinepakEncoder {
 
             self.render_stripe(true, start_line, end_line);
 
-            if self.v1_idx.len() == 0 {
+            if self.v4_idx.len() == 0 {
                 bw.write_byte(0x32)?;
-                bw.write_u24be((self.v4_idx.len() + 4) as u32)?;
-                bw.write_buf(self.v4_idx.as_slice())?;
+                bw.write_u24be((self.v1_idx.len() + 4) as u32)?;
+                bw.write_buf(self.v1_idx.as_slice())?;
             } else {
                 bw.write_byte(0x30)?;
                 bw.write_u24be(0)?;
