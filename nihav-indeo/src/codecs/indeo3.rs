@@ -76,7 +76,7 @@ impl Buffers {
         let mut sidx = soff;
         let mut didx = doff;
         for _ in 0..h {
-            for i in 0..w { self.dbuf[didx + i] = self.sbuf[sidx + i]; }
+            self.dbuf[didx..][..w].copy_from_slice(&self.sbuf[sidx..][..w]);
             sidx += stride;
             didx += stride;
         }
@@ -92,7 +92,7 @@ impl Buffers {
         } else {
             for i in 0..w { buf[i] = self.dbuf[didx - stride + i]; }
             for _ in 0..h {
-                for i in 0..w { self.dbuf[didx + i] = buf[i]; }
+                self.dbuf[didx..][..w].copy_from_slice(&buf[..w]);
                 didx += stride;
             }
         }
@@ -153,12 +153,12 @@ fn copy_line_top(bufs: &mut Buffers, off: usize, stride: usize, bw: usize, topli
     let mut buf: [u8; 8] = [0; 8];
     if !topline {
         let src = &bufs.dbuf[(off - stride)..(off - stride + bw)];
-        for i in 0..bw { buf[i] = src[i]; }
+        buf[..bw].copy_from_slice(&src[..bw]);
     } else {
         for i in 0..bw { buf[i] = DEFAULT_PIXEL; }
     }
     let dst = &mut bufs.dbuf[off..][..bw];
-    for i in 0..bw { dst[i] = buf[i]; }
+    dst.copy_from_slice(&buf[..bw]);
 }
 
 fn copy_line_top4x4(bufs: &mut Buffers, off: usize, stride: usize, topline: bool) {
@@ -179,7 +179,7 @@ fn copy_line_top8x8(bufs: &mut Buffers, off: usize, stride: usize, topline: bool
         for i in 0..8 { buf[i] = DEFAULT_PIXEL; }
     }
     let dst = &mut bufs.dbuf[off..][..8];
-    for i in 0..8 {dst[i] = buf[i]; }
+    dst.copy_from_slice(&buf[..8]);
 }
 
 fn fill_block8x8(bufs: &mut Buffers, doff: usize, stride: usize, h: usize, topline: bool, firstline: bool) {
@@ -200,7 +200,7 @@ fn fill_block8x8(bufs: &mut Buffers, doff: usize, stride: usize, h: usize, topli
         didx += stride;
     }
     for _ in start..h {
-        for i in 0..8 { bufs.dbuf[didx + i] = buf[i]; }
+        bufs.dbuf[didx..][..8].copy_from_slice(&buf[..8]);
         didx += stride;
     }
 }
@@ -325,6 +325,7 @@ impl Indeo3Decoder {
         Ok((self.bbuf >> self.bpos) & 0x3)
     }
 
+    #[allow(clippy::cyclomatic_complexity)]
     fn decode_cell_data(&mut self, br: &mut ByteReader, cell: IV3Cell,
                         off: usize, stride: usize, params: CellDecParams, vq_idx: u8) -> DecoderResult<()> {
         let blk_w = cell.w * 4 / params.bw;

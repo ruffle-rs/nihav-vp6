@@ -157,13 +157,13 @@ fn deblock_hor(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usiz
     let dptr = buf.get_data_mut().unwrap();
     let buf = dptr.as_mut_slice();
     for x in 0..8 {
-        let a = buf[off - 2 * stride + x] as i16;
-        let b = buf[off - 1 * stride + x] as i16;
-        let c = buf[off + 0 * stride + x] as i16;
-        let d = buf[off + 1 * stride + x] as i16;
+        let a = i16::from(buf[off - 2 * stride + x]);
+        let b = i16::from(buf[off - 1 * stride + x]);
+        let c = i16::from(buf[off + 0 * stride + x]);
+        let d = i16::from(buf[off + 1 * stride + x]);
         let diff = (3 * (a - d) + 8 * (c - b)) / 16;
         if (diff != 0) && (diff > -24) && (diff < 24) {
-            let d1a = (diff.abs() - 2 * (diff.abs() - (strength as i16)).max(0)).max(0);
+            let d1a = (diff.abs() - 2 * (diff.abs() - i16::from(strength)).max(0)).max(0);
             let d1  = if diff < 0 { -d1a } else { d1a };
 
             buf[off - 1 * stride + x] = (b + d1).max(0).min(255) as u8;
@@ -177,13 +177,13 @@ fn deblock_ver(buf: &mut NAVideoBuffer<u8>, comp: usize, strength: u8, off: usiz
     let dptr = buf.get_data_mut().unwrap();
     let buf = dptr.as_mut_slice();
     for y in 0..8 {
-        let a = buf[off - 2 + y * stride] as i16;
-        let b = buf[off - 1 + y * stride] as i16;
-        let c = buf[off + 0 + y * stride] as i16;
-        let d = buf[off + 1 + y * stride] as i16;
+        let a = i16::from(buf[off - 2 + y * stride]);
+        let b = i16::from(buf[off - 1 + y * stride]);
+        let c = i16::from(buf[off + 0 + y * stride]);
+        let d = i16::from(buf[off + 1 + y * stride]);
         let diff = (3 * (a - d) + 8 * (c - b)) / 16;
         if (diff != 0) && (diff > -24) && (diff < 24) {
-            let d1a = (diff.abs() - 2 * (diff.abs() - (strength as i16)).max(0)).max(0);
+            let d1a = (diff.abs() - 2 * (diff.abs() - i16::from(strength)).max(0)).max(0);
             let d1  = if diff < 0 { -d1a } else { d1a };
 
             buf[off - 1 + y * stride] = (b + d1).max(0).min(255) as u8;
@@ -448,6 +448,7 @@ fn decode_b_info(br: &mut BitReader, is_pb: bool, is_ipb: bool, is_intra: bool) 
 impl<'a> BlockDecoder for Intel263BR<'a> {
 
 #[allow(unused_variables)]
+#[allow(clippy::unreadable_literal)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         let br = &mut self.br;
         let syncw = br.read(22)?;

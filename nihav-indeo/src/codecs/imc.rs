@@ -103,6 +103,7 @@ impl BitAlloc {
             self.skip_flag[i]       = false;
         }
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn calculate_bit_allocation(&mut self, ch_data: &mut IMCChannel, bits: usize, fixed_head: bool, adj_idx: usize) -> DecoderResult<()> {
 
         let mut peak = 0.0;

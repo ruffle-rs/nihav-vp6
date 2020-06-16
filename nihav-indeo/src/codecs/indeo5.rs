@@ -265,6 +265,7 @@ impl IndeoXParser for Indeo5Parser {
         Ok(BandHeader::new(plane_no, band_no, self.mb_size[band_id], self.blk_size[band_id], self.is_hpel[band_id], inherit_mv, has_qdelta, inherit_qd, band_q, rvmap_idx, num_corr, corr_map, blk_cb, tr, txtype))
     }
 
+    #[allow(clippy::cyclomatic_complexity)]
     fn decode_mb_info(&mut self, br: &mut BitReader, pic_hdr: &PictureHeader, band: &BandHeader, tile: &mut IVITile, ref_tile: Option<&IVITile>, mv_scale: u8) -> DecoderResult<()> {
         let mut mv_x = 0;
         let mut mv_y = 0;

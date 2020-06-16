@@ -228,7 +228,8 @@ let tile_end = tile_start + len * 8;
     Ok(())
 }
 
-fn decode_block8x8(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tables: &TxParams8x8, is_intra: bool, is_2d: bool, prev_dc: &mut i32, quant: u8, coeffs: &mut [i32; 64], transform: &TrFunc) -> DecoderResult<()> {
+#[allow(clippy::cast_lossless)]
+fn decode_block8x8(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tables: &TxParams8x8, is_intra: bool, is_2d: bool, prev_dc: &mut i32, quant: u8, coeffs: &mut [i32; 64], transform: TrFunc) -> DecoderResult<()> {
     let mut idx: isize = -1;
     let quant_mat = if is_intra { tables.quant_intra } else { tables.quant_inter };
     while idx <= 64 {
@@ -278,7 +279,8 @@ fn decode_block8x8(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tabl
     (transform)(coeffs);
     Ok(())
 }
-fn decode_block4x4(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tables: &TxParams4x4, is_intra: bool, is_2d: bool, prev_dc: &mut i32, quant: u8, coeffs: &mut [i32; 64], transform: &TrFunc) -> DecoderResult<()> {
+#[allow(clippy::cast_lossless)]
+fn decode_block4x4(br: &mut BitReader, blk_cb: &IVICodebook, rvmap: &RVMap, tables: &TxParams4x4, is_intra: bool, is_2d: bool, prev_dc: &mut i32, quant: u8, coeffs: &mut [i32; 64], transform: TrFunc) -> DecoderResult<()> {
     let mut idx: isize = -1;
     let quant_mat = if is_intra { tables.quant_intra } else { tables.quant_inter };
     while idx <= 64 {
@@ -620,7 +622,7 @@ impl IVIDecoder {
                     dec.decode_mb_info(br, pic_hdr, &band, tile, ref_tile, mv_scale)?;
                 }
 
-                self.decode_tile(br, &band, tile_no, &tr, &tr_dc)?;
+                self.decode_tile(br, &band, tile_no, tr, tr_dc)?;
 let skip_part = tile_end - br.tell();
 br.skip(skip_part as u32)?;
             } else {
@@ -663,14 +665,14 @@ br.skip(skip_part as u32)?;
                         }
                     }
                 }
-                self.decode_tile(br, &band, tile_no, &tr, &tr_dc)?;
+                self.decode_tile(br, &band, tile_no, tr, tr_dc)?;
             }
         }
         self.bands[bidx] = band;
         br.align();
         Ok(())
     }
-    fn decode_tile(&mut self, br: &mut BitReader, band: &BandHeader, tile_no: usize, tr: &TrFunc, transform_dc: &TrFuncDC) -> DecoderResult<()> {
+    fn decode_tile(&mut self, br: &mut BitReader, band: &BandHeader, tile_no: usize, tr: TrFunc, transform_dc: TrFuncDC) -> DecoderResult<()> {
         let mut mb_idx = 0;
         let mut prev_dc: i32 = 0;
         let tile = &mut self.tiles[tile_no];
