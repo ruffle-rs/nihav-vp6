@@ -58,6 +58,7 @@ impl MSADPCMDecoder {
 }
 
 impl NADecoder for MSADPCMDecoder {
+    #[allow(clippy::int_plus_one)]
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.block_len = ainfo.get_block_len();
@@ -96,7 +97,7 @@ impl NADecoder for MSADPCMDecoder {
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
             let pktbuf = pkt.get_buffer();
             let channels = self.chmap.num_channels();
-            validate!(pktbuf.len() > 0 && (pktbuf.len() % self.block_len) == 0);
+            validate!(!pktbuf.is_empty() && (pktbuf.len() % self.block_len) == 0);
             let nblocks = pktbuf.len() / self.block_len;
             let nsamples = nblocks * self.block_samps;
             let abuf = alloc_audio_buffer(self.ainfo, nsamples, self.chmap.clone())?;
@@ -186,7 +187,7 @@ const DEFAULT_BLOCK_LEN: usize = 256;
 impl MSADPCMEncoder {
     fn new() -> Self { Self::default() }
     fn encode_packet(&mut self) -> EncoderResult<NAPacket> {
-        if self.samples.len() == 0 {
+        if self.samples.is_empty() {
             return Err(EncoderError::TryAgain);
         }
         let len = (self.samples.len() / self.channels).min(self.block_len);
@@ -302,9 +303,9 @@ impl NAEncoder for MSADPCMEncoder {
             NACodecTypeInfo::None => {
                 let mut ofmt = EncodeParameters::default();
                 ofmt.format = NACodecTypeInfo::Audio(NAAudioInfo::new(0, 1, SND_S16_FORMAT, DEFAULT_BLOCK_LEN));
-                return Ok(ofmt);
+                Ok(ofmt)
             },
-            NACodecTypeInfo::Video(_) => return Err(EncoderError::FormatError),
+            NACodecTypeInfo::Video(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Audio(ainfo) => {
                 let mut outinfo = ainfo;
                 outinfo.channels = outinfo.channels.min(2);
@@ -322,9 +323,9 @@ impl NAEncoder for MSADPCMEncoder {
                 }
                 let mut ofmt = *encinfo;
                 ofmt.format = NACodecTypeInfo::Audio(outinfo);
-                return Ok(ofmt);
+                Ok(ofmt)
             }
-        };
+        }
     }
     fn init(&mut self, stream_id: u32, encinfo: EncodeParameters) -> EncoderResult<NAStreamRef> {
         match encinfo.format {

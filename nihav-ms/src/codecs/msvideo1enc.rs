@@ -6,7 +6,7 @@ use nihav_codec_support::vq::*;
 struct Pixel16(u16);
 
 impl Pixel16 {
-    fn unpack(&self) -> (u8, u8, u8) {
+    fn unpack(self) -> (u8, u8, u8) {
         (((self.0 >> 10) & 0x1F) as u8, ((self.0 >> 5) & 0x1F) as u8, (self.0 & 0x1F) as u8)
     }
     fn pack(r: u8, g: u8, b: u8) -> Self {
@@ -409,7 +409,7 @@ impl NAEncoder for MSVideo1Encoder {
                 ofmt.format = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, true, RGB555_FORMAT));
                 Ok(ofmt)
             },
-            NACodecTypeInfo::Audio(_) => return Err(EncoderError::FormatError),
+            NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {
                 let outinfo = NAVideoInfo::new((vinfo.width + 3) & !3, (vinfo.height + 3) & !3, true, RGB555_FORMAT);
                 let mut ofmt = *encinfo;
@@ -431,11 +431,11 @@ impl NAEncoder for MSVideo1Encoder {
                 }
 
                 let out_info = NAVideoInfo::new(vinfo.width, vinfo.height, true, RGB555_FORMAT);
-                let info = NACodecInfo::new("msvideo1", NACodecTypeInfo::Video(out_info.clone()), None);
+                let info = NACodecInfo::new("msvideo1", NACodecTypeInfo::Video(out_info), None);
                 let mut stream = NAStream::new(StreamType::Video, stream_id, info, encinfo.tb_num, encinfo.tb_den);
                 stream.set_num(stream_id as usize);
                 let stream = stream.into_ref();
-                if let Err(_) = self.pool.prealloc_video(out_info, 2) {
+                if self.pool.prealloc_video(out_info, 2).is_err() {
                     return Err(EncoderError::AllocError);
                 }
 
