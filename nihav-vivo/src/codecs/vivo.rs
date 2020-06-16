@@ -79,7 +79,7 @@ impl<'a> VivoBR<'a> {
                 };
 
         let rl_cb = if self.aic && intra { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
-        let q = if plane_no == 0 { (quant * 2) as i16 } else { (H263_CHROMA_QUANT[quant as usize] * 2) as i16 };
+        let q = if plane_no == 0 { i16::from(quant * 2) } else { i16::from(H263_CHROMA_QUANT[quant as usize] * 2) };
         let q_add = if q == 0 || self.aic { 0i16 } else { (((q >> 1) - 1) | 1) as i16 };
         while idx < 64 {
             let code = br.read_cb(rl_cb)?;
@@ -168,6 +168,7 @@ fn decode_b_info(br: &mut BitReader, is_pb: bool, is_ipb: bool, is_intra: bool) 
 impl<'a> BlockDecoder for VivoBR<'a> {
 
 #[allow(unused_variables)]
+#[allow(clippy::unreadable_literal)]
     fn decode_pichdr(&mut self) -> DecoderResult<PicInfo> {
         let br = &mut self.br;
         let syncw = br.read(22)?;

@@ -163,7 +163,7 @@ impl<'a> VivoDemuxer<'a> {
     fn parse_header_packet(&mut self, pkt: &[u8]) -> DemuxerResult<()> {
         for entry in pkt.split(|ch| *ch == 0xD) {
             if entry.len() < 3 || !entry.contains(&b':') { continue; }
-            let entry = if entry.len() > 0 && entry[0] == 0xA { &entry[1..] } else { entry };
+            let entry = if !entry.is_empty() && entry[0] == 0xA { &entry[1..] } else { entry };
             let mut split = entry.split(|ch| *ch == b':');
             let name  = split.next().unwrap();
             let value = split.next().unwrap();

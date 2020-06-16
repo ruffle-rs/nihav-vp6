@@ -6,10 +6,16 @@ macro_rules! validate {
 }
 
 #[cfg(any(feature="decoder_vivo1", feature="decoder_vivo2"))]
+#[allow(clippy::useless_let_if_seq)]
 mod vivo;
 #[cfg(feature="decoder_g723_1")]
+#[allow(clippy::needless_range_loop)]
+#[allow(clippy::unreadable_literal)]
+#[allow(clippy::useless_let_if_seq)]
 mod g723_1;
 #[cfg(feature="decoder_siren")]
+#[allow(clippy::approx_constant)]
+#[allow(clippy::needless_range_loop)]
 mod siren;
 
 const VIVO_CODECS: &[DecoderInfo] = &[

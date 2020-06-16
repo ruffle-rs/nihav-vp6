@@ -203,9 +203,7 @@ impl SirenDecoder {
 
         self.power_cat = max_rate_cat;
 
-        for i in 0..MAX_RC {
-            self.cat_balance[i] = temp_cat[max_offset + i];
-        }
+        self.cat_balance[..MAX_RC].copy_from_slice(&temp_cat[max_offset..][..MAX_RC]);
 
         for cat in self.cat_balance.iter().take(rate_ctl) {
             self.power_cat[*cat] += 1;
@@ -228,7 +226,7 @@ impl SirenDecoder {
 
                 'vec_loop: for i in 0..num_vecs {
                     let ret             = br.read_cb(cb);
-                    if let Err(_) = ret {
+                    if ret.is_err() {
                         error = true;
                         break 'vec_loop;
                     }

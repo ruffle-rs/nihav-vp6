@@ -171,7 +171,7 @@ impl Subframe {
     fn compute_ppf_gains(&mut self, offset: usize, is_6300: bool, tgt_energy: i32, corr_energy: i32, res_energy: i32) {
         self.ppf_index = offset;
 
-        let tmp1 = tgt_energy * res_energy >> 1;
+        let tmp1 = (tgt_energy * res_energy) >> 1;
         let tmp2 = corr_energy * corr_energy * 2;
         if tmp1 >= tmp2 {
             return;
@@ -180,11 +180,11 @@ impl Subframe {
         self.ppf_opt_gain = if corr_energy >= res_energy {
                 gain_weight
             } else {
-                (corr_energy << 15) / res_energy * gain_weight >> 15
+                ((corr_energy << 15) / res_energy * gain_weight) >> 15
             };
 
         let tmp1 = (tgt_energy << 15) + (corr_energy * self.ppf_opt_gain * 2);
-        let tmp2 = (self.ppf_opt_gain * self.ppf_opt_gain >> 15) * res_energy;
+        let tmp2 = ((self.ppf_opt_gain * self.ppf_opt_gain) >> 15) * res_energy;
 
         let residual = tmp1.saturating_add(tmp2).saturating_add(1 << 15) >> 16;
 
@@ -195,7 +195,7 @@ impl Subframe {
             self.ppf_sc_gain = square_root_i32(val << 16);
         }
 
-        self.ppf_opt_gain = i32::from(clip16(self.ppf_opt_gain * self.ppf_sc_gain >> 15));
+        self.ppf_opt_gain = i32::from(clip16((self.ppf_opt_gain * self.ppf_sc_gain) >> 15));
     }
 }
 
@@ -229,7 +229,7 @@ impl PRNG {
     }
     fn next_range(&mut self, range: usize) -> usize {
         let val = (self.next() & 0x7FFF) as usize;
-        val * range >> 15
+        (val * range) >> 15
     }
 }
 
@@ -356,9 +356,9 @@ impl G7231Decoder {
                                           br.read(1)?;
             let mut ppos                = br.read(13)? as usize;
             self.subframe[0].pulse_pos = ppos / 810;
-            ppos = ppos % 810;
+            ppos %= 810;
             self.subframe[1].pulse_pos = ppos / 90;
-            ppos = ppos % 90;
+            ppos %= 90;
             self.subframe[2].pulse_pos = ppos / 9;
             self.subframe[3].pulse_pos = ppos % 9;
 
@@ -438,7 +438,7 @@ impl G7231Decoder {
             } else {
                 if self.interp_index != 0 {
                     for i in 0..self.interp_index {
-                        let sample = i32::from(self.excitation[MAX_PITCH + i]) * 3 >> 2;
+                        let sample = (i32::from(self.excitation[MAX_PITCH + i]) * 3) >> 2;
                         self.synth_buf[LPC_ORDER + i] = sample as i16;
                     }
                     for i in self.interp_index..SAMPLES {
@@ -468,7 +468,7 @@ impl G7231Decoder {
         const CNG_BSEG: [i32; 3] = [ 2048, 18432, 231233 ];
         let shift = 16 - cur_gain * 2;
         let t = if shift > 0 { sid_gain << shift } else { sid_gain >> -shift };
-        let x = t * 273 >> 16;
+        let x = (t * 273) >> 16;
         if x >= CNG_BSEG[2] {
             return 63;
         }
@@ -600,19 +600,19 @@ impl G7231Decoder {
             }
             b0 = ((i64::from(b0) * 2 * 2979 + (1 << 29)) >> 30) as i32;
 
-            let mut c = self.cur_gain * (self.cur_gain * (SUBFRAME_LEN as i32) >> 5);
+            let mut c = self.cur_gain * ((self.cur_gain * (SUBFRAME_LEN as i32)) >> 5);
             if shift * 2 + 3 >= 0 {
                 c >>= shift * 2 + 3;
             } else {
                 c <<= -(shift * 2 + 3);
             }
-            c = (i64::from(clip32(sum * 2) - c) * 2979 >> 15) as i32;
+            c = ((i64::from(clip32(sum * 2) - c) * 2979) >> 15) as i32;
 
             let delta = b0 * b0 * 2 - c;
             let x = if delta <= 0 {
                     -b0
                 } else {
-                    let d0 = i32::from(square_root_i32(delta));
+                    let d0 = square_root_i32(delta);
                     let x0 = d0 - b0;
                     let t  = d0 + b0;
                     if t.abs() < x0.abs() {
@@ -624,7 +624,7 @@ impl G7231Decoder {
             let shift = shift + 1;
             let x = (if shift >= 0 { x << shift } else { x >> -shift }).min(10000).max(-10000);
             for j in 0..11 {
-                let val = x * signs[i / 2][j] >> 15;
+                let val = (x * signs[i / 2][j]) >> 15;
                 buf[pos[i / 2 * 11 + j]] = buf[pos[i / 2 * 11 + j]].saturating_add(val as i16);
             }
 
@@ -653,7 +653,7 @@ impl G7231Decoder {
         let best_energy = dot_product(&self.synth_buf[LPC_ORDER + MAX_PITCH + SUBFRAME_LEN * 2 - pos..], &self.synth_buf[LPC_ORDER + MAX_PITCH + SUBFRAME_LEN * 2 - pos..], SUBFRAME_LEN * 2);
         let best_energy = best_energy.saturating_add(1 << 15) >> 16;
 
-        let tmp = best_energy * self.sid_gain >> 3;
+        let tmp = (best_energy * self.sid_gain) >> 3;
 
         if tmp < corr_energy * corr_energy {
             self.interp_index = pos;
@@ -927,7 +927,7 @@ impl NADecoder for G7231Decoder {
         let mut bad_frame = false;
 
         let mut br = BitReader::new(src.as_slice(), BitReaderMode::LE);
-        if let Err(_) = self.unpack_frame(&mut br) {
+        if self.unpack_frame(&mut br).is_err() {
             bad_frame = true;
             self.cur_ftype = if self.prev_ftype == G7231FrameType::Active {
                     G7231FrameType::Active
