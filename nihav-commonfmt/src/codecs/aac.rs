@@ -1003,6 +1003,7 @@ impl DSP {
             tmp: [0.0; 2048], ew_buf: [0.0; 1152],
         }
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn synth(&mut self, coeffs: &[f32; 1024], delay: &mut [f32; 1024], seq: u8, window_shape: bool, prev_window_shape: bool, dst: &mut [f32]) {
         let long_win  = if window_shape { &self.kbd_long_win  } else { &self.sine_long_win };
         let short_win = if window_shape { &self.kbd_short_win } else { &self.sine_short_win };

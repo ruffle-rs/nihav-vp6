@@ -51,7 +51,7 @@ impl<'a> MuxCore<'a> for WAVMuxer<'a> {
                 twocc.unwrap_or(0)
             };
         let avg_bytes_per_sec = if stream.get_info().get_name() == "pcm" {
-                u32::from(ainfo.channels) * ainfo.sample_rate * u32::from(ainfo.format.bits) >> 3
+                (u32::from(ainfo.channels) * ainfo.sample_rate * u32::from(ainfo.format.bits)) >> 3
             } else {
                 0
             };
@@ -59,11 +59,11 @@ impl<'a> MuxCore<'a> for WAVMuxer<'a> {
         self.bw.write_buf(b"RIFF\0\0\0\0WAVEfmt ")?;
         self.bw.write_u32le(if edata_len == 0 { 16 } else { 18 + edata_len } as u32)?;
         self.bw.write_u16le(twocc)?;
-        self.bw.write_u16le(ainfo.channels as u16)?;
+        self.bw.write_u16le(u16::from(ainfo.channels))?;
         self.bw.write_u32le(ainfo.sample_rate)?;
         self.bw.write_u32le(avg_bytes_per_sec)?;
         self.bw.write_u16le(ainfo.block_len as u16)?;
-        self.bw.write_u16le(ainfo.format.bits as u16)?;
+        self.bw.write_u16le(u16::from(ainfo.format.bits))?;
         if let Some(ref buf) = stream.get_info().get_extradata() {
             self.bw.write_u16le(edata_len as u16)?;
             self.bw.write_buf(buf.as_slice())?;

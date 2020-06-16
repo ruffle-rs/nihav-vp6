@@ -218,7 +218,7 @@ enum QuantMode {
     MedianCut,
 }
 
-impl QuantMode {
+impl std::string::ToString for QuantMode {
     fn to_string(&self) -> String {
         match *self {
             QuantMode::ELBG => "elbg".to_string(),
@@ -436,7 +436,7 @@ impl CinepakEncoder {
             for _ in (start..end).step_by(4) {
                 for x in (0..width).step_by(4) {
                     if cur_bit == 0 {
-                        if !intra || self.v1_idx.len() > 0 {
+                        if !intra || !self.v1_idx.is_empty() {
                             cur_mask = *miter.next().unwrap();
                         } else {
                             cur_mask = 0xFFFFFFFF;
@@ -722,7 +722,7 @@ impl CinepakEncoder {
 
             self.render_stripe(true, start_line, end_line);
 
-            if self.v4_idx.len() == 0 {
+            if self.v4_idx.is_empty() {
                 bw.write_byte(0x32)?;
                 bw.write_u24be((self.v1_idx.len() + 4) as u32)?;
                 bw.write_buf(self.v1_idx.as_slice())?;
@@ -917,7 +917,7 @@ impl NAEncoder for CinepakEncoder {
                 ofmt.format = NACodecTypeInfo::Video(NAVideoInfo::new(0, 0, true, YUV420_FORMAT));
                 Ok(ofmt)
             },
-            NACodecTypeInfo::Audio(_) => return Err(EncoderError::FormatError),
+            NACodecTypeInfo::Audio(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Video(vinfo) => {
                 let pix_fmt = if vinfo.format == GRAY_FORMAT { GRAY_FORMAT } else { YUV420_FORMAT };
                 let outinfo = NAVideoInfo::new((vinfo.width + 3) & !3, (vinfo.height + 3) & !3, true, pix_fmt);
@@ -943,7 +943,7 @@ impl NAEncoder for CinepakEncoder {
                 }
 
                 let out_info = NAVideoInfo::new(vinfo.width, vinfo.height, false, vinfo.format);
-                let info = NACodecInfo::new("cinepak", NACodecTypeInfo::Video(out_info.clone()), None);
+                let info = NACodecInfo::new("cinepak", NACodecTypeInfo::Video(out_info), None);
                 let mut stream = NAStream::new(StreamType::Video, stream_id, info, encinfo.tb_num, encinfo.tb_den);
                 stream.set_num(stream_id as usize);
                 let stream = stream.into_ref();

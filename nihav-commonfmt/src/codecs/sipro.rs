@@ -202,11 +202,9 @@ impl SiproDecoder {
             newfilt[i] = filter[i] + 0.33 * self.lsf_hist[i] + SIPRO_MEAN_LSF_LBR[i];
         }
         for i in 0..8 { // maybe it's just bubble sort?
-            for j in (0..i+1).rev() {
+            for j in (0..=i).rev() {
                 if newfilt[j] <= newfilt[j + 1] { break; }
-                let tmp = newfilt[j];
-                newfilt[j] = newfilt[j + 1];
-                newfilt[j + 1] = tmp;
+                newfilt.swap(j, j + 1);
             }
         }
 
@@ -315,7 +313,7 @@ impl SiproDecoder {
         self.fix_vec = [0.0; 80];
         let pitch_frac = SIPRO_GAIN_PITCH_CB_16K[self.gp_index[sf]].min(1.0);
         for i in 0..10 {
-            let mut scale = self.pulse_data[i * 2 + 1] as f32;
+            let mut scale = f32::from(self.pulse_data[i * 2 + 1]);
             let off = self.pulse_data[i * 2 + 0] as usize;
             for j in (off..80).step_by(self.prev_pitch) {
                 self.fix_vec[j] += scale;
@@ -364,6 +362,7 @@ impl SiproDecoder {
         }
         self.unpack_pulses_common();
     }
+    #[allow(clippy::cast_lossless)]
     fn unpack_pulses_common(&mut self) {
         for i in 0..48 {
             self.fix_vec[i] = 0.0;
@@ -590,7 +589,7 @@ fn lsp2poly(lsp: &[f32], poly: &mut [f64], order: usize) {
     poly[1] = -2.0 * f64::from(lsp[0]);
     for i in 1..order {
         poly[i + 1] = -2.0 * f64::from(lsp[2 * i]) * poly[i] + 2.0 * poly[i - 1];
-        for j in (2..i+1).rev() {
+        for j in (2..=i).rev() {
             poly[j] += -2.0 * f64::from(lsp[2 * i]) * poly[j - 1] + poly[j - 2];
         }
         poly[1] += -2.0 * f64::from(lsp[2 * i]);

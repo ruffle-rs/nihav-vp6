@@ -455,14 +455,13 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
 
     let soniton = NASoniton::new(bits_per_sample as u8, SONITON_FLAG_SIGNED);
     let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
-    let edata;
-    if size > 16 {
-        let edata_size      = dmx.src.read_u16le()? as usize;
-        validate!(edata_size + 18 == size);
-        edata = dmx.read_extradata(size - 18)?;
-    } else {
-        edata = None;
-    }
+    let edata = if size > 16 {
+            let edata_size  = dmx.src.read_u16le()? as usize;
+            validate!(edata_size + 18 == size);
+            dmx.read_extradata(size - 18)?
+        } else {
+            None
+        };
     let cname = match register::find_codec_from_wav_twocc(w_format_tag) {
                     None => "unknown",
                     Some(name) => name,
@@ -512,6 +511,7 @@ fn parse_junk(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
     Ok(size)
 }
 
+#[allow(clippy::verbose_bit_mask)]
 fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut SeekIndex, size: usize, movi_pos: u64, key_offs: &mut Vec<u64>) -> DemuxerResult<usize> {
     validate!((size & 15) == 0);
     let mut tag = [0u8; 4];

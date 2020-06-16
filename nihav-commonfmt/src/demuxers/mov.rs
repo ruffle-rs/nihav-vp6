@@ -393,7 +393,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()?;
     validate!(entries > 0);
-    let esize               = br.read_u32be()? as u64;
+    let esize               = u64::from(br.read_u32be()?);
     validate!(esize + 8 <= size);
     let mut fcc = [0u8; 4];
                               br.read_buf(&mut fcc)?;
@@ -477,16 +477,15 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             let format = if depth > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
             let mut vhdr = NAVideoInfo::new(width, height, false, format);
             vhdr.bits = depth as u8;
-            let edata;
-            if br.tell() - start_pos + 4 < size {
+            let edata = if br.tell() - start_pos + 4 < size {
 //todo skip various common atoms
-                let edata_size  = br.read_u32be()? as usize;
-                let mut buf = vec![0; edata_size];
+                    let edata_size  = br.read_u32be()? as usize;
+                    let mut buf = vec![0; edata_size];
                                   br.read_buf(buf.as_mut_slice())?;
-                edata = Some(buf);
-            } else {
-                edata = None;
-            }
+                    Some(buf)
+                } else {
+                    None
+                };
             codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), edata);
         },
         StreamType::Audio => {
@@ -679,7 +678,7 @@ impl Track {
     read_chunk_list!(track; "minf", read_minf, MINF_CHUNK_HANDLERS);
     read_chunk_list!(track; "stbl", read_stbl, STBL_CHUNK_HANDLERS);
     fn fill_seek_index(&self, seek_index: &mut SeekIndex) {
-        if self.keyframes.len() > 0 {
+        if !self.keyframes.is_empty() {
             seek_index.mode = SeekIndexMode::Present;
         }
         for kf_time in self.keyframes.iter() {
@@ -763,9 +762,9 @@ impl Track {
         }
     }
     fn get_size(&self, sample_no: usize) -> usize {
-        if self.chunk_sizes.len() > 0 {
+        if !self.chunk_sizes.is_empty() {
             self.chunk_sizes[sample_no] as usize
-        } else if self.sample_map.len() > 0 {
+        } else if !self.sample_map.is_empty() {
             let mut nsamp = 0;
             for (idx, samples) in self.sample_map.iter() {
                 if *idx as usize <= self.cur_chunk {
@@ -784,7 +783,7 @@ impl Track {
         self.samples_left = 0;
         if self.stream_type == StreamType::Audio {
             self.cur_chunk = self.cur_sample;
-        } else if self.chunk_offsets.len() != self.chunk_sizes.len() && self.sample_map.len() > 0{
+        } else if self.chunk_offsets.len() != self.chunk_sizes.len() && !self.sample_map.is_empty() {
             let mut csamp = 0;
             self.cur_chunk = 0;
             let mut cmap = self.sample_map.iter();
@@ -819,7 +818,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         self.read_root(strmgr)?;
         validate!(self.mdat_pos > 0);
-        validate!(self.tracks.len() > 0);
+        validate!(!self.tracks.is_empty());
         for track in self.tracks.iter() {
             track.fill_seek_index(seek_index);
         }
@@ -829,7 +828,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
     }
 
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if self.tracks.len() == 0 {
+        if self.tracks.is_empty() {
             return Err(DemuxerError::EOF);
         }
         for _ in 0..self.tracks.len() {
@@ -852,7 +851,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
                 return Ok(pkt);
             }
         }
-        return Err(DemuxerError::EOF);
+        Err(DemuxerError::EOF)
     }
 
     fn seek(&mut self, time: u64, seek_index: &SeekIndex) -> DemuxerResult<()> {

@@ -260,6 +260,7 @@ struct DSP {
     tmp:            [f32; ATRAC3_FRAME_SIZE + 64],
 }
 
+#[allow(clippy::manual_memcpy)]
 impl DSP {
     fn new() -> Self {
         let mut gain_tab: [f32; 16] = [0.0; 16];
@@ -409,7 +410,7 @@ struct Atrac3CodebookReader {
 }
 impl CodebookDescReader<u8> for Atrac3CodebookReader {
     fn bits(&mut self, idx: usize) -> u8  { self.bits[idx] }
-    fn code(&mut self, idx: usize) -> u32 { self.codes[idx] as u32 }
+    fn code(&mut self, idx: usize) -> u32 { u32::from(self.codes[idx]) }
     fn sym (&mut self, idx: usize) -> u8 { idx as u8 }
     fn len(&mut self) -> usize { self.bits.len() }
 }
@@ -455,6 +456,7 @@ impl Atrac3Decoder {
             scalefactors,
         }
     }
+    #[allow(clippy::identity_op)]
     fn rev_matrix(&mut self) {
         for i in 0..4 {
             let c0 = self.mci_prev[i];

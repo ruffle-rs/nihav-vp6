@@ -831,6 +831,7 @@ impl AudioBlock {
             bap_buf_fill:   [0; 3],
         }
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn read(&mut self, br: &mut BitReader, bsi: &BSI, fscod: usize, blk_no: usize) -> DecoderResult<bool> {
         let channels = bsi.acmod.get_num_channels();
         let is_stereo = bsi.acmod == ACMode::Stereo;

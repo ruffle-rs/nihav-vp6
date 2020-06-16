@@ -4,10 +4,10 @@ use nihav_core::demuxers::DemuxerError::*;
 
 macro_rules! mktag {
     ($a:expr, $b:expr, $c:expr, $d:expr) => {
-        (($a as u32) << 24) | (($b as u32) << 16) | (($c as u32) << 8) | ($d as u32)
+        (u32::from($a) << 24) | (u32::from($b) << 16) | (u32::from($c) << 8) | u32::from($d)
     };
     ($arr:expr) => {
-        (($arr[0] as u32) << 24) | (($arr[1] as u32) << 16) | (($arr[2] as u32) << 8) | ($arr[3] as u32)
+        (u32::from($arr[0]) << 24) | (u32::from($arr[1]) << 16) | (u32::from($arr[2]) << 8) | u32::from($arr[3])
     };
 }
 
@@ -127,16 +127,15 @@ impl<'a> WAVDemuxer<'a> {
         let bits_per_sample             = if csize >= 16 { self.src.read_u16le()? } else { 8 };
         validate!(channels < 256);
 
-        let edata;
-        if csize > 16 {
-            validate!(csize >= 18);
-            let cb_size                 = self.src.read_u16le()? as usize;
-            let mut buf = vec![0; cb_size];
+        let edata = if csize > 16 {
+                validate!(csize >= 18);
+                let cb_size             = self.src.read_u16le()? as usize;
+                let mut buf = vec![0; cb_size];
                                           self.src.read_buf(buf.as_mut_slice())?;
-            edata = Some(buf);
-        } else {
-            edata = None;
-        }
+                Some(buf)
+            } else {
+                None
+            };
 
         let cname = register::find_codec_from_wav_twocc(format_tag).unwrap_or("unknown");
         let soniton = if cname == "pcm" {

@@ -10,12 +10,19 @@ mod cinepak;
 mod clearvideo;
 
 #[cfg(feature="decoder_aac")]
+#[allow(clippy::manual_memcpy)]
+#[allow(clippy::useless_let_if_seq)]
 mod aac;
 #[cfg(feature="decoder_atrac3")]
+#[allow(clippy::identity_op)]
+#[allow(clippy::useless_let_if_seq)]
 mod atrac3;
 #[cfg(any(feature="decoder_pcm",feature="encoder_pcm"))]
 mod pcm;
 #[cfg(feature="decoder_sipro")]
+#[allow(clippy::collapsible_if)]
+#[allow(clippy::identity_op)]
+#[allow(clippy::manual_memcpy)]
 mod sipro;
 #[cfg(feature="decoder_ts102366")]
 mod ts102366;

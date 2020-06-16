@@ -174,7 +174,7 @@ impl NAEncoder for PCMEncoder {
                 ofmt.format = NACodecTypeInfo::Audio(NAAudioInfo::new(0, 0, SND_S16P_FORMAT, 0));
                 Ok(ofmt)
             },
-            NACodecTypeInfo::Video(_) => return Err(EncoderError::FormatError),
+            NACodecTypeInfo::Video(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Audio(_) => {
                 Ok(*encinfo)
             }

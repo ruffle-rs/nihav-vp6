@@ -61,6 +61,8 @@ fn write_chunk_hdr(bw: &mut ByteWriter, stype: StreamType, str_no: u32) -> Muxer
 }
 
 impl<'a> MuxCore<'a> for AVIMuxer<'a> {
+    #[allow(clippy::unreadable_literal)]
+    #[allow(clippy::cast_lossless)]
     fn create(&mut self, strmgr: &StreamManager) -> MuxerResult<()> {
         if strmgr.get_num_streams() == 0 {
             return Err(MuxerError::InvalidArgument);
@@ -184,6 +186,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
 //                        unimplemented!();
                         self.bw.write_u32le(0)?; // total colors
                         self.bw.write_u32le(0)?; // important colors
+println!("pal?");
                     } else {
                         self.bw.write_u32le(0)?; // total colors
                         self.bw.write_u32le(0)?; // important colors
@@ -263,7 +266,7 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
     }
     fn end(&mut self) -> MuxerResult<()> {
         patch_size(&mut self.bw, self.data_pos)?;
-        if self.index.len() > 0 {
+        if !self.index.is_empty() {
             self.bw.write_buf(b"idx1")?;
             self.bw.write_u32le((self.index.len() * 16) as u32)?;
             for item in self.index.iter() {

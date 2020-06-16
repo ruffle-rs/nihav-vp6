@@ -10,6 +10,7 @@ macro_rules! validate {
 #[allow(clippy::cast_lossless)]
 mod avi;
 #[cfg(feature="demuxer_mov")]
+#[allow(clippy::cast_lossless)]
 mod mov;
 #[cfg(feature="demuxer_wav")]
 mod wav;

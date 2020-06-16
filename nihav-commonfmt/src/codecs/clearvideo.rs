@@ -623,6 +623,7 @@ impl ClearVideoDecoder {
 }
 
 impl NADecoder for ClearVideoDecoder {
+    #[allow(clippy::or_fun_call)]
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
