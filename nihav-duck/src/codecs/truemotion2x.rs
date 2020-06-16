@@ -275,6 +275,9 @@ impl TM2XDecoder {
         Ok(())
     }
 
+    #[allow(clippy::int_plus_one)]
+    #[allow(clippy::manual_memcpy)]
+    #[allow(clippy::cyclomatic_complexity)]
     fn decode_frame(&mut self, src: &[u8]) -> DecoderResult<()> {
         let mut mr = MemoryReader::new_read(src);
         let mut br = ByteReader::new(&mut mr);

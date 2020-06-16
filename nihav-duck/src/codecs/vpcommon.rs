@@ -112,7 +112,7 @@ pub struct BoolCoder<'a> {
 impl<'a> BoolCoder<'a> {
     pub fn new(src: &'a [u8]) -> DecoderResult<Self> {
         if src.len() < 3 { return Err(DecoderError::ShortData); }
-        let value = ((src[0] as u32) << 24) | ((src[1] as u32) << 16) | ((src[2] as u32) << 8) | (src[3] as u32);
+        let value = (u32::from(src[0]) << 24) | (u32::from(src[1]) << 16) | (u32::from(src[2]) << 8) | u32::from(src[3]);
         Ok(Self { src, pos: 4, value, range: 255, bits: 8 })
     }
     pub fn read_bool(&mut self) -> bool {
@@ -120,7 +120,7 @@ impl<'a> BoolCoder<'a> {
     }
     pub fn read_prob(&mut self, prob: u8) -> bool {
         self.renorm();
-        let split = 1 + (((self.range - 1) * (prob as u32)) >> 8);
+        let split = 1 + (((self.range - 1) * u32::from(prob)) >> 8);
         let bit;
         if self.value < (split << 24) {
             self.range = split;
@@ -167,7 +167,7 @@ impl<'a> BoolCoder<'a> {
         self.value <<= shift;
         self.bits   -= shift as i32;
         if (self.bits <= 0) && (self.pos < self.src.len()) {
-            self.value |= (self.src[self.pos] as u32) << (-self.bits as u8);
+            self.value |= u32::from(self.src[self.pos]) << (-self.bits as u8);
             self.pos += 1;
             self.bits += 8;
         }
@@ -176,7 +176,7 @@ impl<'a> BoolCoder<'a> {
             self.value <<= 1;
             self.bits   -= 1;
             if (self.bits <= 0) && (self.pos < self.src.len()) {
-                self.value |= self.src[self.pos] as u32;
+                self.value |= u32::from(self.src[self.pos]);
                 self.pos += 1;
                 self.bits = 8;
             }
@@ -186,7 +186,7 @@ impl<'a> BoolCoder<'a> {
         for _ in 0..nbytes {
             self.value <<= 8;
             if self.pos < self.src.len() {
-                self.value |= self.src[self.pos] as u32;
+                self.value |= u32::from(self.src[self.pos]);
                 self.pos += 1;
             }
         }
@@ -194,8 +194,9 @@ impl<'a> BoolCoder<'a> {
 }
 
 #[allow(dead_code)]
+#[allow(clippy::trivially_copy_pass_by_ref)]
 pub fn rescale_prob(prob: u8, weights: &[i16; 2], maxval: i32) -> u8 {
-    ((((prob as i32) * (weights[0] as i32) + 128) >> 8) + (weights[1] as i32)).min(maxval).max(1) as u8
+    (((i32::from(prob) * i32::from(weights[0]) + 128) >> 8) + i32::from(weights[1])).min(maxval).max(1) as u8
 }
 
 macro_rules! vp_tree {
@@ -323,7 +324,7 @@ pub fn vp_add_block(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usize, 
     let mut off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
     for y in 0..8 {
         for x in 0..8 {
-            frm.data[off + x] = (coeffs[x + y * 8] + (frm.data[off + x] as i16)).min(255).max(0) as u8;
+            frm.data[off + x] = (coeffs[x + y * 8] + i16::from(frm.data[off + x])).min(255).max(0) as u8;
         }
         off += frm.stride[plane];
     }
@@ -334,7 +335,7 @@ pub fn vp_add_block_ilace(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: u
     let mut off = frm.offset[plane] + bx * 8 + ((by & !1) * 8 + (by & 1)) * frm.stride[plane];
     for y in 0..8 {
         for x in 0..8 {
-            frm.data[off + x] = (coeffs[x + y * 8] + (frm.data[off + x] as i16)).min(255).max(0) as u8;
+            frm.data[off + x] = (coeffs[x + y * 8] + i16::from(frm.data[off + x])).min(255).max(0) as u8;
         }
         off += frm.stride[plane] * 2;
     }
@@ -346,7 +347,7 @@ pub fn vp_add_block_dc(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usiz
     let mut off = frm.offset[plane] + bx * 8 + by * 8 * frm.stride[plane];
     for _ in 0..8 {
         for x in 0..8 {
-            frm.data[off + x] = (dc + (frm.data[off + x] as i16)).min(255).max(0) as u8;
+            frm.data[off + x] = (dc + i16::from(frm.data[off + x])).min(255).max(0) as u8;
         }
         off += frm.stride[plane];
     }
@@ -355,10 +356,10 @@ pub fn vp_add_block_dc(coeffs: &mut [i16; 64], bx: usize, by: usize, plane: usiz
 pub fn vp31_loop_filter(data: &mut [u8], mut off: usize, step: usize, stride: usize,
                         len: usize, loop_str: i16) {
     for _ in 0..len {
-        let a = data[off - step * 2] as i16;
-        let b = data[off - step] as i16;
-        let c = data[off] as i16;
-        let d = data[off + step] as i16;
+        let a = i16::from(data[off - step * 2]);
+        let b = i16::from(data[off - step]);
+        let c = i16::from(data[off]);
+        let d = i16::from(data[off + step]);
         let mut diff = ((a - d) + 3 * (c - b) + 4) >> 3;
         if diff.abs() >= 2 * loop_str {
             diff = 0;
@@ -420,7 +421,7 @@ fn vp3_interp00(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: 
     let mut didx = 0;
     let mut sidx = 0;
     for _ in 0..bh {
-        for x in 0..bw { dst[didx + x] = src[sidx + x]; }
+        dst[didx..][..bw].copy_from_slice(&src[sidx..][..bw]);
         didx += dstride;
         sidx += sstride;
     }
@@ -431,7 +432,7 @@ fn vp3_interp01(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: 
     let mut didx = 0;
     let mut sidx = 0;
     for _ in 0..bh {
-        for x in 0..bw { dst[didx + x] = (((src[sidx + x] as u16) + (src[sidx + x + 1] as u16)) >> 1) as u8; }
+        for x in 0..bw { dst[didx + x] = ((u16::from(src[sidx + x]) + u16::from(src[sidx + x + 1])) >> 1) as u8; }
         didx += dstride;
         sidx += sstride;
     }
@@ -442,7 +443,7 @@ fn vp3_interp10(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: 
     let mut didx = 0;
     let mut sidx = 0;
     for _ in 0..bh {
-        for x in 0..bw { dst[didx + x] = (((src[sidx + x] as u16) + (src[sidx + x + sstride] as u16)) >> 1) as u8; }
+        for x in 0..bw { dst[didx + x] = ((u16::from(src[sidx + x]) + u16::from(src[sidx + x + sstride])) >> 1) as u8; }
         didx += dstride;
         sidx += sstride;
     }
@@ -454,8 +455,8 @@ fn vp3_interp1x(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: 
     let mut sidx = 0;
     for _ in 0..bh {
         for x in 0..bw {
-            dst[didx + x] = (((src[sidx + x] as u16) +
-                              (src[sidx + x + sstride + 1] as u16)) >> 1) as u8;
+            dst[didx + x] = ((u16::from(src[sidx + x]) +
+                              u16::from(src[sidx + x + sstride + 1])) >> 1) as u8;
         }
         didx += dstride;
         sidx += sstride;
@@ -468,8 +469,8 @@ fn vp3_interp1y(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: 
     let mut sidx = 0;
     for _ in 0..bh {
         for x in 0..bw {
-            dst[didx + x] = (((src[sidx + x + 1] as u16) +
-                              (src[sidx + x + sstride] as u16)) >> 1) as u8;
+            dst[didx + x] = ((u16::from(src[sidx + x + 1]) +
+                              u16::from(src[sidx + x + sstride])) >> 1) as u8;
         }
         didx += dstride;
         sidx += sstride;

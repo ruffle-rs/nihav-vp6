@@ -168,6 +168,7 @@ impl VP40AuxCodes {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum Codes {
     None,
     VP30(VP30Codes),
@@ -290,7 +291,7 @@ fn vp30_read_coded_run1(br: &mut BitReader) -> DecoderResult<usize> {
     let idx                                     = br.peek(5) as usize;
     let sym = (VP30_CRUN1_LUT[idx] >> 4) as usize;
     let bits = VP30_CRUN1_LUT[idx] & 0xF;
-                                                br.skip(bits as u32)?;
+                                                br.skip(u32::from(bits))?;
     if sym < 7 {
         Ok(sym)
     } else if sym == 7 {
@@ -546,7 +547,7 @@ fn expand_token(blk: &mut Block, br: &mut BitReader, eob_run: &mut usize, token:
 macro_rules! fill_dc_pred {
     ($self: expr, $ref_id: expr, $pred: expr, $pp: expr, $bit: expr, $idx: expr) => {
         if $self.blocks[$idx].coded && $self.blocks[$idx].btype.get_ref_id() == $ref_id {
-            $pred[$bit] = $self.blocks[$idx].coeffs[0] as i32;
+            $pred[$bit] = i32::from($self.blocks[$idx].coeffs[0]);
             $pp |= 1 << $bit;
         }
     };
@@ -1133,11 +1134,11 @@ impl VP34Decoder {
                     let saddr = (self.blk_addr[cur_blk] >> 2).min(self.blk_addr[cur_blk + 1] >> 2).min(self.blk_addr[cur_blk + 2] >> 2).min(self.blk_addr[cur_blk + 3] >> 2);
                     for i in 0..4 {
                         let blk = &mut self.blocks[saddr + (i & 1) + (i >> 1) * self.mb_w * 2];
-                        blk.mv.x = br.read_cb(x_cb)? as i16;
+                        blk.mv.x = i16::from(br.read_cb(x_cb)?);
                         if x_sign {
                             blk.mv.x = -blk.mv.x;
                         }
-                        blk.mv.y = br.read_cb(y_cb)? as i16;
+                        blk.mv.y = i16::from(br.read_cb(y_cb)?);
                         if y_sign {
                             blk.mv.y = -blk.mv.y;
                         }
@@ -1155,8 +1156,8 @@ impl VP34Decoder {
                             let y_cb = &codes.mv_y_cb[VP40_MV_LUT_INDEX[last_mv.y.abs() as usize]];
                             let x_sign = last_mv.x < 0;
                             let y_sign = last_mv.y < 0;
-                            let x               = br.read_cb(x_cb)? as i16;
-                            let y               = br.read_cb(y_cb)? as i16;
+                            let x               = i16::from(br.read_cb(x_cb)?);
+                            let y               = i16::from(br.read_cb(y_cb)?);
                             cur_mv = MV { x: if !x_sign { x } else { -x }, y: if !y_sign { y } else { -y } };
                             last2_mv = last_mv;
                             last_mv = cur_mv;
@@ -1173,8 +1174,8 @@ impl VP34Decoder {
                             let y_cb = &codes.mv_y_cb[VP40_MV_LUT_INDEX[last_mv_g.y.abs() as usize]];
                             let x_sign = last_mv_g.x < 0;
                             let y_sign = last_mv_g.y < 0;
-                            let x               = br.read_cb(x_cb)? as i16;
-                            let y               = br.read_cb(y_cb)? as i16;
+                            let x               = i16::from(br.read_cb(x_cb)?);
+                            let y               = i16::from(br.read_cb(y_cb)?);
                             cur_mv = MV { x: if !x_sign { x } else { -x }, y: if !y_sign { y } else { -y } };
                             last_mv_g = cur_mv;
                         },
@@ -1450,10 +1451,10 @@ impl VP34Decoder {
         let mut pred = 0i32;
         for i in 0..4 {
             if (pp & (1 << i)) != 0 {
-                pred += (preds[i] as i32) * (VP31_DC_WEIGHTS[pp][i] as i32);
+                pred += (preds[i] as i32) * i32::from(VP31_DC_WEIGHTS[pp][i]);
             }
         }
-        pred /= VP31_DC_WEIGHTS[pp][4] as i32;
+        pred /= i32::from(VP31_DC_WEIGHTS[pp][4]);
         if (pp & 7) == 7 {
             if (pred - preds[2]).abs() > 128 { return preds[2] as i16; }
             if (pred - preds[0]).abs() > 128 { return preds[0] as i16; }
@@ -1552,6 +1553,7 @@ impl VP34Decoder {
             }
         }
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn output_blocks_inter(&mut self, frm: &mut NASimpleVideoFrame<u8>) {
         let mut blk_idx = 0;
         let bstride = self.mb_w * 2;

@@ -336,6 +336,7 @@ struct TM2Decoder {
 
 impl TM2Decoder {
     fn new() -> Self { Self::default() }
+    #[allow(clippy::manual_memcpy)]
     fn decode_blocks(&mut self) -> DecoderResult<bool> {
         let ydst = &mut self.cur_frame.ydata;
         let udst = &mut self.cur_frame.udata;
@@ -434,7 +435,7 @@ impl TM2Decoder {
                         for _ in 0..4 {
                             for x in 0..4 {
                                 let dy = self.streams[TM2StreamType::Update as usize].get_token()?;
-                                ydst[yoff + x] = ((ysrc[yoff + x] as i32) + dy) as u8;
+                                ydst[yoff + x] = (i32::from(ysrc[yoff + x]) + dy) as u8;
                             }
                             yoff += ystride;
                         }

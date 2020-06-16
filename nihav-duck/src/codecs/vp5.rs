@@ -255,7 +255,7 @@ impl NADecoder for VP5Decoder {
     fn init(&mut self, supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let myvinfo = NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, YUV420_FORMAT);
-            let myinfo = NACodecTypeInfo::Video(myvinfo.clone());
+            let myinfo = NACodecTypeInfo::Video(myvinfo);
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.dec.init(supp, myvinfo)?;
             Ok(())

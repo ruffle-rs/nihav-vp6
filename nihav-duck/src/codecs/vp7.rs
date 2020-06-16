@@ -143,7 +143,7 @@ struct SBParams<'a> {
     qmat:       &'a [i16; 16],
 }
 
-fn decode_subblock<'a>(bc: &mut BoolCoder, coeffs: &mut [i16; 16], ctype: usize, pctx: u8, sbparams: &SBParams) -> u8 {
+fn decode_subblock(bc: &mut BoolCoder, coeffs: &mut [i16; 16], ctype: usize, pctx: u8, sbparams: &SBParams) -> u8 {
     const COEF_BANDS: [usize; 16] = [ 0, 1, 2, 3, 6, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7 ];
 
     let mut has_nz = 0;
@@ -1071,17 +1071,17 @@ impl VP7Decoder {
             2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
           ]];
 
-        let edge_thr    = (loop_str as i16) + 2;
-        let luma_thr    = loop_str as i16;
-        let chroma_thr  = (loop_str as i16) * 2;
+        let edge_thr    = i16::from(loop_str) + 2;
+        let luma_thr    = i16::from(loop_str);
+        let chroma_thr  = i16::from(loop_str) * 2;
         let inner_thr   = if self.dstate.loop_sharpness == 0 {
-                loop_str as i16
+                i16::from(loop_str)
             } else {
-                let bound1 = (9 - self.dstate.loop_sharpness) as i16;
+                let bound1 = i16::from(9 - self.dstate.loop_sharpness);
                 let shift = (self.dstate.loop_sharpness + 3) >> 2;
-                ((loop_str as i16) >> shift).min(bound1)
+                (i16::from(loop_str) >> shift).min(bound1)
             };
-        let hev_thr     = HIGH_EDGE_VAR_THR[if self.dstate.is_intra { 1 } else { 0 }][loop_str as usize] as i16;
+        let hev_thr     = i16::from(HIGH_EDGE_VAR_THR[if self.dstate.is_intra { 1 } else { 0 }][loop_str as usize]);
 
         let ystride = dframe.stride[0];
         let ustride = dframe.stride[1];
@@ -1126,7 +1126,7 @@ impl NADecoder for VP7Decoder {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let fmt = YUV420_FORMAT;
             let myvinfo = NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, fmt);
-            let myinfo = NACodecTypeInfo::Video(myvinfo.clone());
+            let myinfo = NACodecTypeInfo::Video(myvinfo);
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
             supp.pool_u8.set_dec_bufs(4);
@@ -1137,6 +1137,7 @@ impl NADecoder for VP7Decoder {
             Err(DecoderError::InvalidData)
         }
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 

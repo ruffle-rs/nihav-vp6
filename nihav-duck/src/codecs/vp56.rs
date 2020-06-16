@@ -70,7 +70,7 @@ struct Node {
 }
 
 fn prob2weight(a: u8, b: u8) -> u8 {
-    let w = (((a as u16) * (b as u16)) >> 8) as u8;
+    let w = ((u16::from(a) * u16::from(b)) >> 8) as u8;
     if w == 0 {
         1
     } else {
@@ -132,7 +132,7 @@ impl VP6Huff {
         let mut nlen = 0;
 
         for w in weights.iter().rev() {
-            let weight = *w as u16;
+            let weight = u16::from(*w);
             let mut pos = nlen;
             for i in 0..nlen {
                 if nodes[i].weight > weight {
@@ -192,8 +192,8 @@ impl<'a> ReadHuff for BitReader<'a> {
     fn read_huff(&mut self, huff: &VP6Huff) -> DecoderResult<u8> {
         let peekval                             = self.peek(16);
         for (i, (code, bit)) in huff.codes.iter().zip(huff.bits.iter()).enumerate() {
-            if (peekval >> (16 - *bit)) == (*code as u32) {
-                self.skip(*bit as u32)?;
+            if (peekval >> (16 - *bit)) == u32::from(*code) {
+                self.skip(u32::from(*bit))?;
                 return Ok(i as u8);
             }
         }
@@ -394,7 +394,7 @@ pub fn expand_token_bc(bc: &mut BoolCoder, val_probs: &[u8; 11], token: u8, vers
         if token != 0 {
             sign                                = bc.read_bool();
         }
-        level = token as i16;
+        level = i16::from(token);
     } else {
         let cat: usize = vp_tree!(bc, val_probs[6],
                                   vp_tree!(bc, val_probs[7], 0, 1),
@@ -563,7 +563,7 @@ impl VP56Decoder {
         self.fstate = FrameState::new();
         self.fstate.dc_quant = VP56_DC_QUANTS[hdr.quant as usize] * 4;
         self.fstate.ac_quant = VP56_AC_QUANTS[hdr.quant as usize] * 4;
-        self.loop_thr = VP56_FILTER_LIMITS[hdr.quant as usize] as i16;
+        self.loop_thr = i16::from(VP56_FILTER_LIMITS[hdr.quant as usize]);
 
         self.last_mbt = VPMBType::InterNoMV;
         for vec in self.top_ctx.iter_mut() {
@@ -656,11 +656,11 @@ impl VP56Decoder {
                 let mut total = 0;
                 for i in 0..10 {
                     if i == mode { continue; }
-                    cnt[i] = 100 * (prob_xmitted[i * 2] as u32);
+                    cnt[i] = 100 * u32::from(prob_xmitted[i * 2]);
                     total += cnt[i];
                 }
-                let sum = (prob_xmitted[mode * 2] as u32) + (prob_xmitted[mode * 2 + 1] as u32);
-                mdl.probs[9] = 255 - rescale_mb_mode_prob(prob_xmitted[mode * 2 + 1] as u32, sum);
+                let sum = u32::from(prob_xmitted[mode * 2]) + u32::from(prob_xmitted[mode * 2 + 1]);
+                mdl.probs[9] = 255 - rescale_mb_mode_prob(u32::from(prob_xmitted[mode * 2 + 1]), sum);
 
                 let inter_mv0_weight = (cnt[0] as u32) + (cnt[2] as u32);
                 let inter_mv1_weight = (cnt[3] as u32) + (cnt[4] as u32);
@@ -751,6 +751,7 @@ impl VP56Decoder {
         }
         Ok(self.last_mbt)
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn decode_mb(&mut self, frm: &mut NASimpleVideoFrame<u8>, bc: &mut BoolCoder, cr: &mut CoeffReader, br: &mut dyn VP56Parser, hdr: &VP56Header, alpha: bool) -> DecoderResult<()> {
         const FOURMV_SUB_TYPE: [VPMBType; 4] = [ VPMBType::InterNoMV, VPMBType::InterMV, VPMBType::InterNearest, VPMBType::InterNear ];
 
@@ -766,7 +767,7 @@ impl VP56Decoder {
             let prob = if mb_x == 0 {
                     iprob
                 } else if !self.ilace_mb {
-                    iprob + (((256 - (iprob as u16)) >> 1) as u8)
+                    iprob + (((256 - u16::from(iprob)) >> 1) as u8)
                 } else {
                     iprob - (iprob >> 1)
                 };

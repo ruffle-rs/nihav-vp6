@@ -14,6 +14,7 @@ const TMRT_DELTA_TAB: [&[i16]; 3] = [
 
 impl TMRTDecoder {
     fn new() -> Self { Self::default() }
+    #[allow(clippy::too_many_arguments)]
     fn decode_plane(&self, br: &mut BitReader, dst: &mut [u8], mut off: usize, stride: usize, w: usize, h: usize, hscale: bool, dbits: u8, is_chroma: bool) -> DecoderResult<()> {
         let delta_tab = TMRT_DELTA_TAB[(dbits - 2) as usize];
         let step = if !hscale { 1 } else { 2 };

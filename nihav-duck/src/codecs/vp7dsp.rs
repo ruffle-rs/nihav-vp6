@@ -65,10 +65,10 @@ const DCT_COEFFS: [i32; 16] = [
 pub fn idct4x4(coeffs: &mut [i16; 16]) {
     let mut tmp = [0i16; 16];
     for (src, dst) in coeffs.chunks(4).zip(tmp.chunks_mut(4)) {
-        let s0 = src[0] as i32;
-        let s1 = src[1] as i32;
-        let s2 = src[2] as i32;
-        let s3 = src[3] as i32;
+        let s0 = i32::from(src[0]);
+        let s1 = i32::from(src[1]);
+        let s2 = i32::from(src[2]);
+        let s3 = i32::from(src[3]);
 
         let t0 = (s0 + s2).wrapping_mul(23170);
         let t1 = (s0 - s2).wrapping_mul(23170);
@@ -81,10 +81,10 @@ pub fn idct4x4(coeffs: &mut [i16; 16]) {
         dst[3] = ((t0 - t2) >> 14) as i16;
     }
     for i in 0..4 {
-        let s0 = tmp[i + 4 * 0] as i32;
-        let s1 = tmp[i + 4 * 1] as i32;
-        let s2 = tmp[i + 4 * 2] as i32;
-        let s3 = tmp[i + 4 * 3] as i32;
+        let s0 = i32::from(tmp[i + 4 * 0]);
+        let s1 = i32::from(tmp[i + 4 * 1]);
+        let s2 = i32::from(tmp[i + 4 * 2]);
+        let s3 = i32::from(tmp[i + 4 * 3]);
 
         let t0 = (s0 + s2).wrapping_mul(23170) + 0x20000;
         let t1 = (s0 - s2).wrapping_mul(23170) + 0x20000;
@@ -99,7 +99,7 @@ pub fn idct4x4(coeffs: &mut [i16; 16]) {
 }
 
 pub fn idct4x4_dc(coeffs: &mut [i16; 16]) {
-    let dc = (((((coeffs[0] as i32) * DCT_COEFFS[0]) >> 14) * DCT_COEFFS[0] + 0x20000) >> 18) as i16;
+    let dc = ((((i32::from(coeffs[0]) * DCT_COEFFS[0]) >> 14) * DCT_COEFFS[0] + 0x20000) >> 18) as i16;
     for el in coeffs.iter_mut() {
         *el = dc;
     }
@@ -109,14 +109,14 @@ pub fn add_coeffs4x4(dst: &mut [u8], off: usize, stride: usize, coeffs: &[i16; 1
     let dst = &mut dst[off..];
     for (out, src) in dst.chunks_mut(stride).zip(coeffs.chunks(4)) {
         for (oel, iel) in out.iter_mut().take(4).zip(src.iter()) {
-            *oel = clip_u8((*oel as i16) + *iel);
+            *oel = clip_u8(i16::from(*oel) + *iel);
         }
     }
 }
 pub fn add_coeffs16x1(dst: &mut [u8], off: usize, coeffs: &[i16; 16]) {
     let dst = &mut dst[off..];
     for (oel, iel) in dst.iter_mut().take(16).zip(coeffs.iter()) {
-        *oel = clip_u8((*oel as i16) + *iel);
+        *oel = clip_u8(i16::from(*oel) + *iel);
     }
 }
 
@@ -134,13 +134,13 @@ pub trait IntraPred {
                 };
             if ipred.has_left {
                 for el in ipred.left.iter().take(Self::SIZE) {
-                    dcsum += *el as u16;
+                    dcsum += u16::from(*el);
                 }
                 dcshift += 1;
             }
             if ipred.has_top {
                 for el in ipred.top.iter().take(Self::SIZE) {
-                    dcsum += *el as u16;
+                    dcsum += u16::from(*el);
                 }
                 dcshift += 1;
             }
@@ -171,10 +171,10 @@ pub trait IntraPred {
         }
     }
     fn ipred_tm(dst: &mut [u8], mut off: usize, stride: usize, ipred: &IPredContext) {
-        let tl = ipred.tl as i16;
+        let tl = i16::from(ipred.tl);
         for m in 0..Self::SIZE {
             for n in 0..Self::SIZE {
-                dst[off + n] = clip_u8((ipred.left[m] as i16) + (ipred.top[n] as i16) - tl);
+                dst[off + n] = clip_u8(i16::from(ipred.left[m]) + i16::from(ipred.top[n]) - tl);
             }
             off += stride;
         }
@@ -189,18 +189,18 @@ impl IntraPred for IPred8x8 { const SIZE: usize = 8; }
 
 macro_rules! load_pred4 {
     (topleft; $ipred: expr) => {{
-        let tl = $ipred.tl as u16;
-        let a0 = $ipred.top[0] as u16;
-        let l0 = $ipred.left[0] as u16;
+        let tl = u16::from($ipred.tl);
+        let a0 = u16::from($ipred.top[0]);
+        let l0 = u16::from($ipred.left[0]);
         ((l0 + tl * 2 + a0 + 2) >> 2) as u8
     }};
     (top; $ipred: expr) => {{
-        let tl = $ipred.tl as u16;
-        let a0 = $ipred.top[0] as u16;
-        let a1 = $ipred.top[1] as u16;
-        let a2 = $ipred.top[2] as u16;
-        let a3 = $ipred.top[3] as u16;
-        let a4 = $ipred.top[4] as u16;
+        let tl = u16::from($ipred.tl);
+        let a0 = u16::from($ipred.top[0]);
+        let a1 = u16::from($ipred.top[1]);
+        let a2 = u16::from($ipred.top[2]);
+        let a3 = u16::from($ipred.top[3]);
+        let a4 = u16::from($ipred.top[4]);
         let p0 = ((tl + a0 * 2 + a1 + 2) >> 2) as u8;
         let p1 = ((a0 + a1 * 2 + a2 + 2) >> 2) as u8;
         let p2 = ((a1 + a2 * 2 + a3 + 2) >> 2) as u8;
@@ -208,11 +208,11 @@ macro_rules! load_pred4 {
         (p0, p1, p2, p3)
     }};
     (top8; $ipred: expr) => {{
-        let t3 = $ipred.top[3] as u16;
-        let t4 = $ipred.top[4] as u16;
-        let t5 = $ipred.top[5] as u16;
-        let t6 = $ipred.top[6] as u16;
-        let t7 = $ipred.top[7] as u16;
+        let t3 = u16::from($ipred.top[3]);
+        let t4 = u16::from($ipred.top[4]);
+        let t5 = u16::from($ipred.top[5]);
+        let t6 = u16::from($ipred.top[6]);
+        let t7 = u16::from($ipred.top[7]);
         let p4 = ((t3 + t4 * 2 + t5 + 2) >> 2) as u8;
         let p5 = ((t4 + t5 * 2 + t6 + 2) >> 2) as u8;
         let p6 = ((t5 + t6 * 2 + t7 + 2) >> 2) as u8;
@@ -220,11 +220,11 @@ macro_rules! load_pred4 {
         (p4, p5, p6, p7)
     }};
     (topavg; $ipred: expr) => {{
-        let tl = $ipred.tl as u16;
-        let a0 = $ipred.top[0] as u16;
-        let a1 = $ipred.top[1] as u16;
-        let a2 = $ipred.top[2] as u16;
-        let a3 = $ipred.top[3] as u16;
+        let tl = u16::from($ipred.tl);
+        let a0 = u16::from($ipred.top[0]);
+        let a1 = u16::from($ipred.top[1]);
+        let a2 = u16::from($ipred.top[2]);
+        let a3 = u16::from($ipred.top[3]);
         let p0 = ((tl + a0 + 1) >> 1) as u8;
         let p1 = ((a0 + a1 + 1) >> 1) as u8;
         let p2 = ((a1 + a2 + 1) >> 1) as u8;
@@ -232,12 +232,12 @@ macro_rules! load_pred4 {
         (p0, p1, p2, p3)
     }};
     (left; $ipred: expr) => {{
-        let tl = $ipred.tl as u16;
-        let l0 = $ipred.left[0] as u16;
-        let l1 = $ipred.left[1] as u16;
-        let l2 = $ipred.left[2] as u16;
-        let l3 = $ipred.left[3] as u16;
-        let l4 = $ipred.left[4] as u16;
+        let tl = u16::from($ipred.tl);
+        let l0 = u16::from($ipred.left[0]);
+        let l1 = u16::from($ipred.left[1]);
+        let l2 = u16::from($ipred.left[2]);
+        let l3 = u16::from($ipred.left[3]);
+        let l4 = u16::from($ipred.left[4]);
         let p0 = ((tl + l0 * 2 + l1 + 2) >> 2) as u8;
         let p1 = ((l0 + l1 * 2 + l2 + 2) >> 2) as u8;
         let p2 = ((l1 + l2 * 2 + l3 + 2) >> 2) as u8;
@@ -245,11 +245,11 @@ macro_rules! load_pred4 {
         (p0, p1, p2, p3)
     }};
     (left8; $ipred: expr) => {{
-        let l3 = $ipred.left[3] as u16;
-        let l4 = $ipred.left[4] as u16;
-        let l5 = $ipred.left[5] as u16;
-        let l6 = $ipred.left[6] as u16;
-        let l7 = $ipred.left[7] as u16;
+        let l3 = u16::from($ipred.left[3]);
+        let l4 = u16::from($ipred.left[4]);
+        let l5 = u16::from($ipred.left[5]);
+        let l6 = u16::from($ipred.left[6]);
+        let l7 = u16::from($ipred.left[7]);
         let p4 = ((l3 + l4 * 2 + l5 + 2) >> 2) as u8;
         let p5 = ((l4 + l5 * 2 + l6 + 2) >> 2) as u8;
         let p6 = ((l5 + l6 * 2 + l7 + 2) >> 2) as u8;
@@ -257,11 +257,11 @@ macro_rules! load_pred4 {
         (p4, p5, p6, p7)
     }};
     (leftavg; $ipred: expr) => {{
-        let tl = $ipred.tl as u16;
-        let l0 = $ipred.left[0] as u16;
-        let l1 = $ipred.left[1] as u16;
-        let l2 = $ipred.left[2] as u16;
-        let l3 = $ipred.left[3] as u16;
+        let tl = u16::from($ipred.tl);
+        let l0 = u16::from($ipred.left[0]);
+        let l1 = u16::from($ipred.left[1]);
+        let l2 = u16::from($ipred.left[2]);
+        let l3 = u16::from($ipred.left[3]);
         let p0 = ((tl + l0 + 1) >> 1) as u8;
         let p1 = ((l0 + l1 + 1) >> 1) as u8;
         let p2 = ((l1 + l2 + 1) >> 1) as u8;
@@ -276,10 +276,10 @@ impl IPred4x4 {
         let dc;
         let mut dcsum = 0;
         for el in ipred.left.iter().take(4) {
-            dcsum += *el as u16;
+            dcsum += u16::from(*el);
         }
         for el in ipred.top.iter().take(4) {
-            dcsum += *el as u16;
+            dcsum += u16::from(*el);
         }
         dc = ((dcsum + (1 << 2)) >> 3) as u8;
         for _ in 0..4 {
@@ -291,10 +291,10 @@ impl IPred4x4 {
         }
     }
     pub fn ipred_tm(dst: &mut [u8], mut off: usize, stride: usize, ipred: &IPredContext) {
-        let tl = ipred.tl as i16;
+        let tl = i16::from(ipred.tl);
         for m in 0..4 {
             for n in 0..4 {
-                dst[off + n] = clip_u8((ipred.left[m] as i16) + (ipred.top[n] as i16) - tl);
+                dst[off + n] = clip_u8(i16::from(ipred.left[m]) + i16::from(ipred.top[n]) - tl);
             }
             off += stride;
         }
@@ -310,7 +310,7 @@ impl IPred4x4 {
     }
     pub fn ipred_he(dst: &mut [u8], mut off: usize, stride: usize, ipred: &IPredContext) {
         let (p0, p1, p2, _) = load_pred4!(left; ipred);
-        let p3 = (((ipred.left[2] as u16) + (ipred.left[3] as u16) * 3 + 2) >> 2) as u8;
+        let p3 = ((u16::from(ipred.left[2]) + u16::from(ipred.left[3]) * 3 + 2) >> 2) as u8;
         let hor_pred = [p0, p1, p2, p3];
         for m in 0..4 {
             for n in 0..4 {
@@ -362,7 +362,7 @@ impl IPred4x4 {
         let (_,  t1, t2, t3) = load_pred4!(top;     ipred);
         let (t4, t5, t6, _)  = load_pred4!(top8;    ipred);
         let (_,  m1, m2, m3) = load_pred4!(topavg;  ipred);
-        let m4 = (((ipred.top[3] as u16) + (ipred.top[4] as u16) + 1) >> 1) as u8;
+        let m4 = ((u16::from(ipred.top[3]) + u16::from(ipred.top[4]) + 1) >> 1) as u8;
 
         dst[off + 0] = m1; dst[off + 1] = m2; dst[off + 2] = m3; dst[off + 3] = m4;
         off += stride;
@@ -389,7 +389,7 @@ impl IPred4x4 {
     pub fn ipred_hu(dst: &mut [u8], mut off: usize, stride: usize, ipred: &IPredContext) {
         let (_, m1, m2, m3) = load_pred4!(leftavg; ipred);
         let (_, l1, l2, _)  = load_pred4!(left;    ipred);
-        let l3 = (((ipred.left[2] as u16) + (ipred.left[3] as u16) * 3 + 2) >> 2) as u8;
+        let l3 = ((u16::from(ipred.left[2]) + u16::from(ipred.left[3]) * 3 + 2) >> 2) as u8;
         let p3 = ipred.left[3];
 
         dst[off + 0] = m1; dst[off + 1] = l1; dst[off + 2] = m2; dst[off + 3] = l2;
@@ -410,10 +410,10 @@ pub type LoopFilterFunc = fn(buf: &mut [u8], off: usize, step: usize, stride: us
 
 pub fn simple_loop_filter(buf: &mut [u8], mut off: usize, step: usize, stride: usize, len: usize, thr: i16, _thr_inner: i16, _thr_hev: i16) {
     for _ in 0..len {
-        let p1 = buf[off - step * 2] as i16;
-        let p0 = buf[off - step * 1] as i16;
-        let q0 = buf[off + step * 0] as i16;
-        let q1 = buf[off + step * 1] as i16;
+        let p1 = i16::from(buf[off - step * 2]);
+        let p0 = i16::from(buf[off - step * 1]);
+        let q0 = i16::from(buf[off + step * 0]);
+        let q1 = i16::from(buf[off + step * 1]);
         let dpq = p0 - q0;
         if dpq.abs() < thr {
             let diff = delta(p1, p0, q0, q1);
@@ -428,16 +428,16 @@ pub fn simple_loop_filter(buf: &mut [u8], mut off: usize, step: usize, stride: u
 
 fn normal_loop_filter(buf: &mut [u8], mut off: usize, step: usize, stride: usize, len: usize, thr: i16, thr_inner: i16, thr_hev: i16, edge: bool) {
     for _ in 0..len {
-        let p0 = buf[off - step * 1] as i16;
-        let q0 = buf[off + step * 0] as i16;
+        let p0 = i16::from(buf[off - step * 1]);
+        let q0 = i16::from(buf[off + step * 0]);
         let dpq = p0 - q0;
         if dpq.abs() <= thr {
-            let p3 = buf[off - step * 4] as i16;
-            let p2 = buf[off - step * 3] as i16;
-            let p1 = buf[off - step * 2] as i16;
-            let q1 = buf[off + step * 1] as i16;
-            let q2 = buf[off + step * 2] as i16;
-            let q3 = buf[off + step * 3] as i16;
+            let p3 = i16::from(buf[off - step * 4]);
+            let p2 = i16::from(buf[off - step * 3]);
+            let p1 = i16::from(buf[off - step * 2]);
+            let q1 = i16::from(buf[off + step * 1]);
+            let q2 = i16::from(buf[off + step * 2]);
+            let q3 = i16::from(buf[off + step * 3]);
             let dp2 = p3 - p2;
             let dp1 = p2 - p1;
             let dp0 = p1 - p0;
@@ -502,17 +502,17 @@ const VP7_BICUBIC_FILTERS: [[i16; 6]; 8] = [
 
 macro_rules! interpolate {
     ($src: expr, $off: expr, $step: expr, $mode: expr) => {{
-        let s0 = $src[$off + 0 * $step] as i32;
-        let s1 = $src[$off + 1 * $step] as i32;
-        let s2 = $src[$off + 2 * $step] as i32;
-        let s3 = $src[$off + 3 * $step] as i32;
-        let s4 = $src[$off + 4 * $step] as i32;
-        let s5 = $src[$off + 5 * $step] as i32;
+        let s0 = i32::from($src[$off + 0 * $step]);
+        let s1 = i32::from($src[$off + 1 * $step]);
+        let s2 = i32::from($src[$off + 2 * $step]);
+        let s3 = i32::from($src[$off + 3 * $step]);
+        let s4 = i32::from($src[$off + 4 * $step]);
+        let s5 = i32::from($src[$off + 5 * $step]);
         let filt = &VP7_BICUBIC_FILTERS[$mode];
         let src = [s0, s1, s2, s3, s4, s5];
         let mut val = 64;
         for (s, c) in src.iter().zip(filt.iter()) {
-            val += s * (*c as i32);
+            val += s * i32::from(*c);
         }
         clip_u8((val >> 7) as i16)
     }}

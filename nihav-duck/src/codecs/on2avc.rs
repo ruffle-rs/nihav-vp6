@@ -220,7 +220,7 @@ impl AVCDecoder {
                             scale               = br.read(7)? as i16;
                             first = false
                         } else {
-                            scale               += br.read_cb(&self.codebooks.scale_cb)? as i16;
+                            scale               += i16::from(br.read_cb(&self.codebooks.scale_cb)?);
                             validate!((scale >= 0) && (scale < 128));
                         }
                         self.scales[cur_band] = scale as u8;
@@ -331,6 +331,7 @@ impl AVCDecoder {
         }
         Ok(())
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn synth_channel(&mut self, chno: usize, dst: &mut [f32]) {
         let coeffs = &mut self.coeffs[chno];
         let delay  = &mut self.delay[chno];
@@ -490,12 +491,12 @@ macro_rules! synth_step0_template {
         fn $name(src: &[f32], dst: &mut [f32], step: usize, off: usize, sp: &SynthParams) {
             for i in 0..step {
                 for j in 0..sp.p0 {
-                    dst[i] += ((src[j] as f64) * $tab[sp.idx][j][i]) as f32;
+                    dst[i] += (f64::from(src[j]) * $tab[sp.idx][j][i]) as f32;
                 }
             }
             for i in 0..step {
                 for j in 0..sp.p1 {
-                    dst[$size - step + i] += ((src[sp.p0 + off + j] as f64) * $tab[sp.idx][sp.p0 + j][i]) as f32;
+                    dst[$size - step + i] += (f64::from(src[sp.p0 + off + j]) * $tab[sp.idx][sp.p0 + j][i]) as f32;
                 }
             }
         }
@@ -511,7 +512,7 @@ fn synth_step1(src: &[f32], dst: &mut [f32], size: usize, stride: usize, step: u
 {
     let mut pos = step - 1;
     for _ in 0..off {
-        let scale = src[p0] as f64;
+        let scale = f64::from(src[p0]);
         p0 += 1;
         pos &= size - 1;
         for i in 0..pos.min(step) {
@@ -683,7 +684,7 @@ fn synth_generic(src: &[f32], dst: &mut [f32], tmpbuf: &mut [f32; COEFFS * 2], i
     (&mut dst[..size]).copy_from_slice(&src[..size]);
     let mut order_idx = 0;
     synth_recursive(dst, tmpbuf, size, order, &mut order_idx, false);
-    for i in 0..COEFFS { dst[i] *= 0.125; }
+    for el in dst.iter_mut().take(COEFFS) { *el *= 0.125; }
 }
 
 fn synth1024(dsp: &mut SynthDSP, src: &[f32], dst: &mut [f32], tmpbuf: &mut [f32; COEFFS * 2], is_40khz: bool) {

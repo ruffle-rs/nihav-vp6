@@ -395,7 +395,7 @@ impl VP56Parser for VP6BR {
         if copy_mode {
             let src = &tmp_blk[2 * 16 + 2..];
             for (dline, sline) in dbuf.chunks_mut(dst.stride[plane]).zip(src.chunks(16)).take(8) {
-                for i in 0..8 { dline[i] = sline[i]; }
+                dline[..8].copy_from_slice(&sline[..8]);
             }
         } else if bicubic {
             let coeff_h = &VP6_BICUBIC_COEFFS[self.filter_alpha][mx as usize];
@@ -499,9 +499,9 @@ fn decode_token_huff(br: &mut BitReader, huff: &VP6Huff) -> DecoderResult<(i16, 
         0   => Ok((0, false)),
         1 | 2 | 3 | 4 => {
             if !br.read_bool()? {
-                Ok((tok as i16, false))
+                Ok((i16::from(tok), false))
             } else {
-                Ok((-(tok as i16), false))
+                Ok((-i16::from(tok), false))
             }
         },
         5 | 6 | 7 | 8 | 9 | 10 => {
@@ -546,7 +546,7 @@ fn decode_zero_run_huff(br: &mut BitReader, huff: &VP6Huff) -> DecoderResult<usi
     }
 }
 
-
+#[allow(clippy::too_many_arguments)]
 fn get_block(dst: &mut [u8], dstride: usize, src: NAVideoBufferRef<u8>, comp: usize,
              dx: usize, dy: usize, mv_x: i16, mv_y: i16)
 {
@@ -566,9 +566,7 @@ fn get_block(dst: &mut [u8], dstride: usize, src: NAVideoBufferRef<u8>, comp: us
         let saddr = soff + ((sx - 2) as usize) + ((sy - 2) as usize) * sstride;
         let src = &sbuf[saddr..];
         for (dline, sline) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(12) {
-            for i in 0..12 {
-                dline[i] = sline[i];
-            }
+            dline[..12].copy_from_slice(&sline[..12]);
         }
     }
 }
@@ -578,7 +576,7 @@ fn calc_variance(src: &[u8], stride: usize) -> u16 {
     let mut ssum = 0;
     for line in src.chunks(stride * 2).take(4) {
         for el in line.iter().take(8).step_by(2) {
-            let pix = *el as u32;
+            let pix = u32::from(*el);
             sum += pix;
             ssum += pix * pix;
         }
@@ -588,13 +586,13 @@ fn calc_variance(src: &[u8], stride: usize) -> u16 {
 
 macro_rules! mc_filter {
     (bilinear; $a: expr, $b: expr, $c: expr) => {
-        ((($a as u16) * (8 - $c) + ($b as u16) * $c + 4) >> 3) as u8
+        ((u16::from($a) * (8 - $c) + u16::from($b) * $c + 4) >> 3) as u8
     };
     (bicubic; $src: expr, $off: expr, $step: expr, $coeffs: expr) => {
-        ((($src[$off - $step]     as i32) * ($coeffs[0] as i32) +
-          ($src[$off]             as i32) * ($coeffs[1] as i32) +
-          ($src[$off + $step]     as i32) * ($coeffs[2] as i32) +
-          ($src[$off + $step * 2] as i32) * ($coeffs[3] as i32) + 64) >> 7).min(255).max(0) as u8
+        ((i32::from($src[$off - $step]    ) * i32::from($coeffs[0]) +
+          i32::from($src[$off]            ) * i32::from($coeffs[1]) +
+          i32::from($src[$off + $step]    ) * i32::from($coeffs[2]) +
+          i32::from($src[$off + $step * 2]) * i32::from($coeffs[3]) + 64) >> 7).min(255).max(0) as u8
     }
 }
 
@@ -631,6 +629,7 @@ fn mc_bilinear(dst: &mut [u8], dstride: usize, src: &[u8], mut soff: usize, sstr
     }
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn mc_bicubic(dst: &mut [u8], dstride: usize, src: &[u8], mut soff: usize, sstride: usize, coeffs_w: &[i16; 4], coeffs_h: &[i16; 4]) {
     if coeffs_h[1] == 128 {
         for dline in dst.chunks_mut(dstride).take(8) {
@@ -692,7 +691,7 @@ impl NADecoder for VP6Decoder {
                     VP_YUVA420_FORMAT
                 };
             let myvinfo = NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, fmt);
-            let myinfo = NACodecTypeInfo::Video(myvinfo.clone());
+            let myinfo = NACodecTypeInfo::Video(myvinfo);
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
             self.dec.init(supp, myvinfo)?;
             Ok(())
