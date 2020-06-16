@@ -313,6 +313,7 @@ impl LHDecoder {
         }
         Ok(())
     }
+    #[allow(clippy::identity_op)]
     fn unpack_samples(&mut self, br: &mut BitReader) -> DecoderResult<()> {
         for grp in 0..3 {
             for gr in 0..4 {
@@ -368,7 +369,7 @@ impl NADecoder for LHDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Audio(ainfo) = info.get_properties() {
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), 1, SND_F32P_FORMAT, CODEC_SAMPLES);
-            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo.clone()));
+            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo));
             self.chmap = NAChannelMap::from_str("C").unwrap();
             Ok(())
         } else {

@@ -143,17 +143,17 @@ impl GremlinVideoDecoder {
         let mut sidx = PREAMBLE_SIZE;
         let mut didx = 0;
 
-        for i in 0..768 { dst[paloff + i] = self.pal[i]; }
+        dst[paloff..][..768].copy_from_slice(&self.pal);
         if !self.scale_v && !self.scale_h {
             for _ in 0..h {
-                for x in 0..w { dst[didx + x] = self.frame[sidx + x]; }
+                dst[didx..][..w].copy_from_slice(&self.frame[sidx..][..w]);
                 sidx += w;
                 didx += stride;
             }
         } else {
             for y in 0..h {
                 if !self.scale_v {
-                    for x in 0..w { dst[didx + x] = self.frame[sidx + x]; }
+                    dst[didx..][..w].copy_from_slice(&self.frame[sidx..][..w]);
                 } else {
                     for x in 0..w { dst[didx + x] = self.frame[sidx + x/2]; }
                 }
@@ -247,6 +247,7 @@ impl GremlinVideoDecoder {
         Ok(())
     }
 
+    #[allow(clippy::identity_op)]
     fn decode_method68(&mut self, br: &mut ByteReader,
                        skip: usize, use8: bool) -> DecoderResult<()> {
         let mut bits = Bits32::new();

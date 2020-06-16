@@ -22,10 +22,10 @@ fn lz_decompress(src: &[u8], dst: &mut [u8]) -> DecoderResult<()> {
     let mut dpos = 0;
     let end = src.len();
     while spos < end {
-        let oplo = src[spos] as u16;
+        let oplo = u16::from(src[spos]);
         spos += 1;
         if spos >= end { return Err(DecoderError::ShortData); }
-        let ophi = src[spos] as u16;
+        let ophi = u16::from(src[spos]);
         spos += 1;
         let mut op = (ophi << 8) | oplo;
         for _ in 0..16 {
@@ -58,6 +58,7 @@ fn lz_decompress(src: &[u8], dst: &mut [u8]) -> DecoderResult<()> {
     Ok(())
 }
 
+#[allow(clippy::identity_op)]
 fn decode_frame(frm: &mut NASimpleVideoFrame<u8>, src: &[u8], width: usize, height: usize) -> DecoderResult<bool> {
     validate!(src.len() > 8);
     let num_vec     = read_u16le(&src[0..])? as usize;

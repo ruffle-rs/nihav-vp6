@@ -110,6 +110,7 @@ impl BMV3VideoDecoder {
             is_intra:   false,
         }
     }
+    #[allow(clippy::identity_op)]
     fn decode_frame(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
         let mut idx = 0;
         loop {
@@ -532,6 +533,7 @@ impl BMV3AudioDecoder {
     }
 }
 
+#[allow(clippy::identity_op)]
 fn decode_block(mode: u8, src: &[u8], dst: &mut [i16], mut pred: i16) -> i16 {
     let steps = &BMV_AUDIO_STEPS[mode as usize];
     let mut val2 = 0;

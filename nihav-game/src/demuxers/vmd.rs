@@ -160,7 +160,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
 
         let is_video = cur_frame.chtype == CHTYPE_VIDEO;
         let mut buf: Vec<u8> = Vec::with_capacity(FRAME_HDR_SIZE + (cur_frame.size as usize));
-        if !(is_video && self.is_indeo) && !(!is_video && self.is_lhaud) {
+        if !((is_video && self.is_indeo) || (!is_video && self.is_lhaud)) {
             buf.extend_from_slice(&cur_frame.hdr);
             buf.resize(FRAME_HDR_SIZE + (cur_frame.size as usize), 0);
             self.src.read_buf(&mut buf[FRAME_HDR_SIZE..])?;

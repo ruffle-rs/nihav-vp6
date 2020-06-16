@@ -297,11 +297,11 @@ fn decode_values(br: &mut BitReader, dst: &mut [i16], cb: &Codebook<u32>) -> Dec
 }
 
 fn dequant(val: i16, q: i16) -> i32 {
-    (val as i32) * (q as i32)
+    i32::from(val) * i32::from(q)
 }
 
 fn scale_coef(val: i32, scale: i16) -> i32 {
-    ((val as i32) * (scale as i32)) >> 8
+    (val * i32::from(scale)) >> 8
 }
 
 macro_rules! idct_1d {
@@ -334,6 +334,8 @@ macro_rules! idct_1d {
     }
 }
 
+#[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 fn idct(blk: &mut [i32; 64]) {
     for i in 0..8 {
         idct_1d!(blk[i + 0 * 8], blk[i + 1 * 8], blk[i + 2 * 8], blk[i + 3 * 8],
@@ -343,7 +345,7 @@ fn idct(blk: &mut [i32; 64]) {
         idct_1d!(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]);
     }
     for el in blk.iter_mut() {
-        *el = *el >> 5;
+        *el >>= 5;
     }
 }
 
@@ -394,7 +396,7 @@ fn decode_block_inter(dst: &mut [u8], stride: usize, btype: usize, coeffs: &[i16
             let dc = dequant(coeffs[0], qmat[0]) >> 5;
             for line in dst.chunks_mut(stride).take(8) {
                 for el in line.iter_mut().take(8) {
-                    *el = ((*el as i32) + dc).max(0).min(255) as u8;
+                    *el = (i32::from(*el) + dc).max(0).min(255) as u8;
                 }
             }
         },
@@ -407,7 +409,7 @@ fn decode_block_inter(dst: &mut [u8], stride: usize, btype: usize, coeffs: &[i16
             idct(&mut blk);
             for (line, row) in dst.chunks_mut(stride).zip(blk.chunks(8)).take(8) {
                 for (dst, coef) in line.iter_mut().zip(row.iter()).take(8) {
-                    *dst = (*dst as i32 + *coef).max(0).min(255) as u8;
+                    *dst = (i32::from(*dst) + *coef).max(0).min(255) as u8;
                 }
             }
         },
@@ -419,7 +421,7 @@ fn decode_block_inter(dst: &mut [u8], stride: usize, btype: usize, coeffs: &[i16
             idct(&mut blk);
             for (line, row) in dst.chunks_mut(stride).zip(blk.chunks(8)).take(8) {
                 for (dst, coef) in line.iter_mut().zip(row.iter()).take(8) {
-                    *dst = (*dst as i32 + *coef).max(0).min(255) as u8;
+                    *dst = (i32::from(*dst) + *coef).max(0).min(255) as u8;
                 }
             }
         },
@@ -428,13 +430,13 @@ fn decode_block_inter(dst: &mut [u8], stride: usize, btype: usize, coeffs: &[i16
 
 fn init_quant(qmat: &mut [i16; 64], base_qmat: &[u8; 64], quant: u8) {
     let q = if quant < 50 {
-            5000 / (quant.max(1) as i32)
+            5000 / i32::from(quant.max(1))
         } else {
-            ((100 - quant.min(100)) * 2) as i32
+            i32::from((100 - quant.min(100)) * 2)
         };
     for (inq, (outq, scale)) in base_qmat.iter().zip(qmat.iter_mut().zip(QUANT_MATRIX.iter())) {
-        let val = (((*inq as i32) * q + 50) / 100).max(1).min(0x7FFF);
-        *outq = ((val * (*scale as i32) + 0x800) >> 12) as i16;
+        let val = ((i32::from(*inq) * q + 50) / 100).max(1).min(0x7FFF);
+        *outq = ((val * i32::from(*scale) + 0x800) >> 12) as i16;
     }
 }
 

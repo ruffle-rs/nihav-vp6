@@ -451,7 +451,7 @@ impl NADecoder for VMDAudioDecoder {
             let edata = info.get_extradata();
             let flags = if let Some(ref buf) = edata {
                     validate!(buf.len() >= 2);
-                    (buf[0] as u16) | ((buf[1] as u16) << 8)
+                    u16::from(buf[0]) | (u16::from(buf[1]) << 8)
                 } else {
                     0
                 };
@@ -480,13 +480,15 @@ impl NADecoder for VMDAudioDecoder {
                 }
             };
             self.ainfo = NAAudioInfo::new(ainfo.get_sample_rate(), ainfo.get_channels(), fmt, ainfo.get_block_len());
-            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo.clone()));
+            self.info = info.replace_info(NACodecTypeInfo::Audio(self.ainfo));
             self.chmap = NAChannelMap::from_str(if channels == 1 { "C" } else { "L,R" }).unwrap();
             Ok(())
         } else {
             Err(DecoderError::InvalidData)
         }
     }
+    #[allow(clippy::identity_op)]
+    #[allow(clippy::cyclomatic_complexity)]
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
