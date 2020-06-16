@@ -545,7 +545,7 @@ mod test {
                 demuxer:        "avi",
                 in_name:        "assets/Misc/TalkingHead_352x288.avi",
                 stream_type:    StreamType::Video,
-                limit:          Some(32),
+                limit:          Some(3),
                 dmx_reg, dec_reg,
             };
         let enc_config = EncoderTestParams {
@@ -569,6 +569,8 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        test_encoding_to_file(&dec_config, &enc_config, enc_params);
+        //test_encoding_to_file(&dec_config, &enc_config, enc_params);
+        test_encoding_md5(&dec_config, &enc_config, enc_params,
+                          &[0x8f0d3f66, 0xb91a6ee5, 0x59e4933e, 0x59c6fb0b]);
     }
 }
