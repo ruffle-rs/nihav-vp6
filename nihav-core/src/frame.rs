@@ -927,8 +927,8 @@ impl NATimeInfo {
 
     /// Converts time in given scale into timestamp in given base.
     pub fn time_to_ts(time: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
-        let tb_num = tb_num as u64;
-        let tb_den = tb_den as u64;
+        let tb_num = u64::from(tb_num);
+        let tb_den = u64::from(tb_den);
         let tmp = time.checked_mul(tb_num);
         if let Some(tmp) = tmp {
             tmp / base / tb_den
@@ -949,8 +949,8 @@ impl NATimeInfo {
     }
     /// Converts timestamp in given base into time in given scale.
     pub fn ts_to_time(ts: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
-        let tb_num = tb_num as u64;
-        let tb_den = tb_den as u64;
+        let tb_num = u64::from(tb_num);
+        let tb_den = u64::from(tb_den);
         let tmp = ts.checked_mul(base);
         if let Some(tmp) = tmp {
             let tmp2 = tmp.checked_mul(tb_num);

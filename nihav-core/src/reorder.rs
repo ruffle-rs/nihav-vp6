@@ -32,6 +32,12 @@ impl NoReorderer {
     }
 }
 
+impl Default for NoReorderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FrameReorderer for NoReorderer {
     fn add_frame(&mut self, fref: NAFrameRef) -> bool {
         if self.fref.is_none() {

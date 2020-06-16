@@ -113,6 +113,7 @@ pub struct ShortCodebookDesc {
 ///
 /// [`ShortCodebookDescReader`]: ./struct.ShortCodebookDescReader.html
 /// [`TableCodebookDescReader`]: ./struct.TableCodebookDescReader.html
+#[allow(clippy::len_without_is_empty)]
 pub trait CodebookDescReader<S> {
     /// Returns the codeword length for the provided index.
     fn bits(&mut self, idx: usize) -> u8;

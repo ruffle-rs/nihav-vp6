@@ -21,6 +21,7 @@ mod kernel;
 
 mod colorcvt;
 mod repack;
+#[allow(clippy::module_inception)]
 mod scale;
 
 mod palette;

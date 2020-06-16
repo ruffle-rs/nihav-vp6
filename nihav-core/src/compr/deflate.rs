@@ -72,6 +72,7 @@ impl CodebookDescReader<u16> for FixedLenCodeReader {
         else if idx < 280 { 7 }
         else              { 8 }
     }
+    #[allow(clippy::identity_op)]
     fn code(&mut self, idx: usize) -> u32 {
         let base = idx as u32;
         let bits = self.bits(idx);
@@ -355,7 +356,7 @@ impl Inflate {
     ///! [`DecompressError::ShortData`]: ../enum.DecompressError.html#variant.ShortData
     ///! [`DecompressError::OutputFull`]: ../enum.DecompressError.html#variant.OutputFull
     pub fn decompress_data(&mut self, src: &[u8], dst: &mut [u8], continue_block: bool) -> DecompressResult<usize> {
-        if src.len() == 0 || dst.len() == 0 {
+        if src.is_empty() || dst.is_empty() {
             return Err(DecompressError::InvalidArgument);
         }
         let mut csrc = if !continue_block {
@@ -597,16 +598,15 @@ impl Inflate {
                         self.state = InflateState::End;
                         return Err(DecompressError::InvalidHeader);
                     }
-                    let rpt;
-                    if mode == 0 {
-                        if self.cur_len_idx == 0 {
-                            self.state = InflateState::End;
-                            return Err(DecompressError::InvalidHeader);
-                        }
-                        rpt = self.all_lengths[self.cur_len_idx - 1];
-                    } else {
-                        rpt = 0;
-                    }
+                    let rpt = if mode == 0 {
+                            if self.cur_len_idx == 0 {
+                                self.state = InflateState::End;
+                                return Err(DecompressError::InvalidHeader);
+                            }
+                            self.all_lengths[self.cur_len_idx - 1]
+                        } else {
+                            0
+                        };
                     for _ in 0..len {
                         self.all_lengths[self.cur_len_idx] = rpt;
                         self.cur_len_idx += 1;
@@ -720,6 +720,12 @@ impl Inflate {
     }
 }
 
+impl Default for Inflate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn lengths_to_codes(lens: &[u8], codes: &mut [ShortCodebookDesc]) -> DecompressResult<()> {
     let mut bits = [0u32; 32];
     let mut pfx  = [0u32; 33];
@@ -757,6 +763,7 @@ struct GzipCRC32 {
 }
 
 impl GzipCRC32 {
+    #[allow(clippy::unreadable_literal)]
     fn new() -> Self {
         let mut tab = [0u32; 256];
         for i in 0..256 {

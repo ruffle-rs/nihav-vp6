@@ -369,7 +369,7 @@ println!(" [intermediate format {}]", df);
             let mut voff = sbuf.get_offset(2);
             let src = sbuf.get_data();
             let dst = dbuf.get_data_mut().unwrap();
-            if self.yscale.len() > 0 {
+            if !self.yscale.is_empty() {
                 for y in 0..h {
                     for x in 0..w {
                         let y = self.yscale[src[yoff + x] as usize];
@@ -432,7 +432,7 @@ impl YuvToRgb {
         let mut yoff = sbuf.get_offset(0);
         let src = sbuf.get_data();
         let dst = dbuf.get_data_mut().unwrap();
-        if self.yscale.len() > 0 {
+        if !self.yscale.is_empty() {
             for _y in 0..h {
                 for x in 0..w {
                     let y = self.yscale[src[yoff + x] as usize];

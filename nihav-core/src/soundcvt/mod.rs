@@ -37,10 +37,10 @@ impl ChannelOp {
     }
 }
 
-fn apply_channel_op<T:Copy>(ch_op: &ChannelOp, src: &Vec<T>, dst: &mut Vec<T>) {
+fn apply_channel_op<T:Copy>(ch_op: &ChannelOp, src: &[T], dst: &mut Vec<T>) {
     match *ch_op {
         ChannelOp::Passthrough => {
-            dst.copy_from_slice(src.as_slice());
+            dst.copy_from_slice(src);
         },
         ChannelOp::Reorder(ref reorder) => {
             for (out, idx) in dst.iter_mut().zip(reorder.iter()) {
@@ -51,7 +51,7 @@ fn apply_channel_op<T:Copy>(ch_op: &ChannelOp, src: &Vec<T>, dst: &mut Vec<T>) {
     };
 }
 
-fn remix_i32(ch_op: &ChannelOp, src: &Vec<i32>, dst: &mut Vec<i32>) {
+fn remix_i32(ch_op: &ChannelOp, src: &[i32], dst: &mut Vec<i32>) {
     if let ChannelOp::Remix(ref remix_mat) = ch_op {
         let sch = src.len();
         for (out, coeffs) in dst.iter_mut().zip(remix_mat.chunks(sch)) {
@@ -70,7 +70,7 @@ fn remix_i32(ch_op: &ChannelOp, src: &Vec<i32>, dst: &mut Vec<i32>) {
     }
 }
 
-fn remix_f32(ch_op: &ChannelOp, src: &Vec<f32>, dst: &mut Vec<f32>) {
+fn remix_f32(ch_op: &ChannelOp, src: &[f32], dst: &mut Vec<f32>) {
     if let ChannelOp::Remix(ref remix_mat) = ch_op {
         let sch = src.len();
         for (out, coeffs) in dst.iter_mut().zip(remix_mat.chunks(sch)) {
@@ -97,13 +97,13 @@ impl FromFmt<u8> for u8 {
     fn cvt_from(val: u8) -> u8 { val }
 }
 impl FromFmt<u8> for i16 {
-    fn cvt_from(val: u8) -> i16 { ((val as i16) - 128).wrapping_mul(0x101) }
+    fn cvt_from(val: u8) -> i16 { (i16::from(val) - 128).wrapping_mul(0x101) }
 }
 impl FromFmt<u8> for i32 {
-    fn cvt_from(val: u8) -> i32 { ((val as i32) - 128).wrapping_mul(0x01010101) }
+    fn cvt_from(val: u8) -> i32 { (i32::from(val) - 128).wrapping_mul(0x01010101) }
 }
 impl FromFmt<u8> for f32 {
-    fn cvt_from(val: u8) -> f32 { ((val as f32) - 128.0) / 128.0 }
+    fn cvt_from(val: u8) -> f32 { (f32::from(val) - 128.0) / 128.0 }
 }
 
 impl FromFmt<i16> for u8 {
@@ -113,10 +113,10 @@ impl FromFmt<i16> for i16 {
     fn cvt_from(val: i16) -> i16 { val }
 }
 impl FromFmt<i16> for i32 {
-    fn cvt_from(val: i16) -> i32 { (val as i32).wrapping_mul(0x10001) }
+    fn cvt_from(val: i16) -> i32 { i32::from(val).wrapping_mul(0x10001) }
 }
 impl FromFmt<i16> for f32 {
-    fn cvt_from(val: i16) -> f32 { (val as f32) / 32768.0 }
+    fn cvt_from(val: i16) -> f32 { f32::from(val) / 32768.0 }
 }
 
 impl FromFmt<i32> for u8 {
@@ -233,8 +233,8 @@ impl SampleReader for PackedSampleReader<'_> {
 }
 
 trait SampleWriter {
-    fn store_samples_i32(&mut self, pos: usize, src: &Vec<i32>);
-    fn store_samples_f32(&mut self, pos: usize, src: &Vec<f32>);
+    fn store_samples_i32(&mut self, pos: usize, src: &[i32]);
+    fn store_samples_f32(&mut self, pos: usize, src: &[f32]);
 }
 
 struct GenericSampleWriter<'a, T:Copy> {
@@ -243,14 +243,14 @@ struct GenericSampleWriter<'a, T:Copy> {
 }
 
 impl<'a, T:Copy+FromFmt<i32>+FromFmt<f32>> SampleWriter for GenericSampleWriter<'a, T> {
-    fn store_samples_i32(&mut self, pos: usize, src: &Vec<i32>) {
+    fn store_samples_i32(&mut self, pos: usize, src: &[i32]) {
         let mut off = pos;
         for el in src.iter() {
             self.data[off] = (*el).cvt_into();
             off += self.stride;
         }
     }
-    fn store_samples_f32(&mut self, pos: usize, src: &Vec<f32>) {
+    fn store_samples_f32(&mut self, pos: usize, src: &[f32]) {
         let mut off = pos;
         for el in src.iter() {
             self.data[off] = (*el).cvt_into();
@@ -272,7 +272,7 @@ impl<'a> PackedSampleWriter<'a> {
         Self { data, fmt, bpp }
     }
 
-    fn store_samples<T:Copy>(&mut self, pos: usize, src: &Vec<T>) where u8: FromFmt<T>, i16: FromFmt<T>, i32: FromFmt<T>, f32: FromFmt<T> {
+    fn store_samples<T:Copy>(&mut self, pos: usize, src: &[T]) where u8: FromFmt<T>, i16: FromFmt<T>, i32: FromFmt<T>, f32: FromFmt<T> {
         let mut offset = pos * self.bpp * src.len();
         for el in src.iter() {
             let dst = &mut self.data[offset..];
@@ -293,8 +293,8 @@ impl<'a> PackedSampleWriter<'a> {
                 match (self.bpp, self.fmt.be) {
                     (4, true)  => write_f32be(dst, f32::cvt_from(*el)).unwrap(),
                     (4, false) => write_f32le(dst, f32::cvt_from(*el)).unwrap(),
-                    (8, true)  => write_f64be(dst, f32::cvt_from(*el) as f64).unwrap(),
-                    (8, false) => write_f64le(dst, f32::cvt_from(*el) as f64).unwrap(),
+                    (8, true)  => write_f64be(dst, f64::from(f32::cvt_from(*el))).unwrap(),
+                    (8, false) => write_f64le(dst, f64::from(f32::cvt_from(*el))).unwrap(),
                     (_, _) => unreachable!(),
                 };
             }
@@ -304,10 +304,10 @@ impl<'a> PackedSampleWriter<'a> {
 }
 
 impl SampleWriter for PackedSampleWriter<'_> {
-    fn store_samples_i32(&mut self, pos: usize, src: &Vec<i32>) {
+    fn store_samples_i32(&mut self, pos: usize, src: &[i32]) {
         self.store_samples(pos, src);
     }
-    fn store_samples_f32(&mut self, pos: usize, src: &Vec<f32>) {
+    fn store_samples_f32(&mut self, pos: usize, src: &[f32]) {
         self.store_samples(pos, src);
     }
 }
@@ -362,7 +362,7 @@ Result<NABufferType, SoundConvertError> {
         return Ok(src.clone());
     }
 
-    let ret = alloc_audio_buffer(dst_info.clone(), nsamples, dst_chmap.clone());
+    let ret = alloc_audio_buffer(*dst_info, nsamples, dst_chmap.clone());
     if ret.is_err() {
         return Err(SoundConvertError::AllocError);
     }

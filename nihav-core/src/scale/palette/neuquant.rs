@@ -39,7 +39,7 @@ impl NeuQuantQuantiser {
         let mut range = 0;
         let sqradius = (radius * radius) as f64;
         while (idx0 < high) || (idx1 > low) {
-            let sqrng = (range * range) as f64;
+            let sqrng = f64::from(range * range);
             let a = alpha * (sqradius - sqrng) / sqradius;
             range += 1;
             if idx0 < high {
@@ -85,7 +85,7 @@ impl NeuQuantQuantiser {
     pub fn learn(&mut self, src: &[Pixel]) {
         let mut bias_radius = (256 / 8) << 6;
         let alphadec = (30 + (self.factor - 1) / 3) as f64;
-        let initial_alpha = (1 << 10) as f64;
+        let initial_alpha = f64::from(1 << 10);
 
         let npixels = src.len();
 
@@ -105,7 +105,7 @@ impl NeuQuantQuantiser {
         }
 
         for i in 0..samples {
-            let clr = [src[pos].r as f64, src[pos].g as f64, src[pos].b as f64];
+            let clr = [f64::from(src[pos].r), f64::from(src[pos].g), f64::from(src[pos].b)];
             let idx = self.find_node(&clr);
             if idx >= SPECIAL_NODES {
                 let new_alpha = alphadec / initial_alpha;

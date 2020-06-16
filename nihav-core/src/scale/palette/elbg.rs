@@ -8,7 +8,7 @@ impl RNG {
     fn new() -> Self { Self { seed: 0x1234 } }
     fn next(&mut self) -> u8 {
         if (self.seed & 0x8000) != 0 {
-            self.seed = (self.seed & 0x7FFF) * 2 ^ 0x1B2B;
+            self.seed = ((self.seed & 0x7FFF) * 2) ^ 0x1B2B;
         } else {
             self.seed <<= 1;
         }
@@ -198,6 +198,7 @@ impl ELBG {
         clu1.calc_dist();
         clu0.dist + clu1.dist
     }
+    #[allow(clippy::cyclomatic_complexity)]
     pub fn quantise(&mut self, src: &[Pixel], dst: &mut [[u8; 3]; 256]) {
         if src.len() < 3 {
             return;
@@ -284,7 +285,7 @@ impl ELBG {
             if do_elbg_step {
                 do_elbg_step = false;
                 for low_idx in low_u.iter() {
-                    if high_u.len() == 0 {
+                    if high_u.is_empty() {
                         break;
                     }
                     let high_idx_idx = (rng.next() as usize) % high_u.len();

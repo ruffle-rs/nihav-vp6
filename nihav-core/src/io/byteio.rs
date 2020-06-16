@@ -200,6 +200,7 @@ write_int_func!(write_u64le, u64, 8, to_le);
 /// # Ok(())
 /// # }
 /// ````
+#[allow(clippy::identity_op)]
 pub fn write_u24be(dst: &mut [u8], val: u32) -> ByteIOResult<()> {
     if dst.len() < 3 { return Err(ByteIOError::WriteError); }
     dst[0] = (val >> 16) as u8;
@@ -208,6 +209,7 @@ pub fn write_u24be(dst: &mut [u8], val: u32) -> ByteIOResult<()> {
     Ok(())
 }
 /// Writes 24-bit little-endian integer to the provided buffer.
+#[allow(clippy::identity_op)]
 pub fn write_u24le(dst: &mut [u8], val: u32) -> ByteIOResult<()> {
     if dst.len() < 3 { return Err(ByteIOError::WriteError); }
     dst[0] = (val >>  0) as u8;
@@ -807,9 +809,7 @@ impl<'a> ByteIO for MemoryWriter<'a> {
 
     fn write_buf(&mut self, buf: &[u8]) -> ByteIOResult<()> {
         if self.pos + buf.len() > self.buf.len() { return Err(ByteIOError::WriteError); }
-        for i in 0..buf.len() {
-            self.buf[self.pos + i] = buf[i];
-        }
+        self.buf[self.pos..][..buf.len()].copy_from_slice(buf);
         self.pos += buf.len();
         Ok(())
     }
@@ -887,9 +887,7 @@ impl<'a> ByteIO for GrowableMemoryWriter<'a> {
         if self.pos + buf.len() > self.buf.len() {
             self.buf.resize(self.pos + buf.len(), 0);
         }
-        for i in 0..buf.len() {
-            self.buf[self.pos + i] = buf[i];
-        }
+        self.buf[self.pos..][..buf.len()].copy_from_slice(buf);
         self.pos += buf.len();
         Ok(())
     }

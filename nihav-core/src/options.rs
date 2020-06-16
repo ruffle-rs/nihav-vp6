@@ -9,20 +9,20 @@ use std::sync::Arc;
 use std::fmt;
 
 /// Common name for keyframe interval option.
-pub const KEYFRAME_OPTION: &'static str = "key_int";
+pub const KEYFRAME_OPTION: &str = "key_int";
 /// Common description for keyframe interval option.
-pub const KEYFRAME_OPTION_DESC: &'static str = "Keyframe interval (0 - automatic)";
+pub const KEYFRAME_OPTION_DESC: &str = "Keyframe interval (0 - automatic)";
 
 /// Common name for frame skipping mode.
-pub const FRAME_SKIP_OPTION: &'static str = "frame_skip";
+pub const FRAME_SKIP_OPTION: &str = "frame_skip";
 /// Common description for frame skipping mode.
-pub const FRAME_SKIP_OPTION_DESC: &'static str = "Frame skipping mode";
+pub const FRAME_SKIP_OPTION_DESC: &str = "Frame skipping mode";
 /// Frame skipping option value for no skipped frames.
-pub const FRAME_SKIP_OPTION_VAL_NONE: &'static str = "none";
+pub const FRAME_SKIP_OPTION_VAL_NONE: &str = "none";
 /// Frame skipping option value for decoding only keyframes.
-pub const FRAME_SKIP_OPTION_VAL_KEYFRAME: &'static str = "keyframes";
+pub const FRAME_SKIP_OPTION_VAL_KEYFRAME: &str = "keyframes";
 /// Frame skipping option value for decoding only intra frames.
-pub const FRAME_SKIP_OPTION_VAL_INTRA: &'static str = "intra";
+pub const FRAME_SKIP_OPTION_VAL_INTRA: &str = "intra";
 
 /// A list specifying option parsing and validating errors.
 #[derive(Clone,Copy,Debug,PartialEq)]
@@ -70,17 +70,17 @@ pub struct NAOptionDefinition {
 
 impl NAOptionDefinition {
     /// Tries to parse input string(s) as an option and returns new option and number of arguments used (1 or 2) on success.
-    pub fn parse(&self, name: &String, value: Option<&String>) -> OptionResult<(NAOption, usize)> {
+    pub fn parse(&self, name: &str, value: Option<&String>) -> OptionResult<(NAOption, usize)> {
         let no_name = "no".to_owned() + self.name;
         let opt_no_name = "--no".to_owned() + self.name;
-        if name == &no_name || name == &opt_no_name {
+        if name == no_name || name == opt_no_name {
             match self.opt_type {
                 NAOptionDefinitionType::Bool => return Ok((NAOption { name: self.name, value: NAValue::Bool(false) }, 1)),
                 _ => return Err(OptionError::InvalidFormat),
             };
         }
         let opt_name = "--".to_owned() + self.name;
-        if self.name != name && &opt_name != name {
+        if self.name != name && opt_name != name {
             return Err(OptionError::WrongName);
         }
         match self.opt_type {
@@ -293,17 +293,17 @@ mod test {
     #[test]
     fn test_option_parsing() {
         let mut def = NAOptionDefinition { name: "option", description: "", opt_type: NAOptionDefinitionType::Float(None, None) };
-        assert_eq!(def.parse(&"--option".to_string(), None), Err(OptionError::ParseError));
-        assert_eq!(def.parse(&"--nooption".to_string(), None), Err(OptionError::InvalidFormat));
-        assert_eq!(def.parse(&"--option".to_string(), Some(&"42".to_string())),
+        assert_eq!(def.parse("--option", None), Err(OptionError::ParseError));
+        assert_eq!(def.parse("--nooption", None), Err(OptionError::InvalidFormat));
+        assert_eq!(def.parse("--option", Some(&"42".to_string())),
                    Ok((NAOption{name:"option",value: NAValue::Float(42.0)}, 2)));
         def.opt_type = NAOptionDefinitionType::Float(None, Some(40.0));
-        assert_eq!(def.parse(&"--option".to_string(), Some(&"42".to_string())),
+        assert_eq!(def.parse("--option", Some(&"42".to_string())),
                    Err(OptionError::InvalidValue));
         let def = NAOptionDefinition { name: "option", description: "", opt_type: NAOptionDefinitionType::Bool };
-        assert_eq!(def.parse(&"option".to_string(), None),
+        assert_eq!(def.parse("option", None),
                    Ok((NAOption{name: "option", value: NAValue::Bool(true) }, 1)));
-        assert_eq!(def.parse(&"nooption".to_string(), None),
+        assert_eq!(def.parse("nooption", None),
                    Ok((NAOption{name: "option", value: NAValue::Bool(false) }, 1)));
     }
 }

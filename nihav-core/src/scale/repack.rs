@@ -143,9 +143,7 @@ impl Kernel for UnpackKernel {
             chr.push(Some(dchr));
         }
         let mut df = in_fmt.fmt;
-        for i in 0..self.ncomps {
-            df.comp_info[i] = chr[i];
-        }
+        df.comp_info[..self.ncomps].clone_from_slice(&chr[..self.ncomps]);
         df.palette = false;
 println!(" [intermediate format {}]", df);
         let res = alloc_video_buffer(NAVideoInfo::new(in_fmt.width, in_fmt.height, false, df), 3);
@@ -253,9 +251,7 @@ impl Kernel for DepalKernel {
         }
         let mut df = in_fmt.fmt;
         df.palette = false;
-        for i in 0..self.ncomps {
-            df.comp_info[i] = chr[i];
-        }
+        df.comp_info[..self.ncomps].clone_from_slice(&chr[..self.ncomps]);
 println!(" [intermediate format {}]", df);
         let res = alloc_video_buffer(NAVideoInfo::new(in_fmt.width, in_fmt.height, false, df), 3);
         if res.is_err() { return Err(ScaleError::AllocError); }
