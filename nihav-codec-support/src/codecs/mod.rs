@@ -25,11 +25,11 @@ use std::mem;
 /// shuffler.add_frame(frame.clone()); // tells frame manager to use the frame as the next reference
 /// ````
 #[allow(dead_code)]
-pub struct HAMShuffler {
-    lastframe: Option<NAVideoBufferRef<u8>>,
+pub struct HAMShuffler<T: Copy> {
+    lastframe: Option<NAVideoBufferRef<T>>,
 }
 
-impl HAMShuffler {
+impl<T: Copy> HAMShuffler<T> {
     /// Constructs a new instance of frame manager.
     #[allow(dead_code)]
     pub fn new() -> Self { HAMShuffler { lastframe: None } }
@@ -38,12 +38,12 @@ impl HAMShuffler {
     pub fn clear(&mut self) { self.lastframe = None; }
     /// Sets a new frame reference.
     #[allow(dead_code)]
-    pub fn add_frame(&mut self, buf: NAVideoBufferRef<u8>) {
+    pub fn add_frame(&mut self, buf: NAVideoBufferRef<T>) {
         self.lastframe = Some(buf);
     }
     /// Provides a copy of the reference frame if present or `None` if it is not.
     #[allow(dead_code)]
-    pub fn clone_ref(&mut self) -> Option<NAVideoBufferRef<u8>> {
+    pub fn clone_ref(&mut self) -> Option<NAVideoBufferRef<T>> {
         if let Some(ref mut frm) = self.lastframe {
             let newfrm = frm.copy_buffer();
             *frm = newfrm.clone().into_ref();
@@ -54,7 +54,7 @@ impl HAMShuffler {
     }
     /// Returns the original saved reference frame or `None` if it is not present.
     #[allow(dead_code)]
-    pub fn get_output_frame(&mut self) -> Option<NAVideoBufferRef<u8>> {
+    pub fn get_output_frame(&mut self) -> Option<NAVideoBufferRef<T>> {
         match self.lastframe {
             Some(ref frm) => Some(frm.clone()),
             None => None,
@@ -62,7 +62,7 @@ impl HAMShuffler {
     }
 }
 
-impl Default for HAMShuffler {
+impl<T: Copy> Default for HAMShuffler<T> {
     fn default() -> Self { Self { lastframe: None } }
 }
 

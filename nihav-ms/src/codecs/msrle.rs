@@ -5,7 +5,7 @@ use nihav_codec_support::codecs::HAMShuffler;
 #[derive(Default)]
 struct RleDecoder {
     info:       NACodecInfoRef,
-    hams:       HAMShuffler,
+    hams:       HAMShuffler<u8>,
     width:      usize,
     height:     usize,
     is_4bit:    bool,

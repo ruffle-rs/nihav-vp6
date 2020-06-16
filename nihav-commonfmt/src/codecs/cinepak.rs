@@ -14,7 +14,7 @@ enum DecodeMode {
 
 struct CinepakDecoder {
     info:   NACodecInfoRef,
-    frmmgr: HAMShuffler,
+    frmmgr: HAMShuffler<u8>,
     cb_v1:  [[u8; 6]; 256],
     cb_v4:  [[u8; 6]; 256],
     mode:   DecodeMode,

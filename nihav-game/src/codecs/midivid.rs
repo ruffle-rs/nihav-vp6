@@ -5,7 +5,7 @@ use nihav_codec_support::codecs::HAMShuffler;
 #[derive(Default)]
 struct MidividDecoder {
     info:       NACodecInfoRef,
-    hams:       HAMShuffler,
+    hams:       HAMShuffler<u8>,
     lzbuf:      Vec<u8>,
     width:      usize,
     height:     usize,

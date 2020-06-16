@@ -476,7 +476,7 @@ impl Default for QuantMats {
 struct BinkDecoder {
     info:       NACodecInfoRef,
     ips:        IPShuffler,
-    hams:       HAMShuffler,
+    hams:       HAMShuffler<u8>,
 
     is_ver_b:   bool,
     is_ver_i:   bool,

@@ -373,7 +373,7 @@ struct ClearVideoDecoder {
     info:    NACodecInfoRef,
     dc_cb:   Codebook<i8>,
     ac_cb:   Codebook<u16>,
-    frmmgr:  HAMShuffler,
+    frmmgr:  HAMShuffler<u8>,
     is_rm:   bool,
     ylev:    [LevelCodes; 4],
     ulev:    [LevelCodes; 3],

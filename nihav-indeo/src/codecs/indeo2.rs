@@ -187,7 +187,7 @@ impl CodebookDescReader<u8> for IR2CodeReader {
 struct Indeo2Decoder {
     info:    NACodecInfoRef,
     cb:      Codebook<u8>,
-    frmmgr:  HAMShuffler,
+    frmmgr:  HAMShuffler<u8>,
 }
 
 impl Indeo2Decoder {

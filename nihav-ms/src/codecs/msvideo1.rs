@@ -2,36 +2,6 @@ use nihav_core::codecs::*;
 use nihav_core::io::byteio::*;
 use nihav_codec_support::codecs::HAMShuffler;
 
-struct HAMShuffler16 {
-    lastframe: Option<NAVideoBufferRef<u16>>,
-}
-
-impl HAMShuffler16 {
-    fn clear(&mut self) { self.lastframe = None; }
-    fn add_frame(&mut self, buf: NAVideoBufferRef<u16>) {
-        self.lastframe = Some(buf);
-    }
-    fn clone_ref(&mut self) -> Option<NAVideoBufferRef<u16>> {
-        if let Some(ref mut frm) = self.lastframe {
-            let newfrm = frm.copy_buffer();
-            *frm = newfrm.clone().into_ref();
-            Some(newfrm.into_ref())
-        } else {
-            None
-        }
-    }
-    fn get_output_frame(&mut self) -> Option<NAVideoBufferRef<u16>> {
-        match self.lastframe {
-            Some(ref frm) => Some(frm.clone()),
-            None => None,
-        }
-    }
-}
-
-impl Default for HAMShuffler16 {
-    fn default() -> Self { Self { lastframe: None } }
-}
-
 const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton {
         model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
         comp_info: [
@@ -44,8 +14,8 @@ const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton {
 #[derive(Default)]
 struct Video1Decoder {
     info:       NACodecInfoRef,
-    hams:       HAMShuffler,
-    hams16:     HAMShuffler16,
+    hams:       HAMShuffler<u8>,
+    hams16:     HAMShuffler<u16>,
     width:      usize,
     height:     usize,
     is_16bit:   bool,
