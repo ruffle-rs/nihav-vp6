@@ -133,7 +133,7 @@ pub fn test_remuxing_md5(dec_config: &DecoderTestParams, muxer: &str, mux_reg: &
 
     let mux_f = mux_reg.find_muxer(muxer).unwrap();
 
-    let mut dst = Vec::with_capacity(1048576);
+    let mut dst = Vec::with_capacity(1 << 10);
     let mut gw = GrowableMemoryWriter::new_write(&mut dst);
     let mut bw = ByteWriter::new(&mut gw);
     let mut out_sm = StreamManager::new();

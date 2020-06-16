@@ -1,10 +1,13 @@
 //! Decoder testing functionality.
 //!
 //! This module provides functions that may be used in internal test to check that decoders produce output and that they produce expected output.
+#[allow(clippy::identity_op)]
 pub mod dec_video;
 pub mod enc_video;
 pub mod wavwriter;
 
+#[allow(clippy::identity_op)]
+#[allow(clippy::unreadable_literal)]
 mod md5; // for internal checksums only
 
 /// Decoder testing modes.

@@ -2,6 +2,7 @@ use nihav_core::codecs::DecoderResult;
 use super::{MV, ZERO_MV};
 use nihav_core::frame::{NAVideoBuffer, NAVideoBufferRef};
 
+#[allow(clippy::erasing_op)]
 #[allow(clippy::many_single_char_names)]
 pub mod code;
 pub mod data;

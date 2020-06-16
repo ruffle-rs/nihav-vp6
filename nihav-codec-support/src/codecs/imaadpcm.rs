@@ -57,4 +57,8 @@ impl IMAState {
     }
 }
 
-
+impl Default for IMAState {
+    fn default() -> Self {
+        Self::new()
+    }
+}

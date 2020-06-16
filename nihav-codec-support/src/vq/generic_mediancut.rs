@@ -60,7 +60,7 @@ impl<'a, T: VQElement> VQBox<'a, T> {
 
 pub fn quantise_median_cut<T: VQElement, TS: VQElementSum<T>>(src: &[T], dst: &mut [T]) -> usize {
     let mut points = Vec::with_capacity(src.len());
-    points.extend(src.into_iter());
+    points.extend(src.iter());
     for comp in 0..T::num_components() {
         T::sort_by_component(points.as_mut_slice(), comp);
     }

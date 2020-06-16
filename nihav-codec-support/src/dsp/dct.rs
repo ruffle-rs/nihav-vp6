@@ -159,7 +159,7 @@ fn reverse_bits(inval: u32) -> u32 {
     let mut ret = 0;
     let mut val = inval;
     for _ in 0..8 {
-        ret = (ret << 4) | (REV_TAB[(val & 0xF) as usize] as u32);
+        ret = (ret << 4) | u32::from(REV_TAB[(val & 0xF) as usize]);
         val >>= 4;
     }
     ret

@@ -301,6 +301,7 @@ impl H263BaseDecoder {
             bi.mv_f[blk_no]
         }
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn reconstruct_obmc(&mut self, buf: &mut NAVideoBuffer<u8>, slice_start: usize, start: usize, end: usize, slice_end: bool) -> usize {
         let mut mb_x = start % self.mb_w;
         let mut mb_y = start / self.mb_w;
@@ -404,6 +405,7 @@ impl H263BaseDecoder {
         }
         mb_pos
     }
+    #[allow(clippy::cyclomatic_complexity)]
     pub fn parse_frame(&mut self, bd: &mut BlockDecoder, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
         let pinfo = bd.decode_pichdr()?;
         let mut mvi = MVInfo::new();
