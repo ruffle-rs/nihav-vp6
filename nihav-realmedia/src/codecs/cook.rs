@@ -456,7 +456,7 @@ impl CookChannelPair {
                 *out *= cur_gain;
                 cur_gain *= cur_gain2;
             }
-            for i in 0..self.samples { self.delay[ch][i] = dsp.out[i]; }
+            self.delay[ch][..self.samples].copy_from_slice(&dsp.out[..self.samples]);
         }
         Ok(())
     }

@@ -7,6 +7,7 @@ extern crate nihav_codec_support;
 #[allow(clippy::excessive_precision)]
 #[allow(clippy::identity_op)]
 #[allow(clippy::needless_range_loop)]
+#[allow(clippy::single_match)]
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::unreadable_literal)]
 #[allow(clippy::useless_let_if_seq)]

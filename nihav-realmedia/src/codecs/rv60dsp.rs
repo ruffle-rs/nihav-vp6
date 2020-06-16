@@ -58,10 +58,11 @@ macro_rules! filter_row {
         });
 }
 
+#[allow(clippy::cyclomatic_complexity)]
 fn luma_mc(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut sidx: usize, sstride: usize, w: usize, h: usize, cx: usize, cy: usize) {
     if (cx == 0) && (cy == 0) {
         for _ in 0..h {
-            for x in 0..w { dst[didx + x] = src[sidx + x]; }
+            dst[didx..][..w].copy_from_slice(&src[sidx..][..w]);
             didx += dstride;
             sidx += sstride;
         }
@@ -102,7 +103,7 @@ fn luma_mc(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut sidx
 fn chroma_mc(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut sidx: usize, sstride: usize, w: usize, h: usize, x: usize, y: usize) {
     if (x == 0) && (y == 0) {
         for _ in 0..h {
-            for x in 0..w { dst[didx + x] = src[sidx + x]; }
+            dst[didx..][..w].copy_from_slice(&src[sidx..][..w]);
             didx += dstride;
             sidx += sstride;
         }
@@ -757,9 +758,7 @@ impl IntraPredContext {
             let off = ((sum >> 5) + 32) as usize;
             let frac = (sum & 0x1F) as u16;
             if frac == 0 {
-                for x in 0..size {
-                    dst[doff + x] = src[off + x];
-                }
+                dst[doff..][..size].copy_from_slice(&src[off..][..size]);
             } else {
                 for x in 0..size {
                     let a = src[off + x + 0] as u16;
@@ -785,6 +784,7 @@ impl IntraPredContext {
             sum += diff;
         }
     }
+    #[allow(clippy::cyclomatic_complexity)]
     pub fn pred_angle(&self, dst: &mut [u8], mut doff: usize, dstride: usize, size: usize, angle: usize, filter: bool) {
         let mut filtered1: [u8; 96] = [0; 96];
         let mut filtered2: [u8; 96] = [0; 96];
@@ -880,9 +880,7 @@ impl IntraPredContext {
                 Self::filter_bilin32(&mut filtered1[32..], self.t[1], self.t[33], 32);
             }
             for _ in 0..size {
-                for x in 0..size {
-                    dst[doff + x] = filtered1[32 + x];
-                }
+                dst[doff..][..size].copy_from_slice(&filtered1[32..][..size]);
                 doff += dstride;
             }
             if filter {

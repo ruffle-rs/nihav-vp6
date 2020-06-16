@@ -412,17 +412,17 @@ fn read_multiple_frame(src: &mut ByteReader, stream: NAStreamRef, keyframe: bool
 struct RMDemuxCommon {}
 
 impl RMDemuxCommon {
-    fn parse_stream_info(str_data: &mut CommonStreamData, strmgr: &mut StreamManager, stream_no: u32, edata: &Vec<u8>) -> DemuxerResult<bool> {
+    fn parse_stream_info(str_data: &mut CommonStreamData, strmgr: &mut StreamManager, stream_no: u32, edata: &[u8]) -> DemuxerResult<bool> {
         let mut is_mlti = false;
-        let mut mr = MemoryReader::new_read(edata.as_slice());
+        let mut mr = MemoryReader::new_read(edata);
         let mut src = ByteReader::new(&mut mr);
         let tag  = src.read_u32be()?;
         let tag2 = src.peek_u32be()?;
 //println!("tag1 {:X} tag2 {:X}", tag, tag2);
         if tag == mktag!('.', 'r', 'a', 0xFD) {
-            Self::parse_audio_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata.as_slice())?;
+            Self::parse_audio_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata)?;
         } else if ((tag2 == mktag!('V', 'I', 'D', 'O')) || (tag2 == mktag!('I', 'M', 'A', 'G'))) && ((tag as usize) <= edata.len()) {
-            Self::parse_video_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata.as_slice(), tag2)?;
+            Self::parse_video_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata, tag2)?;
         } else if tag == mktag!(b"LSD:") {
             let extradata = Some(edata.to_owned());
 
@@ -1030,14 +1030,14 @@ impl<'a> RealMediaDemuxer<'a> {
                 Ok(last) => { if last { break; } },
                 Err(DemuxerError::IOError) => { break; },
                 Err(etype) => {
-                        if self.data_chunks.len() == 0 { // data is not found, report error
+                        if self.data_chunks.is_empty() { // data is not found, report error
                             return Err(etype);
                         }
                     },
             };
         }
 //println!("now @ {:X} / {}", self.src.tell(), self.data_pos);
-        validate!(self.data_chunks.len() > 0);
+        validate!(!self.data_chunks.is_empty());
         self.cur_data_chunk = 0;
         let (pos, size, ver) = self.data_chunks[self.cur_data_chunk];
         self.data_pos = pos;

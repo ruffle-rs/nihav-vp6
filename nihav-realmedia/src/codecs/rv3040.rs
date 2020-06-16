@@ -699,13 +699,13 @@ fn decode_mv(br: &mut BitReader) -> DecoderResult<MV> {
     Ok(MV{ x, y })
 }
 
-fn do_mc_16x16(dsp: &Box<dyn RV34DSP + Send>, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, mb_y: usize, mv: MV, avg: bool) {
+fn do_mc_16x16(dsp: &mut dyn RV34DSP, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, mb_y: usize, mv: MV, avg: bool) {
     dsp.do_luma_mc  (buf, prevbuf, mb_x * 16, mb_y * 16,    mv, true, avg);
     dsp.do_chroma_mc(buf, prevbuf, mb_x *  8, mb_y *  8, 1, mv, true, avg);
     dsp.do_chroma_mc(buf, prevbuf, mb_x *  8, mb_y *  8, 2, mv, true, avg);
 }
 
-fn do_mc_8x8(dsp: &Box<dyn RV34DSP + Send>, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, xoff: usize, mb_y: usize, yoff: usize, mv: MV, avg: bool) {
+fn do_mc_8x8(dsp: &mut dyn RV34DSP, buf: &mut NAVideoBuffer<u8>, prevbuf: &NAVideoBuffer<u8>, mb_x: usize, xoff: usize, mb_y: usize, yoff: usize, mv: MV, avg: bool) {
     dsp.do_luma_mc  (buf, prevbuf, mb_x * 16 + xoff * 8, mb_y * 16 + yoff * 8,    mv, false, avg);
     dsp.do_chroma_mc(buf, prevbuf, mb_x *  8 + xoff * 4, mb_y *  8 + yoff * 4, 1, mv, false, avg);
     dsp.do_chroma_mc(buf, prevbuf, mb_x *  8 + xoff * 4, mb_y *  8 + yoff * 4, 2, mv, false, avg);
@@ -924,19 +924,19 @@ impl RV34Decoder {
             MBType::MBP16x16 | MBType::MBP16x16Mix => {
                     if let Some(ref prevbuf) = self.ipbs.get_lastref() {
                         let mv = self.mvi.get_mv(mb_x, mb_y, 0, 0, true);
-                        do_mc_16x16(&self.dsp, buf, prevbuf, mb_x, mb_y, mv, false);
+                        do_mc_16x16(self.dsp.as_mut(), buf, prevbuf, mb_x, mb_y, mv, false);
                     }
                 },
             MBType::MBForward => {
                     if let Some(ref fwdbuf) = self.ipbs.get_b_fwdref() {
                         let mv = self.mvi.get_mv(mb_x, mb_y, 0, 0, true);
-                        do_mc_16x16(&self.dsp, buf, fwdbuf, mb_x, mb_y, mv, false);
+                        do_mc_16x16(self.dsp.as_mut(), buf, fwdbuf, mb_x, mb_y, mv, false);
                     }
                 },
             MBType::MBBackward => {
                     if let Some(ref bwdbuf) = self.ipbs.get_b_bwdref() {
                         let mv = self.mvi.get_mv(mb_x, mb_y, 0, 0, false);
-                        do_mc_16x16(&self.dsp, buf, bwdbuf, mb_x, mb_y, mv, false);
+                        do_mc_16x16(self.dsp.as_mut(), buf, bwdbuf, mb_x, mb_y, mv, false);
                     }
                 },
             MBType::MBP8x8 | MBType::MBP8x16 | MBType::MBP16x8 => {
@@ -944,14 +944,14 @@ impl RV34Decoder {
                         for y in 0..2 {
                             for x in 0..2 {
                                 let mv = self.mvi.get_mv(mb_x, mb_y, x, y, true);
-                                do_mc_8x8(&self.dsp, buf, prevbuf, mb_x, x, mb_y, y, mv, false);
+                                do_mc_8x8(self.dsp.as_mut(), buf, prevbuf, mb_x, x, mb_y, y, mv, false);
                             }
                         }
                     }
                 },
             MBType::MBSkip if !self.is_b => {
                     if let Some(ref prevbuf) = self.ipbs.get_lastref() {
-                        do_mc_16x16(&self.dsp, buf, prevbuf, mb_x, mb_y, ZERO_MV, false);
+                        do_mc_16x16(self.dsp.as_mut(), buf, prevbuf, mb_x, mb_y, ZERO_MV, false);
                     }
                 },
             MBType::MBSkip | MBType::MBDirect => {
@@ -959,8 +959,8 @@ impl RV34Decoder {
                         for y in 0..2 {
                             for x in 0..2 {
                                 let (mv_f, mv_b) = self.ref_mvi.get_mv(mb_x, mb_y, x, y, true).scale(sstate.trd, sstate.trb);
-                                do_mc_8x8(&self.dsp, buf, fwdbuf, mb_x, x, mb_y, y, mv_f, false);
-                                do_mc_8x8(&self.dsp, &mut self.avg_buf, bwdbuf, mb_x, x, mb_y, y, mv_b, true);
+                                do_mc_8x8(self.dsp.as_mut(), buf, fwdbuf, mb_x, x, mb_y, y, mv_f, false);
+                                do_mc_8x8(self.dsp.as_mut(), &mut self.avg_buf, bwdbuf, mb_x, x, mb_y, y, mv_b, true);
                                 do_avg(&self.cdsp, buf, &self.avg_buf, mb_x, x, mb_y, y, 8, self.ratio1, self.ratio2);
                             }
                         }
@@ -970,8 +970,8 @@ impl RV34Decoder {
                     if let (Some(ref fwdbuf), Some(ref bwdbuf)) = (self.ipbs.get_b_fwdref(), self.ipbs.get_b_bwdref()) {
                         let mv_f = self.mvi.get_mv(mb_x, mb_y, 0, 0, true);
                         let mv_b = self.mvi.get_mv(mb_x, mb_y, 0, 0, false);
-                        do_mc_16x16(&self.dsp, buf, fwdbuf, mb_x, mb_y, mv_f, false);
-                        do_mc_16x16(&self.dsp, &mut self.avg_buf, bwdbuf, mb_x, mb_y, mv_b, true);
+                        do_mc_16x16(self.dsp.as_mut(), buf, fwdbuf, mb_x, mb_y, mv_f, false);
+                        do_mc_16x16(self.dsp.as_mut(), &mut self.avg_buf, bwdbuf, mb_x, mb_y, mv_b, true);
                         do_avg(&self.cdsp, buf, &self.avg_buf, mb_x, 0, mb_y, 0, 16, self.ratio1, self.ratio2);
                     }
                 },
@@ -1095,6 +1095,7 @@ impl RV34Decoder {
         }
     }
 
+    #[allow(clippy::cyclomatic_complexity)]
     pub fn parse_frame(&mut self, supp: &mut NADecoderSupport, src: &[u8], bd: &mut RV34BitstreamDecoder) -> DecoderResult<(NABufferType, FrameType, u64)> {
         let mut slice_offs: Vec<usize> = Vec::new();
         parse_slice_offsets(src, &mut slice_offs)?;

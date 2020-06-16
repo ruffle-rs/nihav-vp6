@@ -41,6 +41,7 @@ pub mod rv60codes;
 pub mod rv60dsp;
 
 #[cfg(feature="decoder_realaudio144")]
+#[allow(clippy::manual_memcpy)]
 pub mod ra144;
 #[cfg(feature="decoder_realaudio288")]
 pub mod ra288;

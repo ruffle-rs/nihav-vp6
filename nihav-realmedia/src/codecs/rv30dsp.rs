@@ -140,7 +140,7 @@ const RV30_CHROMA_FRAC2: [u16; 3] = [ 0, 3, 5 ];
 fn rv30_chroma_mc(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut sidx: usize, sstride: usize, size: usize, x: usize, y: usize) {
     if (x == 0) && (y == 0) {
         for _ in 0..size {
-            for x in 0..size { dst[didx + x] = src[sidx + x]; }
+            dst[didx..][..size].copy_from_slice(&src[sidx..][..size]);
             didx += dstride;
             sidx += sstride;
         }
@@ -162,6 +162,7 @@ fn rv30_chroma_mc(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], m
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub struct RV30DSP {
     luma_mc: [[fn (&mut [u8], usize, usize, &[u8], usize, usize); 9]; 2],
 }
@@ -238,6 +239,7 @@ const RV30_EDGE1: [isize; 3] = [ 0, 1, 1 ];
 const RV30_EDGE2: [isize; 3] = [ 0, 2, 2 ];
 
 impl RV34DSP for RV30DSP {
+    #[allow(clippy::cyclomatic_complexity)]
     fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, _ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, _mb_h: usize, row: usize) {
         let mut offs:   [usize; 3] = [0; 3];
         let mut stride: [usize; 3] = [0; 3];
