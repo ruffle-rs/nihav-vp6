@@ -457,7 +457,7 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
     let ahdr = NAAudioInfo::new(samplespersec, channels as u8, soniton, block_align as usize);
     let edata = if size > 16 {
             let edata_size  = dmx.src.read_u16le()? as usize;
-            validate!(edata_size + 18 == size);
+            validate!(edata_size + 18 <= size);
             dmx.read_extradata(size - 18)?
         } else {
             None
