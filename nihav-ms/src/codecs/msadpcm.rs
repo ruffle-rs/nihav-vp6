@@ -464,6 +464,7 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        test_encoding_to_file(&dec_config, &enc_config, enc_params);
+        test_encoding_md5(&dec_config, &enc_config, enc_params,
+                          &[0xe1591a1e, 0x816d0239, 0x4cc42291, 0x4e6b69cb]);
     }
 }
