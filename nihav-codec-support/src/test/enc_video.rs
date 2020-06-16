@@ -316,3 +316,145 @@ pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &Encode
     }
     mux.end().unwrap();
 }
+
+/// Tests an encoder by decoding a stream from input file, feeding it to the encoder and calculating the hash of codec information and packet data.
+pub fn test_encoding_md5(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters, ref_hash: &[u32; 4]) {
+    let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
+    let mut file = File::open(dec_config.in_name).unwrap();
+    let mut fr = FileReader::new_read(&mut file);
+    let mut br = ByteReader::new(&mut fr);
+    let mut dmx = create_demuxer(dmx_f, &mut br).unwrap();
+
+    let in_stream = dmx.get_streams().find(|str| str.get_media_type() == dec_config.stream_type).unwrap();
+    let in_stream_id = in_stream.id;
+    let decfunc = dec_config.dec_reg.find_decoder(in_stream.get_info().get_name()).unwrap();
+    let mut dec = (decfunc)();
+    let mut dsupp = Box::new(NADecoderSupport::new());
+    dec.init(&mut dsupp, in_stream.get_info()).unwrap();
+
+    enc_params.tb_num = in_stream.tb_num;
+    enc_params.tb_den = in_stream.tb_den;
+
+    if let (NACodecTypeInfo::Video(ref mut vinfo), Some(ref_vinfo)) = (&mut enc_params.format, in_stream.get_info().get_properties().get_video_info()) {
+        if vinfo.width == 0 {
+            vinfo.width  = ref_vinfo.width;
+            vinfo.height = ref_vinfo.height;
+        }
+    }
+    let mut dst_chmap = NAChannelMap::new();
+    if let (NACodecTypeInfo::Audio(ref mut ainfo), Some(ref_ainfo)) = (&mut enc_params.format, in_stream.get_info().get_properties().get_audio_info()) {
+        if ainfo.sample_rate == 0 {
+            ainfo.sample_rate = ref_ainfo.sample_rate;
+        }
+        if ainfo.channels == 0 {
+            ainfo.channels = ref_ainfo.channels;
+        }
+        match ainfo.channels {
+            1 => {
+                dst_chmap.add_channel(NAChannelType::C);
+            },
+            2 => {
+                dst_chmap.add_channel(NAChannelType::L);
+                dst_chmap.add_channel(NAChannelType::R);
+            },
+            _ => panic!("cannot guess channel map"),
+        }
+    }
+
+    let encfunc = enc_config.enc_reg.find_encoder(enc_config.enc_name).unwrap();
+    let mut encoder = (encfunc)();
+    let out_str = encoder.init(0, enc_params).unwrap();
+
+    let mut md5 = MD5::new();
+    let info = out_str.get_info();
+    md5.update_hash(info.get_name().as_bytes());
+    match info.get_properties() {
+        NACodecTypeInfo::Video(ref vinfo) => {
+            let mut hdr = [0u8; 10];
+            hdr[0] = (vinfo.width  >> 24) as u8;
+            hdr[1] = (vinfo.width  >> 16) as u8;
+            hdr[2] = (vinfo.width  >>  8) as u8;
+            hdr[3] =  vinfo.width         as u8;
+            hdr[4] = (vinfo.height >> 24) as u8;
+            hdr[5] = (vinfo.height >> 16) as u8;
+            hdr[6] = (vinfo.height >>  8) as u8;
+            hdr[7] =  vinfo.height        as u8;
+            hdr[8] = vinfo.flipped as u8;
+            hdr[9] = vinfo.bits;
+            md5.update_hash(&hdr);
+        },
+        NACodecTypeInfo::Audio(ref ainfo) => {
+            let mut hdr = [0u8; 10];
+            hdr[0] = (ainfo.sample_rate >> 24) as u8;
+            hdr[1] = (ainfo.sample_rate >> 16) as u8;
+            hdr[2] = (ainfo.sample_rate >>  8) as u8;
+            hdr[3] =  ainfo.sample_rate        as u8;
+            hdr[4] = ainfo.channels;
+            hdr[5] = ainfo.format.bits;
+            hdr[6] = (ainfo.block_len >> 24) as u8;
+            hdr[7] = (ainfo.block_len >> 16) as u8;
+            hdr[8] = (ainfo.block_len >>  8) as u8;
+            hdr[9] =  ainfo.block_len        as u8;
+            md5.update_hash(&hdr);
+        },
+        _ => {},
+    };
+    if let Some(ref buf) = info.get_extradata() {
+        md5.update_hash(buf.as_slice());
+    }
+
+    let (mut ifmt, dst_vinfo) = if let NACodecTypeInfo::Video(vinfo) = enc_params.format {
+            (ScaleInfo { fmt: vinfo.format, width: vinfo.width, height: vinfo.height },
+             vinfo)
+        } else {
+            (ScaleInfo { fmt: YUV420_FORMAT, width: 2, height: 2 },
+             NAVideoInfo { width: 2, height: 2, format: YUV420_FORMAT, flipped: false, bits: 12 })
+        };
+    let ofmt = ifmt;
+    let mut scaler = NAScale::new(ifmt, ofmt).unwrap();
+    let mut cvt_buf = alloc_video_buffer(dst_vinfo, 2).unwrap();
+    loop {
+        let pktres = dmx.get_frame();
+        if let Err(e) = pktres {
+            if e == DemuxerError::EOF { break; }
+            panic!("decoding error");
+        }
+        let pkt = pktres.unwrap();
+        if pkt.get_stream().id != in_stream_id { continue; }
+        let frm = dec.decode(&mut dsupp, &pkt).unwrap();
+        let buf = frm.get_buffer();
+        let cfrm = if let NACodecTypeInfo::Video(_) = enc_params.format {
+                let cur_ifmt = get_scale_fmt_from_pic(&buf);
+                if cur_ifmt != ifmt {
+                    ifmt = cur_ifmt;
+                    scaler = NAScale::new(ifmt, ofmt).unwrap();
+                }
+                scaler.convert(&buf, &mut cvt_buf).unwrap();
+                NAFrame::new(frm.get_time_information(), frm.frame_type, frm.key, frm.get_info(), cvt_buf.clone())
+            } else if let NACodecTypeInfo::Audio(ref dst_ainfo) = enc_params.format {
+                let cvt_buf = convert_audio_frame(&buf, dst_ainfo, &dst_chmap).unwrap();
+                NAFrame::new(frm.get_time_information(), frm.frame_type, frm.key, frm.get_info(), cvt_buf)
+            } else {
+                panic!("unexpected format");
+            };
+        encoder.encode(&cfrm).unwrap();
+        while let Ok(Some(pkt)) = encoder.get_packet() {
+            md5.update_hash(pkt.get_buffer().as_slice());
+        }
+        if let Some(maxts) = dec_config.limit {
+            if frm.get_pts().unwrap_or(0) >= maxts {
+                break;
+            }
+        }
+    }
+    encoder.flush().unwrap();
+    while let Ok(Some(pkt)) = encoder.get_packet() {
+        md5.update_hash(pkt.get_buffer().as_slice());
+    }
+
+    let mut hash = [0; 4];
+    md5.finish();
+    md5.get_hash(&mut hash);
+    println!("encode hash {}", md5);
+    assert_eq!(&hash, ref_hash);
+}
