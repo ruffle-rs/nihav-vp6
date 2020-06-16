@@ -130,6 +130,7 @@ impl BinkAudioDecoder {
         }
         Ok(())
     }
+    #[allow(clippy::transmute_ptr_to_ptr)]
     fn output(&mut self, dst: &mut [f32], off0: usize, off1: usize, chno: usize) {
         match self.transform {
             Transform::DCT(ref mut dct) => {

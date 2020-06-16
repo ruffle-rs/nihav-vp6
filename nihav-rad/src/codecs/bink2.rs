@@ -279,7 +279,7 @@ impl Bink2DSP {
             0 => {
                 let src = &ppix[poff..];
                 for (out, row) in dst.chunks_mut(stride).take(16).zip(src.chunks(pstride)) {
-                    for i in 0..16 { out[i] = row[i]; }
+                    out[..16].copy_from_slice(&row[..16]);
                 }
             },
             1 => {
@@ -338,7 +338,7 @@ impl Bink2DSP {
         if (mx == 0) && (my == 0) {
             let inpix = &ppix[poff..];
             for (out, src) in dst.chunks_mut(stride).take(8).zip(inpix.chunks(pstride)) {
-                for i in 0..8 { out[i] = src[i]; }
+                out[..8].copy_from_slice(&src[..8]);
             }
         } else if my == 0 {
             chroma_interp!(dst, stride, 8, u8, &ppix[poff..], pstride, 1, mx, 2);
@@ -1027,6 +1027,7 @@ impl Bink2Decoder {
         Self::default()
     }
 
+    #[allow(clippy::cyclomatic_complexity)]
     fn decode_frame_new(&mut self, br: &mut BitReader, buf: &mut NAVideoBuffer<u8>, is_intra: bool) -> DecoderResult<()> {
         let (stride_y, stride_u, stride_v, stride_a) = (buf.get_stride(0), buf.get_stride(1), buf.get_stride(2), buf.get_stride(3));
         let (mut off_y, mut off_u, mut off_v, mut off_a) = (buf.get_offset(0), buf.get_offset(1), buf.get_offset(2), buf.get_offset(3));

@@ -95,6 +95,7 @@ fn get_pts_inc(val: i32) -> u64 {
 }
 
 impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
+    #[allow(clippy::unreadable_literal)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_idx: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
         let mut magic: [u8; 4] = [0; 4];
@@ -164,6 +165,8 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
 
         Ok(())
     }
+    #[allow(clippy::identity_op)]
+    #[allow(clippy::unreadable_literal)]
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
         if !self.queued_packets.is_empty() {
             let pkt = self.queued_packets.pop().unwrap();

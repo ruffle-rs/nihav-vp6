@@ -367,7 +367,7 @@ impl SmackerVideoDecoder {
         let mut didx = 0;
         let mut sidx = 0;
         for _ in 0..self.h {
-            for x in 0..self.w { dst[didx + x] = self.frame[sidx + x]; }
+            dst[didx..][..self.w].copy_from_slice(&self.frame[sidx..][..self.w]);
             sidx += self.stride;
             didx += stride;
             if is_scaled {
@@ -510,6 +510,7 @@ impl NADecoder for SmackerAudioDecoder {
             Err(DecoderError::InvalidData)
         }
     }
+    #[allow(clippy::manual_memcpy)]
     fn decode(&mut self, _supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let info = pkt.get_stream().get_info();
         if let NACodecTypeInfo::Audio(_) = info.get_properties() {
