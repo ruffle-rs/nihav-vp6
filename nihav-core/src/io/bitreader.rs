@@ -90,6 +90,9 @@ impl<'a> BitReader<'a> {
         BitReader{ cache: 0, pos: 0, bits: 0, src, mode }
     }
 
+    /// Returns the data bitstream reader uses.
+    pub fn get_data(&self) -> &'a [u8] { self.src }
+
     /// Reports the current bit position in the bitstream (usually simply the number of bits read so far).
     pub fn tell(&self) -> usize {
         self.pos * 8 - (self.bits as usize)
