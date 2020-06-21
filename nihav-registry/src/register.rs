@@ -306,7 +306,9 @@ static MOV_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"mjpa", "mjpeg-a"),
     (b"mjpb", "mjpeg-b"),
     (b"svqi", "sorenson-video"),
+    (b"SVQ1", "sorenson-video"),
     (b"svq3", "sorenson-video3"),
+    (b"SVQ3", "sorenson-video3"),
 
     (b"IV31", "indeo3"),
     (b"IV32", "indeo3"),
