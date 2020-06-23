@@ -185,7 +185,7 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "qt-rle",               "Apple Animation"),
     desc!(video;    "apple-video",          "Apple video"),
     desc!(video;    "sorenson-video",       "Sorenson Video"),
-    desc!(video;    "sorenson-video3",      "Sorenson Video 3"),
+    desc!(video;    "sorenson-video3",      "Sorenson Video 3", CODEC_CAP_REORDER),
     desc!(audio;    "mace-3",               "MACE 3:1"),
     desc!(audio;    "mace-6",               "MACE 6:1"),
     desc!(audio;    "ima-adpcm-qt",         "IMA ADPCM (Apple variant)"),
