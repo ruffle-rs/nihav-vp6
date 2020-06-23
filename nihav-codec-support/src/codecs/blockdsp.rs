@@ -257,3 +257,57 @@ pub fn copy_block(dst: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>, c
                        &sbuf[saddr..], sstride, bw, bh);
     }
 }
+
+fn hpel_interp00(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        dst[didx..][..bw].copy_from_slice(&src[sidx..][..bw]);
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn hpel_interp01(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw { dst[didx + x] = ((u16::from(src[sidx + x]) + u16::from(src[sidx + x + 1]) + 1) >> 1) as u8; }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn hpel_interp10(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw { dst[didx + x] = ((u16::from(src[sidx + x]) + u16::from(src[sidx + x + sstride]) + 1) >> 1) as u8; }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+fn hpel_interp11(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
+{
+    let mut didx = 0;
+    let mut sidx = 0;
+    for _ in 0..bh {
+        for x in 0..bw {
+            dst[didx + x] = ((u16::from(src[sidx + x]) +
+                              u16::from(src[sidx + x + 1]) +
+                              u16::from(src[sidx + x + sstride]) +
+                              u16::from(src[sidx + x + sstride + 1]) + 2) >> 2) as u8;
+        }
+        didx += dstride;
+        sidx += sstride;
+    }
+}
+
+/// Half-pixel interpolation functions.
+pub const HALFPEL_INTERP_FUNCS: &[BlkInterpFunc] = &[
+        hpel_interp00, hpel_interp01, hpel_interp10, hpel_interp11 ];
+
