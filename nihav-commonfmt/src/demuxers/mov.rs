@@ -1,5 +1,6 @@
 use nihav_core::demuxers::*;
 use nihav_registry::register::*;
+use nihav_core::compr::deflate::*;
 
 macro_rules! mktag {
     ($a:expr, $b:expr, $c:expr, $d:expr) => ({
@@ -169,6 +170,7 @@ fn read_moov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
 
 const MOOV_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"mvhd"), parse: read_mvhd },
+    RootChunkHandler { ctype: mktag!(b"cmov"), parse: read_cmov },
     RootChunkHandler { ctype: mktag!(b"ctab"), parse: read_ctab },
     RootChunkHandler { ctype: mktag!(b"trak"), parse: read_trak },
     RootChunkHandler { ctype: mktag!(b"meta"), parse: read_meta },
@@ -200,6 +202,47 @@ fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
     dmx.tb_den = tscale;
 
     Ok(KNOWN_MVHD_SIZE)
+}
+
+fn read_cmov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
+    let br = &mut dmx.src;
+    validate!(size > 24);
+    let dcom_size           = br.read_u32be()?;
+    let dcom_tag            = br.read_tag()?;
+    let compr_type          = br.read_tag()?;
+    validate!(&dcom_tag == b"dcom" && dcom_size == 12);
+    if &compr_type != b"zlib" {
+        return Err(DemuxerError::NotImplemented);
+    }
+    let cmvd_size           = u64::from(br.read_u32be()?);
+    let cmvd_tag            = br.read_tag()?;
+    validate!(&cmvd_tag == b"cmvd" && cmvd_size > 14 && cmvd_size == size - 12);
+    let comp_size = (cmvd_size - 12) as usize;
+    let uncomp_size         = br.read_u32be()? as usize;
+    validate!(uncomp_size > 8);
+    let mut sbuf = vec![0; comp_size];
+    let mut dbuf = vec![0; uncomp_size];
+                              br.read_buf(sbuf.as_mut_slice())?;
+    validate!(sbuf[0] == 0x78);
+    validate!(sbuf[1] == 0x9C);
+    let ret = Inflate::uncompress(&sbuf[2..], dbuf.as_mut_slice());
+    if ret.is_err() {
+        return Err(DemuxerError::InvalidData);
+    }
+    let len = ret.unwrap();
+    validate!(len == uncomp_size);
+    let mut mr = MemoryReader::new_read(dbuf.as_slice());
+    let mut br = ByteReader::new(&mut mr);
+    let (ctype, csize) = read_chunk_header(&mut br)?;
+    validate!(ctype == mktag!(b"moov"));
+    let mut ddmx = MOVDemuxer::new(&mut br);
+    ddmx.read_moov(strmgr, csize)?;
+    std::mem::swap(&mut dmx.tracks, &mut ddmx.tracks);
+    dmx.duration = ddmx.duration;
+    dmx.tb_den = ddmx.tb_den;
+    std::mem::swap(&mut dmx.pal, &mut ddmx.pal);
+    
+    Ok(size)
 }
 
 fn read_ctab(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
