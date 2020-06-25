@@ -588,8 +588,11 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             if sver == 1 {
                 let _samples_per_packet     = br.read_u32be()?;
                 let _bytes_per_packet       = br.read_u32be()?;
-                let _bytes_per_frame        = br.read_u32be()?;
+                let bytes_per_frame         = br.read_u32be()?;
                 let _bytes_per_sample       = br.read_u32be()?;
+                track.bsize = bytes_per_frame as usize;
+            } else {
+                track.bsize = sample_size as usize;
             }
             let ahdr = NAAudioInfo::new(sample_rate >> 16, nchannels as u8, soniton, block_align);
             let edata = parse_audio_edata(br, start_pos, size)?;
@@ -658,6 +661,9 @@ fn read_stsz(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     let sample_size         = br.read_u32be()?;
     if sample_size != 0 {
         track.sample_size = sample_size;
+        if track.sample_size != 1 || track.bsize == 0 {
+            track.bsize = sample_size as usize;
+        }
         Ok(8)
     } else {
         let entries             = br.read_u32be()? as usize;
@@ -710,6 +716,7 @@ struct Track {
     height:         usize,
     channels:       usize,
     bits:           usize,
+    bsize:          usize,
     fcc:            [u8; 4],
     keyframes:      Vec<u32>,
     chunk_sizes:    Vec<u32>,
@@ -738,6 +745,7 @@ impl Track {
             height:         0,
             channels:       0,
             bits:           0,
+            bsize:          0,
             fcc:            [0; 4],
             keyframes:      Vec::new(),
             chunk_sizes:    Vec::new(),
@@ -773,7 +781,7 @@ impl Track {
     }
     fn calculate_chunk_size(&self, nsamp: usize) -> usize {
         if nsamp == 0 {
-            self.sample_size as usize
+            self.bsize
         } else {
             match &self.fcc {
                 b"NONE" | b"raw " | b"twos" | b"sowt" => {
@@ -799,7 +807,7 @@ impl Track {
                 b"ms\x00\x21" => { //IMA ADPCM
                     (nsamp / 2 + 4) * self.channels
                 },
-                _ => self.sample_size as usize,
+                _ => self.bsize,
             }
         }
     }
@@ -855,7 +863,7 @@ impl Track {
             }
             self.calculate_chunk_size(nsamp as usize)
         } else {
-            self.sample_size as usize
+            self.bsize
         }
     }
     fn seek(&mut self, pts: u64) {
