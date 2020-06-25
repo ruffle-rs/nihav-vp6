@@ -425,6 +425,39 @@ const STBL_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"stsh"), parse: skip_chunk },
 ];
 
+fn parse_audio_edata(br: &mut ByteReader, start_pos: u64, size: u64) -> DemuxerResult<Option<Vec<u8>>> {
+    let read_part = br.tell() - start_pos;
+    if read_part + 8 < size {
+        let csize           = br.read_u32be()? as u64;
+        let ctag            = br.read_u32be()?;
+        validate!(read_part + csize <= size);
+        validate!(ctag == mktag!(b"wave"));
+        if csize == 8 {
+            return Ok(None);
+        }
+        let mut buf = [0; 8];
+                              br.peek_buf(&mut buf)?;
+        if &buf[4..8] == b"frma" {
+                              br.read_skip(12)?;
+            if csize > 20 {
+                let mut buf = vec![0; (csize - 20) as usize];
+                              br.read_buf(&mut buf)?;
+                Ok(Some(buf))
+            } else {
+                Ok(None)
+            }
+        } else if csize > 8 {
+            let mut buf = vec![0; (csize as usize) - 8];
+                              br.read_buf(&mut buf)?;
+            Ok(Some(buf))
+        } else {
+            Ok(None)
+        }
+    } else {
+        Ok(None)
+    }
+}
+
 fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
     const KNOWN_STSD_SIZE: u64 = 24;
     validate!(size >= KNOWN_STSD_SIZE);
@@ -530,7 +563,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), edata);
         },
         StreamType::Audio => {
-            let _ver            = br.read_u16be()?;
+            let sver            = br.read_u16be()?;
             let _revision       = br.read_u16le()?;
             let _vendor         = br.read_u32be()?;
             let nchannels       = br.read_u16be()?;
@@ -552,8 +585,14 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
 //todo adjust format for various PCM kinds
             let soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
             let block_align = 1;
+            if sver == 1 {
+                let _samples_per_packet     = br.read_u32be()?;
+                let _bytes_per_packet       = br.read_u32be()?;
+                let _bytes_per_frame        = br.read_u32be()?;
+                let _bytes_per_sample       = br.read_u32be()?;
+            }
             let ahdr = NAAudioInfo::new(sample_rate >> 16, nchannels as u8, soniton, block_align);
-            let edata = None;
+            let edata = parse_audio_edata(br, start_pos, size)?;
             codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
             track.channels  = nchannels as usize;
             track.bits      = sample_size as usize;
