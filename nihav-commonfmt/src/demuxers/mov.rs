@@ -223,9 +223,7 @@ fn read_cmov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
     let mut sbuf = vec![0; comp_size];
     let mut dbuf = vec![0; uncomp_size];
                               br.read_buf(sbuf.as_mut_slice())?;
-    validate!(sbuf[0] == 0x78);
-    validate!(sbuf[1] == 0x9C);
-    let ret = Inflate::uncompress(&sbuf[2..], dbuf.as_mut_slice());
+    let ret = Inflate::uncompress(sbuf.as_slice(), dbuf.as_mut_slice());
     if ret.is_err() {
         return Err(DemuxerError::InvalidData);
     }
