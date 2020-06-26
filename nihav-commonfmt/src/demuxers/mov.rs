@@ -586,11 +586,12 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             let soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
             let block_align = 1;
             if sver == 1 {
-                let _samples_per_packet     = br.read_u32be()?;
+                let samples_per_packet      = br.read_u32be()?;
                 let _bytes_per_packet       = br.read_u32be()?;
                 let bytes_per_frame         = br.read_u32be()?;
                 let _bytes_per_sample       = br.read_u32be()?;
                 track.bsize = bytes_per_frame as usize;
+                track.frame_samples = samples_per_packet as usize;
             } else {
                 track.bsize = sample_size as usize;
             }
@@ -723,6 +724,7 @@ struct Track {
     chunk_offsets:  Vec<u64>,
     sample_map:     Vec<(u32, u32)>,
     sample_size:    u32,
+    frame_samples:  usize,
     stream:         Option<NAStream>,
     cur_chunk:      usize,
     cur_sample:     usize,
@@ -752,6 +754,7 @@ impl Track {
             chunk_offsets:  Vec::new(),
             sample_map:     Vec::new(),
             sample_size:    0,
+            frame_samples:  0,
             stream:         None,
             depth:          0,
             cur_chunk:      0,
@@ -842,6 +845,8 @@ impl Track {
             self.last_offset += size as u64;
             if self.stream_type == StreamType::Video {
                 self.samples_left -= 1;
+            } else if self.frame_samples != 0 {
+                self.samples_left -= self.frame_samples.min(self.samples_left);
             } else {
                 self.samples_left = 0;
             }
