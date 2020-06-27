@@ -320,19 +320,19 @@ impl Inflate {
     }
     fn put_literal(&mut self, val: u8) {
         self.buf[self.bpos] = val;
-        self.bpos += 1;
+        self.bpos = (self.bpos + 1) & (self.buf.len() - 1);
     }
     fn lz_copy(&mut self, offset: usize, len: usize, dst: &mut [u8]) -> DecompressResult<()> {
         let mask = self.buf.len() - 1;
-        if self.bpos < offset {
+        if offset > self.output_idx {
             return Err(DecompressError::InvalidData);
         }
-        let cstart = (self.bpos - offset) & mask;
+        let cstart = (self.bpos.wrapping_sub(offset)) & mask;
         for i in 0..len {
             self.buf[(self.bpos + i) & mask] = self.buf[(cstart + i) & mask];
             dst[i] = self.buf[(cstart + i) & mask];
         }
-        self.bpos += len;
+        self.bpos = (self.bpos + len) & mask;
         Ok(())
     }
     ///! Reports whether decoder has finished decoding the input.
