@@ -7,5 +7,7 @@ pub mod dct;
 pub mod fft;
 #[cfg(feature="mdct")]
 pub mod mdct;
+#[cfg(feature="qmf")]
+pub mod qmf;
 #[cfg(feature="dsp_window")]
 pub mod window;
