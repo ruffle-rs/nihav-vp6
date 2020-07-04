@@ -28,6 +28,8 @@ use nihav_indeo::indeo_register_all_codecs;
 use nihav_ms::ms_register_all_codecs;
 use nihav_ms::ms_register_all_encoders;
 
+use nihav_qt::qt_register_all_codecs;
+
 use nihav_rad::rad_register_all_codecs;
 use nihav_rad::rad_register_all_demuxers;
 
@@ -41,6 +43,7 @@ pub fn nihav_register_all_codecs(rd: &mut RegisteredDecoders) {
     game_register_all_codecs(rd);
     indeo_register_all_codecs(rd);
     ms_register_all_codecs(rd);
+    qt_register_all_codecs(rd);
     rad_register_all_codecs(rd);
     realmedia_register_all_codecs(rd);
 }
