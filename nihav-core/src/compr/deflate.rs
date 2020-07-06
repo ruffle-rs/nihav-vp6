@@ -227,6 +227,7 @@ pub struct Inflate {
     buf:            [u8; 65536],
     bpos:           usize,
     output_idx:     usize,
+    full_pos:       usize,
 
     state:          InflateState,
     final_block:    bool,
@@ -305,6 +306,7 @@ impl Inflate {
             buf:            [0; 65536],
             bpos:           0,
             output_idx:     0,
+            full_pos:       0,
 
             state:          InflateState::Start,
             final_block:    false,
@@ -321,10 +323,11 @@ impl Inflate {
     fn put_literal(&mut self, val: u8) {
         self.buf[self.bpos] = val;
         self.bpos = (self.bpos + 1) & (self.buf.len() - 1);
+        self.full_pos += 1;
     }
     fn lz_copy(&mut self, offset: usize, len: usize, dst: &mut [u8]) -> DecompressResult<()> {
         let mask = self.buf.len() - 1;
-        if offset > self.output_idx {
+        if offset > self.full_pos {
             return Err(DecompressError::InvalidData);
         }
         let cstart = (self.bpos.wrapping_sub(offset)) & mask;
@@ -333,6 +336,7 @@ impl Inflate {
             dst[i] = self.buf[(cstart + i) & mask];
         }
         self.bpos = (self.bpos + len) & mask;
+        self.full_pos += len;
         Ok(())
     }
     ///! Reports whether decoder has finished decoding the input.
