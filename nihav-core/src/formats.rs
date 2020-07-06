@@ -220,9 +220,9 @@ impl FromStr for NAChannelType {
     }
 }
 
-impl fmt::Display for NAChannelType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let name = match *self {
+impl ToString for NAChannelType {
+    fn to_string(&self) -> String {
+        match *self {
             NAChannelType::C    => "C".to_string(),
             NAChannelType::L    => "L".to_string(),
             NAChannelType::R    => "R".to_string(),
@@ -251,8 +251,7 @@ impl fmt::Display for NAChannelType {
             NAChannelType::Rt   => "Rt".to_string(),
             NAChannelType::Lo   => "Lo".to_string(),
             NAChannelType::Ro   => "Ro".to_string(),
-        };
-        write!(f, "{}", name)
+        }
     }
 }
 
