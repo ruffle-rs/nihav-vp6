@@ -589,15 +589,15 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         qt_register_all_codecs(&mut dec_reg);
 
-        test_decoding("mov", "qt-rle", "assets/QT/Animation-Highcolour.mov", Some(6), &dmx_reg, &dec_reg,
+        test_decoding("mov", "qt-rle", "assets/QT/Animation-Truecolour.mov", Some(6), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
-                            [0x8fa5361b, 0xd36d6def, 0x33b250e9, 0xab98a41c],
-                            [0xdd253ce0, 0xbc5fd3a1, 0x51fe2394, 0x950f18e4],
-                            [0xbf34ca8d, 0x1faa24ee, 0x8d70af09, 0x742a4056],
-                            [0x9feca59b, 0xdca7dc1d, 0xb6fe14f1, 0xd88c8b67],
-                            [0x2e1544b8, 0x89a7e788, 0x0efcde09, 0xec4e7995],
-                            [0x1e28b2a8, 0xd53495ca, 0x405a9b6e, 0x59338cad],
-                            [0xe90156a4, 0xb64bca4a, 0x5cdf6681, 0xc32945fb]]));
+                            [0x84d00c89, 0xf92c7f81, 0x6c1bd9e7, 0x35dd8f57],
+                            [0x5ff0a7c9, 0xb589a484, 0xecc230b3, 0xe4e53bd3],
+                            [0xbb394f7b, 0x2591b6c6, 0x12b0070c, 0xfa0952fc],
+                            [0x380c1756, 0x72be8b16, 0xa7bbff48, 0x106017d4],
+                            [0x27d8cc7c, 0x43ee384d, 0x542b95b1, 0x0a3ee031],
+                            [0xa29529de, 0xcb53d03b, 0x4f2b6ec5, 0x4ea5d738],
+                            [0x181d471b, 0x90d389e7, 0xc627b263, 0xa9d42323]]));
     }
     #[test]
     fn test_qt_rle_32bit() {
