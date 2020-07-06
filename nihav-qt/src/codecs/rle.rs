@@ -618,6 +618,6 @@ mod test {
                             [0xe82390cf, 0xfaceab34, 0xcc857b2f, 0xed47f125],
                             [0xe82390cf, 0xfaceab34, 0xcc857b2f, 0xed47f125],
                             [0xe82390cf, 0xfaceab34, 0xcc857b2f, 0xed47f125],
-                            [0xd453e404, 0x6418f0a2, 0x2a4008dc, 0x09db5c72]]));
+                            [0xe67d4be5, 0xe41ce60e, 0x4e6912c3, 0xc96dc521]]));
     }
 }
