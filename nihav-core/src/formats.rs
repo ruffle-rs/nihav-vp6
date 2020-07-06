@@ -7,6 +7,10 @@ use std::str::FromStr;
 use std::string::*;
 use std::fmt;
 
+/// Generic format parsing error.
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub struct FormatParseError {}
+
 /// Audio format definition.
 ///
 /// The structure describes how audio samples are stored and what characteristics they have.
@@ -114,12 +118,8 @@ impl fmt::Display for NASoniton {
     }
 }
 
-/// Generic soniton parsing error.
-#[derive(Clone,Copy,Debug,PartialEq)]
-pub struct SonitonParseError {}
-
 impl FromStr for NASoniton {
-    type Err = SonitonParseError;
+    type Err = FormatParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -132,7 +132,7 @@ impl FromStr for NASoniton {
             "s32le" => Ok(NASoniton { bits: 32, be: false, packed: false, planar: false, float: false, signed: true }),
             "f32be" => Ok(NASoniton { bits: 32, be:  true, packed: false, planar: false, float: true, signed: true }),
             "f32le" => Ok(NASoniton { bits: 32, be: false, packed: false, planar: false, float: true, signed: true }),
-            _ => Err(SonitonParseError{}),
+            _ => Err(FormatParseError{}),
         }
     }
 }
@@ -178,12 +178,8 @@ impl NAChannelType {
     }
 }
 
-/// Generic channel configuration parsing error.
-#[derive(Clone,Copy,Debug,PartialEq)]
-pub struct ChannelParseError {}
-
 impl FromStr for NAChannelType {
-    type Err = ChannelParseError;
+    type Err = FormatParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -215,7 +211,7 @@ impl FromStr for NAChannelType {
             "Rt"    => Ok(NAChannelType::Rt),
             "Lo"    => Ok(NAChannelType::Lo),
             "Ro"    => Ok(NAChannelType::Ro),
-            _   => Err(ChannelParseError{}),
+            _   => Err(FormatParseError{}),
         }
     }
 }
@@ -329,7 +325,7 @@ impl fmt::Display for NAChannelMap {
 }
 
 impl FromStr for NAChannelMap {
-    type Err = ChannelParseError;
+    type Err = FormatParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut chm = NAChannelMap::new();
