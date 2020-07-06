@@ -95,6 +95,15 @@ impl NASoniton {
             (length * u64::from((self.bits + 7) >> 3)) as usize
         }
     }
+
+    /// Returns soniton description as a short string.
+    pub fn to_short_string(&self) -> String {
+        let ltype = if self.float { 'f' } else if self.signed { 's' } else { 'u' };
+        let endianness = if self.bits == 8 { "" } else if self.be { "be" } else { "le" };
+        let planar = if self.planar { "p" } else { "" };
+        let packed = if self.packed { "x" } else { "" };
+        format!("{}{}{}{}{}", ltype, self.bits, endianness, planar, packed)
+    }
 }
 
 impl fmt::Display for NASoniton {
@@ -102,6 +111,29 @@ impl fmt::Display for NASoniton {
         let fmt = if self.float { "float" } else if self.signed { "int" } else { "uint" };
         let end = if self.be { "BE" } else { "LE" };
         write!(f, "({} bps, {} planar: {} packed: {} {})", self.bits, end, self.packed, self.planar, fmt)
+    }
+}
+
+/// Generic soniton parsing error.
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub struct SonitonParseError {}
+
+impl FromStr for NASoniton {
+    type Err = SonitonParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "u8" => Ok(NASoniton { bits: 8, be: true, packed: false, planar: false, float: false, signed: false }),
+            "s16be" => Ok(NASoniton { bits: 16, be:  true, packed: false, planar: false, float: false, signed: true }),
+            "s16le" => Ok(NASoniton { bits: 16, be: false, packed: false, planar: false, float: false, signed: true }),
+            "s24be" => Ok(NASoniton { bits: 24, be:  true, packed: false, planar: false, float: false, signed: true }),
+            "s24le" => Ok(NASoniton { bits: 24, be: false, packed: false, planar: false, float: false, signed: true }),
+            "s32be" => Ok(NASoniton { bits: 32, be:  true, packed: false, planar: false, float: false, signed: true }),
+            "s32le" => Ok(NASoniton { bits: 32, be: false, packed: false, planar: false, float: false, signed: true }),
+            "f32be" => Ok(NASoniton { bits: 32, be:  true, packed: false, planar: false, float: true, signed: true }),
+            "f32le" => Ok(NASoniton { bits: 32, be: false, packed: false, planar: false, float: true, signed: true }),
+            _ => Err(SonitonParseError{}),
+        }
     }
 }
 
@@ -706,6 +738,10 @@ mod test {
         println!("{}", SND_S16_FORMAT);
         println!("{}", SND_U8_FORMAT);
         println!("{}", SND_F32P_FORMAT);
+        assert_eq!(SND_U8_FORMAT.to_short_string(), "u8");
+        assert_eq!(SND_F32P_FORMAT.to_short_string(), "f32lep");
+        let s16fmt = SND_S16_FORMAT.to_short_string();
+        assert_eq!(NASoniton::from_str(s16fmt.as_str()).unwrap(), SND_S16_FORMAT);
         println!("formaton yuv- {}", YUV420_FORMAT);
         println!("formaton pal- {}", PAL8_FORMAT);
         println!("formaton rgb565- {}", RGB565_FORMAT);
