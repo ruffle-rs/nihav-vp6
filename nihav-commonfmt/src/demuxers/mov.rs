@@ -846,8 +846,14 @@ impl Track {
             self.last_offset += size as u64;
             if self.stream_type == StreamType::Video {
                 self.samples_left -= 1;
-            } else if self.frame_samples != 0 {
-                self.samples_left -= self.frame_samples.min(self.samples_left);
+            } else if self.frame_samples != 0 && self.bsize != 0 {
+                let nblocks = size / self.bsize;
+                if nblocks > 0 {
+                    let consumed = (nblocks * self.frame_samples).min(self.samples_left);
+                    self.samples_left -= consumed;
+                } else {
+                    self.samples_left = 0;
+                }
             } else {
                 self.samples_left = 0;
             }
