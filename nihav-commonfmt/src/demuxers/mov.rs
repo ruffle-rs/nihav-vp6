@@ -428,6 +428,14 @@ const STBL_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
 fn parse_audio_edata(br: &mut ByteReader, start_pos: u64, size: u64) -> DemuxerResult<Option<Vec<u8>>> {
     let read_part = br.tell() - start_pos;
     if read_part + 8 < size {
+        let mut buf = [0; 8];
+                              br.peek_buf(&mut buf)?;
+        if &buf[4..8] != b"wave" {
+            let mut buf = vec![0; (size - read_part) as usize];
+                              br.read_buf(&mut buf)?;
+            return Ok(Some(buf));
+        }
+
         let csize           = br.read_u32be()? as u64;
         let ctag            = br.read_u32be()?;
         validate!(read_part + csize <= size);
