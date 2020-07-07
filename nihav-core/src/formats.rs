@@ -707,6 +707,120 @@ impl NAPixelFormaton {
         }
         ssamp
     }
+    /// Returns a short string description of the format if possible.
+    pub fn to_short_string(&self) -> Option<String> {
+        match self.model {
+            ColorModel::RGB(_) => {
+                if self.is_paletted() {
+                    if *self == PAL8_FORMAT {
+                        return Some("pal8".to_string());
+                    } else {
+                        return None;
+                    }
+                }
+                let mut name = [b'z'; 4];
+                let planar = self.is_unpacked();
+
+                let mut start_off = 0;
+                let mut start_shift = 0;
+                let mut use_shift = true;
+                for comp in self.comp_info.iter() {
+                    if let Some(comp) = comp {
+                        start_off = start_off.min(comp.comp_offs);
+                        start_shift = start_shift.min(comp.shift);
+                        if comp.comp_offs != 0 { use_shift = false; }
+                    }
+                }
+                for component in 0..(self.components as usize) {
+                    for (comp, cname) in self.comp_info.iter().zip(b"rgba".iter()) {
+                        if let Some(comp) = comp {
+                            if use_shift {
+                                if comp.shift == start_shift {
+                                    name[component] = *cname;
+                                    start_shift += comp.depth;
+                                }
+                            } else if comp.comp_offs == start_off {
+                                name[component] = *cname;
+                                if planar {
+                                    start_off += 1;
+                                } else {
+                                    start_off += (comp.depth + 7) / 8;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for (comp, cname) in self.comp_info.iter().zip(b"rgba".iter()) {
+                    if let Some(comp) = comp {
+                        name[comp.comp_offs as usize] = *cname;
+                    } else {
+                        break;
+                    }
+                }
+                let mut name = String::from_utf8(name[..self.components as usize].to_vec()).unwrap();
+                let depth = self.get_total_depth();
+                if depth == 15 || depth == 16 {
+                    for c in self.comp_info.iter() {
+                        if let Some(comp) = c {
+                            name.push((b'0' + comp.depth) as char);
+                        } else {
+                            break;
+                        }
+                    }
+                    name += if self.be { "be" } else { "le" };                   
+                    return Some(name);
+                }
+                if depth == 24 || depth != 8 * self.components {
+                    name += depth.to_string().as_str();
+                }
+                if planar {
+                    name.push('p');
+                }
+                if self.get_max_depth() > 8 {
+                    name += if self.be { "be" } else { "le" };                   
+                }
+                Some(name)
+            },
+            ColorModel::YUV(_) => {
+                let max_depth = self.get_max_depth();
+                if self.get_total_depth() != max_depth * self.components {
+                    return None;
+                }
+                if self.components < 3 {
+                    if self.components == 1 && max_depth == 8 {
+                        return Some("y8".to_string());
+                    }
+                    if self.components == 2 && self.alpha && max_depth == 8 {
+                        return Some("y8a".to_string());
+                    }
+                    return None;
+                }
+                let cu = self.comp_info[1].unwrap();
+                let cv = self.comp_info[2].unwrap();
+                if cu.h_ss != cv.h_ss || cu.v_ss != cv.v_ss || cu.h_ss > 2 || cu.v_ss > 2 {
+                    return None;
+                }
+                let mut name = "yuv".to_string();
+                if self.alpha {
+                    name.push('a');
+                }
+                name.push('4');
+                let sch = b"421"[cu.h_ss as usize];
+                let tch = if cu.v_ss > 1 { b'0' } else { sch };
+                name.push(sch as char);
+                name.push(tch as char);
+                if self.is_unpacked() {
+                    name.push('p');
+                }
+                if max_depth != 8 {
+                    name += max_depth.to_string().as_str();
+                }
+                Some(name)
+            },
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for NAPixelFormaton {
@@ -721,6 +835,255 @@ impl fmt::Display for NAPixelFormaton {
             }
         }
         write!(f, "[{}]", str)
+    }
+}
+
+fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
+    let mut order = [0; 4];
+    let mut is_be = s.ends_with("be");
+    let mut has_alpha = false;
+    let mut pstate = 0;
+    let mut bits = 0;
+    let mut bits_start = 0;
+    for (i, ch) in s.chars().enumerate() {
+        match pstate {
+            0 => {
+                if i > 4 { return Err(FormatParseError {}); }
+                match ch {
+                    'R' | 'r' => { order[0] = i; },
+                    'G' | 'g' => { order[1] = i; },
+                    'B' | 'b' => { order[2] = i; },
+                    'A' | 'a' => { order[3] = i; has_alpha = true; },
+                    '0'..='9' => {
+                        pstate = 1; bits_start = i;
+                        bits = ((ch as u8) - b'0') as u32;
+                    },
+                    _ => return Err(FormatParseError {}),
+                };
+            },
+            1 => {
+                if i > 4 + bits_start { return Err(FormatParseError {}); }
+                match ch {
+                    '0'..='9' => {
+                        bits = (bits * 10) + (((ch as u8) - b'0') as u32);
+                    },
+                    'B' | 'b' => { pstate = 2; }
+                    'L' | 'l' => { pstate = 2; is_be = false; }
+                    _ => return Err(FormatParseError {}),
+                }
+            },
+            2 => {
+                if ch != 'e' && ch != 'E' { return Err(FormatParseError {}); }
+                pstate = 3;
+            },
+            _ => return Err(FormatParseError {}),
+        };
+    }
+    let components: u8 = if has_alpha { 4 } else { 3 };
+    for el in order.iter() {
+        if *el >= (components as usize) {
+            return Err(FormatParseError {});
+        }
+    }
+    if order[0] == order[1] || order[0] == order[2] || order[1] == order[2] {
+        return Err(FormatParseError {});
+    }
+    if has_alpha && order[0..3].contains(&order[3]) {
+        return Err(FormatParseError {});
+    }
+    let mut chromatons = [None; 5];
+    let elem_size = match bits {
+            0 | 24 => {
+                for (chro, ord) in chromatons.iter_mut().take(components as usize).zip(order.iter()) {
+                    *chro = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: *ord as u8, next_elem: components });
+                }
+                components
+            },
+            555 => {
+                let rshift = (order[0] * 5) as u8;
+                let gshift = (order[1] * 5) as u8;
+                let bshift = (order[2] * 5) as u8;
+                chromatons[0] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: rshift, comp_offs: 0, next_elem: 2 });
+                chromatons[1] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: gshift, comp_offs: 0, next_elem: 2 });
+                chromatons[2] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: bshift, comp_offs: 0, next_elem: 2 });
+                if has_alpha { return Err(FormatParseError {}); }
+                2
+            },
+            565 => {
+                let mut offs = [0; 3];
+                for (ord, off) in order.iter().zip(offs.iter_mut()) {
+                    *off = (*ord * 5) as u8;
+                }
+                match order[1] {
+                    0 => { offs[0] += 1; offs[2] += 1; },
+                    1 => { for el in offs.iter_mut() { if *el == 10 { *el += 1; break; } } },
+                    _ => {},
+                };
+                chromatons[0] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: offs[0], comp_offs: 0, next_elem: 2 });
+                chromatons[1] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 6, shift: offs[1], comp_offs: 0, next_elem: 2 });
+                chromatons[2] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: offs[2], comp_offs: 0, next_elem: 2 });
+                if has_alpha { return Err(FormatParseError {}); }
+                2
+            },
+            5551 => {
+                let mut offs = [0; 4];
+                let depth = [ 5, 5, 5, 1 ];
+                let mut cur_off = 0;
+                for comp in 0..4 {
+                    for (off, ord) in offs.iter_mut().zip(order.iter()) {
+                        if *ord == comp {
+                            *off = cur_off;
+                            cur_off += depth[comp];
+                            break;
+                        }
+                    }
+                }
+                chromatons[0] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: offs[0], comp_offs: 0, next_elem: 2 });
+                chromatons[1] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: offs[1], comp_offs: 0, next_elem: 2 });
+                chromatons[2] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: offs[2], comp_offs: 0, next_elem: 2 });
+                chromatons[3] = Some(NAPixelChromaton { h_ss: 0, v_ss: 0, packed: true, depth: 1, shift: offs[3], comp_offs: 0, next_elem: 2 });
+                if !has_alpha { return Err(FormatParseError {}); }
+                2
+            },
+            _ => return Err(FormatParseError {}),
+        };
+    Ok(NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB),
+                         components,
+                         comp_info: chromatons,
+                         elem_size,
+                         be: is_be, alpha: has_alpha, palette: false })
+}
+
+fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
+    match s {
+        "y8" | "y400" | "gray" => {
+            return Ok(NAPixelFormaton {
+                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 1,
+                    comp_info: [
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 1 }),
+                        None, None, None, None],
+                    elem_size: 1, be: false, alpha: false, palette: false });
+        },
+        "y8a" | "y400a" | "graya" => {
+            return Ok(NAPixelFormaton {
+                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 2,
+                    comp_info: [
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 2 }),
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 2 }),
+                        None, None, None],
+                    elem_size: 1, be: false, alpha: true, palette: false });
+        },
+        "uyvy" | "y422" => {
+            return Ok(NAPixelFormaton {
+                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                    comp_info: [
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 2 }),
+                        Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 4 }),
+                        Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 4 }),
+                        None, None],
+                    elem_size: 4, be: false, alpha: false, palette: false });
+        },
+        "yuy2" | "yuyv" | "v422" => {
+            return Ok(NAPixelFormaton {
+                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                    comp_info: [
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 2 }),
+                        Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 4 }),
+                        Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 3, next_elem: 4 }),
+                        None, None],
+                    elem_size: 4, be: false, alpha: false, palette: false });
+        },
+        "yvyu" => {
+            return Ok(NAPixelFormaton {
+                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                    comp_info: [
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 2 }),
+                        Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 3, next_elem: 4 }),
+                        Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 4 }),
+                        None, None],
+                    elem_size: 4, be: false, alpha: false, palette: false });
+        },
+        "vyuy" => {
+            return Ok(NAPixelFormaton {
+                    model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 3,
+                    comp_info: [
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 2 }),
+                        Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 2, next_elem: 4 }),
+                        Some(NAPixelChromaton{ h_ss: 1, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 4 }),
+                        None, None],
+                    elem_size: 4, be: false, alpha: false, palette: false });
+        },
+        _ => {},
+    };
+    if !s.starts_with("yuv") {
+        return Err(FormatParseError {});
+    }
+    let has_alpha = s.starts_with("yuva");
+    let components: u8 = if has_alpha { 4 } else { 3 };
+    let mut is_planar = false;
+    let mut format = 0;
+    let mut parse_end = components as usize;
+    for ch in s.chars().skip(components as usize) {
+        parse_end += 1;
+        if ch >= '0' && ch <= '9' {
+            format = format * 10 + (((ch as u8) - b'0') as u32);
+            if format > 444 { return Err(FormatParseError {}); }
+        } else {
+            is_planar = ch == 'p';
+            break;
+        }
+    }
+    if format == 0 { return Err(FormatParseError {}); }
+    let depth = if s.len() == parse_end { 8 } else {
+            let mut val = 0;
+            for ch in s.chars().skip(parse_end) {
+                if ch >= '0' && ch <= '9' {
+                    val = val * 10 + ((ch as u8) - b'0');
+                    if val > 16 { return Err(FormatParseError {}); }
+                } else {
+                    break;
+                }
+            }
+            val
+        };
+    if depth == 0 { return Err(FormatParseError {}); }
+    let is_be = s.ends_with("be");
+
+    let mut chromatons = [None; 5];
+    let next_elem = if is_planar { (depth + 7) >> 3 } else {
+            components * ((depth + 7) >> 3) };
+    let subsamp: [[u8; 2]; 4] = match format {
+            410 => [[0, 0], [2, 2], [2, 2], [0, 0]],
+            411 => [[0, 0], [2, 0], [2, 0], [0, 0]],
+            420 => [[0, 0], [1, 1], [1, 1], [0, 0]],
+            422 => [[0, 0], [1, 0], [1, 0], [0, 0]],
+            440 => [[0, 0], [0, 1], [0, 1], [0, 0]],
+            444 => [[0, 0], [0, 0], [0, 0], [0, 0]],
+            _ => return Err(FormatParseError {}),
+        };
+    for (chro, ss) in chromatons.iter_mut().take(components as usize).zip(subsamp.iter()) {
+        *chro = Some(NAPixelChromaton{ h_ss: ss[0], v_ss: ss[1], packed: !is_planar, depth, shift: 0, comp_offs: next_elem, next_elem });
+    }
+    Ok(NAPixelFormaton { model: ColorModel::YUV(YUVSubmodel::YUVJ),
+                         components,
+                         comp_info: chromatons,
+                         elem_size: components,
+                         be: is_be, alpha: has_alpha, palette: false })
+}
+
+impl FromStr for NAPixelFormaton {
+    type Err = FormatParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "pal8" => return Ok(PAL8_FORMAT),
+            _ => {},
+        }
+        let ret = parse_rgb_format(s);
+        if ret.is_ok() {
+            return ret;
+        }
+        parse_yuv_format(s)
     }
 }
 
@@ -740,5 +1103,19 @@ mod test {
         println!("formaton yuv- {}", YUV420_FORMAT);
         println!("formaton pal- {}", PAL8_FORMAT);
         println!("formaton rgb565- {}", RGB565_FORMAT);
+
+        let pfmt = NAPixelFormaton::from_str("rgb24").unwrap();
+        assert!(pfmt == RGB24_FORMAT);
+        let pfmt = "gbra";
+        assert_eq!(pfmt, NAPixelFormaton::from_str("gbra").unwrap().to_short_string().unwrap());
+        let pfmt = NAPixelFormaton::from_str("yuv420").unwrap();
+        println!("parsed pfmt as {} / {:?}", pfmt, pfmt.to_short_string());
+        let pfmt = NAPixelFormaton::from_str("yuva420p12").unwrap();
+        println!("parsed pfmt as {} / {:?}", pfmt, pfmt.to_short_string());
+
+        assert_eq!(RGB565_FORMAT.to_short_string().unwrap(), "bgr565le");
+        assert_eq!(PAL8_FORMAT.to_short_string().unwrap(), "pal8");
+        assert_eq!(YUV420_FORMAT.to_short_string().unwrap(), "yuv422p");
+        assert_eq!(YUVA410_FORMAT.to_short_string().unwrap(), "yuva410p");
     }
 }
