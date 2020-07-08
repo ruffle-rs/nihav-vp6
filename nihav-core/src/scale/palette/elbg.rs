@@ -66,9 +66,6 @@ impl Cluster {
         }
     }
     fn calc_dist(&mut self) {
-        if self.count != 0 {
-            self.dist = (self.dist + self.count / 2) / self.count;
-        }
     }
 }
 
@@ -232,7 +229,7 @@ impl ELBG {
         let mut rng = RNG::new();
         let mut iterations = 0usize;
         let mut do_elbg_step = true;
-        while (iterations < 20) && (dist < prev_dist - prev_dist / 1000) {
+        while (iterations < 10) && (dist < prev_dist - prev_dist / 100) {
             prev_dist = dist;
             for i in 0..256 {
                 old_cb[i] = self.clusters[i].centroid;
