@@ -969,6 +969,33 @@ impl NATimeInfo {
             }
         }
     }
+    fn get_cur_ts(&self) -> u64 { self.pts.unwrap_or(self.dts.unwrap_or(0)) }
+    fn get_cur_millis(&self) -> u64 {
+        let ts = self.get_cur_ts();
+        Self::ts_to_time(ts, 1000, self.tb_num, self.tb_den)
+    }
+    /// Checks whether the current time information is earler than provided reference time.
+    pub fn less_than(&self, time: NATimePoint) -> bool {
+        if self.pts.is_none() && self.dts.is_none() {
+            return true;
+        }
+        match time {
+            NATimePoint::PTS(rpts) => self.get_cur_ts() < rpts,
+            NATimePoint::Milliseconds(ms) => self.get_cur_millis() < ms,
+            NATimePoint::None => false,
+        }
+    }
+    /// Checks whether the current time information is the same as provided reference time.
+    pub fn equal(&self, time: NATimePoint) -> bool {
+        if self.pts.is_none() && self.dts.is_none() {
+            return time == NATimePoint::None;
+        }
+        match time {
+            NATimePoint::PTS(rpts) => self.get_cur_ts() == rpts,
+            NATimePoint::Milliseconds(ms) => self.get_cur_millis() == ms,
+            NATimePoint::None => false,
+        }
+    }
 }
 
 /// Time information for specifying durations or seek positions.
@@ -978,6 +1005,8 @@ pub enum NATimePoint {
     Milliseconds(u64),
     /// Stream timestamp.
     PTS(u64),
+    /// No time information present.
+    None,
 }
 
 impl fmt::Display for NATimePoint {
@@ -1012,6 +1041,9 @@ impl fmt::Display for NATimePoint {
             },
             NATimePoint::PTS(pts) => {
                 write!(f, "{}pts", pts)
+            },
+            NATimePoint::None => {
+                write!(f, "none")
             },
         }
     }
