@@ -5,6 +5,7 @@ use std::fmt;
 pub use std::sync::Arc;
 pub use crate::formats::*;
 pub use crate::refs::*;
+use std::str::FromStr;
 
 /// Audio stream information.
 #[allow(dead_code)]
@@ -970,6 +971,144 @@ impl NATimeInfo {
     }
 }
 
+/// Time information for specifying durations or seek positions.
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub enum NATimePoint {
+    /// Time in milliseconds.
+    Milliseconds(u64),
+    /// Stream timestamp.
+    PTS(u64),
+}
+
+impl fmt::Display for NATimePoint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            NATimePoint::Milliseconds(millis) => {
+                let tot_s = millis / 1000;
+                let ms = millis % 1000;
+                if tot_s < 60 {
+                    if ms != 0 {
+                        return write!(f, "{}.{:03}", tot_s, ms);
+                    } else {
+                        return write!(f, "{}", tot_s);
+                    }
+                }
+                let tot_m = tot_s / 60;
+                let s = tot_s % 60;
+                if tot_m < 60 {
+                    if ms != 0 {
+                        return write!(f, "{}:{:02}.{:03}", tot_m, s, ms);
+                    } else {
+                        return write!(f, "{}:{:02}", tot_m, s);
+                    }
+                }
+                let h = tot_m / 60;
+                let m = tot_m % 60;
+                if ms != 0 {
+                    write!(f, "{}:{:02}:{:02}.{:03}", h, m, s, ms)
+                } else {
+                    write!(f, "{}:{:02}:{:02}", h, m, s)
+                }
+            },
+            NATimePoint::PTS(pts) => {
+                write!(f, "{}pts", pts)
+            },
+        }
+    }
+}
+
+impl FromStr for NATimePoint {
+    type Err = FormatParseError;
+
+    /// Parses the string into time information.
+    ///
+    /// Accepted formats are `<u64>pts`, `<u64>ms` or `[hh:][mm:]ss[.ms]`.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Err(FormatParseError {});
+        }
+        if !s.ends_with("pts") {
+            if s.ends_with("ms") {
+                let str_b = s.as_bytes();
+                let num = std::str::from_utf8(&str_b[..str_b.len() - 2]).unwrap();
+                let ret = num.parse::<u64>();
+                if let Ok(val) = ret {
+                    return Ok(NATimePoint::Milliseconds(val));
+                } else {
+                    return Err(FormatParseError {});
+                }
+            }
+            let mut parts = s.split(':');
+            let mut hrs = None;
+            let mut mins = None;
+            let mut secs = parts.next();
+            if let Some(part) = parts.next() {
+                std::mem::swap(&mut mins, &mut secs);
+                secs = Some(part);
+            }
+            if let Some(part) = parts.next() {
+                std::mem::swap(&mut hrs, &mut mins);
+                std::mem::swap(&mut mins, &mut secs);
+                secs = Some(part);
+            }
+            if parts.next().is_some() {
+                return Err(FormatParseError {});
+            }
+            let hours = if let Some(val) = hrs {
+                    let ret = val.parse::<u64>();
+                    if ret.is_err() { return Err(FormatParseError {}); }
+                    let val = ret.unwrap();
+                    if val > 1000 { return Err(FormatParseError {}); }
+                    val
+                } else { 0 };
+            let minutes = if let Some(val) = mins {
+                    let ret = val.parse::<u64>();
+                    if ret.is_err() { return Err(FormatParseError {}); }
+                    let val = ret.unwrap();
+                    if val >= 60 { return Err(FormatParseError {}); }
+                    val
+                } else { 0 };
+            let (seconds, millis) = if let Some(val) = secs {
+                    let mut parts = val.split('.');
+                    let ret = parts.next().unwrap().parse::<u64>();
+                    if ret.is_err() { return Err(FormatParseError {}); }
+                    let seconds = ret.unwrap();
+                    if seconds >= 60 { return Err(FormatParseError {}); }
+                    let millis = if let Some(val) = parts.next() {
+                            let mut mval = 0;
+                            let mut base = 0;
+                            for ch in val.chars() {
+                                if ch >= '0' && ch <= '9' {
+                                    mval = mval * 10 + u64::from((ch as u8) - b'0');
+                                    base += 1;
+                                    if base > 3 { break; }
+                                } else {
+                                    return Err(FormatParseError {});
+                                }
+                            }
+                            while base < 3 {
+                                mval *= 10;
+                                base += 1;
+                            }
+                            mval
+                        } else { 0 };
+                    (seconds, millis)
+                } else { unreachable!(); };
+            let tot_secs = hours * 60 * 60 + minutes * 60 + seconds;
+            Ok(NATimePoint::Milliseconds(tot_secs * 1000 + millis))
+        } else {
+            let str_b = s.as_bytes();
+            let num = std::str::from_utf8(&str_b[..str_b.len() - 3]).unwrap();
+            let ret = num.parse::<u64>();
+            if let Ok(val) = ret {
+                Ok(NATimePoint::PTS(val))
+            } else {
+                Err(FormatParseError {})
+            }
+        }
+    }
+}
+
 /// Decoded frame information.
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -1230,5 +1369,23 @@ impl fmt::Display for NAPacket {
         if self.keyframe { ostr = format!("{} kf", ostr); }
         ostr += "]";
         write!(f, "{}", ostr)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_time_parse() {
+        assert_eq!(NATimePoint::PTS(42).to_string(), "42pts");
+        assert_eq!(NATimePoint::Milliseconds(4242000).to_string(), "1:10:42");
+        assert_eq!(NATimePoint::Milliseconds(42424242).to_string(), "11:47:04.242");
+        let ret = NATimePoint::from_str("42pts");
+        assert_eq!(ret.unwrap(), NATimePoint::PTS(42));
+        let ret = NATimePoint::from_str("1:2:3");
+        assert_eq!(ret.unwrap(), NATimePoint::Milliseconds(3723000));
+        let ret = NATimePoint::from_str("1:2:3.42");
+        assert_eq!(ret.unwrap(), NATimePoint::Milliseconds(3723420));
     }
 }
