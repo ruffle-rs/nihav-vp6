@@ -690,14 +690,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::game_register_all_codecs;
+    use crate::game_register_all_decoders;
     use crate::game_register_all_demuxers;
     #[test]
     fn test_vmd_video() {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("vmd", "vmd-video", "assets/Game/2832.VMD", Some(10), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
@@ -718,7 +718,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("vmd", "vmd-video", "assets/Game/HLP1000.VMD", Some(10), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
@@ -734,7 +734,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("vmd", "vmd-video", "assets/Game/02C.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xb580782c, 0xd7fb98c0, 0xaf9b83cc, 0xaea0846b]));
@@ -744,7 +744,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("vmd", "vmd-audio", "assets/Game/1491.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x75037601, 0xbc7b3976, 0x6e1c948b, 0xf05a3d6c]));
@@ -754,7 +754,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("vmd", "vmd-audio", "assets/Game/2832.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x32dcdf0e, 0xee058684, 0x43ed5bf1, 0x2ff18b5a]));
@@ -764,7 +764,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("vmd", "vmd-audio", "assets/Game/1000.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xc36215d3, 0x96530a80, 0x89f1fa8e, 0x49da302b]));
@@ -774,7 +774,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("vmd", "vmd-audio", "assets/Game/HLP1000.VMD", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x76a00405, 0xe4e5378d, 0x495b2a68, 0x4dffe042]));

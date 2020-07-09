@@ -29,7 +29,7 @@ const RAD_CODECS: &[DecoderInfo] = &[
 ];
 
 /// Registers all available codecs provided by this crate.
-pub fn rad_register_all_codecs(rd: &mut RegisteredDecoders) {
+pub fn rad_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in RAD_CODECS.iter() {
         rd.add_decoder(decoder.clone());
     }

@@ -94,14 +94,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::qt_register_all_codecs;
+    use crate::qt_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_ima_adpcm_qt() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        qt_register_all_codecs(&mut dec_reg);
+        qt_register_all_decoders(&mut dec_reg);
 
         test_decoding("mov", "ima-adpcm-qt", "assets/QT/shuffle-ima41.mov", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xba2ad472, 0xd6aee026, 0xb915dd7d, 0xac51314c]));

@@ -263,14 +263,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::ms_register_all_codecs;
+    use crate::ms_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_ms_video1_8bit() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        ms_register_all_codecs(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "msvideo1", "assets/MS/toon.avi", Some(66), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x0c26ec42, 0xb75bfea7, 0x1e6342ae, 0xb14dcfa3]));
@@ -280,7 +280,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        ms_register_all_codecs(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "msvideo1", "assets/MS/clock-cram16.avi", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x03381fa4, 0x5b294fec, 0xb97a7575, 0xa1a3ffe9]));

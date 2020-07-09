@@ -28,7 +28,7 @@ const MS_CODECS: &[DecoderInfo] = &[
 ];
 
 /// Registers all available codecs provided by this crate.
-pub fn ms_register_all_codecs(rd: &mut RegisteredDecoders) {
+pub fn ms_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in MS_CODECS.iter() {
         rd.add_decoder(decoder.clone());
     }

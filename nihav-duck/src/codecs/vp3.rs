@@ -1885,7 +1885,7 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::duck_register_all_codecs;
+    use crate::duck_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
 
     #[test]
@@ -1893,7 +1893,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        duck_register_all_codecs(&mut dec_reg);
+        duck_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "vp3", "assets/Duck/vp30-logo.avi", Some(23), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x51aba7df, 0x6e42534d, 0xef6c5b13, 0x26c38d1f]));
@@ -1904,7 +1904,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        duck_register_all_codecs(&mut dec_reg);
+        duck_register_all_decoders(&mut dec_reg);
 
 //        let file = "assets/Duck/vp31.avi";
 //        let file = "assets/Duck/vp31_crash.avi";
@@ -1920,7 +1920,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        duck_register_all_codecs(&mut dec_reg);
+        duck_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "vp3", "assets/Duck/ot171_vp40.avi", Some(86), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xd41d8cd9, 0x8f00b204, 0xe9800998, 0xecf8427e]));

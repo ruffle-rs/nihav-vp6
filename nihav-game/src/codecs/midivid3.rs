@@ -527,14 +527,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::game_register_all_codecs;
+    use crate::game_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_midivid3_video() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "midivid3", "assets/Game/mv30.avi", Some(16), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![

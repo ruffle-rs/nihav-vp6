@@ -693,14 +693,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::realmedia_register_all_codecs;
+    use crate::realmedia_register_all_decoders;
     use crate::realmedia_register_all_demuxers;
     #[test]
     fn test_rv20() {
         let mut dmx_reg = RegisteredDemuxers::new();
         realmedia_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        realmedia_register_all_codecs(&mut dec_reg);
+        realmedia_register_all_decoders(&mut dec_reg);
 
         test_decoding("realmedia", "realvideo2",
                       "assets/RV/rv20_svt_atrc_640x352_realproducer_plus_8.51.rm",

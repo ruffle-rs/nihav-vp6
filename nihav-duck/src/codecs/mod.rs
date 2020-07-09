@@ -91,7 +91,7 @@ const DUCK_CODECS: &[DecoderInfo] = &[
 ];
 
 /// Registers all available codecs provided by this crate.
-pub fn duck_register_all_codecs(rd: &mut RegisteredDecoders) {
+pub fn duck_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in DUCK_CODECS.iter() {
         rd.add_decoder(decoder.clone());
     }

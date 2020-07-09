@@ -11,7 +11,7 @@ extern crate nihav_registry;
 mod codecs;
 
 #[cfg(feature="decoders")]
-pub use crate::codecs::generic_register_all_codecs;
+pub use crate::codecs::generic_register_all_decoders;
 #[cfg(feature="encoders")]
 pub use crate::codecs::generic_register_all_encoders;
 

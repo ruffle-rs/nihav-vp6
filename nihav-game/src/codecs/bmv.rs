@@ -320,14 +320,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::game_register_all_codecs;
+    use crate::game_register_all_decoders;
     use crate::game_register_all_demuxers;
     #[test]
     fn test_bmv_video() {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("bmv", "bmv-video", "assets/Game/WILDCAT.BMV", Some(40), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x9e91bb16, 0xc1edafc9, 0x4ef3171f, 0x0f3f6181]));
@@ -337,7 +337,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("bmv", "bmv-audio", "assets/Game/PERFECT.BMV", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x90b9ace4, 0x5fc19938, 0x7f534560, 0x32589cdf]));

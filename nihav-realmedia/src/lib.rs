@@ -13,7 +13,7 @@ extern crate nihav_codec_support;
 #[allow(clippy::useless_let_if_seq)]
 mod codecs;
 #[cfg(feature="decoders")]
-pub use crate::codecs::realmedia_register_all_codecs;
+pub use crate::codecs::realmedia_register_all_decoders;
 
 #[cfg(feature="demuxers")]
 #[allow(clippy::cast_lossless)]

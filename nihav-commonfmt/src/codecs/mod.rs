@@ -52,7 +52,7 @@ const DECODERS: &[DecoderInfo] = &[
 ];
 
 /// Registers all available codecs provided by this crate.
-pub fn generic_register_all_codecs(rd: &mut RegisteredDecoders) {
+pub fn generic_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in DECODERS.iter() {
         rd.add_decoder(decoder.clone());
     }

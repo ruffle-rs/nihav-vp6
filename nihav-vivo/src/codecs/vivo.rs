@@ -492,14 +492,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::vivo_register_all_codecs;
+    use crate::vivo_register_all_decoders;
     use crate::vivo_register_all_demuxers;
     #[test]
     fn test_vivo1() {
         let mut dmx_reg = RegisteredDemuxers::new();
         vivo_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        vivo_register_all_codecs(&mut dec_reg);
+        vivo_register_all_decoders(&mut dec_reg);
 
 test_file_decoding("vivo", "assets/Misc/gr_al.viv", Some(16), true, false, Some("viv1"), &dmx_reg, &dec_reg);
 //        test_decoding("vivo", "vivo1", "assets/Misc/gr_al.viv", Some(16),
@@ -510,7 +510,7 @@ test_file_decoding("vivo", "assets/Misc/gr_al.viv", Some(16), true, false, Some(
         let mut dmx_reg = RegisteredDemuxers::new();
         vivo_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        vivo_register_all_codecs(&mut dec_reg);
+        vivo_register_all_decoders(&mut dec_reg);
 
 test_file_decoding("vivo", "assets/Misc/02-KimagureOrangeRoad.viv", Some(50), true, false, Some("viv2"), &dmx_reg, &dec_reg);
 panic!("end");

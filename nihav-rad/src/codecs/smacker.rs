@@ -616,14 +616,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::rad_register_all_codecs;
+    use crate::rad_register_all_decoders;
     use crate::rad_register_all_demuxers;
     #[test]
     fn test_smkvid() {
         let mut dmx_reg = RegisteredDemuxers::new();
         rad_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        rad_register_all_codecs(&mut dec_reg);
+        rad_register_all_decoders(&mut dec_reg);
 
         test_decoding("smacker", "smacker-video", "assets/RAD/credits.smk", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
@@ -643,7 +643,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         rad_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        rad_register_all_codecs(&mut dec_reg);
+        rad_register_all_decoders(&mut dec_reg);
 
         test_decoding("smacker", "smacker-audio", "assets/RAD/wetlogo.smk", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xc686b833, 0x0a203038, 0x012f6d9b, 0xa4186d44]));
@@ -653,7 +653,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         rad_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        rad_register_all_codecs(&mut dec_reg);
+        rad_register_all_decoders(&mut dec_reg);
 
         test_decoding("smacker", "smacker-audio", "assets/RAD/20130507_audio-distortion.smk", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x942a0922, 0x182bb5fd, 0x94ab7a59, 0x2028d810]));

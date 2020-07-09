@@ -1069,7 +1069,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        generic_register_all_codecs(&mut dec_reg);
+        generic_register_all_decoders(&mut dec_reg);
         let mut mux_reg = RegisteredMuxers::new();
         generic_register_all_muxers(&mut mux_reg);
         let mut enc_reg = RegisteredEncoders::new();

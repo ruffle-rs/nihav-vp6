@@ -1256,14 +1256,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::test_decode_audio;
-    use crate::generic_register_all_codecs;
+    use crate::generic_register_all_decoders;
     use nihav_realmedia::realmedia_register_all_demuxers;
     #[test]
     fn test_ts102366() {
         let mut dmx_reg = RegisteredDemuxers::new();
         realmedia_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        generic_register_all_codecs(&mut dec_reg);
+        generic_register_all_decoders(&mut dec_reg);
 
         let file = "assets/RV/sp_sample1.rm";
         test_decode_audio("realmedia", file, Some(12000), None/*Some("ac3")*/, &dmx_reg, &dec_reg);

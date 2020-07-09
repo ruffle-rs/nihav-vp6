@@ -419,7 +419,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        ms_register_all_codecs(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "ms-adpcm", "assets/MS/dance.avi", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xf5e3fc84, 0xbcabc11c, 0x33c6874e, 0xe05ecd14]));
@@ -430,8 +430,8 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        generic_register_all_codecs(&mut dec_reg);
-        ms_register_all_codecs(&mut dec_reg);
+        generic_register_all_decoders(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
         let mut mux_reg = RegisteredMuxers::new();
         generic_register_all_muxers(&mut mux_reg);
         let mut enc_reg = RegisteredEncoders::new();

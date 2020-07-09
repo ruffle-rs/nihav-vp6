@@ -260,14 +260,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::ms_register_all_codecs;
+    use crate::ms_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_ms_rle_8bit() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        ms_register_all_codecs(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "msrle", "assets/MS/workcycl-64color.avi", Some(6), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
@@ -284,7 +284,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        ms_register_all_codecs(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "msrle", "assets/MS/suzie_appl_rle8.avi", Some(2), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
@@ -297,7 +297,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        ms_register_all_codecs(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "msrle", "assets/MS/mplayer-msrle-4bit.avi", Some(2), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
@@ -310,7 +310,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        ms_register_all_codecs(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "msrle", "assets/MS/suzie_appl_rle4.avi", Some(2), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xb5d38296, 0xdae25407, 0x985973f0, 0xb1da9c94]));

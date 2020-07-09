@@ -674,14 +674,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::duck_register_all_codecs;
+    use crate::duck_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_tm1() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        duck_register_all_codecs(&mut dec_reg);
+        duck_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "truemotion1", "assets/Duck/phant2-940.duk", Some(12), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![

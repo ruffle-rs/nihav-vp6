@@ -102,7 +102,7 @@ pub struct DecoderInfo {
 
 /// Structure for registering known decoders.
 ///
-/// It is supposed to be filled using `register_all_codecs()` from some decoders crate and then it can be used to create decoders for the requested codecs.
+/// It is supposed to be filled using `register_all_decoders()` from some decoders crate and then it can be used to create decoders for the requested codecs.
 #[derive(Default)]
 pub struct RegisteredDecoders {
     decs:   Vec<DecoderInfo>,
@@ -319,7 +319,7 @@ pub struct EncoderInfo {
 
 /// Structure for registering known encoders.
 ///
-/// It is supposed to be filled using `register_all_codecs()` from some encoders crate and then it can be used to create encoders for the requested codecs.
+/// It is supposed to be filled using `register_all_decoders()` from some encoders crate and then it can be used to create encoders for the requested codecs.
 #[derive(Default)]
 pub struct RegisteredEncoders {
     encs:   Vec<EncoderInfo>,

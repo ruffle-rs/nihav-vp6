@@ -618,14 +618,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::game_register_all_codecs;
+    use crate::game_register_all_decoders;
     use crate::game_register_all_demuxers;
     #[test]
     fn test_bmv_video() {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("bmv3", "bmv3-video", "assets/Game/DW3-Loffnote.bmv", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xfa34b81b, 0xd0ab79e2, 0x78fb25cc, 0x98ae47ff]));
@@ -635,7 +635,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         game_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        game_register_all_codecs(&mut dec_reg);
+        game_register_all_decoders(&mut dec_reg);
 
         test_decoding("bmv3", "bmv3-audio", "assets/Game/DW3-Loffnote.bmv", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0xd8e743cc, 0x97604bd7, 0x8dbb89c6, 0xb34cad63]));

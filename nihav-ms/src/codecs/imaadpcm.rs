@@ -97,14 +97,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::ms_register_all_codecs;
+    use crate::ms_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_ima_adpcm_ms() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        ms_register_all_codecs(&mut dec_reg);
+        ms_register_all_decoders(&mut dec_reg);
 
         test_decoding("avi", "ima-adpcm-ms", "assets/MS/IMAG0006.AVI", None, &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x0cdc640f, 0xb00df235, 0x1ec4a280, 0x065b5e9e]));

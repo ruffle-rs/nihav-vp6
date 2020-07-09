@@ -159,14 +159,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::duck_register_all_codecs;
+    use crate::duck_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_dk3() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        duck_register_all_codecs(&mut dec_reg);
+        duck_register_all_decoders(&mut dec_reg);
 
         //let file = "assets/Duck/AVI-DUCK-dk3.duk";
         //test_decode_audio("avi", file, Some(100), None/*Some("dk3")*/, &dmx_reg, &dec_reg);
@@ -178,7 +178,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        duck_register_all_codecs(&mut dec_reg);
+        duck_register_all_decoders(&mut dec_reg);
 
 //        let file = "assets/Duck/virtuafighter2-opening1.avi";
 //        test_decode_audio("avi", file, Some(100), None/*Some("dk4")*/, &dmx_reg, &dec_reg);

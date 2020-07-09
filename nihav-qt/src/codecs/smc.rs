@@ -290,14 +290,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::qt_register_all_codecs;
+    use crate::qt_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_smc() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        qt_register_all_codecs(&mut dec_reg);
+        qt_register_all_decoders(&mut dec_reg);
 
         test_decoding("mov", "qt-smc", "assets/QT/aletrek-smc.mov", Some(6), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![
@@ -314,7 +314,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        qt_register_all_codecs(&mut dec_reg);
+        qt_register_all_decoders(&mut dec_reg);
 
         test_decoding("mov", "qt-smc", "assets/QT/aletrek-smc-gray.mov", Some(6), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5Frames(vec![

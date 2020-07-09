@@ -399,14 +399,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::generic_register_all_codecs;
+    use crate::generic_register_all_decoders;
     use crate::generic_register_all_demuxers;
     #[test]
     fn test_cinepak() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        generic_register_all_codecs(&mut dec_reg);
+        generic_register_all_decoders(&mut dec_reg);
         test_decoding("avi", "cinepak", "assets/Misc/ot171.avi", Some(10), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0xd58326b0, 0xdbfc1dcc, 0x6d66a04c, 0x08a21bbb],
@@ -426,7 +426,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        generic_register_all_codecs(&mut dec_reg);
+        generic_register_all_decoders(&mut dec_reg);
         test_decoding("mov", "cinepak", "assets/Misc/dday.mov", Some(10), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0x2ab229bc, 0xb71308aa, 0x979511c6, 0xcef3ea92],
@@ -446,7 +446,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        generic_register_all_codecs(&mut dec_reg);
+        generic_register_all_decoders(&mut dec_reg);
         test_decoding("mov", "cinepak", "assets/Misc/catfight Tag team DT.mov", Some(10), &dmx_reg,
                      &dec_reg, ExpectedTestResult::MD5Frames(vec![
                         [0x3f7ec8ea, 0x873a2bc6, 0xcc58336e, 0xe88c4ffd],

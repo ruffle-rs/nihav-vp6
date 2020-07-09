@@ -476,14 +476,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::realmedia_register_all_codecs;
+    use crate::realmedia_register_all_decoders;
     use crate::realmedia_register_all_demuxers;
     #[test]
     fn test_rv10_old() {
         let mut dmx_reg = RegisteredDemuxers::new();
         realmedia_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        realmedia_register_all_codecs(&mut dec_reg);
+        realmedia_register_all_decoders(&mut dec_reg);
 
         test_decoding("realmedia", "realvideo1", "assets/RV/thankyou.rm",
                       Some(1000), &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
@@ -501,7 +501,7 @@ mod test {
         let mut dmx_reg = RegisteredDemuxers::new();
         realmedia_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        realmedia_register_all_codecs(&mut dec_reg);
+        realmedia_register_all_decoders(&mut dec_reg);
 
         test_decoding("realmedia", "realvideo1",
                       "assets/RV/rv10_dnet_640x352_realvideo_encoder_4.0.rm",

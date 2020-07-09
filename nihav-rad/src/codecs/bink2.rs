@@ -1959,14 +1959,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::rad_register_all_codecs;
+    use crate::rad_register_all_decoders;
     use crate::rad_register_all_demuxers;
     #[test]
     fn test_bink2() {
         let mut dmx_reg = RegisteredDemuxers::new();
         rad_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        rad_register_all_codecs(&mut dec_reg);
+        rad_register_all_decoders(&mut dec_reg);
 
         //let file = "assets/RAD/Open_Logos_partial.bik";
         //let file = "assets/RAD/sc13_01_partial.bk2";

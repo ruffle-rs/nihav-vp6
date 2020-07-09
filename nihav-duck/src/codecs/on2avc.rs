@@ -1068,14 +1068,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::duck_register_all_codecs;
+    use crate::duck_register_all_decoders;
     use nihav_commonfmt::generic_register_all_demuxers;
     #[test]
     fn test_avc() {
         let mut dmx_reg = RegisteredDemuxers::new();
         generic_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        duck_register_all_codecs(&mut dec_reg);
+        duck_register_all_decoders(&mut dec_reg);
 
         //let file = "assets/Duck/Cell-140.vp5";
         //let file = "assets/Duck/Chocolat-500.vp5";

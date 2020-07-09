@@ -373,14 +373,14 @@ mod test {
     use nihav_core::codecs::RegisteredDecoders;
     use nihav_core::demuxers::RegisteredDemuxers;
     use nihav_codec_support::test::dec_video::*;
-    use crate::realmedia_register_all_codecs;
+    use crate::realmedia_register_all_decoders;
     use crate::realmedia_register_all_demuxers;
     #[test]
     fn test_rv40() {
         let mut dmx_reg = RegisteredDemuxers::new();
         realmedia_register_all_demuxers(&mut dmx_reg);
         let mut dec_reg = RegisteredDecoders::new();
-        realmedia_register_all_codecs(&mut dec_reg);
+        realmedia_register_all_decoders(&mut dec_reg);
 
         test_decoding("realmedia", "realvideo4", "assets/RV/rv40_weighted_mc.rmvb", Some(1500),
                       &dmx_reg, &dec_reg,ExpectedTestResult::MD5Frames(vec![
