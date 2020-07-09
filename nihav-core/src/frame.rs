@@ -1105,7 +1105,7 @@ impl FromStr for NATimePoint {
                     let ret = parts.next().unwrap().parse::<u64>();
                     if ret.is_err() { return Err(FormatParseError {}); }
                     let seconds = ret.unwrap();
-                    if seconds >= 60 { return Err(FormatParseError {}); }
+                    if mins.is_some() && seconds >= 60 { return Err(FormatParseError {}); }
                     let millis = if let Some(val) = parts.next() {
                             let mut mval = 0;
                             let mut base = 0;
