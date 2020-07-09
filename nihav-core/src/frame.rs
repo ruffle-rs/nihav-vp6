@@ -1009,6 +1009,12 @@ pub enum NATimePoint {
     None,
 }
 
+impl Default for NATimePoint {
+    fn default() -> Self {
+        NATimePoint::None
+    }
+}
+
 impl fmt::Display for NATimePoint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
