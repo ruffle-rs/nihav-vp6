@@ -152,7 +152,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
 
         Ok(pkt)
     }
-    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         let ret = seek_idx.find_pos(time);
         if ret.is_none() {
             return Err(DemuxerError::SeekError);

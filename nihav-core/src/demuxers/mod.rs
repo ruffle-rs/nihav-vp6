@@ -37,7 +37,7 @@ pub trait DemuxCore<'a>: NAOptionHandler {
     /// Demuxes a packet.
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket>;
     /// Seeks to the requested time.
-    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()>;
+    fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()>;
 }
 
 /// An auxiliary trait to make bytestream reader read packet data.
@@ -229,16 +229,31 @@ impl StreamSeekInfo {
         self.entries.push(entry);
     }
     /// Searches for an appropriate seek position before requested time.
-    pub fn find_pos(&self, time: u64) -> Option<SeekEntry> {
+    pub fn find_pos(&self, time: NATimePoint) -> Option<SeekEntry> {
+        if time == NATimePoint::None {
+            return None;
+        }
         if !self.entries.is_empty() {
 // todo something faster like binary search
             let mut cand = None;
             for entry in self.entries.iter() {
-                if entry.time <= time {
-                    cand = Some(*entry);
-                } else {
-                    break;
-                }
+                match time {
+                    NATimePoint::Milliseconds(ms) => {
+                        if entry.time <= ms {
+                            cand = Some(*entry);
+                        } else {
+                            break;
+                        }
+                    },
+                    NATimePoint::PTS(pts) => {
+                        if entry.pts <= pts {
+                            cand = Some(*entry);
+                        } else {
+                            break;
+                        }
+                    },
+                    NATimePoint::None => unreachable!(),
+                };
             }
             cand
         } else {
@@ -309,7 +324,7 @@ impl SeekIndex {
         self.seek_info[idx.unwrap()].filled = true;
     }
     /// Searches for a seek position before requested time.
-    pub fn find_pos(&self, time: u64) -> Option<SeekIndexResult> {
+    pub fn find_pos(&self, time: NATimePoint) -> Option<SeekIndexResult> {
         let mut cand = None;
         for str in self.seek_info.iter() {
             if !str.filled { continue; }
@@ -389,8 +404,8 @@ impl<'a> Demuxer<'a> {
             }
         }
     }
-    /// Seeks to the requested time (in milliseconds) if possible.
-    pub fn seek(&mut self, time: u64) -> DemuxerResult<()> {
+    /// Seeks to the requested time if possible.
+    pub fn seek(&mut self, time: NATimePoint) -> DemuxerResult<()> {
         if self.seek_idx.skip_index {
             return Err(DemuxerError::NotPossible);
         }

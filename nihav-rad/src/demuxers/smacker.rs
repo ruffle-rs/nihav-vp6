@@ -251,8 +251,13 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
 
         Ok(pkt)
     }
-    fn seek(&mut self, time: u64, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
-        if time == 0 {
+    fn seek(&mut self, time: NATimePoint, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
+        let seek_to_start = match time {
+                NATimePoint::Milliseconds(0) => true,
+                NATimePoint::PTS(0) => true,
+                _ => false,
+            };
+        if seek_to_start {
             let start = self.start;
             self.src.seek(SeekFrom::Start(start))?;
             self.cur_frame = 0;

@@ -129,7 +129,7 @@ impl<'a> DemuxCore<'a> for VivoDemuxer<'a> {
             }
         }
     }
-    fn seek(&mut self, _time: u64, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, _time: NATimePoint, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
 }

@@ -83,10 +83,16 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
         }
     }
 
-    fn seek(&mut self, time: u64, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         if self.block_size != 0 && self.avg_bytes != 0 {
-            let seek_dst = u64::from(self.avg_bytes) * time / 1000;
-            let seek_off = seek_dst / (self.block_size as u64) * (self.block_size as u64);
+            let seek_off = match time {
+                    NATimePoint::Milliseconds(ms) => {
+                        let seek_dst = u64::from(self.avg_bytes) * ms / 1000;
+                        seek_dst / (self.block_size as u64) * (self.block_size as u64)
+                    },
+                    NATimePoint::PTS(pts) => (self.block_size as u64) * pts,
+                    NATimePoint::None => return Ok(()),
+                };
             self.src.seek(SeekFrom::Start(self.data_pos + seek_off))?;
             Ok(())
         } else {

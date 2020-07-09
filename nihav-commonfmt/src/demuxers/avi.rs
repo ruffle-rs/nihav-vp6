@@ -135,7 +135,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
         }
     }
 
-    fn seek(&mut self, time: u64, seek_index: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, time: NATimePoint, seek_index: &SeekIndex) -> DemuxerResult<()> {
         let ret = seek_index.find_pos(time);
         if ret.is_none() {
             return Err(DemuxerError::SeekError);

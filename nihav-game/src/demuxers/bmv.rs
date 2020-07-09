@@ -70,7 +70,7 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
         }
     }
 
-    fn seek(&mut self, _time: u64, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
 }
@@ -218,7 +218,7 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
         }
     }
 
-    fn seek(&mut self, _time: u64, _seek_index: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
 }

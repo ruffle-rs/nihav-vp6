@@ -740,7 +740,7 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
     }
 
     #[allow(unused_variables)]
-    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         self.queued_pkts.clear();
         let ret = seek_idx.find_pos(time);
         if ret.is_none() {
@@ -1263,7 +1263,7 @@ println!(" got ainfo {:?}", ainfo);
     }
 
     #[allow(unused_variables)]
-    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
 }
@@ -1608,7 +1608,7 @@ println!("R1M kind");
     }
 
     #[allow(unused_variables)]
-    fn seek(&mut self, time: u64, seek_idx: &SeekIndex) -> DemuxerResult<()> {
+    fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
 }
