@@ -97,11 +97,11 @@ impl<'a> Muxer<'a> {
         self.streams.iter()
     }
 
-    /// Demuxes a new packet from the container.
+    /// Queues a new packet for muxing.
     pub fn mux_frame(&mut self, pkt: NAPacket) -> MuxerResult<()> {
         self.mux.mux_frame(&self.streams, pkt)
     }
-    /// Returns internal seek index.
+    /// Flushes the current muxing state.
     pub fn flush(&mut self) -> MuxerResult<()> {
         self.mux.flush()
     }
