@@ -82,7 +82,7 @@ impl RleDecoder {
                 }
             }
         }
-        
+
 
         Ok(if has_skips { FrameType::P } else { FrameType::I })
     }
@@ -175,7 +175,6 @@ impl RleDecoder {
                 }
             }
         }
-        
 
         Ok(if has_skips { FrameType::P } else { FrameType::I })
     }

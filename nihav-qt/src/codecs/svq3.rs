@@ -656,7 +656,7 @@ println!("slice offset {}", _offset);
                 }
             }
         }
-        
+
         Ok(())
     }
     fn do_mc_p(&mut self, br: &mut BitReader, mb_type: usize, sstate: &mut SState, dframe: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {

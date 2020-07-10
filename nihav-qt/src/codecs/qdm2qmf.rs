@@ -394,7 +394,7 @@ unimplemented!();
                             let idx = br.read(8) as usize;
                             validate!(idx < self.tables.mod3.len());
                             for i in 0..5 {
-                                let k = self.tables.mod3[idx][i] as usize; 
+                                let k = self.tables.mod3[idx][i] as usize;
                                 samples[i * 2] = QUANT_1BIT[jstereo as usize][k];
                             }
                         }
@@ -432,7 +432,7 @@ unimplemented!();
                             let idx = br.read(8) as usize;
                             validate!(idx < self.tables.mod3.len());
                             for i in 0..5 {
-                                let k = self.tables.mod3[idx][i] as usize; 
+                                let k = self.tables.mod3[idx][i] as usize;
                                 samples[i] = QUANT_1BIT[jstereo as usize][k];
                             }
                         }
@@ -448,7 +448,7 @@ unimplemented!();
                         let idx         = br.read(7) as usize;
                         validate!(idx < self.tables.mod5.len());
                         for i in 0..3 {
-                            let k = self.tables.mod5[idx][i] as usize; 
+                            let k = self.tables.mod5[idx][i] as usize;
                             samples[i] = ((k as f32) - 2.0) * 0.5;
                         }
                     } else {

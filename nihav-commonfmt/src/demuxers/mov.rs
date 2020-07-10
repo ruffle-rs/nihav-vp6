@@ -239,7 +239,7 @@ fn read_cmov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
     dmx.duration = ddmx.duration;
     dmx.tb_den = ddmx.tb_den;
     std::mem::swap(&mut dmx.pal, &mut ddmx.pal);
-    
+
     Ok(size)
 }
 

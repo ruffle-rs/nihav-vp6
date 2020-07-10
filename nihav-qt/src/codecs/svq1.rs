@@ -288,7 +288,7 @@ impl SVQ1Decoder {
         let (w, h) = if plane == 0 {
                 ((self.width + 15) & !15, (self.height + 15) & !15)
             } else {
-                ((self.width / 4 + 15) & !15, (self.height / 4 + 15) & !15)                
+                ((self.width / 4 + 15) & !15, (self.height / 4 + 15) & !15)
             };
         let mvstride = w / 8;
         self.mvs.truncate(0);

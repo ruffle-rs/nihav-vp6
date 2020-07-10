@@ -769,7 +769,7 @@ impl NAPixelFormaton {
                             break;
                         }
                     }
-                    name += if self.be { "be" } else { "le" };                   
+                    name += if self.be { "be" } else { "le" };
                     return Some(name);
                 }
                 if depth == 24 || depth != 8 * self.components {
@@ -779,7 +779,7 @@ impl NAPixelFormaton {
                     name.push('p');
                 }
                 if self.get_max_depth() > 8 {
-                    name += if self.be { "be" } else { "le" };                   
+                    name += if self.be { "be" } else { "le" };
                 }
                 Some(name)
             },
