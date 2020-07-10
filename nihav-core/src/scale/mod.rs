@@ -320,7 +320,7 @@ pub fn flip_picture(pic: &mut NABufferType) -> ScaleResult<()> {
             }
         },
         NABufferType::Video16(ref mut vb) => {
-            let ncomp = vb.get_num_components();
+            let ncomp = vb.get_num_components().max(1);
             for comp in 0..ncomp {
                 let off    = vb.get_offset(comp);
                 let stride = vb.get_stride(comp);
@@ -332,7 +332,7 @@ pub fn flip_picture(pic: &mut NABufferType) -> ScaleResult<()> {
             }
         },
         NABufferType::Video32(ref mut vb) => {
-            let ncomp = vb.get_num_components();
+            let ncomp = vb.get_num_components().max(1);
             for comp in 0..ncomp {
                 let off    = vb.get_offset(comp);
                 let stride = vb.get_stride(comp);
