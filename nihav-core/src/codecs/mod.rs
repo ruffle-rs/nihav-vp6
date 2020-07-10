@@ -263,7 +263,7 @@ impl Default for EncodeParameters {
 /// while let Some(frame) = queue.get_frame() {
 ///     // convert to the format encoder expects if required
 ///     encoder.encode(frame)?;
-///     while let Some(enc_pkt) = encoder.get_packet()? {
+///     while let Ok(enc_pkt) = encoder.get_packet()? {
 ///         // send encoded packet to a muxer for example
 ///     }
 /// }
