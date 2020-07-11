@@ -961,18 +961,18 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
             return Ok(NAPixelFormaton {
                     model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 1,
                     comp_info: [
-                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 1 }),
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 1 }),
                         None, None, None, None],
-                    elem_size: 1, be: false, alpha: false, palette: false });
+                    elem_size: 1, be: true, alpha: false, palette: false });
         },
         "y8a" | "y400a" | "graya" => {
             return Ok(NAPixelFormaton {
                     model: ColorModel::YUV(YUVSubmodel::YUVJ), components: 2,
                     comp_info: [
-                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 0, next_elem: 2 }),
-                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 8, shift: 0, comp_offs: 1, next_elem: 2 }),
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 0, next_elem: 2 }),
+                        Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: false, depth: 8, shift: 0, comp_offs: 1, next_elem: 2 }),
                         None, None, None],
-                    elem_size: 1, be: false, alpha: true, palette: false });
+                    elem_size: 1, be: true, alpha: true, palette: false });
         },
         "uyvy" | "y422" => {
             return Ok(NAPixelFormaton {
