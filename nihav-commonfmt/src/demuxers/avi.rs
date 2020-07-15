@@ -517,11 +517,20 @@ fn parse_idx1(src: &mut ByteReader, strmgr: &mut StreamManager, seek_idx: &mut S
     let mut tag = [0u8; 4];
     let num_entries = size >> 4;
     let mut counter = [0u64; 100];
+    let mut add_offset = 0;
+    let mut set_offset = false;
     for _ in 0..num_entries {
                               src.read_buf(&mut tag)?;
         let flags           = src.read_u32le()?;
-        let offset          = src.read_u32le()? as u64;
+        let mut offset      = src.read_u32le()? as u64;
         let _length         = src.read_u32le()?;
+
+        if !set_offset && offset < movi_pos {
+            add_offset = movi_pos - offset;
+        }
+        set_offset = true;
+
+        offset += add_offset;
 
         if tag[0] < b'0' || tag[0] > b'9' || tag[1] < b'0' || tag[1] > b'9' {
             return Err(InvalidData);
