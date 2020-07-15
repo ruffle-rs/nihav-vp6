@@ -210,21 +210,36 @@ impl AVCDecoder {
         let mut cur_band = 0;
         let mut scale = 0;
         let mut first = true;
-        for wg in self.win_grp.iter().take(self.windows) {
-            if *wg {
+        for wg in 0..self.windows {
+            if self.win_grp[wg] {
                 for _ in 0..bands {
                     if self.cbs[cur_band] == 0 {
-                        self.scales[cur_band] = 0;
-                    } else {
-                        if first {
-                            scale               = br.read(7)? as i16;
-                            first = false
-                        } else {
-                            scale               += i16::from(br.read_cb(&self.codebooks.scale_cb)?);
-                            validate!((scale >= 0) && (scale < 128));
+                        let mut all_zero = true;
+                        let mut band2 = cur_band;
+                        for wg2 in wg + 1..self.windows {
+                            if self.win_grp[wg2] {
+                                break;
+                            }
+                            band2 += bands;
+                            if self.cbs[band2] != 0 {
+                                all_zero = false;
+                                break;
+                            }
                         }
-                        self.scales[cur_band] = scale as u8;
+                        if all_zero {
+                            self.scales[cur_band] = 0;
+                            cur_band += 1;
+                            continue;
+                        }
                     }
+                    if first {
+                        scale                   = br.read(7)? as i16;
+                        first = false;
+                    } else {
+                        scale                   += i16::from(br.read_cb(&self.codebooks.scale_cb)?);
+                        validate!((scale >= 0) && (scale < 128));
+                    }
+                    self.scales[cur_band] = scale as u8;
                     cur_band += 1;
                 }
             } else {
