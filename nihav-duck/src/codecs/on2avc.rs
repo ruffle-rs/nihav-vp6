@@ -361,17 +361,7 @@ impl AVCDecoder {
                 }
             },
             2 | 7 => {
-                self.imdct_long.imdct(coeffs, &mut self.tmp);
-                for i in 0..SHORT_WIN_POINT0 {
-                    dst[i] = delay[i];
-                }
-                overlap(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &self.tmp[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
-                for i in SHORT_WIN_POINT1..COEFFS {
-                    dst[i] = self.tmp[i - SHORT_WIN_POINT1 + 128];
-                }
-                delay.copy_from_slice(&self.tmp[COEFFS..]);
+                self.imdct_long.imdct_half(coeffs, &mut self.ew_buf);
             },
             3 => {
                 for (ain, aout) in coeffs.chunks(128).zip(self.tmp.chunks_mut(256)) {
@@ -402,76 +392,52 @@ impl AVCDecoder {
                 for i in 0..SHORT_WIN_POINT1 {
                     delay[i] = self.ew_buf[SHORT_WIN_POINT1 + i];
                 }
-                for i in SHORT_WIN_POINT1..COEFFS {
-                    delay[i] = 0.0;
+                for i in COEFFS/2..COEFFS {
+                    delay[i] = delay[COEFFS - 1 - i];
                 }
             },
             4 => {
-                for i in 0..SHORT_WIN_POINT0 {
-                    dst[i] = delay[i];
-                }
                 if !self.use_generic {
                     synth1024(&mut self.dsp, coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz);
                 } else {
                     synth_generic(coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz, 1024);
                 }
-                overlap_half(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                             &self.ew_buf[0..64],
-                             &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
-                for i in SHORT_WIN_POINT1..COEFFS {
-                    dst[i] = self.ew_buf[i - SHORT_WIN_POINT1 + 64];
-                }
-                for i in 0..COEFFS/2 {
-                    delay[i] = self.ew_buf[COEFFS/2 + i];
-                }
-                for i in COEFFS/2..COEFFS {
-                    delay[i] = delay[COEFFS - 1 - i];
-                }
-            },
+             },
             5 => {
-                for i in 0..SHORT_WIN_POINT0 {
-                    dst[i] = delay[i];
-                }
                 if !self.use_generic {
                     synth512(&mut self.dsp, coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz);
                 } else {
                     synth_generic(coeffs, &mut self.ew_buf, &mut self.tmp, self.is_40khz, 512);
                 }
-                self.imdct_mid.imdct(&coeffs[512..], &mut self.ew_buf[512..]);
-                overlap(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &self.ew_buf[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
-                for i in SHORT_WIN_POINT1..COEFFS {
-                    dst[i] = self.ew_buf[i];
-                }
-                *delay = [0.0; COEFFS];
-                for i in 0..SHORT_WIN_POINT1 {
-                    delay[i] = self.ew_buf[i];
-                }
+                self.imdct_mid.imdct_half(&coeffs[512..], &mut self.ew_buf[512..]);
             },
             6 => {
-                for i in 0..SHORT_WIN_POINT0 {
-                    dst[i] = delay[i];
-                }
-                self.imdct_mid.imdct(coeffs, &mut self.ew_buf);
+                self.imdct_mid.imdct_half(coeffs, &mut self.ew_buf);
                 if !self.use_generic {
                     synth512(&mut self.dsp, &coeffs[512..], &mut self.ew_buf[512..], &mut self.tmp, self.is_40khz);
                 } else {
                     synth_generic(&coeffs[512..], &mut self.ew_buf[512..], &mut self.tmp, self.is_40khz, 512);
                 }
-                overlap(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &self.ew_buf[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
-                        &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
-                for i in SHORT_WIN_POINT1..COEFFS {
-                    dst[i] = self.ew_buf[i];
-                }
-                *delay = [0.0; COEFFS];
-                for i in 0..SHORT_WIN_POINT1 {
-                    delay[i] = self.ew_buf[i];
-                }
             },
             _ => unreachable!(),
         };
+        if (self.cur_win == 2) || (self.cur_win >= 4) {
+            for i in 0..SHORT_WIN_POINT0 {
+                dst[i] = delay[i];
+            }
+            overlap_half(&mut dst[SHORT_WIN_POINT0..SHORT_WIN_POINT1],
+                         &self.ew_buf[0..64],
+                         &delay[SHORT_WIN_POINT0..SHORT_WIN_POINT1], AVC_WIN_SHORT);
+            for i in SHORT_WIN_POINT1..COEFFS {
+                dst[i] = self.ew_buf[i - SHORT_WIN_POINT1 + 64];
+            }
+            for i in 0..COEFFS/2 {
+                delay[i] = self.ew_buf[COEFFS/2 + i];
+            }
+            for i in COEFFS/2..COEFFS {
+                delay[i] = delay[COEFFS - 1 - i];
+            }
+        }
     }
 }
 
