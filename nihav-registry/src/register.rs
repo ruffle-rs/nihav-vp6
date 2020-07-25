@@ -31,11 +31,16 @@ impl fmt::Display for CodecType {
     }
 }
 
-const CODEC_CAP_INTRAONLY:u32   = 0x0001;
-const CODEC_CAP_LOSSLESS:u32    = 0x0002;
-const CODEC_CAP_REORDER:u32     = 0x0004;
-const CODEC_CAP_HYBRID:u32      = 0x0008;
-const CODEC_CAP_SCALABLE:u32    = 0x0010;
+/// Codec capability flag for intra-only codecs.
+pub const CODEC_CAP_INTRAONLY:u32   = 0x0001;
+/// Codec capability flag for lossless codecs.
+pub const CODEC_CAP_LOSSLESS:u32    = 0x0002;
+/// Codec capability flag for codecs with frame reordering.
+pub const CODEC_CAP_REORDER:u32     = 0x0004;
+/// Codec capability flag for codecs that can be both lossy and lossless.
+pub const CODEC_CAP_HYBRID:u32      = 0x0008;
+/// Codec capability flag for codecs with scalability features.
+pub const CODEC_CAP_SCALABLE:u32    = 0x0010;
 
 /// Codec description structure.
 #[derive(Clone)]
