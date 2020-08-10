@@ -18,6 +18,8 @@ pub mod midivid;
 pub mod midivid3;
 #[cfg(feature="decoder_vmd")]
 pub mod vmd;
+#[cfg(feature="decoder_vx")]
+pub mod vx;
 
 const GAME_CODECS: &[DecoderInfo] = &[
 #[cfg(feature="decoder_gdvvid")]
@@ -42,6 +44,10 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "midivid", get_decoder: midivid::get_decoder_video },
 #[cfg(feature="decoder_midivid3")]
     DecoderInfo { name: "midivid3", get_decoder: midivid3::get_decoder_video },
+#[cfg(feature="decoder_vx")]
+    DecoderInfo { name: "vxaudio", get_decoder: vx::get_decoder_audio },
+#[cfg(feature="decoder_vx")]
+    DecoderInfo { name: "vxvideo", get_decoder: vx::get_decoder_video },
 ];
 
 /// Registers all available codecs provided by this crate.

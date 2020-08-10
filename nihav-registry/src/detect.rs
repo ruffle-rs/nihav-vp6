@@ -282,6 +282,11 @@ const DETECTORS: &[DetectConditions] = &[
         extensions: ".vmd",
         conditions: &[],
     },
+    DetectConditions {
+        demux_name: "vx",
+        extensions: ".vx",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"VXDS") }],
+    },
 ];
 
 /// Tries to detect container format.

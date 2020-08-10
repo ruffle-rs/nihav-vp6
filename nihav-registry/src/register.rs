@@ -226,6 +226,8 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video-ll; "midivid-ll",    "MidiVid Lossless"),
     desc!(video;    "vmd-video",     "VMD video"),
     desc!(audio;    "vmd-audio",     "VMD audio"),
+    desc!(video;    "vxvideo",       "Actimagine Vx"),
+    desc!(audio;    "vxaudio",       "Actimagine Sx"),
 
     desc!(video;    "smacker-video", "Smacker video"),
     desc!(audio;    "smacker-audio", "Smacker audio"),
