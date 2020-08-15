@@ -1090,7 +1090,7 @@ impl AudioState {
             idx += 128;
             for _ in 0..len {
                 let val                 = br.read_u16le()?;
-                for i in 0..4 {
+                for i in 0..8 {
                     let add = i32::from((val >> (14 - i * 2)) & 3);
                     dst[idx] += self.scale * (add * 2 - 3);
                     idx += step;
