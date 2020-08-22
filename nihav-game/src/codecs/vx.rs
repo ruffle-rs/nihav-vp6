@@ -402,8 +402,12 @@ fn pred_plane(blk: &mut [u8], pos: usize, w: usize, h: usize) {
     let dm = avg_nr(dl, dr);
     blk[pos + w2off + hoff]  = dm;
     blk[pos + woff  + h2off] = avg_nr(tr, dr);
-    let val2 = if is_even_block { blk[pos + w2off - 256] } else { blk[pos - 1 + h2off] };
-    blk[pos + w2off + h2off] = avg_nr(dm, val2);
+    let (val1, val2) = if is_even_block {
+            (dm, blk[pos + w2off - 256])
+        } else {
+            (blk[pos + woff + h2off], blk[pos - 1 + h2off])
+        };
+    blk[pos + w2off + h2off] = avg_nr(val1, val2);
 
     let hw = w / 2;
     let hh = h / 2;
@@ -415,9 +419,7 @@ fn pred_plane(blk: &mut [u8], pos: usize, w: usize, h: usize) {
 fn pred_plane_delta(blk: &mut [u8], pos: usize, w: usize, h: usize, delta: i32) {
     let tr = blk[pos + w - 1 - 256];
     let dl = blk[pos + 256 * (h - 1) - 1];
-    //XXX: this is a hack since it should not wrap around normally but this conceals some artefacts so let it be until the reconstruction is properly fixed
-    let pred = (((i32::from(tr) + i32::from(dl) + 1) >> 1) + delta).max(0).min(255) as u8;
-    //let pred = avg(tr, dl).wrapping_add(delta as u8);
+    let pred = avg(tr, dl).wrapping_add(delta as u8);
     blk[pos + 256 * (h - 1) + w - 1] = pred;
     pred_plane(blk, pos, w, h);
 }
