@@ -304,7 +304,7 @@ fn pred_hor_down(blk: &mut [u8], pos: usize) {
     let pix = avg(l0, l1);
     blk[pos + 0 + 1 * 256] = pix;
     blk[pos + 2 + 2 * 256] = pix;
-    let pix = interp2(tl, t0, l1);
+    let pix = interp2(tl, l0, l1);
     blk[pos + 1 + 1 * 256] = pix;
     blk[pos + 3 + 2 * 256] = pix;
     let pix = avg(tl, l0);
