@@ -882,6 +882,7 @@ fn read_escape(br: &mut BitReader, sign: bool) -> DecoderResult<i16> {
     let prefix                                          = br.read_code(UintCodeType::UnaryOnes)? as u8;
     validate!(prefix < 9);
     let bits                                            = br.read(prefix + 4)? as i16;
+    let bits = bits | (1 << (prefix + 4));
     if sign {
         Ok(bits)
     } else {
