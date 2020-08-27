@@ -782,17 +782,23 @@ impl ICS {
                     let start = w * 128 + self.get_band_start(tns_max_bands.min(bottom));
                     let end   = w * 128 + self.get_band_start(tns_max_bands.min(top));
                     let lpc = &tns_data.coeffs[w][f].coef;
+                    let mut state = [0.0f32; 64];
+                    let mut sidx = 32;
                     if !tns_data.coeffs[w][f].direction {
                         for m in start..end {
-                            for i in 0..order.min(m) {
-                                self.coeffs[m] -= self.coeffs[m - i - 1] * lpc[i];
+                            for i in 0..order {
+                                self.coeffs[m] -= state[(sidx + i) & 63] * lpc[i];
                             }
+                            sidx = (sidx + 63) & 63;
+                            state[sidx] = self.coeffs[m];
                         }
                     } else {
                         for m in (start..end).rev() {
-                            for i in 0..order.min(m) {
-                                self.coeffs[m] -= self.coeffs[m + i - 1] * lpc[i];
+                            for i in 0..order {
+                                self.coeffs[m] -= state[(sidx + i) & 63] * lpc[i];
                             }
+                            sidx = (sidx + 63) & 63;
+                            state[sidx] = self.coeffs[m];
                         }
                     }
                 }
