@@ -935,7 +935,7 @@ impl ChannelPair {
         if common_window && self.ms_mask_present != 0 {
             let mut g = 0;
             for w in 0..self.ics[0].info.num_windows {
-                if w > 0 && self.ics[0].info.scale_factor_grouping[w - 1] {
+                if w > 0 && !self.ics[0].info.scale_factor_grouping[w - 1] {
                     g += 1;
                 }
                 for sfb in 0..self.ics[0].info.max_sfb {
