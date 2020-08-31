@@ -661,6 +661,10 @@ pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelM
                 let data: Vec<i16> = vec![0; length];
                 let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
                 Ok(NABufferType::AudioI16(buf))
+            } else if ainfo.format.get_bits() == 32 && ainfo.format.is_signed() {
+                let data: Vec<i32> = vec![0; length];
+                let buf: NAAudioBuffer<i32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
+                Ok(NABufferType::AudioI32(buf))
             } else {
                 Err(AllocatorError::TooLargeDimensions)
             }
