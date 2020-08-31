@@ -114,7 +114,7 @@ impl fmt::Display for NASoniton {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let fmt = if self.float { "float" } else if self.signed { "int" } else { "uint" };
         let end = if self.be { "BE" } else { "LE" };
-        write!(f, "({} bps, {} planar: {} packed: {} {})", self.bits, end, self.packed, self.planar, fmt)
+        write!(f, "({} bps, {} planar: {} packed: {} {})", self.bits, end, self.planar, self.packed, fmt)
     }
 }
 
