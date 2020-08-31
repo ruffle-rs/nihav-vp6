@@ -137,6 +137,10 @@ macro_rules! desc {
         CodecDescription{ name: $n, fname: $fn, ctype: CodecType::Audio,
                           caps: CODEC_CAP_LOSSLESS | CODEC_CAP_INTRAONLY }
     });
+    (audio-hyb; $n:expr, $fn:expr) => ({
+        CodecDescription{ name: $n, fname: $fn, ctype: CodecType::Audio,
+                          caps: CODEC_CAP_HYBRID }
+    });
 }
 
 /// Returns codec description for the provided codec short name if it is found.
@@ -245,6 +249,11 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "vivo2",         "VivoActive Video 2.0", CODEC_CAP_REORDER),
     desc!(audio;    "g723.1",        "ITU G.723.1"),
     desc!(audio;    "siren",         "Polycom Siren"),
+
+    desc!(audio-ll;  "ape",          "Monkey's Audio"),
+    desc!(audio-ll;  "flac",         "Free Lossless Audio Codec"),
+    desc!(audio-ll;  "tta",          "True Audio codec"),
+    desc!(audio-hyb; "wavpack",      "WavPack"),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[

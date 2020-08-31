@@ -4,6 +4,7 @@ extern crate nihav_commonfmt;
 extern crate nihav_duck;
 extern crate nihav_game;
 extern crate nihav_indeo;
+extern crate nihav_llaudio;
 extern crate nihav_ms;
 extern crate nihav_rad;
 extern crate nihav_realmedia;
@@ -25,6 +26,9 @@ use nihav_game::game_register_all_demuxers;
 
 use nihav_indeo::indeo_register_all_decoders;
 
+use nihav_llaudio::llaudio_register_all_decoders;
+use nihav_llaudio::llaudio_register_all_demuxers;
+
 use nihav_ms::ms_register_all_decoders;
 use nihav_ms::ms_register_all_encoders;
 
@@ -42,6 +46,7 @@ pub fn nihav_register_all_decoders(rd: &mut RegisteredDecoders) {
     duck_register_all_decoders(rd);
     game_register_all_decoders(rd);
     indeo_register_all_decoders(rd);
+    llaudio_register_all_decoders(rd);
     ms_register_all_decoders(rd);
     qt_register_all_decoders(rd);
     rad_register_all_decoders(rd);
@@ -52,6 +57,7 @@ pub fn nihav_register_all_decoders(rd: &mut RegisteredDecoders) {
 pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     generic_register_all_demuxers(rd);
     game_register_all_demuxers(rd);
+    llaudio_register_all_demuxers(rd);
     rad_register_all_demuxers(rd);
     realmedia_register_all_demuxers(rd);
 }

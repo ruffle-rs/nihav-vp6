@@ -255,6 +255,28 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[CheckItem{offs: 0, cond: &CC::Or(&CC::Str(b"SMK2"), &CC::Str(b"SMK4"))}],
     },
     DetectConditions {
+        demux_name: "ape",
+        extensions: ".ape",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"MAC ") },
+                      CheckItem{offs: 4, cond: &CC::In(Arg::U16LE(3800), Arg::U16LE(3990))}],
+    },
+    DetectConditions {
+        demux_name: "flac",
+        extensions: ".flac",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"fLaC") }],
+    },
+    DetectConditions {
+        demux_name: "tta",
+        extensions: ".tta",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"TTA1") }],
+    },
+    DetectConditions {
+        demux_name: "wavpack",
+        extensions: ".wv",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"wvpk") },
+                      CheckItem{offs: 8, cond: &CC::In(Arg::U16LE(0x402), Arg::U16LE(0x410))}],
+    },
+    DetectConditions {
         demux_name: "vivo",
         extensions: ".viv",
         conditions: &[CheckItem{offs: 0, cond: &CC::In(Arg::U16BE(1), Arg::U16BE(0xFF))},
