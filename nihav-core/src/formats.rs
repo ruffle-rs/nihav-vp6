@@ -62,6 +62,8 @@ pub const SND_U8_FORMAT: NASoniton = NASoniton { bits: 8, be: false, packed: fal
 pub const SND_S16_FORMAT: NASoniton = NASoniton { bits: 16, be: false, packed: false, planar: false, float: false, signed: true };
 /// Predefined format for planar 16-bit signed audio.
 pub const SND_S16P_FORMAT: NASoniton = NASoniton { bits: 16, be: false, packed: false, planar: true, float: false, signed: true };
+/// Predefined format for planar 32-bit signed audio.
+pub const SND_S32P_FORMAT: NASoniton = NASoniton { bits: 32, be: false, packed: false, planar: true, float: false, signed: true };
 /// Predefined format for planar 32-bit floating point audio.
 pub const SND_F32P_FORMAT: NASoniton = NASoniton { bits: 32, be: false, packed: false, planar: true, float: true, signed: true };
 
