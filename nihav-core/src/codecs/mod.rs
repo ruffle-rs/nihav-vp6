@@ -18,6 +18,8 @@ pub enum DecoderError {
     TryAgain,
     /// Invalid input data was provided.
     InvalidData,
+    /// Checksum verification failed.
+    ChecksumError,
     /// Provided input turned out to be incomplete.
     ShortData,
     /// Decoder could not decode provided frame because it references some missing previous frame.
