@@ -251,6 +251,12 @@ impl<T: Clone> NAAudioBuffer<T> {
     }
     /// Return the length of frame in samples.
     pub fn get_length(&self) -> usize { self.len }
+    /// Truncates buffer length if possible.
+    ///
+    /// In case when new length is larger than old length nothing is done.
+    pub fn truncate(&mut self, new_len: usize) {
+        self.len = self.len.min(new_len);
+    }
 
     fn print_contents(&self, datatype: &str) {
         println!("Audio buffer with {} data, stride {}, step {}", datatype, self.stride, self.step);
