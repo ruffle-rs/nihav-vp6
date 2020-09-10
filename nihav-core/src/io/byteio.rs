@@ -1,6 +1,5 @@
 //! Bytestream reading/writing functionality.
 pub use std::io::SeekFrom;
-use std::fs::File;
 use std::io::prelude::*;
 use std::ptr;
 
@@ -85,9 +84,9 @@ pub struct MemoryReader<'a> {
     pos:      usize,
 }
 
-/// Bytestream reader from file.
-pub struct FileReader<'a> {
-    file:     &'a File,
+/// Bytestream reader from anything implementing `std::io::Read` and `std::io::Seek`.
+pub struct FileReader<T: Read+Seek> {
+    file:     Box<T>,
     eof:      bool,
 }
 
@@ -540,15 +539,15 @@ impl<'a> ByteIO for MemoryReader<'a> {
     }
 }
 
-impl<'a> FileReader<'a> {
+impl<T: Read+Seek> FileReader<T> {
 
     /// Constructs a new instance of `FileReader`.
-    pub fn new_read(file: &'a mut File) -> Self {
-        FileReader { file, eof : false }
+    pub fn new_read(file: T) -> Self {
+        FileReader { file: Box::new(file), eof : false }
     }
 }
 
-impl<'a> ByteIO for FileReader<'a> {
+impl<T: Read+Seek> ByteIO for FileReader<T> {
     fn read_byte(&mut self) -> ByteIOResult<u8> {
         let mut byte : [u8; 1] = [0];
         let ret = self.file.read(&mut byte);
@@ -649,9 +648,9 @@ pub struct MemoryWriter<'a> {
     pos:      usize,
 }
 
-/// Bytestream writer to file.
-pub struct FileWriter {
-    file:     File,
+/// Bytestream writer to anything implementing `std::io::Write` and `std::io::Seek`.
+pub struct FileWriter<T: Write+Seek> {
+    file:     Box<T>,
 }
 
 /// Bytestream writer to memory.
@@ -919,14 +918,14 @@ impl<'a> ByteIO for GrowableMemoryWriter<'a> {
     }
 }
 
-impl FileWriter {
+impl<T: Write+Seek> FileWriter<T> {
     /// Constructs a new instance of `FileWriter`.
-    pub fn new_write(file: File) -> Self {
-        FileWriter { file }
+    pub fn new_write(file: T) -> Self {
+        FileWriter { file: Box::new(file) }
     }
 }
 
-impl ByteIO for FileWriter {
+impl<T: Write+Seek> ByteIO for FileWriter<T> {
     #[allow(unused_variables)]
     fn read_byte(&mut self) -> ByteIOResult<u8> {
         Err(ByteIOError::NotImplemented)
