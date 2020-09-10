@@ -103,7 +103,7 @@ impl NASoniton {
     }
 
     /// Returns soniton description as a short string.
-    pub fn to_short_string(&self) -> String {
+    pub fn to_short_string(self) -> String {
         let ltype = if self.float { 'f' } else if self.signed { 's' } else { 'u' };
         let endianness = if self.bits == 8 { "" } else if self.be { "be" } else { "le" };
         let planar = if self.planar { "p" } else { "" };
@@ -710,6 +710,7 @@ impl NAPixelFormaton {
         }
         ssamp
     }
+    #[allow(clippy::cyclomatic_complexity)]
     /// Returns a short string description of the format if possible.
     pub fn to_short_string(&self) -> Option<String> {
         match self.model {
@@ -859,7 +860,7 @@ fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
                     'A' | 'a' => { order[3] = i; has_alpha = true; },
                     '0'..='9' => {
                         pstate = 1; bits_start = i;
-                        bits = ((ch as u8) - b'0') as u32;
+                        bits = u32::from((ch as u8) - b'0');
                     },
                     _ => return Err(FormatParseError {}),
                 };
@@ -868,7 +869,7 @@ fn parse_rgb_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
                 if i > 4 + bits_start { return Err(FormatParseError {}); }
                 match ch {
                     '0'..='9' => {
-                        bits = (bits * 10) + (((ch as u8) - b'0') as u32);
+                        bits = (bits * 10) + u32::from((ch as u8) - b'0');
                     },
                     'B' | 'b' => { pstate = 2; }
                     'L' | 'l' => { pstate = 2; is_be = false; }
@@ -1029,7 +1030,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
     for ch in s.chars().skip(components as usize) {
         parse_end += 1;
         if ch >= '0' && ch <= '9' {
-            format = format * 10 + (((ch as u8) - b'0') as u32);
+            format = format * 10 + u32::from((ch as u8) - b'0');
             if format > 444 { return Err(FormatParseError {}); }
         } else {
             is_planar = ch == 'p';

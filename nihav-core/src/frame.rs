@@ -979,7 +979,7 @@ impl NATimeInfo {
             }
         }
     }
-    fn get_cur_ts(&self) -> u64 { self.pts.unwrap_or(self.dts.unwrap_or(0)) }
+    fn get_cur_ts(&self) -> u64 { self.pts.unwrap_or_else(|| self.dts.unwrap_or(0)) }
     fn get_cur_millis(&self) -> u64 {
         let ts = self.get_cur_ts();
         Self::ts_to_time(ts, 1000, self.tb_num, self.tb_den)
