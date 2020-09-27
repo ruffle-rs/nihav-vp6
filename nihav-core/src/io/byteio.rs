@@ -75,7 +75,7 @@ pub trait ByteIO {
 /// [`MemoryReader`]: ./struct.MemoryReader.html
 #[allow(dead_code)]
 pub struct ByteReader<'a> {
-    io: &'a mut ByteIO,
+    io: &'a mut dyn ByteIO,
 }
 
 /// Bytestream reader from memory.
@@ -241,7 +241,7 @@ impl<'a> ByteReader<'a> {
     /// # Ok(())
     /// # }
     /// ````
-    pub fn new(io: &'a mut ByteIO) -> Self { ByteReader { io } }
+    pub fn new(io: &'a mut dyn ByteIO) -> Self { ByteReader { io } }
 
     /// Reads data into provided buffer. Partial read is treated as success.
     pub fn read_buf(&mut self, buf: &mut [u8])  -> ByteIOResult<usize> {
@@ -639,7 +639,7 @@ impl<T: Read+Seek> ByteIO for FileReader<T> {
 /// [`MemoryWriter`]: ./struct.MemoryWriter.html
 #[allow(dead_code)]
 pub struct ByteWriter<'a> {
-    io: &'a mut ByteIO,
+    io: &'a mut dyn ByteIO,
 }
 
 /// Bytestream writer to memory.
@@ -665,7 +665,7 @@ pub struct GrowableMemoryWriter<'a> {
 
 impl<'a> ByteWriter<'a> {
     /// Constructs a new instance of `ByteWriter`.
-    pub fn new(io: &'a mut ByteIO) -> Self { ByteWriter { io } }
+    pub fn new(io: &'a mut dyn ByteIO) -> Self { ByteWriter { io } }
 
     /// Writes byte array to the output.
     pub fn write_buf(&mut self, buf: &[u8])  -> ByteIOResult<()> {

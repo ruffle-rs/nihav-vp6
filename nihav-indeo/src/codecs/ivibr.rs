@@ -552,7 +552,7 @@ impl IVIDecoder {
         }
         Ok(())
     }
-    fn decode_band(&mut self, pic_hdr: &PictureHeader, dec: &mut IndeoXParser, br: &mut BitReader, plane_no: usize, band_no: usize) -> DecoderResult<()> {
+    fn decode_band(&mut self, pic_hdr: &PictureHeader, dec: &mut dyn IndeoXParser, br: &mut BitReader, plane_no: usize, band_no: usize) -> DecoderResult<()> {
         let bidx = match plane_no {
             0 => { band_no },
             _ => { pic_hdr.luma_bands + plane_no - 1 },
@@ -827,7 +827,7 @@ br.skip(skip_part as u32)?;
         unreachable!();
     }
 
-    fn decode_single_frame<'a>(&mut self, dec: &mut IndeoXParser, br: &mut BitReader<'a>) -> DecoderResult<NABufferType> {
+    fn decode_single_frame<'a>(&mut self, dec: &mut dyn IndeoXParser, br: &mut BitReader<'a>) -> DecoderResult<NABufferType> {
         let pic_hdr = dec.decode_picture_header(br)?;
         self.ftype = pic_hdr.ftype;
         if pic_hdr.ftype.is_null() {
@@ -914,7 +914,7 @@ br.skip(skip_part as u32)?;
         Ok(buftype)
     }
 
-    pub fn decode_frame<'a>(&mut self, dec: &mut IndeoXParser, br: &mut BitReader<'a>) -> DecoderResult<NABufferType> {
+    pub fn decode_frame<'a>(&mut self, dec: &mut dyn IndeoXParser, br: &mut BitReader<'a>) -> DecoderResult<NABufferType> {
         let res = self.decode_single_frame(dec, br);
         if res.is_err() { return res; }
         if (self.ftype == IVIFrameType::Intra) && (br.left() > 16) {

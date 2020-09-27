@@ -9,7 +9,7 @@ macro_rules! validate {
 #[allow(clippy::needless_range_loop)]
 mod realmedia;
 
-const RM_DEMUXERS: &[&DemuxerCreator] = &[
+const RM_DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_real")]
     &realmedia::RealMediaDemuxerCreator {},
 #[cfg(feature="demuxer_real")]

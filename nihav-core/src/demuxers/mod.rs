@@ -88,7 +88,7 @@ impl StreamManager {
     /// Adds a new stream.
     pub fn add_stream(&mut self, stream: NAStream) -> Option<usize> {
         let stream_num = self.streams.len();
-        let mut str = stream.clone();
+        let mut str = stream;
         str.set_num(stream_num);
         self.streams.push(str.into_ref());
         self.ignored.push(false);
@@ -442,7 +442,7 @@ pub trait DemuxerCreator {
 }
 
 /// Creates demuxer for a provided bytestream.
-pub fn create_demuxer<'a>(dmxcr: &DemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<Demuxer<'a>> {
+pub fn create_demuxer<'a>(dmxcr: &dyn DemuxerCreator, br: &'a mut ByteReader<'a>) -> DemuxerResult<Demuxer<'a>> {
     let mut dmx = dmxcr.new_demuxer(br);
     let mut str = StreamManager::new();
     let mut seek_idx = SeekIndex::new();
@@ -453,7 +453,7 @@ pub fn create_demuxer<'a>(dmxcr: &DemuxerCreator, br: &'a mut ByteReader<'a>) ->
 /// List of registered demuxers.
 #[derive(Default)]
 pub struct RegisteredDemuxers {
-    dmxs:   Vec<&'static DemuxerCreator>,
+    dmxs:   Vec<&'static dyn DemuxerCreator>,
 }
 
 impl RegisteredDemuxers {
@@ -462,11 +462,11 @@ impl RegisteredDemuxers {
         Self { dmxs: Vec::new() }
     }
     /// Registers a new demuxer.
-    pub fn add_demuxer(&mut self, dmx: &'static DemuxerCreator) {
+    pub fn add_demuxer(&mut self, dmx: &'static dyn DemuxerCreator) {
         self.dmxs.push(dmx);
     }
     /// Searches for a demuxer that supports requested container format.
-    pub fn find_demuxer(&self, name: &str) -> Option<&DemuxerCreator> {
+    pub fn find_demuxer(&self, name: &str) -> Option<&dyn DemuxerCreator> {
         for &dmx in self.dmxs.iter() {
             if dmx.get_name() == name {
                 return Some(dmx);
@@ -475,7 +475,7 @@ impl RegisteredDemuxers {
         None
     }
     /// Provides an iterator over currently registered demuxers.
-    pub fn iter(&self) -> std::slice::Iter<&DemuxerCreator> {
+    pub fn iter(&self) -> std::slice::Iter<&dyn DemuxerCreator> {
         self.dmxs.iter()
     }
 }

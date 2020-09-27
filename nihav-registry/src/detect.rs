@@ -360,7 +360,7 @@ pub fn detect_format(name: &str, src: &mut ByteReader) -> Option<(&'static str, 
 }
 
 /// Tries to detect container format for provided file name.
-pub fn detect_format_by_name(name: &str) -> Option<(&'static str)> {
+pub fn detect_format_by_name(name: &str) -> Option<&'static str> {
     if name.is_empty() {
         return None;
     }

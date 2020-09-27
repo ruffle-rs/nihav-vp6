@@ -720,11 +720,11 @@ impl NAOptionHandler for VP6Decoder {
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
-pub fn get_decoder_vp6() -> Box<NADecoder + Send> {
+pub fn get_decoder_vp6() -> Box<dyn NADecoder + Send> {
     Box::new(VP6Decoder::new(false))
 }
 
-pub fn get_decoder_vp6_alpha() -> Box<NADecoder + Send> {
+pub fn get_decoder_vp6_alpha() -> Box<dyn NADecoder + Send> {
     Box::new(VP6Decoder::new(true))
 }
 

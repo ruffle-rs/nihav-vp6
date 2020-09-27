@@ -289,7 +289,7 @@ fn build_esc_lut(table: &mut Vec<u32>,
 impl<S: Copy> Codebook<S> {
 
     /// Constructs a new `Codebook` instance using provided codebook description and mode.
-    pub fn new(cb: &mut CodebookDescReader<S>, mode: CodebookMode) -> CodebookResult<Self> {
+    pub fn new(cb: &mut dyn CodebookDescReader<S>, mode: CodebookMode) -> CodebookResult<Self> {
         let mut maxbits = 0;
         let mut nnz = 0;
         let mut escape_list: EscapeCodes = HashMap::new();

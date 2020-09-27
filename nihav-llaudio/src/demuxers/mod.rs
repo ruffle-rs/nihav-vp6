@@ -14,7 +14,7 @@ mod tta;
 #[cfg(feature="demuxer_wavpack")]
 mod wavpack;
 
-const LL_AUDIO_DEMUXERS: &[&DemuxerCreator] = &[
+const LL_AUDIO_DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_ape")]
     &ape::APEDemuxerCreator {},
 #[cfg(feature="demuxer_flac")]

@@ -1430,7 +1430,7 @@ impl NAOptionHandler for VP7Decoder {
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
-pub fn get_decoder() -> Box<NADecoder + Send> {
+pub fn get_decoder() -> Box<dyn NADecoder + Send> {
     Box::new(VP7Decoder::new())
 }
 

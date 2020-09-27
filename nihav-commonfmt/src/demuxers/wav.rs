@@ -25,7 +25,7 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let riff                        = self.src.read_u32be()?;
         let riff_size                   = self.src.read_u32le()? as usize;
-        let riff_end = self.src.tell() + if riff_size > 0 { (riff_size as u64) } else { u64::from(std::u32::MAX) };
+        let riff_end = self.src.tell() + if riff_size > 0 { riff_size as u64 } else { u64::from(std::u32::MAX) };
         let wave                        = self.src.read_u32be()?;
         validate!(riff == mktag!(b"RIFF"));
         validate!(wave == mktag!(b"WAVE"));

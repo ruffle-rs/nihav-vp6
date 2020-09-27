@@ -15,7 +15,7 @@ mod mov;
 #[cfg(feature="demuxer_wav")]
 mod wav;
 
-const DEMUXERS: &[&DemuxerCreator] = &[
+const DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_avi")]
     &avi::AVIDemuxerCreator {},
 #[cfg(feature="demuxer_mov")]

@@ -9,7 +9,7 @@ macro_rules! validate {
 #[cfg(feature="demuxer_vivo")]
 mod vivo;
 
-const DEMUXERS: &[&DemuxerCreator] = &[
+const DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_vivo")]
     &vivo::VivoDemuxerCreator {},
 ];

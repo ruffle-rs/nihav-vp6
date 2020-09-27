@@ -532,7 +532,7 @@ fn parse_slice_offsets(src: &[u8], offsets: &mut Vec<usize>) -> DecoderResult<()
     Ok(())
 }
 
-fn decode_slice_header(br: &mut BitReader, bd: &mut RV34BitstreamDecoder, slice_no: usize, slice_offs: &[usize], old_width: usize, old_height: usize) -> DecoderResult<RV34SliceHeader> {
+fn decode_slice_header(br: &mut BitReader, bd: &mut dyn RV34BitstreamDecoder, slice_no: usize, slice_offs: &[usize], old_width: usize, old_height: usize) -> DecoderResult<RV34SliceHeader> {
     validate!(slice_no < slice_offs.len());
     br.seek((slice_offs[slice_no] * 8) as u32)?;
     let mut shdr = bd.decode_slice_header(br, old_width, old_height)?;
@@ -777,7 +777,7 @@ impl RV34Decoder {
             base_ts:    0,
         }
     }
-    fn decode_mb_header_intra(&mut self, bd: &mut RV34BitstreamDecoder, br: &mut BitReader, is_i16: bool, im: &mut IntraModeState, q: u8, has_top: bool, has_dq: bool) -> DecoderResult<MBInfo> {
+    fn decode_mb_header_intra(&mut self, bd: &mut dyn RV34BitstreamDecoder, br: &mut BitReader, is_i16: bool, im: &mut IntraModeState, q: u8, has_top: bool, has_dq: bool) -> DecoderResult<MBInfo> {
         if is_i16 {
             let imode = br.read(2)? as i8;
             im.fill_block(imode);
@@ -793,7 +793,7 @@ impl RV34Decoder {
             Ok(MBInfo { mbtype: MBType::MBIntra, skip_run: 0, dquant: dq })
         }
     }
-    fn decode_mb_header_inter(&mut self, bd: &mut RV34BitstreamDecoder, br: &mut BitReader, ftype: FrameType, mbtype: MBType, im: &mut IntraModeState, q: u8, has_top: bool) -> DecoderResult<MBInfo> {
+    fn decode_mb_header_inter(&mut self, bd: &mut dyn RV34BitstreamDecoder, br: &mut BitReader, ftype: FrameType, mbtype: MBType, im: &mut IntraModeState, q: u8, has_top: bool) -> DecoderResult<MBInfo> {
         let hdr = bd.decode_inter_mb_hdr(br, ftype, mbtype)?;
         validate!(hdr.mbtype != MBType::Invalid);
         if hdr.dquant {
@@ -1096,7 +1096,7 @@ impl RV34Decoder {
     }
 
     #[allow(clippy::cyclomatic_complexity)]
-    pub fn parse_frame(&mut self, supp: &mut NADecoderSupport, src: &[u8], bd: &mut RV34BitstreamDecoder) -> DecoderResult<(NABufferType, FrameType, u64)> {
+    pub fn parse_frame(&mut self, supp: &mut NADecoderSupport, src: &[u8], bd: &mut dyn RV34BitstreamDecoder) -> DecoderResult<(NABufferType, FrameType, u64)> {
         let mut slice_offs: Vec<usize> = Vec::new();
         parse_slice_offsets(src, &mut slice_offs)?;
         let ini_off = slice_offs.len() * 8 + 1;

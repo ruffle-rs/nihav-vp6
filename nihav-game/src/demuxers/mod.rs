@@ -14,7 +14,7 @@ mod vmd;
 #[cfg(feature="demuxer_vx")]
 mod vx;
 
-const GAME_DEMUXERS: &[&DemuxerCreator] = &[
+const GAME_DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_bmv")]
     &bmv::BMVDemuxerCreator {},
 #[cfg(feature="demuxer_bmv3")]

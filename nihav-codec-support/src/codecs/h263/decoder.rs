@@ -209,7 +209,7 @@ impl H263BaseDecoder {
     }
     pub fn get_dimensions(&self) -> (usize, usize) { (self.w, self.h) }
 
-    fn decode_intra_mb(&mut self, bd: &mut BlockDecoder, bdsp: &BlockDSP, mb_pos: usize, binfo: &BlockInfo, sstate: &SliceState, apply_acpred: bool) -> DecoderResult<()> {
+    fn decode_intra_mb(&mut self, bd: &mut dyn BlockDecoder, bdsp: &dyn BlockDSP, mb_pos: usize, binfo: &BlockInfo, sstate: &SliceState, apply_acpred: bool) -> DecoderResult<()> {
         for i in 0..6 {
             bd.decode_block_intra(&binfo, &sstate, binfo.get_q(), i, (binfo.cbp & (1 << (5 - i))) != 0, &mut self.blk[i])?;
             if apply_acpred && (binfo.acpred != ACPredMode::None) {
@@ -282,7 +282,7 @@ impl H263BaseDecoder {
         }
         Ok(())
     }
-    fn decode_inter_mb(&mut self, bd: &mut BlockDecoder, bdsp: &BlockDSP, binfo: &BlockInfo, sstate: &SliceState) -> DecoderResult<()> {
+    fn decode_inter_mb(&mut self, bd: &mut dyn BlockDecoder, bdsp: &dyn BlockDSP, binfo: &BlockInfo, sstate: &SliceState) -> DecoderResult<()> {
         for i in 0..6 {
             bd.decode_block_inter(&binfo, &sstate, binfo.get_q(), i, ((binfo.cbp >> (5 - i)) & 1) != 0, &mut self.blk[i])?;
             bdsp.idct(&mut self.blk[i]);
@@ -406,7 +406,7 @@ impl H263BaseDecoder {
         mb_pos
     }
     #[allow(clippy::cyclomatic_complexity)]
-    pub fn parse_frame(&mut self, bd: &mut BlockDecoder, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
+    pub fn parse_frame(&mut self, bd: &mut dyn BlockDecoder, bdsp: &dyn BlockDSP) -> DecoderResult<NABufferType> {
         let pinfo = bd.decode_pichdr()?;
         let mut mvi = MVInfo::new();
         let mut mvi2 = MVInfo::new();
@@ -663,7 +663,7 @@ impl H263BaseDecoder {
         self.ipbs.clear();
     }
 
-    pub fn get_bframe(&mut self, bdsp: &BlockDSP) -> DecoderResult<NABufferType> {
+    pub fn get_bframe(&mut self, bdsp: &dyn BlockDSP) -> DecoderResult<NABufferType> {
         if !self.has_b || self.ipbs.get_lastref().is_none() || self.ipbs.get_nextref().is_none() {
             return Err(DecoderError::MissingReference);
         }
@@ -683,7 +683,7 @@ impl H263BaseDecoder {
     }
 }
 
-fn recon_b_mb(buf: &mut NAVideoBuffer<u8>, ipbs: &mut IPBShuffler, bdsp: &BlockDSP, mvi: &mut MVInfo, mvi2: &mut MVInfo, mb_pos: usize, mb_w: usize, sstate: &SliceState, binfo: &BlockInfo, mv_data: &[BlockMVInfo], bsdiff: u16, tsdiff: u16) {
+fn recon_b_mb(buf: &mut NAVideoBuffer<u8>, ipbs: &mut IPBShuffler, bdsp: &dyn BlockDSP, mvi: &mut MVInfo, mvi2: &mut MVInfo, mb_pos: usize, mb_w: usize, sstate: &SliceState, binfo: &BlockInfo, mv_data: &[BlockMVInfo], bsdiff: u16, tsdiff: u16) {
     let mb_x = mb_pos % mb_w;
     let mb_y = mb_pos / mb_w;
 
@@ -747,7 +747,7 @@ fn recon_b_mb(buf: &mut NAVideoBuffer<u8>, ipbs: &mut IPBShuffler, bdsp: &BlockD
 }
 
 fn recon_b_frame(mut b_buf: NAVideoBufferRef<u8>, bck_buf: NAVideoBufferRef<u8>, fwd_buf: NAVideoBufferRef<u8>,
-                 mb_w: usize, mb_h: usize, b_data: &[BMB], bdsp: &BlockDSP) {
+                 mb_w: usize, mb_h: usize, b_data: &[BMB], bdsp: &dyn BlockDSP) {
     let mut cbpi = CBPInfo::new();
     let mut cur_mb = 0;
     cbpi.reset(mb_w);

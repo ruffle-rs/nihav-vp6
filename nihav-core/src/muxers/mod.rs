@@ -134,7 +134,7 @@ pub trait MuxerCreator {
 }
 
 /// Creates muxer for a provided bytestream writer.
-pub fn create_muxer<'a>(mxcr: &MuxerCreator, str: StreamManager, bw: &'a mut ByteWriter<'a>) -> MuxerResult<Muxer<'a>> {
+pub fn create_muxer<'a>(mxcr: &dyn MuxerCreator, str: StreamManager, bw: &'a mut ByteWriter<'a>) -> MuxerResult<Muxer<'a>> {
     let mut mux = mxcr.new_muxer(bw);
     mux.create(&str)?;
     Ok(Muxer::new(mux, str))
@@ -143,7 +143,7 @@ pub fn create_muxer<'a>(mxcr: &MuxerCreator, str: StreamManager, bw: &'a mut Byt
 /// List of registered muxers.
 #[derive(Default)]
 pub struct RegisteredMuxers {
-    muxes:  Vec<&'static MuxerCreator>,
+    muxes:  Vec<&'static dyn MuxerCreator>,
 }
 
 impl RegisteredMuxers {
@@ -152,11 +152,11 @@ impl RegisteredMuxers {
         Self { muxes: Vec::new() }
     }
     /// Registers a new muxer.
-    pub fn add_muxer(&mut self, mux: &'static MuxerCreator) {
+    pub fn add_muxer(&mut self, mux: &'static dyn MuxerCreator) {
         self.muxes.push(mux);
     }
     /// Searches for a muxer that supports requested container format.
-    pub fn find_muxer(&self, name: &str) -> Option<&MuxerCreator> {
+    pub fn find_muxer(&self, name: &str) -> Option<&dyn MuxerCreator> {
         for &mux in self.muxes.iter() {
             if mux.get_name() == name {
                 return Some(mux);
@@ -165,7 +165,7 @@ impl RegisteredMuxers {
         None
     }
     /// Provides an iterator over currently registered muxers.
-    pub fn iter(&self) -> std::slice::Iter<&MuxerCreator> {
+    pub fn iter(&self) -> std::slice::Iter<&dyn MuxerCreator> {
         self.muxes.iter()
     }
 }

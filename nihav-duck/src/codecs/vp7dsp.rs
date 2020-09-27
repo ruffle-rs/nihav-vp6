@@ -575,8 +575,8 @@ fn mc_block(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize, ypos: usiz
         return;
     }
     let (w, h) = reffrm.get_dimensions(plane);
-    let wa = if plane == 0 { ((w + 15) & !15) } else { ((w + 7) & !7) } as isize;
-    let ha = if plane == 0 { ((h + 15) & !15) } else { ((h + 7) & !7) } as isize;
+    let wa = if plane == 0 { (w + 15) & !15 } else { (w + 7) & !7 } as isize;
+    let ha = if plane == 0 { (h + 15) & !15 } else { (h + 7) & !7 } as isize;
     let bsize = (size as isize) + (EDGE_PRE as isize) + (EDGE_POST as isize);
     let ref_x = (xpos as isize) + ((mvx >> 3) as isize) - (EDGE_PRE as isize);
     let ref_y = (ypos as isize) + ((mvy >> 3) as isize) - (EDGE_PRE as isize);
@@ -621,8 +621,8 @@ pub fn mc_block_special(dst: &mut [u8], doff: usize, dstride: usize, xpos: usize
         };
 
     let (w, h) = reffrm.get_dimensions(plane);
-    let wa = if plane == 0 { ((w + 15) & !15) } else { ((w + 7) & !7) } as isize;
-    let ha = if plane == 0 { ((h + 15) & !15) } else { ((h + 7) & !7) } as isize;
+    let wa = if plane == 0 { (w + 15) & !15 } else { (w + 7) & !7 } as isize;
+    let ha = if plane == 0 { (h + 15) & !15 } else { (h + 7) & !7 } as isize;
     let mut start_x = (xpos as isize) + ((mvx >> 3) as isize) - (EDGE_PRE as isize);
     let mut end_x   = (xpos as isize) + ((mvx >> 3) as isize) + ((size + EDGE_POST) as isize);
     if xstep < 0 {

@@ -5,7 +5,7 @@ mod avi;
 #[cfg(feature="muxer_wav")]
 mod wav;
 
-const MUXERS: &[&MuxerCreator] = &[
+const MUXERS: &[&dyn MuxerCreator] = &[
 #[cfg(feature="muxer_avi")]
     &avi::AVIMuxerCreator {},
 #[cfg(feature="muxer_wav")]

@@ -219,7 +219,7 @@ fn eval_reflection(coeffs: &[i16; LPC_ORDER]) -> Option<u32> {
             dst = &mut tmp2;
         }
         let a = (1 << 12) - ((src[i + 1] * src[i + 1]) >> 12);
-        let scale = if a != 0 { (1 << 24) / a } else { (1 << 24) };
+        let scale = if a != 0 { (1 << 24) / a } else { 1 << 24 };
         for j in 0..=i {
             let result = (src[j] - ((tmp3[i + 1] * src[i - j]) >> 12)).checked_mul(scale);
             if let Some(val) = result {

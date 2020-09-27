@@ -10,7 +10,7 @@ mod smacker;
 #[cfg(feature="demuxer_bink")]
 mod bink;
 
-const RAD_DEMUXERS: &[&DemuxerCreator] = &[
+const RAD_DEMUXERS: &[&dyn DemuxerCreator] = &[
 #[cfg(feature="demuxer_smk")]
     &smacker::SMKDemuxerCreator {},
 #[cfg(feature="demuxer_bink")]

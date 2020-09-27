@@ -90,7 +90,7 @@ struct SmackerVideoDemuxer<'a> {
 
 fn get_pts_inc(val: i32) -> u64 {
     if val > 0 { (val as u64) * 100 }
-    else if val < 0 { (-val as u64) }
+    else if val < 0 { -val as u64 }
     else { 1 }
 }
 

@@ -1872,11 +1872,11 @@ impl NAOptionHandler for VP34Decoder {
     fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
 }
 
-pub fn get_decoder_vp3() -> Box<NADecoder + Send> {
+pub fn get_decoder_vp3() -> Box<dyn NADecoder + Send> {
     Box::new(VP34Decoder::new(3))
 }
 
-pub fn get_decoder_vp4() -> Box<NADecoder + Send> {
+pub fn get_decoder_vp4() -> Box<dyn NADecoder + Send> {
     Box::new(VP34Decoder::new(4))
 }
 
