@@ -564,18 +564,30 @@ impl<T: Read+Seek> ByteIO for FileReader<T> {
     }
 
     fn read_buf(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
-        let ret = self.file.read(buf);
-        if ret.is_err() { return Err(ByteIOError::ReadError); }
-        let sz = ret.unwrap();
-        if sz < buf.len() { self.eof = true; return Err(ByteIOError::EOF); }
-        Ok(sz)
+        match self.file.read_exact(buf) {
+            Ok(())  => Ok(buf.len()),
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                    self.eof = true;
+                    Err(ByteIOError::EOF)
+                } else {
+                    Err(ByteIOError::ReadError)
+                }
+            },
+        }
     }
 
     fn read_buf_some(&mut self, buf: &mut [u8]) -> ByteIOResult<usize> {
         let ret = self.file.read(buf);
         if ret.is_err() { return Err(ByteIOError::ReadError); }
         let sz = ret.unwrap();
-        if sz < buf.len() { self.eof = true; }
+        if sz < buf.len() {
+            if let Err(_err) = self.file.read(&mut buf[sz..][..1]) {
+                self.eof = true;
+            } else {
+                return Ok(sz + 1);
+            }
+        }
         Ok(sz)
     }
 
