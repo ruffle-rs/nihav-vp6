@@ -114,7 +114,7 @@ impl<'a> DemuxCore<'a> for APEDemuxer<'a> {
         validate!(channels > 0 && channels < 256);
         validate!(bits > 0 && bits <= 32);
         validate!(nframes > 0 && nframes < (1 << 28));
-        validate!(seektab_len == nframes * 4);
+        validate!(seektab_len >= nframes * 4);
 
         self.frames = Vec::with_capacity(nframes);
         self.normal_blocks = blocksperframe;
