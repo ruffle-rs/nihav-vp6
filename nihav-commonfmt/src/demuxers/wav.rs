@@ -68,7 +68,13 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
         let str = strmgr.get_stream(0);
         if str.is_none() { return Err(InvalidData); }
         let stream = str.unwrap();
-        let ts = NATimeInfo::new(None, None, None, 1, self.srate);
+        let pts = if self.avg_bytes != 0 {
+                let pos = self.src.tell() - self.data_pos;
+                Some(pos * u64::from(self.srate) / u64::from(self.avg_bytes))
+            } else {
+                None
+            };
+        let ts = NATimeInfo::new(pts, None, None, 1, self.srate);
         if self.is_pcm {
             let mut bsize = self.block_size;
             while bsize < 256 {
