@@ -230,6 +230,8 @@ impl<'a> DemuxCore<'a> for WavPackDemuxer<'a> {
                 }
             } else {
                 let mut hdrbuf = [0u8; WV_HEADER_SIZE];
+                let lastoff = self.known_frames.last().unwrap_or(&FrameSeekInfo::default()).off;
+                self.src.seek(SeekFrom::Start(lastoff))?;
                 loop {
                                           self.src.peek_buf(&mut hdrbuf)?;
                     let hdr = WVHeader::parse(&hdrbuf)?;
