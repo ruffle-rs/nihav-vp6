@@ -88,6 +88,19 @@ struct NFilterContext {
     new:        bool,
 }
 
+fn adapt_loop(filt: &mut [i32], coeffs: &[i32], adapt: &[i32], val: i32) -> i32 {
+    let mut sum = 0i32;
+    for (coef, (res, adapt)) in filt.iter_mut().zip(coeffs.iter().zip(adapt.iter())) {
+        sum += *coef * *res;
+        if val < 0 {
+            *coef += *adapt;
+        } else if val > 0 {
+            *coef -= *adapt;
+        }
+    }
+    sum
+}
+
 impl NFilterContext {
     fn new(ord16: u8, bits: u8, new: bool) -> Self {
         let order = ord16 as usize * 16;
@@ -110,15 +123,9 @@ impl NFilterContext {
         let mut adapt_pos = self.order;
         let mut delay_pos = self.order * 2;
         for el in dst.iter_mut() {
-            let mut sum = 0i32;
-            for (i, coef) in self.coeffs.iter_mut().enumerate() {
-                sum += *coef * self.buf[delay_pos - self.order + i];
-                if *el < 0 {
-                    *coef += self.buf[adapt_pos - self.order + i];
-                } else if *el > 0 {
-                    *coef -= self.buf[adapt_pos - self.order + i];
-                }
-            }
+            let sum = adapt_loop(&mut self.coeffs,
+                                 &self.buf[delay_pos - self.order..],
+                                 &self.buf[adapt_pos - self.order..], *el);
             let pred = (sum + (1 << (self.bits - 1))) >> self.bits;
             let val = *el + pred;
             *el = val;
