@@ -181,6 +181,11 @@ impl NADecoder for APEDecoder {
                     (self.decode_stereo)(&mut coder, &mut self.left, &mut self.right)?;
                     self.fmode.filter_stereo(&mut self.left, &mut self.right);
                 }
+            } else {
+                for l in self.left.iter_mut() { *l = 0; }
+                if self.is_stereo {
+                    for r in self.right.iter_mut() { *r = 0; }
+                }
             }
 
             if self.version >= 0x3990 || nblocks == self.blocksperframe {
