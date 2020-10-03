@@ -652,7 +652,7 @@ impl VXVideoDecoder {
         let mx = self.cur_mv.x as isize;
         let my = self.cur_mv.y as isize;
         mc!(self.buf, src, dst, mx, my, xpos, ypos, w, h, 0, 0, 0, self.width, self.height);
-        
+
         Ok(())
     }
     fn do_mc_bias(&mut self, br: &mut BitReader, xpos: usize, ypos: usize, w: usize, h: usize) -> DecoderResult<()> {
@@ -664,7 +664,7 @@ impl VXVideoDecoder {
         let udelta                      = br.read_gammap_s()? * 2;
         let vdelta                      = br.read_gammap_s()? * 2;
         mc!(self.buf, src, dst, mx, my, xpos, ypos, w, h, ydelta, udelta, vdelta, self.width, self.height);
-        
+
         Ok(())
     }
     fn pred_plane(&mut self, br: &mut BitReader, xpos: usize, ypos: usize, w: usize, h: usize) -> DecoderResult<()> {
