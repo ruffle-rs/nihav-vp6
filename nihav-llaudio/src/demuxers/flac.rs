@@ -1,14 +1,26 @@
 use nihav_core::frame::*;
 use nihav_core::demuxers::*;
 
+#[derive(Clone,Copy,Default)]
+struct FrameSeekInfo {
+    off:            u64,
+    size:           u64,
+    samplepos:      u64,
+    sampleend:      u64,
+}
+
 struct FLACDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
     data_start:     u64,
     tot_samples:    u64,
     cur_samples:    u64,
     blk_samples:    u16,
+    min_samples:    u16,
     min_size:       usize,
     max_size:       usize,
+    srate:          u32,
+    known_frames:   Vec<FrameSeekInfo>,
+    build_index:    bool,
 }
 
 impl<'a> FLACDemuxer<'a> {
@@ -19,9 +31,67 @@ impl<'a> FLACDemuxer<'a> {
             tot_samples:    0,
             cur_samples:    0,
             blk_samples:    0,
+            min_samples:    0,
             min_size:       0,
             max_size:       0,
+            srate:          0,
+            known_frames:   Vec::new(),
+            build_index:    false,
         }
+    }
+    fn read_frame(&mut self) -> DemuxerResult<(Vec<u8>, u64, u64)> {
+        if self.src.is_eof() || (self.tot_samples != 0 && self.cur_samples == self.tot_samples) { return Err(DemuxerError::EOF); }
+        let mut buf = Vec::with_capacity(self.min_size);
+        let mut crc = 0;
+        let frame_start = self.src.tell();
+        for _ in 0..5 {
+            let byte                    = self.src.read_byte()?;
+            buf.push(byte);
+            crc = update_crc16(crc, byte);
+        }
+        let mut ref_crc                 = self.src.read_u16be()?;
+        loop {
+            let byte                    = self.src.read_byte()?;
+            let old_byte = (ref_crc >> 8) as u8;
+            buf.push(old_byte);
+            ref_crc = (ref_crc << 8) | u16::from(byte);
+            crc = update_crc16(crc, old_byte);
+            if buf.len() + 2 >= self.min_size && crc == ref_crc {
+                let ret                 = self.src.peek_u16be();
+                if ret.is_err() || ((ret.unwrap_or(0) & 0xFFFE) == 0xFFF8) {
+                    buf.push((ref_crc >> 8) as u8);
+                    buf.push(ref_crc as u8);
+                    break;
+                }
+            }
+            if (self.max_size > 0) && (buf.len() > self.max_size) {
+                return Err(DemuxerError::InvalidData);
+            }
+            if buf.len() > (1 << 23) {
+                return Err(DemuxerError::InvalidData);
+            }
+        }
+
+        let (duration, pts) = if self.blk_samples != 0 {
+                validate!((buf[1] & 1) == 0);
+                let blkno = u64::from(read_utf8(&buf[4..])?);
+                self.cur_samples = blkno * u64::from(self.blk_samples);
+                (u64::from(self.blk_samples), blkno)
+            } else {
+                validate!((buf[1] & 1) != 0);
+                let blksamps = u64::from(read_utf8(&buf[4..])?);
+                (blksamps, self.cur_samples)
+            };
+
+        let spos = if self.blk_samples != 0 { pts * u64::from(self.blk_samples) } else { pts };
+        if self.build_index && (self.known_frames.is_empty() || self.known_frames.last().unwrap_or(&FrameSeekInfo::default()).samplepos < spos) {
+            let sampleend = spos + duration;
+            self.known_frames.push(FrameSeekInfo{off: frame_start, size: buf.len() as u64, samplepos: spos, sampleend });
+        }
+
+        self.cur_samples += duration;
+
+        Ok((buf, pts, duration))
     }
 }
 
@@ -65,6 +135,7 @@ impl<'a> DemuxCore<'a> for FLACDemuxer<'a> {
                     if min_bs == max_bs {
                         self.blk_samples = max_bs;
                     }
+                    self.min_samples = min_bs;
                     self.min_size       = read_u24be(&streaminfo[4..])? as usize;
                     self.max_size       = read_u24be(&streaminfo[7..])? as usize;
                     let word            = read_u24be(&streaminfo[10..])?;
@@ -90,8 +161,18 @@ impl<'a> DemuxCore<'a> for FLACDemuxer<'a> {
                 break;
             }
         }
+        if seek_index.mode != SeekIndexMode::Present {
+            let min_size = if self.min_samples != 0 { self.min_samples } else { 2048 };
+            let nframes = self.tot_samples as usize / (min_size as usize);
+            self.known_frames = Vec::with_capacity(nframes.max(1));
+            seek_index.mode = SeekIndexMode::Automatic;
+            self.build_index = true;
+        } else {
+            self.build_index = false;
+        }
         self.data_start = self.src.tell();
         validate!(srate != 0);
+        self.srate = srate;
 
         let base = if self.blk_samples != 0 { u32::from(self.blk_samples) } else { 1 };
         let ahdr = NAAudioInfo::new(srate, channels as u8, SND_S16P_FORMAT, base as usize);
@@ -101,67 +182,62 @@ impl<'a> DemuxCore<'a> for FLACDemuxer<'a> {
         Ok(())
     }
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket> {
-        if self.src.is_eof() || (self.tot_samples != 0 && self.cur_samples == self.tot_samples) { return Err(DemuxerError::EOF); }
-        let mut buf = Vec::with_capacity(self.min_size);
-        let mut crc = 0;
-        for _ in 0..5 {
-            let byte                    = self.src.read_byte()?;
-            buf.push(byte);
-            crc = update_crc16(crc, byte);
-        }
-        let mut ref_crc                 = self.src.read_u16be()?;
-        loop {
-            let byte                    = self.src.read_byte()?;
-            let old_byte = (ref_crc >> 8) as u8;
-            buf.push(old_byte);
-            ref_crc = (ref_crc << 8) | u16::from(byte);
-            crc = update_crc16(crc, old_byte);
-            if buf.len() + 2 >= self.min_size && crc == ref_crc {
-                let ret                 = self.src.peek_u16be();
-                if ret.is_err() || ((ret.unwrap_or(0) & 0xFFFE) == 0xFFF8) {
-                    buf.push((ref_crc >> 8) as u8);
-                    buf.push(ref_crc as u8);
-                    break;
-                }
-            }
-            if (self.max_size > 0) && (buf.len() > self.max_size) {
-                return Err(DemuxerError::InvalidData);
-            }
-            if buf.len() > (1 << 23) {
-                return Err(DemuxerError::InvalidData);
-            }
-        }
-
-        let (duration, pts) = if self.blk_samples != 0 {
-                validate!((buf[1] & 1) == 0);
-                let blkno = u64::from(read_utf8(&buf[4..])?);
-                self.cur_samples = blkno * u64::from(self.blk_samples);
-                (u64::from(self.blk_samples), blkno)
-            } else {
-                validate!((buf[1] & 1) != 0);
-                let blksamps = u64::from(read_utf8(&buf[4..])?);
-                (blksamps, self.cur_samples)
-            };
+        let (buf, pts, duration) = self.read_frame()?;
 
         let stream = strmgr.get_stream(0).unwrap();
         let (tb_num, tb_den) = stream.get_timebase();
         let ts = NATimeInfo::new(Some(pts), None, Some(duration), tb_num, tb_den);
         let pkt = NAPacket::new(stream, ts, true, buf);
 
-        self.cur_samples += duration;
-
         Ok(pkt)
     }
     fn seek(&mut self, time: NATimePoint, seek_index: &SeekIndex) -> DemuxerResult<()> {
-        let ret = seek_index.find_pos(time);
-        if ret.is_none() {
-            return Err(DemuxerError::SeekError);
-        }
-        let seek_info = ret.unwrap();
-        self.cur_samples = seek_info.pts;
-        self.src.seek(SeekFrom::Start(self.data_start + seek_info.pos))?;
+        if seek_index.mode == SeekIndexMode::Present {
+            let ret = seek_index.find_pos(time);
+            if ret.is_none() {
+                return Err(DemuxerError::SeekError);
+            }
+            let seek_info = ret.unwrap();
+            self.cur_samples = seek_info.pts;
+            self.src.seek(SeekFrom::Start(self.data_start + seek_info.pos))?;
+            Ok(())
+        } else if let NATimePoint::Milliseconds(ms) = time {
+            let samppos = NATimeInfo::time_to_ts(ms, 1000, self.srate, 1);
+            if self.known_frames.last().unwrap_or(&FrameSeekInfo::default()).sampleend >= samppos {
+                for point in self.known_frames.iter().rev() {
+                    if point.samplepos <= samppos {
+                        self.src.seek(SeekFrom::Start(point.off))?;
+                        self.cur_samples = point.samplepos;
+                        return Ok(());
+                    }
+                }
+            } else {
+                let startinfo = FrameSeekInfo { off: self.data_start, size: 0, samplepos: 0, sampleend: 0 };
+                let lentry = self.known_frames.last().unwrap_or(&startinfo);
 
-        Ok(())
+                self.src.seek(SeekFrom::Start(lentry.off + lentry.size))?;
+                self.cur_samples = lentry.sampleend;
+                loop {
+                    let frame_start = self.src.tell();
+                    let ret = self.read_frame();
+                    if ret.is_err() {
+                        return Err(DemuxerError::SeekError);
+                    }
+                    let (_, pts, duration) = ret.unwrap();
+                    self.cur_samples = pts;
+                    if self.blk_samples != 0 {
+                        self.cur_samples *= u64::from(self.blk_samples);
+                    }
+                    if self.cur_samples <= samppos && self.cur_samples + duration >= samppos {
+                        self.src.seek(SeekFrom::Start(frame_start))?;
+                        return Ok(());
+                    }
+                }
+            }
+            Err(DemuxerError::SeekError)
+        } else {
+            Err(DemuxerError::NotPossible)
+        }
     }
 }
 
