@@ -49,6 +49,8 @@ pub trait ByteIO {
     fn is_seekable(&mut self) -> bool;
     /// Returns stream size or -1 if it is not known.
     fn size(&mut self) -> i64;
+    /// Flushes output if possible.
+    fn flush(&mut self) -> ByteIOResult<()>;
 }
 
 /// High-level bytestream reader.
@@ -537,6 +539,8 @@ impl<'a> ByteIO for MemoryReader<'a> {
     fn size(&mut self) -> i64 {
         self.buf.len() as i64
     }
+
+    fn flush(&mut self) -> ByteIOResult<()> { Ok(()) }
 }
 
 impl<T: Read+Seek> FileReader<T> {
@@ -625,6 +629,8 @@ impl<T: Read+Seek> ByteIO for FileReader<T> {
     fn size(&mut self) -> i64 {
         -1
     }
+
+    fn flush(&mut self) -> ByteIOResult<()> { Ok(()) }
 }
 
 /// High-level bytestream writer.
@@ -774,6 +780,11 @@ impl<'a> ByteWriter<'a> {
         if sz == -1 { return -1; }
         sz - (self.tell() as i64)
     }
+
+    /// Flushes output stream if possible.
+    pub fn flush(&mut self) -> ByteIOResult<()> {
+        self.io.flush()
+    }
 }
 
 impl<'a> MemoryWriter<'a> {
@@ -850,6 +861,8 @@ impl<'a> ByteIO for MemoryWriter<'a> {
     fn size(&mut self) -> i64 {
         self.buf.len() as i64
     }
+
+    fn flush(&mut self) -> ByteIOResult<()> { Ok(()) }
 }
 
 impl<'a> GrowableMemoryWriter<'a> {
@@ -928,6 +941,8 @@ impl<'a> ByteIO for GrowableMemoryWriter<'a> {
     fn size(&mut self) -> i64 {
         self.buf.len() as i64
     }
+
+    fn flush(&mut self) -> ByteIOResult<()> { Ok(()) }
 }
 
 impl<T: Write+Seek> FileWriter<T> {
@@ -992,6 +1007,13 @@ impl<T: Write+Seek> ByteIO for FileWriter<T> {
 
     fn size(&mut self) -> i64 {
         -1
+    }
+
+    fn flush(&mut self) -> ByteIOResult<()> {
+        match self.file.flush() {
+            Ok(()) => Ok(()),
+            Err(_) => Err(ByteIOError::WriteError),
+        }
     }
 }
 
