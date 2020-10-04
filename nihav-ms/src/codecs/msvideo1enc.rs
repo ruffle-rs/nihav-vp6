@@ -571,6 +571,6 @@ mod test {
             };
         //test_encoding_to_file(&dec_config, &enc_config, enc_params);
         test_encoding_md5(&dec_config, &enc_config, enc_params,
-                          &[0x8f0d3f66, 0xb91a6ee5, 0x59e4933e, 0x59c6fb0b]);
+                          &[0x0fc27a11, 0x04337f5d, 0xb8037362, 0xc4f69d8b]);
     }
 }
