@@ -186,7 +186,7 @@ impl NAEncoder for PCMEncoder {
             NACodecTypeInfo::Video(_) => Err(EncoderError::FormatError),
             NACodecTypeInfo::Audio(_) => {
                 let info = NACodecInfo::new("pcm", encinfo.format, None);
-                let mut stream = NAStream::new(StreamType::Audio, stream_id, info, encinfo.tb_num, encinfo.tb_den);
+                let mut stream = NAStream::new(StreamType::Audio, stream_id, info, encinfo.tb_num, encinfo.tb_den, 0);
                 stream.set_num(stream_id as usize);
                 let stream = stream.into_ref();
                 self.stream = Some(stream.clone());

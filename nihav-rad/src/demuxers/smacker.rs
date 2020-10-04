@@ -56,7 +56,7 @@ impl AudioTrack {
         let soniton = if (self.flags & SMK_AUD_FLAG_16BIT) != 0 { SND_S16_FORMAT } else { SND_U8_FORMAT };
         let ahdr = NAAudioInfo::new(self.srate, channels, soniton, 1);
         let ainfo = NACodecInfo::new(codecname, NACodecTypeInfo::Audio(ahdr), None);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, (str_id + 1) as u32, ainfo, 1, self.srate));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, (str_id + 1) as u32, ainfo, 1, self.srate, 0));
         validate!(res.is_some());
         self.id = res.unwrap();
 
@@ -149,7 +149,7 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
 
         let vhdr = NAVideoInfo::new(width, height, false, PAL8_FORMAT);
         let vinfo = NACodecInfo::new("smacker-video", NACodecTypeInfo::Video(vhdr), Some(treedata));
-        let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 100000));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 100000, 0));
         validate!(res.is_some());
         self.video_id = res.unwrap();
 
@@ -267,6 +267,7 @@ impl<'a> DemuxCore<'a> for SmackerVideoDemuxer<'a> {
         }
         Err(DemuxerError::NotImplemented)
     }
+    fn get_duration(&self) -> u64 { self.frames as u64 * self.pts_inc / 100 }
 }
 
 impl<'a> NAOptionHandler for SmackerVideoDemuxer<'a> {

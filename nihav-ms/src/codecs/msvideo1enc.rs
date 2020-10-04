@@ -432,7 +432,7 @@ impl NAEncoder for MSVideo1Encoder {
 
                 let out_info = NAVideoInfo::new(vinfo.width, vinfo.height, true, RGB555_FORMAT);
                 let info = NACodecInfo::new("msvideo1", NACodecTypeInfo::Video(out_info), None);
-                let mut stream = NAStream::new(StreamType::Video, stream_id, info, encinfo.tb_num, encinfo.tb_den);
+                let mut stream = NAStream::new(StreamType::Video, stream_id, info, encinfo.tb_num, encinfo.tb_den, 0);
                 stream.set_num(stream_id as usize);
                 let stream = stream.into_ref();
                 if self.pool.prealloc_video(out_info, 2).is_err() {

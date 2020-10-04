@@ -47,7 +47,7 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
         let vci = NACodecTypeInfo::Video(vhdr);
         let edata = [fps as u8].to_vec();
         let vinfo = NACodecInfo::new("vxvideo", vci, Some(edata));
-        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps)).unwrap();
+        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, fps, nframes as u64)).unwrap();
 
         if num_audio_tracks != 0 {
             validate!(audio_off + ((num_audio_tracks * AUDIO_EXTRADATA_LEN) as u64) == vinfo_off);
@@ -56,7 +56,7 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
                                           src.read_buf(edata.as_mut_slice())?;
             let ahdr = NAAudioInfo::new(srate, 1, SND_S16P_FORMAT, 1);
             let ainfo = NACodecInfo::new("vxaudio", NACodecTypeInfo::Audio(ahdr), Some(edata));
-            self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate)).unwrap();
+            self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate, 0)).unwrap();
             self.num_afrm = nframes as u64;
             self.ano = 0;
             self.num_aud = num_audio_tracks;
@@ -98,6 +98,8 @@ impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
     fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
+
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for VXDemuxer<'a> {

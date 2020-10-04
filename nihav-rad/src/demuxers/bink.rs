@@ -20,7 +20,7 @@ impl AudioTrack {
         let mut edata: Vec<u8> = Vec::with_capacity(4);
         edata.extend_from_slice(&magic);
         let ainfo = NACodecInfo::new(codecname, NACodecTypeInfo::Audio(ahdr), Some(edata));
-        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, (str_id + 1) as u32, ainfo, 1, srate));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, (str_id + 1) as u32, ainfo, 1, srate, 0));
         validate!(res.is_some());
         let id = res.unwrap();
         Ok(Self{ id })
@@ -78,7 +78,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         let vhdr = NAVideoInfo::new(width, height, false, YUV420_FORMAT);
         let codec = if magic[0] == b'K' && magic[1] == b'B' && magic[2] == b'2' { "bink2-video" } else { "bink-video" };
         let vinfo = NACodecInfo::new(codec, NACodecTypeInfo::Video(vhdr), Some(edata));
-        let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, self.tb_num, self.tb_den));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, self.tb_num, self.tb_den, self.frames as u64));
         validate!(res.is_some());
         self.video_id = res.unwrap();
 
@@ -163,6 +163,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         self.cur_frame = seek_info.pts as usize;
         Ok(())
     }
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for BinkDemuxer<'a> {

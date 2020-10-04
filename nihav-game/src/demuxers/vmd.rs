@@ -61,7 +61,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
         let vhdr = NAVideoInfo::new(width, height, false, PAL8_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
         let vinfo = NACodecInfo::new(if !self.is_indeo { "vmd-video" } else { "indeo3" }, vci, Some(edata));
-        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 12)).unwrap();
+        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 12, nframes as u64)).unwrap();
 
         let is_ext_audio = (hdr_size & 0xF) == 4;
         let ext_audio_id = if is_ext_audio {
@@ -100,7 +100,7 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
                     }
                 };
             let ainfo = NACodecInfo::new(ac_name, NACodecTypeInfo::Audio(ahdr), Some(aedata));
-            self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate)).unwrap();
+            self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, srate, 0)).unwrap();
         } else {
             block_size = 0;
         }
@@ -183,6 +183,8 @@ impl<'a> DemuxCore<'a> for VMDDemuxer<'a> {
     fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
+
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for VMDDemuxer<'a> {

@@ -62,7 +62,7 @@ impl<'a> DemuxCore<'a> for TTADemuxer<'a> {
 
         let ahdr = NAAudioInfo::new(srate, channels as u8, SND_S16P_FORMAT, 1);
         let ainfo = NACodecInfo::new("tta", NACodecTypeInfo::Audio(ahdr), Some(hdr));
-        strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, self.framelen, srate)).unwrap();
+        strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, self.framelen, srate, u64::from(self.nframes))).unwrap();
 
         self.cur_frame = 0;
 
@@ -96,6 +96,7 @@ impl<'a> DemuxCore<'a> for TTADemuxer<'a> {
 
         Ok(())
     }
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for TTADemuxer<'a> {

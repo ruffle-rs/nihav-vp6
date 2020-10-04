@@ -1289,6 +1289,8 @@ pub struct NAStream {
     pub tb_num:         u32,
     /// Timebase denominator.
     pub tb_den:         u32,
+    /// Duration in timebase units (zero if not available).
+    pub duration:       u64,
 }
 
 /// A specialised reference-counted `NAStream` type.
@@ -1312,9 +1314,9 @@ pub fn reduce_timebase(tb_num: u32, tb_den: u32) -> (u32, u32) {
 
 impl NAStream {
     /// Constructs a new `NAStream` instance.
-    pub fn new(mt: StreamType, id: u32, info: NACodecInfo, tb_num: u32, tb_den: u32) -> Self {
+    pub fn new(mt: StreamType, id: u32, info: NACodecInfo, tb_num: u32, tb_den: u32, duration: u64) -> Self {
         let (n, d) = reduce_timebase(tb_num, tb_den);
-        NAStream { media_type: mt, id, num: 0, info: info.into_ref(), tb_num: n, tb_den: d }
+        NAStream { media_type: mt, id, num: 0, info: info.into_ref(), tb_num: n, tb_den: d, duration }
     }
     /// Returns stream id.
     pub fn get_id(&self) -> u32 { self.id }
@@ -1334,6 +1336,8 @@ impl NAStream {
         self.tb_num = n;
         self.tb_den = d;
     }
+    /// Returns stream duration.
+    pub fn get_duration(&self) -> usize { self.num }
     /// Converts current instance into a reference-counted one.
     pub fn into_ref(self) -> NAStreamRef { Arc::new(self) }
 }

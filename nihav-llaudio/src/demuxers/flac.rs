@@ -177,7 +177,7 @@ impl<'a> DemuxCore<'a> for FLACDemuxer<'a> {
         let base = if self.blk_samples != 0 { u32::from(self.blk_samples) } else { 1 };
         let ahdr = NAAudioInfo::new(srate, channels as u8, SND_S16P_FORMAT, base as usize);
         let ainfo = NACodecInfo::new("flac", NACodecTypeInfo::Audio(ahdr), Some(streaminfo));
-        strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, base, srate)).unwrap();
+        strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, base, srate, 0)).unwrap();
 
         Ok(())
     }
@@ -239,6 +239,7 @@ impl<'a> DemuxCore<'a> for FLACDemuxer<'a> {
             Err(DemuxerError::NotPossible)
         }
     }
+    fn get_duration(&self) -> u64 { self.tot_samples * 1000 / u64::from(self.srate) }
 }
 
 impl<'a> NAOptionHandler for FLACDemuxer<'a> {

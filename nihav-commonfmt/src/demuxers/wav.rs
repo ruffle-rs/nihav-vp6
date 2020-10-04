@@ -19,6 +19,7 @@ struct WAVDemuxer<'a> {
     block_size:     usize,
     is_pcm:         bool,
     avg_bytes:      u32,
+    duration:       u64,
 }
 
 impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
@@ -33,7 +34,7 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
         seek_index.mode = SeekIndexMode::Automatic;
 
         let mut fmt_parsed = false;
-        let mut _duration = 0;
+        let mut duration = 0;
         while self.src.tell() < riff_end {
             let ctype                   = self.src.read_tag()?;
             let csize                   = self.src.read_u32le()? as usize;
@@ -45,12 +46,21 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
                 },
                 b"fact" => {
                     validate!(csize == 4);
-                    _duration           = self.src.read_u32le()? as usize;
+                    duration            = self.src.read_u32le()? as usize;
                 },
                 b"data" => {
                     validate!(fmt_parsed);
                     self.data_pos = self.src.tell();
                     self.data_end = self.data_pos + (csize as u64);
+
+                    if duration != 0 {
+                        self.duration = (duration as u64) * 1000 / u64::from(self.srate);
+                    } else if self.avg_bytes > 0 {
+                        self.duration = (self.data_end - self.data_pos) * 1000 / u64::from(self.avg_bytes);
+                    } else {
+                        self.duration = 0;
+                    }
+
                     return Ok(());
                 },
                 _ => {
@@ -105,6 +115,8 @@ impl<'a> DemuxCore<'a> for WAVDemuxer<'a> {
             Err(DemuxerError::NotImplemented)
         }
     }
+
+    fn get_duration(&self) -> u64 { self.duration }
 }
 
 impl<'a> NAOptionHandler for WAVDemuxer<'a> {
@@ -123,6 +135,7 @@ impl<'a> WAVDemuxer<'a> {
             block_size: 0,
             is_pcm:     false,
             avg_bytes:  0,
+            duration:   0,
         }
     }
     fn parse_fmt(&mut self, strmgr: &mut StreamManager, csize: usize) -> DemuxerResult<()> {
@@ -165,13 +178,16 @@ impl<'a> WAVDemuxer<'a> {
             };
         let ahdr = NAAudioInfo::new(samples_per_sec, channels as u8, soniton, block_align);
         let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, 1, samples_per_sec));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, 1, samples_per_sec, 0));
         if res.is_none() { return Err(MemoryError); }
 
         self.srate = samples_per_sec;
         self.block_size = block_align;
         self.avg_bytes = avg_bytes_per_sec;
         self.is_pcm = cname == "pcm";
+        if self.is_pcm && self.avg_bytes == 0 {
+            self.avg_bytes = self.block_size as u32 * self.srate;
+        }
 
         Ok(())
     }

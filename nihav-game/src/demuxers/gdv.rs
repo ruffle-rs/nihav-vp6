@@ -81,7 +81,7 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
             let vhdr = NAVideoInfo::new(width as usize, height as usize, false, PAL8_FORMAT);
             let vci = NACodecTypeInfo::Video(vhdr);
             let vinfo = NACodecInfo::new("gdv-video", vci, if edata.is_empty() { None } else { Some(edata) });
-            self.v_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, u32::from(fps)));
+            self.v_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, u32::from(fps), u64::from(frames)));
         }
         if (aflags & 1) != 0 {
             let channels = if (aflags & 2) != 0 { 2 } else { 1 };
@@ -91,7 +91,7 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
             let ahdr = NAAudioInfo::new(u32::from(rate), channels as u8, if depth == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
             let ainfo = NACodecInfo::new(if packed != 0 { "gdv-audio" } else { "pcm" },
                                          NACodecTypeInfo::Audio(ahdr), None);
-            self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, u32::from(rate)));
+            self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, u32::from(rate), 0));
 
             self.asize = (((rate / fps) * channels * (depth / 8)) >> packed) as usize;
             self.apacked = (aflags & 8) != 0;
@@ -113,6 +113,7 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
     fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
+    fn get_duration(&self) -> u64 { 0 }
 }
 impl<'a> NAOptionHandler for GremlinVideoDemuxer<'a> {
     fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }

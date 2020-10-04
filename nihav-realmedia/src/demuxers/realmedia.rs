@@ -412,7 +412,7 @@ fn read_multiple_frame(src: &mut ByteReader, stream: NAStreamRef, keyframe: bool
 struct RMDemuxCommon {}
 
 impl RMDemuxCommon {
-    fn parse_stream_info(str_data: &mut CommonStreamData, strmgr: &mut StreamManager, stream_no: u32, edata: &[u8]) -> DemuxerResult<bool> {
+    fn parse_stream_info(str_data: &mut CommonStreamData, strmgr: &mut StreamManager, stream_no: u32, edata: &[u8], duration: u32) -> DemuxerResult<bool> {
         let mut is_mlti = false;
         let mut mr = MemoryReader::new_read(edata);
         let mut src = ByteReader::new(&mut mr);
@@ -420,9 +420,9 @@ impl RMDemuxCommon {
         let tag2 = src.peek_u32be()?;
 //println!("tag1 {:X} tag2 {:X}", tag, tag2);
         if tag == mktag!('.', 'r', 'a', 0xFD) {
-            Self::parse_audio_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata)?;
+            Self::parse_audio_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata, duration)?;
         } else if ((tag2 == mktag!('V', 'I', 'D', 'O')) || (tag2 == mktag!('I', 'M', 'A', 'G'))) && ((tag as usize) <= edata.len()) {
-            Self::parse_video_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata, tag2)?;
+            Self::parse_video_stream(strmgr, &mut str_data.streams, stream_no, &mut src, edata, tag2, duration)?;
         } else if tag == mktag!(b"LSD:") {
             let extradata = Some(edata.to_owned());
 
@@ -435,7 +435,7 @@ impl RMDemuxCommon {
             let soniton = NASoniton::new(samp_size as u8, SONITON_FLAG_SIGNED);
             let ahdr = NAAudioInfo::new(sample_rate, channels as u8, soniton, 1);
             let nainfo = NACodecInfo::new("ralf", NACodecTypeInfo::Audio(ahdr), extradata);
-            let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, 1000));
+            let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, 1000, u64::from(duration)));
             if res.is_none() { return Err(MemoryError); }
             let astr = RMAudioStream::new(None);
             str_data.streams.push(RMStreamType::Audio(astr));
@@ -467,9 +467,9 @@ impl RMDemuxCommon {
                     let stream_no = str_data.mlti_mapper.get_substream_no();
 //todo check that all substreams are of the same type");
                     if tag == mktag!('.', 'r', 'a', 0xFD) {
-                        Self::parse_audio_stream(strmgr, &mut str_data.streams, stream_no, &mut hsrc, hdrsrc)?;
+                        Self::parse_audio_stream(strmgr, &mut str_data.streams, stream_no, &mut hsrc, hdrsrc, duration)?;
                     } else if (tag2 == mktag!('V', 'I', 'D', 'O')) && ((tag as usize) <= hdr_size) {
-                        Self::parse_video_stream(strmgr, &mut str_data.streams, stream_no, &mut hsrc, hdrsrc, tag2)?;
+                        Self::parse_video_stream(strmgr, &mut str_data.streams, stream_no, &mut hsrc, hdrsrc, tag2, duration)?;
                     } else {
 println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
                         return Err(DemuxerError::InvalidData);
@@ -482,7 +482,7 @@ println!("unknown MLTI substream {:08X} / {:08X}", tag, tag2);
         }
         Ok(is_mlti)
     }
-    fn parse_audio_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut ByteReader, edata_: &[u8]) -> DemuxerResult<()> {
+    fn parse_audio_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut ByteReader, edata_: &[u8], duration: u32) -> DemuxerResult<()> {
         let ver         = src.read_u16be()?;
         let ainfo = match ver {
             3 => {
@@ -516,8 +516,9 @@ println!(" got ainfo {:?}", ainfo);
                 let eslice = &edata_[(src.tell() as usize)..];
                 Some(eslice.to_vec())
             };
+        let duration = if duration == 0 { ainfo.get_duration(1000) } else { u64::from(duration) };
         let nainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, 1000));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, stream_no as u32, nainfo, 1, 1000, duration));
         if res.is_none() { return Err(MemoryError); }
 
         let astr = RMAudioStream::new(ainfo.ileave_info);
@@ -525,7 +526,7 @@ println!(" got ainfo {:?}", ainfo);
         Ok(())
     }
 #[allow(unused_variables)]
-    fn parse_video_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut ByteReader, edata_: &[u8], tag2: u32) -> DemuxerResult<()> {
+    fn parse_video_stream(strmgr: &mut StreamManager, streams: &mut Vec<RMStreamType>, stream_no: u32, src: &mut ByteReader, edata_: &[u8], tag2: u32, duration: u32) -> DemuxerResult<()> {
         src.read_skip(4)?;
         let fcc         = src.read_u32be()?;
         let width       = src.read_u16be()? as usize;
@@ -550,7 +551,7 @@ println!(" got ainfo {:?}", ainfo);
 
         let vhdr = NAVideoInfo::new(width, height, false, RGB24_FORMAT);
         let vinfo = NACodecInfo::new(cname, NACodecTypeInfo::Video(vhdr), extradata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Video, stream_no as u32, vinfo, 1, 1000));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, stream_no as u32, vinfo, 1, 1000, u64::from(duration)));
         if res.is_none() { return Err(DemuxerError::MemoryError); }
 
         let vstr = RMVideoStream::new();
@@ -762,6 +763,8 @@ impl<'a> DemuxCore<'a> for RealMediaDemuxer<'a> {
         }
         Err(DemuxerError::SeekError)
     }
+
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for RealMediaDemuxer<'a> {
@@ -806,6 +809,16 @@ struct RealAudioInfo {
     total_bytes:        u32,
     edata_size:         u32,
     ileave_info:        Option<InterleaveInfo>
+}
+
+impl RealAudioInfo {
+    fn get_duration(&self, base: u32) -> u64 {
+        if self.bytes_per_minute != 0 {
+            u64::from(self.total_bytes) * 60 * u64::from(base) / u64::from(self.bytes_per_minute)
+        } else {
+            0
+        }
+    }
 }
 
 fn skip_ra_metadata(src: &mut ByteReader) -> DemuxerResult<()> {
@@ -1120,7 +1133,7 @@ impl<'a> RealMediaDemuxer<'a> {
         let mut is_mlti = false;
         if edata_size > 8 {
             if let Some(edata_) = edata {
-                is_mlti = RMDemuxCommon::parse_stream_info(&mut self.str_data, strmgr, stream_no, &edata_)?;
+                is_mlti = RMDemuxCommon::parse_stream_info(&mut self.str_data, strmgr, stream_no, &edata_, duration)?;
             }
         } else {
             self.str_data.streams.push(RMStreamType::Unknown);
@@ -1228,7 +1241,7 @@ println!(" got ainfo {:?}", ainfo);
                 Some(dta)
             };
         let nainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), extradata);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 0, nainfo, 1, srate));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 0, nainfo, 1, srate, ainfo.get_duration(ainfo.sample_rate)));
         if res.is_none() { return Err(MemoryError); }
 
         let astr = RMAudioStream::new(ainfo.ileave_info);
@@ -1266,6 +1279,8 @@ println!(" got ainfo {:?}", ainfo);
     fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
+
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for RealAudioDemuxer<'a> {
@@ -1420,6 +1435,7 @@ impl RecordDemuxer {
                         cur_str_no += 1;
                         let mut parsed = false;
                         let mut real_stream_no = 0;
+                        let mut duration = 0;
                         for _ in 0..num {
                             let rec = IVRRecord::read(src)?;
 //println!("  strm property {}", rec);
@@ -1428,11 +1444,14 @@ impl RecordDemuxer {
                                         if name == b"StreamNumber\0" {
                                             real_stream_no = val;
                                         }
+                                        if name == b"Duration\0" {
+                                            duration = val;
+                                        }
                                     },
                                 IVRRecord::BinaryData(ref name, ref val)   => {
                                         if name == b"OpaqueData\0" {
                                             validate!(!parsed);
-                                            let is_mlti = RMDemuxCommon::parse_stream_info(str_data, strmgr, stream_no, val)?;
+                                            let is_mlti = RMDemuxCommon::parse_stream_info(str_data, strmgr, stream_no, val, duration)?;
                                             if !is_mlti {
                                                 str_data.str_ids.push(stream_no);
                                             }
@@ -1611,6 +1630,8 @@ println!("R1M kind");
     fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(NotImplemented)
     }
+
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for RealIVRDemuxer<'a> {

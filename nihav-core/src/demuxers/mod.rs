@@ -38,6 +38,8 @@ pub trait DemuxCore<'a>: NAOptionHandler {
     fn get_frame(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<NAPacket>;
     /// Seeks to the requested time.
     fn seek(&mut self, time: NATimePoint, seek_idx: &SeekIndex) -> DemuxerResult<()>;
+    /// Returns container duration in milliseconds (zero if not available).
+    fn get_duration(&self) -> u64;
 }
 
 /// An auxiliary trait to make bytestream reader read packet data.
@@ -414,6 +416,25 @@ impl<'a> Demuxer<'a> {
     /// Returns internal seek index.
     pub fn get_seek_index(&self) -> &SeekIndex {
         &self.seek_idx
+    }
+    /// Returns media duration reported by container or its streams.
+    ///
+    /// Duration is in milliseconds and set to zero when it is not available.
+    pub fn get_duration(&self) -> u64 {
+        let duration = self.dmx.get_duration();
+        if duration != 0 {
+            return duration;
+        }
+        let mut duration = 0;
+        for stream in self.streams.iter() {
+            if stream.duration > 0 {
+                let dur = NATimeInfo::ts_to_time(stream.duration, 1000, stream.tb_num, stream.tb_den);
+                if duration < dur {
+                    duration = dur;
+                }
+            }
+        }
+        duration
     }
 }
 

@@ -18,11 +18,11 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
         let vhdr = NAVideoInfo::new(640, 429, false, PAL8_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
         let vinfo = NACodecInfo::new("bmv-video", vci, None);
-        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 12)).unwrap();
+        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, 12, 0)).unwrap();
 
         let ahdr = NAAudioInfo::new(22050, 2, SND_S16_FORMAT, 1);
         let ainfo = NACodecInfo::new("bmv-audio", NACodecTypeInfo::Audio(ahdr), None);
-        self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, 22050)).unwrap();
+        self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, 22050, 0)).unwrap();
 
         self.vpos       = 0;
         self.apos       = 0;
@@ -73,6 +73,7 @@ impl<'a> DemuxCore<'a> for BMVDemuxer<'a> {
     fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for BMVDemuxer<'a> {
@@ -151,11 +152,11 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
         let vhdr = NAVideoInfo::new(width, height, false, RGB565_FORMAT);
         let vci = NACodecTypeInfo::Video(vhdr);
         let vinfo = NACodecInfo::new("bmv3-video", vci, None);
-        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 256, fps)).unwrap();
+        self.vid_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 256, fps, nframes as u64)).unwrap();
 
         let ahdr = NAAudioInfo::new(22050, 2, SND_S16_FORMAT, audio_blob_size);
         let ainfo = NACodecInfo::new("bmv3-audio", NACodecTypeInfo::Audio(ahdr), None);
-        self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, 22050)).unwrap();
+        self.aud_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, 22050, 0)).unwrap();
 
         self.vpos       = 0;
         self.apos       = 0;
@@ -221,6 +222,7 @@ impl<'a> DemuxCore<'a> for BMV3Demuxer<'a> {
     fn seek(&mut self, _time: NATimePoint, _seek_index: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for BMV3Demuxer<'a> {

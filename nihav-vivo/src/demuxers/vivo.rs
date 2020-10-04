@@ -14,6 +14,7 @@ struct VivoDemuxer<'a> {
     fps:            f32,
     width:          usize,
     height:         usize,
+    duration:       u64,
     vname:          &'static str,
     aname:          &'static str,
 }
@@ -57,7 +58,7 @@ impl<'a> DemuxCore<'a> for VivoDemuxer<'a> {
 
         let vhdr = NAVideoInfo::new(self.width, self.height, false, YUV420_FORMAT);
         let vinfo = NACodecInfo::new(self.vname, NACodecTypeInfo::Video(vhdr), None);
-        let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, self.v_num, self.v_den));
+        let res = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, self.v_num, self.v_den, 0));
         validate!(res.is_some());
         self.video_id = res.unwrap();
 
@@ -69,7 +70,7 @@ impl<'a> DemuxCore<'a> for VivoDemuxer<'a> {
         if self.aname != "none" {
             let ahdr = NAAudioInfo::new(self.a_den, 1, SND_S16_FORMAT, self.a_num as usize);
             let ainfo = NACodecInfo::new(self.aname, NACodecTypeInfo::Audio(ahdr), None);
-            let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, self.a_num, self.a_den));
+            let res = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, self.a_num, self.a_den, 0));
             validate!(res.is_some());
             self.audio_id = res.unwrap();
         }
@@ -132,6 +133,7 @@ impl<'a> DemuxCore<'a> for VivoDemuxer<'a> {
     fn seek(&mut self, _time: NATimePoint, _seek_idx: &SeekIndex) -> DemuxerResult<()> {
         Err(DemuxerError::NotPossible)
     }
+    fn get_duration(&self) -> u64 { self.duration }
 }
 
 impl<'a> NAOptionHandler for VivoDemuxer<'a> {
@@ -156,6 +158,7 @@ impl<'a> VivoDemuxer<'a> {
             width:          0,
             height:         0,
             fps:            0.0,
+            duration:       0,
             vname:          "none",
             aname:          "none",
         }
@@ -215,6 +218,11 @@ impl<'a> VivoDemuxer<'a> {
                     } else {
                         return Err(DemuxerError::InvalidData);
                     };
+                },
+                b"Duration" => {
+                    self.duration = if let Ok(val) = valstr.parse() {
+                            val
+                        } else { 0 };
                 },
 /*                b"TimeUnitNumerator" => {
                     self.v_num = if let Ok(val) = valstr.parse() {

@@ -174,7 +174,7 @@ impl<'a> DemuxCore<'a> for WavPackDemuxer<'a> {
 
         let ahdr = NAAudioInfo::new(srate, channels, SND_S16P_FORMAT, 1);
         let ainfo = NACodecInfo::new("wavpack", NACodecTypeInfo::Audio(ahdr), Some(buf.clone()));
-        strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, 1, srate)).unwrap();
+        strmgr.add_stream(NAStream::new(StreamType::Audio, 0, ainfo, 1, srate, hdr.tot_samples)).unwrap();
         seek_index.mode = SeekIndexMode::Automatic;
         self.srate = srate;
         self.known_frames = Vec::with_capacity(((self.nsamples + u64::from(srate) - 1) / u64::from(srate)) as usize);
@@ -253,6 +253,7 @@ impl<'a> DemuxCore<'a> for WavPackDemuxer<'a> {
             Err(DemuxerError::NotPossible)
         }
     }
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for WavPackDemuxer<'a> {

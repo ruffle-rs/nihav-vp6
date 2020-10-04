@@ -52,6 +52,7 @@ struct AVIDemuxer<'a> {
     sstate:         StreamState,
     tb_num:         u32,
     tb_den:         u32,
+    strm_duration:  u32,
     key_offs:       Vec<u64>,
     pal:            Vec<PalInfo>,
 }
@@ -152,6 +153,7 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
 
         Ok(())
     }
+    fn get_duration(&self) -> u64 { 0 }
 }
 
 impl<'a> NAOptionHandler for AVIDemuxer<'a> {
@@ -173,6 +175,7 @@ impl<'a> AVIDemuxer<'a> {
             sstate: StreamState::new(),
             tb_num: 0,
             tb_den: 0,
+            strm_duration: 0,
             key_offs: Vec::new(),
             pal: Vec::new(),
         }
@@ -360,7 +363,7 @@ fn parse_strh(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> 
     dmx.tb_num = dmx.src.read_u32le()?; //scale
     dmx.tb_den = dmx.src.read_u32le()?; //rate
     dmx.src.read_skip(4)?; //start
-    dmx.src.read_skip(4)?; //length
+    dmx.strm_duration = dmx.src.read_u32le()?;
     dmx.src.read_skip(4)?; //buf size
     dmx.src.read_skip(4)?; //quality
     dmx.src.read_skip(4)?; //sample size
@@ -437,7 +440,7 @@ fn parse_strf_vids(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
                     Some(name) => name,
                 };
     let vinfo = NACodecInfo::new(cname, vci, edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Video, u32::from(dmx.sstate.strm_no), vinfo, dmx.tb_num, dmx.tb_den));
+    let res = strmgr.add_stream(NAStream::new(StreamType::Video, u32::from(dmx.sstate.strm_no), vinfo, dmx.tb_num, dmx.tb_den, u64::from(dmx.strm_duration)));
     if res.is_none() { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)
@@ -467,7 +470,7 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
                     Some(name) => name,
                 };
     let ainfo = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, u32::from(dmx.sstate.strm_no), ainfo, dmx.tb_num, dmx.tb_den));
+    let res = strmgr.add_stream(NAStream::new(StreamType::Audio, u32::from(dmx.sstate.strm_no), ainfo, dmx.tb_num, dmx.tb_den, u64::from(dmx.strm_duration)));
     if res.is_none() { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)
@@ -476,7 +479,7 @@ fn parse_strf_auds(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize
 fn parse_strf_xxxx(dmx: &mut AVIDemuxer, strmgr: &mut StreamManager, size: usize) -> DemuxerResult<usize> {
     let edata = dmx.read_extradata(size)?;
     let info = NACodecInfo::new("unknown", NACodecTypeInfo::None, edata);
-    let res = strmgr.add_stream(NAStream::new(StreamType::Data, u32::from(dmx.sstate.strm_no), info, dmx.tb_num, dmx.tb_den));
+    let res = strmgr.add_stream(NAStream::new(StreamType::Data, u32::from(dmx.sstate.strm_no), info, dmx.tb_num, dmx.tb_den, u64::from(dmx.strm_duration)));
     if res.is_none() { return Err(MemoryError); }
     dmx.sstate.reset();
     Ok(size)

@@ -292,7 +292,7 @@ fn read_tkhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     let _mtime              = br.read_u32be()?;
     let track_id            = br.read_u32be()?;
                               br.read_skip(4)?;
-    let _duration           = br.read_u32be()?;
+    let duration            = br.read_u32be()?;
                               br.read_skip(8)?;
     let _layer              = br.read_u16be()?;
     let _alt_group          = br.read_u16be()?;
@@ -304,6 +304,7 @@ fn read_tkhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     track.width  = width  >> 16;
     track.height = height >> 16;
     track.track_id = track_id;
+    track.duration = duration;
 
     track.tkhd_found = true;
     Ok(KNOWN_TKHD_SIZE)
@@ -621,7 +622,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     };
     let read_size = br.tell() - start_pos;
     validate!(read_size <= size);
-    track.stream = Some(NAStream::new(track.stream_type, track.track_no, codec_info, 1, track.tb_den));
+    track.stream = Some(NAStream::new(track.stream_type, track.track_no, codec_info, 1, track.tb_den, u64::from(track.duration)));
     track.stsd_found = true;
     Ok(read_size)
 }
@@ -718,6 +719,7 @@ struct Track {
     track_str_id:   usize,
     track_no:       u32,
     tb_den:         u32,
+    duration:       u32,
     depth:          u8,
     tkhd_found:     bool,
     stsd_found:     bool,
@@ -751,6 +753,7 @@ impl Track {
             track_str_id:   0,
             track_no,
             tb_den,
+            duration:       0,
             stream_type:    StreamType::None,
             width:          0,
             height:         0,
@@ -972,6 +975,13 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             track.seek(seek_info.pts);
         }
         Ok(())
+    }
+    fn get_duration(&self) -> u64 {
+        if self.tb_den != 0 {
+            u64::from(self.duration) * 1000 / u64::from(self.tb_den)
+        } else {
+            0
+        }
     }
 }
 
