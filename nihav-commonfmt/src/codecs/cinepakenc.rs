@@ -1103,6 +1103,8 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        test_encoding_to_file(&dec_config, &enc_config, enc_params);
+        //test_encoding_to_file(&dec_config, &enc_config, enc_params);
+        test_encoding_md5(&dec_config, &enc_config, enc_params,
+                          &[0x1a71b529, 0x9453fe1a, 0xab2be3f5, 0x55623bab]);
     }
 }
