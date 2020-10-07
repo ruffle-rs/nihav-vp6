@@ -15,6 +15,7 @@ struct APEDemuxer<'a> {
     normal_blocks:  u32,
     last_blocks:    u32,
     truncated:      bool,
+    duration:       u64,
 }
 
 impl<'a> APEDemuxer<'a> {
@@ -26,6 +27,7 @@ impl<'a> APEDemuxer<'a> {
             normal_blocks:  0,
             last_blocks:    0,
             truncated:      false,
+            duration:       0,
         }
     }
 }
@@ -119,6 +121,7 @@ impl<'a> DemuxCore<'a> for APEDemuxer<'a> {
         self.frames = Vec::with_capacity(nframes);
         self.normal_blocks = blocksperframe;
         self.last_blocks   = finalblocks;
+        self.duration = (((nframes - 1) as u64) * u64::from(blocksperframe) + u64::from(finalblocks)) * 1000 / u64::from(srate);
 
         seek_index.mode = SeekIndexMode::Present;
         let first_off                   = src.peek_u32le()?;
@@ -223,7 +226,7 @@ impl<'a> DemuxCore<'a> for APEDemuxer<'a> {
 
         Ok(())
     }
-    fn get_duration(&self) -> u64 { 0 }
+    fn get_duration(&self) -> u64 { self.duration }
 }
 
 impl<'a> NAOptionHandler for APEDemuxer<'a> {
