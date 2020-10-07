@@ -97,6 +97,7 @@ fn adapt_loop(filt: &mut [i32], coeffs: &[i32], adapt: &[i32], val: i32) -> i32 
         } else if val > 0 {
             *coef -= *adapt;
         }
+        *coef = *coef << 16 >> 16;
     }
     sum
 }
