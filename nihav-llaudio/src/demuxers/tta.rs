@@ -9,6 +9,7 @@ struct TTADemuxer<'a> {
     offtab:         Vec<u64>,
     sizetab:        Vec<u32>,
     framelen:       u32,
+    duration:       u64,
 }
 
 impl<'a> TTADemuxer<'a> {
@@ -21,6 +22,7 @@ impl<'a> TTADemuxer<'a> {
             offtab:         Vec::new(),
             sizetab:        Vec::new(),
             framelen:       0,
+            duration:       0,
         }
     }
 }
@@ -46,6 +48,7 @@ impl<'a> DemuxCore<'a> for TTADemuxer<'a> {
         self.framelen = srate * 256 / 245;
 
         self.nframes = (self.nsamples + self.framelen - 1) / self.framelen;
+        self.duration = u64::from(self.nsamples) * 1000 / u64::from(srate);
 
         seek_index.mode = SeekIndexMode::Present;
         let mut off = u64::from(self.nframes) * 4 + 4 + 22;
@@ -96,7 +99,7 @@ impl<'a> DemuxCore<'a> for TTADemuxer<'a> {
 
         Ok(())
     }
-    fn get_duration(&self) -> u64 { 0 }
+    fn get_duration(&self) -> u64 { self.duration }
 }
 
 impl<'a> NAOptionHandler for TTADemuxer<'a> {
