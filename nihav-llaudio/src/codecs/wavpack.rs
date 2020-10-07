@@ -22,7 +22,7 @@ const WV_FLAG_END_BLOCK: u32    = 1 << 12;
 const WV_FLAG_FALSE_STEREO: u32 = 1 << 30;
 const WV_FLAG_DSD_AUDIO: u32    = 1 << 31;
 
-const WV_STREAM_FLAGS: u32 = 0x8000018B;
+const WV_STREAM_FLAGS: u32 = 0x8000008B;
 
 #[derive(Clone,Copy,Default)]
 struct WVHeader {
