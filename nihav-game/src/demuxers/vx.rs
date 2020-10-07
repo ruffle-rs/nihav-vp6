@@ -19,6 +19,7 @@ struct VXDemuxer<'a> {
 
 impl<'a> DemuxCore<'a> for VXDemuxer<'a> {
     #[allow(unused_variables)]
+    #[allow(clippy::cast_lossless)]
     fn open(&mut self, strmgr: &mut StreamManager, _seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         let src = &mut self.src;
 

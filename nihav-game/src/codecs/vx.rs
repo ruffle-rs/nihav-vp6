@@ -1119,8 +1119,7 @@ impl AudioState {
 }
 
 fn apply_lpc(dst: &mut [i32], src: &[i32], hist: &mut [i32], filt: &[i32; 8]) {
-    let mut hidx = 0;
-    for (out, src) in dst.iter_mut().zip(src.iter()) {
+    for (hidx, (out, src)) in dst.iter_mut().zip(src.iter()).enumerate() {
         let mut sum = *src << 14;
         for i in 0..8 {
             sum += hist[(hidx + i) & 7] * filt[i];
@@ -1128,7 +1127,6 @@ fn apply_lpc(dst: &mut [i32], src: &[i32], hist: &mut [i32], filt: &[i32; 8]) {
         let samp = sum >> 14;
         *out = samp;
         hist[hidx & 7] = samp;
-        hidx += 1;
     }
 }
 

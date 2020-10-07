@@ -19,6 +19,8 @@ pub mod midivid3;
 #[cfg(feature="decoder_vmd")]
 pub mod vmd;
 #[cfg(feature="decoder_vx")]
+#[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
 pub mod vx;
 
 const GAME_CODECS: &[DecoderInfo] = &[
