@@ -80,24 +80,90 @@ const NEW_FILTER_PARAMS: [[(u8, u8); 3]; 5] = [
 
 #[derive(Clone,Default)]
 struct NFilterContext {
-    buf:        Vec<i32>,
-    coeffs:     Vec<i32>,
+    buf:        Vec<i16>,
+    coeffs:     Vec<i16>,
     order:      usize,
     bits:       u8,
     avg:        i32,
     new:        bool,
 }
 
-fn adapt_loop(filt: &mut [i32], coeffs: &[i32], adapt: &[i32], val: i32) -> i32 {
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+
+#[cfg(target_arch = "x86_64")]
+fn adapt_loop(filt: &mut [i16], coeffs: &[i16], adapt: &[i16], val: i32) -> i32 {
+    let mut sum = [0i32; 4];
+    let iters = filt.len() / 16;
+    unsafe {
+        let mut sumv = _mm_setzero_si128();
+        let mut fptr = filt.as_mut_ptr();
+        let mut cptr = coeffs.as_ptr();
+        let mut aptr = adapt.as_ptr();
+        if val < 0 {
+            for _ in 0..iters {
+                let r0 = _mm_loadu_si128(cptr        as *const __m128i);
+                let r1 = _mm_loadu_si128(cptr.add(8) as *const __m128i);
+                let c0 = _mm_load_si128(fptr        as *const __m128i);
+                let c1 = _mm_load_si128(fptr.add(8) as *const __m128i);
+                sumv = _mm_add_epi32(sumv, _mm_madd_epi16(r0, c0));
+                sumv = _mm_add_epi32(sumv, _mm_madd_epi16(r1, c1));
+                let a0 = _mm_loadu_si128(aptr        as *const __m128i);
+                let a1 = _mm_loadu_si128(aptr.add(8) as *const __m128i);
+                let c0 = _mm_add_epi16(c0, a0);
+                let c1 = _mm_add_epi16(c1, a1);
+                _mm_store_si128(fptr        as *mut __m128i, c0);
+                _mm_store_si128(fptr.add(8) as *mut __m128i, c1);
+                fptr = fptr.add(16);
+                cptr = cptr.add(16);
+                aptr = aptr.add(16);
+            }
+        } else if val > 0 {
+            for _ in 0..iters {
+                let r0 = _mm_loadu_si128(cptr        as *const __m128i);
+                let r1 = _mm_loadu_si128(cptr.add(8) as *const __m128i);
+                let c0 = _mm_load_si128(fptr        as *const __m128i);
+                let c1 = _mm_load_si128(fptr.add(8) as *const __m128i);
+                sumv = _mm_add_epi32(sumv, _mm_madd_epi16(r0, c0));
+                sumv = _mm_add_epi32(sumv, _mm_madd_epi16(r1, c1));
+                let a0 = _mm_loadu_si128(aptr        as *const __m128i);
+                let a1 = _mm_loadu_si128(aptr.add(8) as *const __m128i);
+                let c0 = _mm_sub_epi16(c0, a0);
+                let c1 = _mm_sub_epi16(c1, a1);
+                _mm_store_si128(fptr        as *mut __m128i, c0);
+                _mm_store_si128(fptr.add(8) as *mut __m128i, c1);
+                fptr = fptr.add(16);
+                cptr = cptr.add(16);
+                aptr = aptr.add(16);
+            }
+        } else {
+            for _ in 0..iters {
+                let r0 = _mm_loadu_si128(cptr        as *const __m128i);
+                let r1 = _mm_loadu_si128(cptr.add(8) as *const __m128i);
+                let c0 = _mm_load_si128(fptr        as *const __m128i);
+                let c1 = _mm_load_si128(fptr.add(8) as *const __m128i);
+                sumv = _mm_add_epi32(sumv, _mm_madd_epi16(r0, c0));
+                sumv = _mm_add_epi32(sumv, _mm_madd_epi16(r1, c1));
+                fptr = fptr.add(16);
+                cptr = cptr.add(16);
+                aptr = aptr.add(16);
+            }
+        }
+        _mm_storeu_si128(sum.as_mut_ptr() as *mut __m128i, sumv);
+    }
+    sum[0] + sum[1] + sum[2] + sum[3]
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+fn adapt_loop(filt: &mut [i16], coeffs: &[i16], adapt: &[i16], val: i32) -> i32 {
     let mut sum = 0i32;
     for (coef, (res, adapt)) in filt.iter_mut().zip(coeffs.iter().zip(adapt.iter())) {
-        sum += *coef * *res;
+        sum += i32::from(*coef) * i32::from(*res);
         if val < 0 {
             *coef += *adapt;
         } else if val > 0 {
             *coef -= *adapt;
         }
-        *coef = *coef << 16 >> 16;
     }
     sum
 }
@@ -130,10 +196,10 @@ impl NFilterContext {
             let pred = (sum + (1 << (self.bits - 1))) >> self.bits;
             let val = *el + pred;
             *el = val;
-            self.buf[delay_pos] = val.min(32767).max(-32768);
+            self.buf[delay_pos] = val.min(32767).max(-32768) as i16;
             if self.new {
                 let aval = val.abs();
-                let sign = val2sign(val);
+                let sign = val2sign(val) as i16;
                 self.buf[adapt_pos] = if aval == 0 {
                         0
                     } else if aval <= self.avg * 4 / 3 {
@@ -148,7 +214,7 @@ impl NFilterContext {
                 self.buf[adapt_pos - 2] >>= 1;
                 self.buf[adapt_pos - 8] >>= 1;
             } else {
-                self.buf[adapt_pos] = 4 * val2sign(val);
+                self.buf[adapt_pos] = 4 * (val2sign(val) as i16);
                 self.buf[adapt_pos - 4] >>= 1;
                 self.buf[adapt_pos - 8] >>= 1;
             }
