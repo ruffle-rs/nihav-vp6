@@ -418,7 +418,7 @@ fn read_stbl(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
 
 const STBL_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"stsd"), parse: read_stsd },
-    TrackChunkHandler { ctype: mktag!(b"stts"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"stts"), parse: read_stts },
     TrackChunkHandler { ctype: mktag!(b"stss"), parse: read_stss },
     TrackChunkHandler { ctype: mktag!(b"stsc"), parse: read_stsc },
     TrackChunkHandler { ctype: mktag!(b"stsz"), parse: read_stsz },
@@ -627,6 +627,40 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(read_size)
 }
 
+fn read_stts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+    validate!(size >= 16);
+    let start_pos = br.tell();
+    let version             = br.read_byte()?;
+    validate!(version == 0);
+    let _flags              = br.read_u24be()?;
+    let entries             = br.read_u32be()? as usize;
+    validate!(entries as u64 <= (size - 8) / 8);
+    if entries == 1 {
+        let _count          = br.read_u32be()?;
+        let tb_num          = br.read_u32be()?;
+        if let Some(ref mut stream) = track.stream {
+            let tb_den = stream.tb_den;
+            let (tb_num, tb_den) = reduce_timebase(tb_num, tb_den);
+            stream.duration /= u64::from(stream.tb_den / tb_den);
+            stream.tb_num = tb_num;
+            stream.tb_den = tb_den;
+            track.tb_num = tb_num;
+            track.tb_den = tb_den;
+        }
+    } else {
+        track.time_to_sample.truncate(0);
+        track.time_to_sample.reserve(entries);
+        for _ in 0..entries {
+            let count       = br.read_u32be()?;
+            let mult        = br.read_u32be()?;
+            track.time_to_sample.push((count, mult));
+        }
+    }
+    let read_size = br.tell() - start_pos;
+    validate!(read_size <= size);
+    Ok(read_size)
+}
+
 fn read_stss(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
     let version             = br.read_byte()?;
     validate!(version == 0);
@@ -718,6 +752,7 @@ struct Track {
     track_id:       u32,
     track_str_id:   usize,
     track_no:       u32,
+    tb_num:         u32,
     tb_den:         u32,
     duration:       u32,
     depth:          u8,
@@ -733,6 +768,7 @@ struct Track {
     keyframes:      Vec<u32>,
     chunk_sizes:    Vec<u32>,
     chunk_offsets:  Vec<u64>,
+    time_to_sample: Vec<(u32, u32)>,
     sample_map:     Vec<(u32, u32)>,
     sample_size:    u32,
     frame_samples:  usize,
@@ -742,6 +778,48 @@ struct Track {
     samples_left:   usize,
     last_offset:    u64,
     pal:            Option<Arc<[u8; 1024]>>,
+    timesearch:     TimeSearcher,
+}
+
+#[derive(Default)]
+struct TimeSearcher {
+    idx:        usize,
+    base:       u64,
+    sbase:      u32,
+    cur_len:    u32,
+    cur_mul:    u32,
+}
+
+impl TimeSearcher {
+    fn new() -> Self { Self::default() }
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
+    fn map_time(&mut self, sample: u32, tts: &Vec<(u32, u32)>) -> u64 {
+        if tts.is_empty() {
+            u64::from(sample)
+        } else if sample >= self.sbase {
+            let mut sample = sample - self.sbase;
+            if self.idx == 0 {
+                let (cur_len, cur_mul) = tts[0];
+                self.cur_len = cur_len;
+                self.cur_mul = cur_mul;
+                self.idx += 1;
+            }
+            while self.idx < tts.len() && sample > self.cur_len {
+                sample -= self.cur_len;
+                self.sbase += self.cur_len;
+                self.base += u64::from(self.cur_len) * u64::from(self.cur_mul);
+                self.cur_len = tts[self.idx].0;
+                self.cur_mul = tts[self.idx].1;
+                self.idx += 1;
+            }
+            self.base + u64::from(sample) * u64::from(self.cur_mul)
+        } else {
+            self.reset();
+            self.map_time(sample, tts)
+        }
+    }
 }
 
 impl Track {
@@ -752,6 +830,7 @@ impl Track {
             track_id:       0,
             track_str_id:   0,
             track_no,
+            tb_num: 1,
             tb_den,
             duration:       0,
             stream_type:    StreamType::None,
@@ -764,6 +843,7 @@ impl Track {
             keyframes:      Vec::new(),
             chunk_sizes:    Vec::new(),
             chunk_offsets:  Vec::new(),
+            time_to_sample: Vec::new(),
             sample_map:     Vec::new(),
             sample_size:    0,
             frame_samples:  0,
@@ -774,6 +854,7 @@ impl Track {
             samples_left:   0,
             last_offset:    0,
             pal:            None,
+            timesearch:     TimeSearcher::new(),
         }
     }
     read_chunk_list!(track; "trak", read_trak, TRAK_CHUNK_HANDLERS);
@@ -784,14 +865,11 @@ impl Track {
         if !self.keyframes.is_empty() {
             seek_index.mode = SeekIndexMode::Present;
         }
+        let mut tsearch = TimeSearcher::new();
         for kf_time in self.keyframes.iter() {
-            let pts = u64::from(*kf_time - 1);
-            let time = NATimeInfo::ts_to_time(pts, 1000, 1, self.tb_den);
-            let idx = (*kf_time - 1) as usize;
-            if idx < self.chunk_offsets.len() {
-                let pos = self.chunk_offsets[idx];
-                seek_index.add_entry(self.track_no as u32, SeekEntry { time, pts, pos });
-            }
+            let pts = tsearch.map_time(*kf_time - 1, &self.time_to_sample);
+            let time = NATimeInfo::ts_to_time(pts, 1000, self.tb_num, self.tb_den);
+            seek_index.add_entry(self.track_no as u32, SeekEntry { time, pts: u64::from(*kf_time - 1), pos: 0 });
         }
     }
     fn calculate_chunk_size(&self, nsamp: usize) -> usize {
@@ -827,7 +905,8 @@ impl Track {
         }
     }
     fn get_next_chunk(&mut self) -> Option<(NATimeInfo, u64, usize)> {
-        let pts = NATimeInfo::new(Some(self.cur_sample as u64), None, None, 1, self.tb_den);
+        let pts_val = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
+        let pts = NATimeInfo::new(Some(pts_val), None, None, 1, self.tb_den);
 //todo dts decoding
         if self.chunk_offsets.len() == self.chunk_sizes.len() { // simple one-to-one mapping
             if self.cur_sample >= self.chunk_sizes.len() {
@@ -901,7 +980,7 @@ impl Track {
             let mut cur_samps = 0;
             let (mut next_idx, mut next_samples) = cmap.next().unwrap();
             loop {
-                if self.cur_chunk == next_idx as usize {
+                if self.cur_chunk + 1 == next_idx as usize {
                     self.samples_left = cur_samps;
                     cur_samps = next_samples as usize;
                     if let Some((new_idx, new_samples)) = cmap.next() {
@@ -917,10 +996,11 @@ impl Track {
                 self.cur_chunk += 1;
             }
             csamp -= cur_samps;
-            for sample_no in csamp..self.cur_chunk {
+            for sample_no in csamp..self.cur_sample {
                 self.last_offset += self.get_size(sample_no) as u64;
             }
-            self.samples_left = self.cur_sample - csamp - cur_samps;
+            self.samples_left = csamp + cur_samps - self.cur_sample;
+            self.cur_chunk += 1;
         }
     }
 }
