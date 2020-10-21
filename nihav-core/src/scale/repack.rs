@@ -34,7 +34,7 @@ impl PackKernel {
 
 impl Kernel for PackKernel {
     fn init(&mut self, in_fmt: &ScaleInfo, dest_fmt: &ScaleInfo) -> ScaleResult<NABufferType> {
-        self.ncomps = in_fmt.fmt.components as usize;
+        self.ncomps = in_fmt.fmt.components.min(dest_fmt.fmt.components) as usize;
         for i in 0..self.ncomps {
             let ichr = in_fmt.fmt.comp_info[i].unwrap();
             let ochr = dest_fmt.fmt.comp_info[i].unwrap();
@@ -121,7 +121,7 @@ impl UnpackKernel {
 
 impl Kernel for UnpackKernel {
     fn init(&mut self, in_fmt: &ScaleInfo, dest_fmt: &ScaleInfo) -> ScaleResult<NABufferType> {
-        self.ncomps = in_fmt.fmt.components as usize;
+        self.ncomps = in_fmt.fmt.components.min(dest_fmt.fmt.components) as usize;
         let mut chr: Vec<Option<NAPixelChromaton>> = Vec::with_capacity(MAX_CHROMATONS);
         for i in 0..self.ncomps {
             let ichr = in_fmt.fmt.comp_info[i].unwrap();
@@ -144,6 +144,7 @@ impl Kernel for UnpackKernel {
         }
         let mut df = in_fmt.fmt;
         df.comp_info[..self.ncomps].clone_from_slice(&chr[..self.ncomps]);
+        df.components = self.ncomps as u8;
         df.palette = false;
 println!(" [intermediate format {}]", df);
         let res = alloc_video_buffer(NAVideoInfo::new(in_fmt.width, in_fmt.height, false, df), 3);
