@@ -592,8 +592,10 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                 } else {
                     "unknown"
                 };
-//todo adjust format for various PCM kinds
-            let soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
+            let mut soniton = NASoniton::new(sample_size as u8, SONITON_FLAG_SIGNED | SONITON_FLAG_BE);
+            if &fcc == b"raw " && sample_size == 8 {
+                soniton.signed = false;
+            }
             let block_align = 1;
             if sver == 1 {
                 let samples_per_packet      = br.read_u32be()?;
