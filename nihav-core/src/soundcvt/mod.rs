@@ -181,6 +181,28 @@ impl<'a, T:Copy+IntoFmt<i32>+IntoFmt<f32>> SampleReader for GenericSampleReader<
     }
 }
 
+struct S8SampleReader<'a> {
+    data:   &'a [u8],
+    stride: usize,
+}
+
+impl<'a> SampleReader for S8SampleReader<'a> {
+    fn get_samples_i32(&self, pos: usize, dst: &mut Vec<i32>) {
+        let mut off = pos;
+        for el in dst.iter_mut() {
+            *el = (self.data[off] ^ 0x80).cvt_into();
+            off += self.stride;
+        }
+    }
+    fn get_samples_f32(&self, pos: usize, dst: &mut Vec<f32>) {
+        let mut off = pos;
+        for el in dst.iter_mut() {
+            *el = (self.data[off] ^ 0x80).cvt_into();
+            off += self.stride;
+        }
+    }
+}
+
 struct PackedSampleReader<'a> {
     data:   &'a [u8],
     fmt:    NASoniton,
@@ -200,7 +222,7 @@ impl<'a> PackedSampleReader<'a> {
             let src = &self.data[offset..];
             *el = if !self.fmt.float {
                     match (self.bpp, self.fmt.be) {
-                        (1, _)     => src[0].cvt_into(),
+                        (1, _)     => if !self.fmt.signed { src[0].cvt_into() } else { (src[0] ^ 0x80).cvt_into() },
                         (2, true)  => (read_u16be(src).unwrap() as i16).cvt_into(),
                         (2, false) => (read_u16le(src).unwrap() as i16).cvt_into(),
                         (3, true)  => ((read_u24be(src).unwrap() << 8) as i32).cvt_into(),
@@ -280,6 +302,9 @@ impl<'a> PackedSampleWriter<'a> {
                 match (self.bpp, self.fmt.be) {
                     (1, _) => {
                         dst[0] = u8::cvt_from(*el);
+                        if self.fmt.signed {
+                            dst[0] ^= 0x80;
+                        }
                     },
                     (2, true)  => write_u16be(dst, i16::cvt_from(*el) as u16).unwrap(),
                     (2, false) => write_u16le(dst, i16::cvt_from(*el) as u16).unwrap(),
@@ -374,7 +399,11 @@ Result<NABufferType, SoundConvertError> {
             NABufferType::AudioU8(ref ab) => {
                 let stride = ab.get_stride();
                 let data = ab.get_data();
-                Box::new(GenericSampleReader { data, stride })
+                if !src_fmt.signed {
+                    Box::new(GenericSampleReader { data, stride })
+                } else {
+                    Box::new(S8SampleReader { data, stride })
+                }
             },
             NABufferType::AudioI16(ref ab) => {
                 let data = ab.get_data();
