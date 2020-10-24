@@ -354,6 +354,8 @@ static MOV_AUDIO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"QDM2", "qdesign-music2"),
     (b"Qclp", "qualcomm-purevoice"),
     //(b".mp3", "mpeg-layer3"),
+
+    (b"mp4a", "aac"),
 ];
 
 /// Returns video codec short name for provided FOURCC (used in AVI format).
