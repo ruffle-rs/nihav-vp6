@@ -335,7 +335,7 @@ fn read_hdlr(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     let _comp_flags         = br.read_u32be()?;
     let _comp_flags_mask    = br.read_u32be()?;
 
-    if comp_type == mktag!(b"mhlr") {
+    if comp_type == mktag!(b"mhlr") || comp_type == 0 {
         if comp_subtype == mktag!(b"vide") {
             track.stream_type = StreamType::Video;
         } else if comp_subtype == mktag!(b"soun") {
@@ -630,14 +630,15 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
 }
 
 fn read_stts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
-    validate!(size >= 16);
+    validate!(size >= 8);
     let start_pos = br.tell();
     let version             = br.read_byte()?;
     validate!(version == 0);
     let _flags              = br.read_u24be()?;
     let entries             = br.read_u32be()? as usize;
     validate!(entries as u64 <= (size - 8) / 8);
-    if entries == 1 {
+    if entries == 0 {
+    } else if entries == 1 {
         let _count          = br.read_u32be()?;
         let tb_num          = br.read_u32be()?;
         if let Some(ref mut stream) = track.stream {
