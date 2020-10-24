@@ -4,6 +4,7 @@ use nihav_core::codecs::*;
 use nihav_codec_support::dsp::mdct::IMDCT;
 use nihav_codec_support::dsp::window::*;
 use nihav_core::io::bitreader::*;
+use nihav_core::io::byteio::*;
 use nihav_core::io::codebook::*;
 use std::fmt;
 use nihav_core::io::intcode::*;
@@ -1214,7 +1215,60 @@ impl NADecoder for AACDecoder {
             validate!(edata.len() >= 2);
 
 //print!("edata:"); for s in edata.iter() { print!(" {:02X}", *s);}println!("");
-            self.m4ainfo.read(&edata)?;
+            if (edata.len() > 12) && (&edata[4..8] == b"esds") {
+                let mut mr = MemoryReader::new_read(edata.as_slice());
+                let mut br = ByteReader::new(&mut mr);
+                let esds_size           = br.read_u32be()? as usize;
+                validate!(esds_size <= edata.len());
+                                          br.read_skip(8)?;
+                let mut info_start = 0;
+                let mut info_size = 0;
+                while br.tell() < (esds_size as u64) {
+                    let tag             = br.read_byte()?;
+                    let mut size = 0;
+                    loop {
+                        let b           = br.read_byte()?;
+                        size = (size << 7) | u64::from(b & 0x7F);
+                        validate!(br.tell() + size <= (esds_size as u64));
+                        if (b & 0x80) == 0 {
+                            break;
+                        }
+                    }
+                    match tag {
+                        3 => {
+                                          br.read_u16be()?;
+                            let flags   = br.read_byte()?;
+                            if (flags & 0x80) != 0 {
+                                          br.read_u16be()?;
+                            }
+                            if (flags & 0x40) != 0 {
+                                let len = br.read_byte()?;
+                                          br.read_skip(len as usize)?;
+                            }
+                            if (flags & 0x20) != 0 {
+                                          br.read_u16be()?;
+                            }
+                        },
+                        4 => {
+                            let _otype  = br.read_byte()?;
+                            let _stype  = br.read_byte()?;
+                            let _flags  = br.read_u24be()?;
+                            let _max_br = br.read_u32be()?;
+                            let _min_br = br.read_u32be()?;
+                        },
+                        5 => {
+                            info_start = br.tell() as usize;
+                            info_size = size as usize;
+                            break;
+                        },
+                        _ => br.read_skip(size as usize)?,
+                    }
+                }
+                validate!(info_start > 0 && info_size > 0);
+                self.m4ainfo.read(&edata[info_start..][..info_size])?;
+            } else {
+                self.m4ainfo.read(&edata)?;
+            }
 
             //println!("{}", self.m4ainfo);
             if (self.m4ainfo.otype != M4AType::LC) || (self.m4ainfo.channels > 2) || (self.m4ainfo.samples != 1024) {
