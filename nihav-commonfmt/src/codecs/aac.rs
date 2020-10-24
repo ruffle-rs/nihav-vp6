@@ -931,7 +931,7 @@ impl ChannelPair {
             self.ics[1].info = self.ics[0].info;
         }
         self.ics[0].decode_ics(br, codebooks, m4atype, common_window, true)?;
-        self.ics[1].decode_ics(br, codebooks, m4atype, common_window, false)?;
+        self.ics[1].decode_ics(br, codebooks, m4atype, common_window, true)?;
         if common_window && self.ms_mask_present != 0 {
             let mut g = 0;
             for w in 0..self.ics[0].info.num_windows {
