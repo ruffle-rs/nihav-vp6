@@ -202,7 +202,7 @@ impl<'a> DemuxCore<'a> for FLACDemuxer<'a> {
             self.src.seek(SeekFrom::Start(self.data_start + seek_info.pos))?;
             Ok(())
         } else if let NATimePoint::Milliseconds(ms) = time {
-            let samppos = NATimeInfo::time_to_ts(ms, 1000, self.srate, 1);
+            let samppos = NATimeInfo::time_to_ts(ms, 1000, 1, self.srate);
             if self.known_frames.last().unwrap_or(&FrameSeekInfo::default()).sampleend >= samppos {
                 for point in self.known_frames.iter().rev() {
                     if point.samplepos <= samppos {

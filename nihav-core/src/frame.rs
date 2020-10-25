@@ -940,20 +940,23 @@ impl NATimeInfo {
     pub fn time_to_ts(time: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
         let tb_num = u64::from(tb_num);
         let tb_den = u64::from(tb_den);
-        let tmp = time.checked_mul(tb_num);
+        let tmp = time.checked_mul(tb_den);
         if let Some(tmp) = tmp {
-            tmp / base / tb_den
+            tmp / base / tb_num
         } else {
-            let tmp = time.checked_mul(tb_num);
-            if let Some(tmp) = tmp {
-                tmp / base / tb_den
+            if tb_num < base {
+                let coarse = time / tb_num;
+                if let Some(tmp) = coarse.checked_mul(tb_den) {
+                    tmp / base
+                } else {
+                    (coarse / base) * tb_den
+                }
             } else {
                 let coarse = time / base;
-                let tmp = coarse.checked_mul(tb_num);
-                if let Some(tmp) = tmp {
-                    tmp / tb_den
+                if let Some(tmp) = coarse.checked_mul(tb_den) {
+                    tmp / tb_num
                 } else {
-                    (coarse / tb_den) * tb_num
+                    (coarse / tb_num) * tb_den
                 }
             }
         }
