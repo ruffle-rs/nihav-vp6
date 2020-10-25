@@ -584,7 +584,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             let packet_size     = br.read_u16be()? as usize;
             validate!(packet_size == 0);
             let sample_rate     = br.read_u32be()?;
-            validate!(sample_rate > 0);
+            validate!(sample_rate > (1 << 16));
             let cname = if let Some(name) = find_codec_from_mov_audio_fourcc(&fcc) {
                     name
                 } else if let (true, Some(name)) = ((fcc[0] == b'm' && fcc[1] == b's'),  find_codec_from_wav_twocc(u16::from(fcc[2]) * 256 + u16::from(fcc[3]))) {
@@ -604,9 +604,19 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
                 let _bytes_per_sample       = br.read_u32be()?;
                 track.bsize = bytes_per_frame as usize;
                 track.frame_samples = samples_per_packet as usize;
+                track.tb_num = samples_per_packet;
             } else {
-                track.bsize = sample_size as usize;
+                track.bsize = (sample_size / 8) as usize;
             }
+            track.tb_den = sample_rate >> 16;
+            track.raw_audio = match &fcc {
+                    b"NONE" | b"raw " | b"twos" | b"sowt" |
+                    b"in24" | b"in32" | b"fl32" | b"fl64" |
+                    b"ima4" | b"ms\x00\x02" | b"ms\x00\x21" |
+                    b"alaw" | b"ulaw" |
+                    b"MAC3" | b"MAC6" => true,
+                    _ => false,
+                };
             let ahdr = NAAudioInfo::new(sample_rate >> 16, nchannels as u8, soniton, block_align);
             let edata = parse_audio_edata(br, start_pos, size)?;
             codec_info = NACodecInfo::new(cname, NACodecTypeInfo::Audio(ahdr), edata);
@@ -624,7 +634,7 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     };
     let read_size = br.tell() - start_pos;
     validate!(read_size <= size);
-    track.stream = Some(NAStream::new(track.stream_type, track.track_no, codec_info, 1, track.tb_den, u64::from(track.duration)));
+    track.stream = Some(NAStream::new(track.stream_type, track.track_no, codec_info, track.tb_num, track.tb_den, u64::from(track.duration)));
     track.stsd_found = true;
     Ok(read_size)
 }
@@ -643,7 +653,7 @@ fn read_stts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
         let tb_num          = br.read_u32be()?;
         if let Some(ref mut stream) = track.stream {
             let tb_den = stream.tb_den;
-            let (tb_num, tb_den) = reduce_timebase(tb_num, tb_den);
+            let (tb_num, tb_den) = reduce_timebase(tb_num * stream.tb_num, tb_den);
             stream.duration /= u64::from(stream.tb_den / tb_den);
             stream.tb_num = tb_num;
             stream.tb_den = tb_den;
@@ -757,6 +767,8 @@ struct Track {
     track_no:       u32,
     tb_num:         u32,
     tb_den:         u32,
+    raw_audio:      bool,
+    raw_apos:       u64,
     duration:       u32,
     depth:          u8,
     tkhd_found:     bool,
@@ -835,6 +847,8 @@ impl Track {
             track_no,
             tb_num: 1,
             tb_den,
+            raw_audio:      false,
+            raw_apos:       0,
             duration:       0,
             stream_type:    StreamType::None,
             width:          0,
@@ -909,7 +923,7 @@ impl Track {
     }
     fn get_next_chunk(&mut self) -> Option<(NATimeInfo, u64, usize)> {
         let pts_val = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
-        let pts = NATimeInfo::new(Some(pts_val), None, None, 1, self.tb_den);
+        let mut pts = NATimeInfo::new(Some(pts_val), None, None, self.tb_num, self.tb_den);
 //todo dts decoding
         if self.chunk_offsets.len() == self.chunk_sizes.len() { // simple one-to-one mapping
             if self.cur_sample >= self.chunk_sizes.len() {
@@ -941,14 +955,34 @@ impl Track {
                 self.samples_left -= 1;
             } else if self.frame_samples != 0 && self.bsize != 0 {
                 let nblocks = size / self.bsize;
+                if self.raw_audio {
+                    pts.pts = Some(self.raw_apos);
+                    pts.duration = Some(nblocks as u64);
+                    self.raw_apos += nblocks as u64;
+                }
                 if nblocks > 0 {
                     let consumed = (nblocks * self.frame_samples).min(self.samples_left);
                     self.samples_left -= consumed;
                 } else {
                     self.samples_left = 0;
                 }
+            } else if !self.raw_audio {
+                self.samples_left -= 1;
             } else {
-                self.samples_left = 0;
+                const BLOCK_SAMPLES: usize = 1024 * 6; // should be multiple of 64 and 6 to fit both IMA ADPCM and MACE 6:1 blocks
+                let max_size = self.calculate_chunk_size(BLOCK_SAMPLES);
+                let cur_size = self.calculate_chunk_size(self.samples_left);
+                let add_off = (size - cur_size) as u64;
+                let dsize = cur_size.min(max_size);
+                if self.samples_left >= BLOCK_SAMPLES {
+                    self.cur_sample += BLOCK_SAMPLES;
+                    self.samples_left -= BLOCK_SAMPLES;
+                    self.last_offset -= size as u64;
+                } else {
+                    self.cur_sample += self.samples_left;
+                    self.samples_left = 0;
+                }
+                return Some((pts, offset + add_off, dsize));
             }
             self.cur_sample += 1;
             Some((pts, offset, size))
@@ -971,11 +1005,81 @@ impl Track {
             self.bsize
         }
     }
-    fn seek(&mut self, pts: u64) {
+    fn seek(&mut self, pts: u64, tpoint: NATimePoint) -> DemuxerResult<()> {
         self.cur_sample = pts as usize;
         self.samples_left = 0;
         if self.stream_type == StreamType::Audio {
-            self.cur_chunk = self.cur_sample;
+            if let NATimePoint::Milliseconds(ms) = tpoint {
+                let exp_pts = NATimeInfo::time_to_ts(ms, 1000, self.tb_num, self.tb_den);
+                if self.raw_audio {
+                    if self.frame_samples != 0 {
+                        self.raw_apos = exp_pts / (self.frame_samples as u64);
+                        let mut apos = 0;
+                        self.cur_sample = 0;
+                        self.cur_chunk = 0;
+                        let mut cmap = self.sample_map.iter();
+                        let mut cur_samps = 0;
+                        let (mut next_idx, mut next_samples) = cmap.next().unwrap();
+                        loop {
+                            if self.cur_chunk + 1 == next_idx as usize {
+                                self.samples_left = cur_samps;
+                                cur_samps = next_samples as usize;
+                                if let Some((new_idx, new_samples)) = cmap.next() {
+                                    next_idx = *new_idx;
+                                    next_samples = *new_samples;
+                                }
+                            }
+                            self.raw_apos = apos;
+                            apos += (cur_samps / self.frame_samples) as u64;
+                            if apos > exp_pts {
+                                if cur_samps == self.frame_samples || apos > exp_pts + 1 {
+                                    if self.cur_chunk >= self.chunk_offsets.len() {
+                                        return Err(DemuxerError::SeekError);
+                                    }
+                                    self.last_offset = self.chunk_offsets[self.cur_chunk];
+                                    break;
+                                }
+                            }
+                            self.cur_chunk += 1;
+                        }
+                        self.samples_left = cur_samps;
+                        self.cur_chunk += 1;
+                    } else {
+                        self.raw_apos = exp_pts;
+                        self.cur_sample = exp_pts as usize;
+                        let mut csamp = 0;
+                        self.cur_chunk = 0;
+                        let mut cmap = self.sample_map.iter();
+                        let mut cur_samps = 0;
+                        let (mut next_idx, mut next_samples) = cmap.next().unwrap();
+                        loop {
+                            if self.cur_chunk + 1 == next_idx as usize {
+                                self.samples_left = cur_samps;
+                                cur_samps = next_samples as usize;
+                                if let Some((new_idx, new_samples)) = cmap.next() {
+                                    next_idx = *new_idx;
+                                    next_samples = *new_samples;
+                                }
+                            }
+                            csamp += cur_samps;
+                            if csamp > self.cur_sample {
+                                if self.cur_chunk >= self.chunk_offsets.len() {
+                                    return Err(DemuxerError::SeekError);
+                                }
+                                self.last_offset = self.chunk_offsets[self.cur_chunk];
+                                break;
+                            }
+                            self.cur_chunk += 1;
+                        }
+                        self.samples_left = csamp - self.cur_sample;
+                        self.cur_chunk += 1;
+                    }
+                } else {
+                    self.cur_chunk = self.cur_sample;
+                }
+            } else {
+                self.cur_chunk = self.cur_sample;
+            }
         } else if self.chunk_offsets.len() != self.chunk_sizes.len() && !self.sample_map.is_empty() {
             let mut csamp = 0;
             self.cur_chunk = 0;
@@ -993,6 +1097,9 @@ impl Track {
                 }
                 csamp += cur_samps;
                 if csamp >= self.cur_sample {
+                    if self.cur_chunk >= self.chunk_offsets.len() {
+                        return Err(DemuxerError::SeekError);
+                    }
                     self.last_offset = self.chunk_offsets[self.cur_chunk];
                     break;
                 }
@@ -1005,6 +1112,7 @@ impl Track {
             self.samples_left = csamp + cur_samps - self.cur_sample;
             self.cur_chunk += 1;
         }
+        Ok(())
     }
 }
 
@@ -1055,7 +1163,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
         }
         let seek_info = ret.unwrap();
         for track in self.tracks.iter_mut() {
-            track.seek(seek_info.pts);
+            track.seek(seek_info.pts, time)?;
         }
         Ok(())
     }
