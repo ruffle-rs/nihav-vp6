@@ -256,6 +256,8 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio-ll;  "flac",         "Free Lossless Audio Codec"),
     desc!(audio-ll;  "tta",          "True Audio codec"),
     desc!(audio-hyb; "wavpack",      "WavPack"),
+
+    desc!(video;    "h264",          "ITU H.264", CODEC_CAP_COMPLEX_REORDER | CODEC_CAP_HYBRID),
 ];
 
 static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
@@ -335,6 +337,8 @@ static MOV_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
 
     (b"VP30", "vp3"),
     (b"VP31", "vp3"),
+
+    (b"avc1", "h264"),
 ];
 
 static MOV_AUDIO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
