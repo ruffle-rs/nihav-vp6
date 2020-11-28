@@ -121,7 +121,7 @@ fn apply_fixed_predictor(dst: &mut [i32], order: usize) {
     };
 }
 
-fn apply_lpc(dst: &mut [i32], filt: &[i32; 16], order: usize, shift: u8) {
+fn apply_lpc(dst: &mut [i32], filt: &[i32; 32], order: usize, shift: u8) {
     for i in order..dst.len() {
         let mut sum = 0i64;
         for (coef, filt) in dst[i - order..].iter().take(order).zip(filt.iter()) {
@@ -213,7 +213,7 @@ impl FlacDecoder {
                 let precision           = br.read(4)? as u8 + 1;
                 validate!(precision < 16);
                 let shift               = br.read(5)? as u8;
-                let mut filter = [0i32; 16];
+                let mut filter = [0i32; 32];
                 for el in filter[..order].iter_mut().rev() {
                     *el                 = br.read_s(precision)?;
                 }
