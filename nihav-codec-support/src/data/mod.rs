@@ -44,14 +44,14 @@ impl<T:Copy> GenericCache<T> {
                 stride,
                 height,
                 xpos:   0,
-                data:   Vec::with_capacity((height + 1) * stride),
+                data:   Vec::with_capacity((height + 1) * stride + 1),
                 default,
             };
         ret.reset();
         ret
     }
     /// Reports the total amount of elements stored.
-    pub fn full_size(&self) -> usize { self.stride * (self.height + 1) }
+    pub fn full_size(&self) -> usize { self.stride * (self.height + 1) + 1 }
     /// Resets the cache state.
     pub fn reset(&mut self) {
         self.data.truncate(0);
