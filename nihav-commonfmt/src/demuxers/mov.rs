@@ -80,6 +80,24 @@ const ROOT_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"moov"), parse: read_moov },
 ];
 
+fn print_cname(ctype: u32, size: u64, off: u64, depth: u8) {
+    for _ in 0..depth { print!("    "); }
+    let tag = [(ctype >> 24) as u8, (ctype >> 16) as u8, (ctype >> 8) as u8, ctype as u8];
+    let mut printable = true;
+    for &ch in tag.iter() {
+        if ch < 0x20 || ch > 0x7F {
+            printable = false;
+            break;
+        }
+    }
+    if printable {
+        print!(" '{}{}{}{}'", tag[0] as char, tag[1] as char, tag[2] as char, tag[3] as char);
+    } else {
+        print!(" {:08X}", ctype);
+    }
+    println!(" size {} @ {:X}", size, off);
+}
+
 macro_rules! read_chunk_list {
     (root; $name: expr, $fname: ident, $handlers: ident) => {
         fn $fname(&mut self, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<()> {
@@ -90,6 +108,9 @@ macro_rules! read_chunk_list {
                 let ret = read_chunk_header(&mut self.src);
                 if ret.is_err() { break; }
                 let (ctype, size) = ret.unwrap();
+                if self.print_chunks {
+                    print_cname(ctype, size, self.src.tell(), self.depth as u8);
+                }
                 if self.src.tell() + size > list_end {
                     break;
                 }
@@ -122,6 +143,9 @@ macro_rules! read_chunk_list {
                 let ret = read_chunk_header(br);
                 if ret.is_err() { break; }
                 let (ctype, size) = ret.unwrap();
+                if self.print_chunks {
+                    print_cname(ctype, size, br.tell(), self.depth + 1);
+                }
                 if br.tell() + size > list_end {
                     break;
                 }
@@ -234,6 +258,7 @@ fn read_cmov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
     let (ctype, csize) = read_chunk_header(&mut br)?;
     validate!(ctype == mktag!(b"moov"));
     let mut ddmx = MOVDemuxer::new(&mut br);
+    ddmx.print_chunks = dmx.print_chunks;
     ddmx.read_moov(strmgr, csize)?;
     std::mem::swap(&mut dmx.tracks, &mut ddmx.tracks);
     dmx.duration = ddmx.duration;
@@ -257,6 +282,7 @@ fn read_meta(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
 
 fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     let mut track = Track::new(dmx.cur_track as u32, dmx.tb_den);
+    track.print_chunks = dmx.print_chunks;
     track.read_trak(&mut dmx.src, size)?;
     validate!(track.tkhd_found && track.stsd_found);
     validate!(strmgr.get_stream_by_id(track.track_id).is_none());
@@ -759,6 +785,8 @@ struct MOVDemuxer<'a> {
     tb_den:         u32,
     duration:       u32,
     pal:            Option<Arc<[u8; 1024]>>,
+
+    print_chunks:   bool,
 }
 
 struct Track {
@@ -794,6 +822,8 @@ struct Track {
     last_offset:    u64,
     pal:            Option<Arc<[u8; 1024]>>,
     timesearch:     TimeSearcher,
+
+    print_chunks:   bool,
 }
 
 #[derive(Default)]
@@ -872,6 +902,8 @@ impl Track {
             last_offset:    0,
             pal:            None,
             timesearch:     TimeSearcher::new(),
+
+            print_chunks:   false,
         }
     }
     read_chunk_list!(track; "trak", read_trak, TRAK_CHUNK_HANDLERS);
@@ -1176,10 +1208,37 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
     }
 }
 
+const PRINT_CHUNKS: &str = "print_chunks";
+
+const DEMUXER_OPTIONS: &[NAOptionDefinition] = &[
+    NAOptionDefinition {
+        name:           PRINT_CHUNKS,
+        description:    "Print parsed file structure",
+        opt_type:       NAOptionDefinitionType::Bool },
+];
+
 impl<'a> NAOptionHandler for MOVDemuxer<'a> {
-    fn get_supported_options(&self) -> &[NAOptionDefinition] { &[] }
-    fn set_options(&mut self, _options: &[NAOption]) { }
-    fn query_option_value(&self, _name: &str) -> Option<NAValue> { None }
+    fn get_supported_options(&self) -> &[NAOptionDefinition] { DEMUXER_OPTIONS }
+    fn set_options(&mut self, options: &[NAOption]) {
+        for option in options.iter() {
+            for opt_def in DEMUXER_OPTIONS.iter() {
+                if opt_def.check(option).is_ok() {
+                    match (option.name, &option.value) {
+                        (PRINT_CHUNKS, NAValue::Bool(val)) => {
+                            self.print_chunks = *val;
+                        },
+                        _ => {},
+                    }
+                }
+            }
+        }
+    }
+    fn query_option_value(&self, name: &str) -> Option<NAValue> {
+        match name {
+            PRINT_CHUNKS    => Some(NAValue::Bool(self.print_chunks)),
+            _ => None,
+        }
+    }
 }
 
 impl<'a> MOVDemuxer<'a> {
@@ -1194,6 +1253,8 @@ impl<'a> MOVDemuxer<'a> {
             tb_den:         0,
             duration:       0,
             pal:            None,
+
+            print_chunks:   false,
         }
     }
     fn read_root(&mut self, strmgr: &mut StreamManager) -> DemuxerResult<()> {
