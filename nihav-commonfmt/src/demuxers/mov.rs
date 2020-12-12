@@ -343,10 +343,28 @@ fn read_mdia(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
 }
 
 const MDIA_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
-    TrackChunkHandler { ctype: mktag!(b"mdhd"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"mdhd"), parse: read_mdhd },
     TrackChunkHandler { ctype: mktag!(b"hdlr"), parse: read_hdlr },
     TrackChunkHandler { ctype: mktag!(b"minf"), parse: read_minf },
 ];
+
+fn read_mdhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+    const KNOWN_MDHD_SIZE: u64 = 24;
+    validate!(size >= KNOWN_MDHD_SIZE);
+    let version             = br.read_byte()?;
+    validate!(version == 0);
+    let flags               = br.read_u24be()?;
+    validate!(flags == 0);
+    let _ctime              = br.read_u32be()?;
+    let _mtime              = br.read_u32be()?;
+    track.tb_den            = br.read_u32be()?;
+    validate!(track.tb_den != 0);
+    track.duration          = br.read_u32be()?;
+    let _language           = br.read_u16be()?;
+    let _quality            = br.read_u16be()?;
+
+    Ok(KNOWN_MDHD_SIZE)
+}
 
 fn read_hdlr(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
     const KNOWN_HDLR_SIZE: u64 = 24;
