@@ -450,6 +450,7 @@ const STBL_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
     TrackChunkHandler { ctype: mktag!(b"stsz"), parse: read_stsz },
     TrackChunkHandler { ctype: mktag!(b"stco"), parse: read_stco },
     TrackChunkHandler { ctype: mktag!(b"stsh"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"ctts"), parse: read_ctts },
 ];
 
 fn parse_audio_edata(br: &mut ByteReader, start_pos: u64, size: u64) -> DemuxerResult<Option<Vec<u8>>> {
@@ -677,6 +678,8 @@ fn read_stts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     } else if entries == 1 {
         let _count          = br.read_u32be()?;
         let tb_num          = br.read_u32be()?;
+        validate!(tb_num != 0);
+        track.tb_div = tb_num;
         if let Some(ref mut stream) = track.stream {
             let tb_den = stream.tb_den;
             let (tb_num, tb_den) = reduce_timebase(tb_num * stream.tb_num, tb_den);
@@ -775,6 +778,32 @@ fn read_stco(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(size)
 }
 
+fn read_ctts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+    validate!(size >= 8);
+    let version             = br.read_byte()?;
+    let _flags              = br.read_u24be()?;
+    if version > 1 {
+        return Err(DemuxerError::NotImplemented);
+    }
+    let entries             = br.read_u32be()? as usize;
+    track.ctts_version = version;
+    track.ctts_map.resize(entries);
+    match version {
+        0 | 1 => {
+            validate!(size == (entries as u64) * 8 + 8);
+            for _ in 0..entries {
+                let samp_count  = br.read_u32be()?;
+                let samp_offset = br.read_u32be()?;
+                track.ctts_map.add(samp_count, samp_offset / track.tb_div);
+            }
+        },
+        _ => unreachable!(),
+    };
+    track.ctts_map.reset();
+
+    Ok(size)
+}
+
 struct MOVDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
     depth:          usize,
@@ -795,6 +824,7 @@ struct Track {
     track_no:       u32,
     tb_num:         u32,
     tb_den:         u32,
+    tb_div:         u32,
     raw_audio:      bool,
     raw_apos:       u64,
     duration:       u32,
@@ -815,6 +845,8 @@ struct Track {
     sample_map:     Vec<(u32, u32)>,
     sample_size:    u32,
     frame_samples:  usize,
+    ctts_map:       RLESearcher<u32>,
+    ctts_version:   u8,
     stream:         Option<NAStream>,
     cur_chunk:      usize,
     cur_sample:     usize,
@@ -867,6 +899,60 @@ impl TimeSearcher {
     }
 }
 
+#[derive(Default)]
+struct RLESearcher<T> {
+    array:      Vec<(u32, T)>,
+    idx:        usize,
+    start:      u64,
+    next:       u64,
+}
+
+impl<T:Default+Copy> RLESearcher<T> {
+    fn new() -> Self { Self::default() }
+    fn resize(&mut self, size: usize) {
+        self.array.truncate(0);
+        self.array.reserve(size);
+    }
+    fn add(&mut self, len: u32, val: T) {
+        self.array.push((len, val));
+    }
+    fn reset(&mut self) {
+        self.start = 0;
+        if !self.array.is_empty() {
+            self.idx = 0;
+            self.next = u64::from(self.array[0].0);
+        } else {
+            self.idx = self.array.len();
+            self.next = 0;
+        }
+    }
+    fn map(&mut self, sample: u64) -> Option<T> {
+        if sample < self.start {
+            self.reset();
+        }
+        if self.idx < self.array.len() {
+            if sample < self.next {
+                Some(self.array[self.idx].1)
+            } else {
+                while (self.idx < self.array.len()) && (sample >= self.next) {
+                    self.start = self.next;
+                    self.idx += 1;
+                    if self.idx < self.array.len() {
+                        self.next += u64::from(self.array[self.idx].0);
+                    }
+                }
+                if self.idx < self.array.len() {
+                    Some(self.array[self.idx].1)
+                } else {
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
+}
+
 impl Track {
     fn new(track_no: u32, tb_den: u32) -> Self {
         Self {
@@ -877,6 +963,7 @@ impl Track {
             track_no,
             tb_num: 1,
             tb_den,
+            tb_div:         1,
             raw_audio:      false,
             raw_apos:       0,
             duration:       0,
@@ -894,6 +981,8 @@ impl Track {
             sample_map:     Vec::new(),
             sample_size:    0,
             frame_samples:  0,
+            ctts_map:       RLESearcher::new(),
+            ctts_version:   0,
             stream:         None,
             depth:          0,
             cur_chunk:      0,
@@ -955,8 +1044,21 @@ impl Track {
     }
     fn get_next_chunk(&mut self) -> Option<(NATimeInfo, u64, usize)> {
         let pts_val = self.timesearch.map_time(self.cur_sample as u32, &self.time_to_sample);
-        let mut pts = NATimeInfo::new(Some(pts_val), None, None, self.tb_num, self.tb_den);
-//todo dts decoding
+        let dts = if let Some(dts_corr) = self.ctts_map.map(self.cur_sample as u64) {
+                let dts = match self.ctts_version {
+                        0 => pts_val.wrapping_add(u64::from(dts_corr)),
+                        1 => pts_val.wrapping_add(i64::from(dts_corr as i32) as u64),
+                        _ => unimplemented!(),
+                    };
+                if (dts as i64) < 0 {
+                    None
+                } else {
+                    Some(dts)
+                }
+            } else {
+                None
+            };
+        let mut pts = NATimeInfo::new(Some(pts_val), dts, None, self.tb_num, self.tb_den);
         if self.chunk_offsets.len() == self.chunk_sizes.len() { // simple one-to-one mapping
             if self.cur_sample >= self.chunk_sizes.len() {
                 return None;
