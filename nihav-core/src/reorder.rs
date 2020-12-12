@@ -103,3 +103,70 @@ impl FrameReorderer for IPBReorderer {
     }
 }
 
+/// Frame reorderer for codecs with complex I/P/B frame structure like ITU H.26x.
+#[derive(Default)]
+pub struct ComplexReorderer {
+    last_ref_dts:   Option<u64>,
+    ready_idx:      usize,
+    frames:         Vec<NAFrameRef>,
+}
+
+impl ComplexReorderer {
+    /// Constructs a new instance of `IPBReorderer`.
+    pub fn new() -> Self { Self::default() }
+}
+
+impl FrameReorderer for ComplexReorderer {
+    fn add_frame(&mut self, fref: NAFrameRef) -> bool {
+        if self.frames.len() >= 64 {
+            return false;
+        }
+        let is_ref = fref.frame_type == FrameType::I || fref.frame_type == FrameType::P;
+        if !is_ref {
+            if self.frames.is_empty() || fref.get_dts().is_none() {
+                self.frames.push(fref);
+            } else if let Some(new_dts) = fref.get_dts() {
+                let mut idx = 0;
+                for (i, frm) in self.frames.iter().enumerate() {
+                    idx = i;
+                    if let Some(dts) = frm.get_dts() {
+                        if dts > new_dts {
+                            break;
+                        }
+                    }
+                }
+                self.frames.insert(idx, fref);
+            }
+        } else {
+            for (i, frm) in self.frames.iter().enumerate() {
+                if frm.get_dts() == self.last_ref_dts {
+                    self.ready_idx = i + 1;
+                }
+            }
+            self.last_ref_dts = fref.get_dts();
+            self.frames.push(fref);
+        }
+        true
+    }
+    fn get_frame(&mut self) -> Option<NAFrameRef> {
+        if self.ready_idx > 0 {
+            self.ready_idx -= 1;
+            Some(self.frames.remove(0))
+        } else {
+            None
+        }
+    }
+    fn flush(&mut self) {
+        self.last_ref_dts = None;
+        self.ready_idx = 0;
+        self.frames.truncate(0);
+    }
+    fn get_last_frames(&mut self) -> Option<NAFrameRef> {
+        if !self.frames.is_empty() {
+            Some(self.frames.remove(0))
+        } else {
+            None
+        }
+    }
+}
+

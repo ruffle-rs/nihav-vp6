@@ -41,6 +41,8 @@ pub const CODEC_CAP_REORDER:u32     = 0x0004;
 pub const CODEC_CAP_HYBRID:u32      = 0x0008;
 /// Codec capability flag for codecs with scalability features.
 pub const CODEC_CAP_SCALABLE:u32    = 0x0010;
+/// Codec capability flag for codecs with complex frame reordering.
+pub const CODEC_CAP_COMPLEX_REORDER:u32 = 0x0020;
 
 /// Codec description structure.
 #[derive(Clone)]
