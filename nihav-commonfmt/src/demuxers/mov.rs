@@ -701,11 +701,12 @@ fn read_stts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
         if let Some(ref mut stream) = track.stream {
             let tb_den = stream.tb_den;
             let (tb_num, tb_den) = reduce_timebase(tb_num * stream.tb_num, tb_den);
-            stream.duration /= u64::from(stream.tb_den / tb_den);
+            stream.duration /= u64::from(track.tb_div);
             stream.tb_num = tb_num;
             stream.tb_den = tb_den;
             track.tb_num = tb_num;
             track.tb_den = tb_den;
+            track.duration /= track.tb_div;
         }
     } else {
         track.time_to_sample.truncate(0);
