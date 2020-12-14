@@ -605,8 +605,21 @@ fn read_stsd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
             let format = if depth > 8 { RGB24_FORMAT } else { PAL8_FORMAT };
             let mut vhdr = NAVideoInfo::new(width, height, false, format);
             vhdr.bits = depth as u8;
+            //skip various common atoms
+            while br.tell() - start_pos + 4 < size {
+                let mut buf = [0u8; 8];
+                br.peek_buf(&mut buf)?;
+                let tsize = read_u32be(&buf).unwrap() as usize;
+                let tag = &buf[4..8];
+                validate!(tsize >= 8);
+                match tag {
+                    b"pasp" | b"clap" => {
+                        br.read_skip(tsize)?;
+                    },
+                    _ => break,
+                };
+            }
             let edata = if br.tell() - start_pos + 4 < size {
-//todo skip various common atoms
                     let edata_size  = br.read_u32be()? as usize;
                     validate!(edata_size >= 4);
                     let mut buf = vec![0; edata_size - 4];
