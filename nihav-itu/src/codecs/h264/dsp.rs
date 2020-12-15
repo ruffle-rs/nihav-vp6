@@ -1097,13 +1097,33 @@ fn chroma_interp(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, dx:
     let b1 = dy;
 
     let src1 = &src[sstride..];
-    for (drow, (line0, line1)) in dst.chunks_mut(dstride).zip(src.chunks(sstride).zip(src1.chunks(sstride))).take(h) {
-        let mut a = line0[0];
-        let mut c = line1[0];
-        for (pix, (&b, &d)) in drow.iter_mut().take(w).zip(line0[1..].iter().zip(line1[1..].iter())) {
-            *pix = ((u16::from(a) * a0 * b0 + u16::from(b) * a1 * b0 + u16::from(c) * a0 * b1 + u16::from(d) * a1 * b1 + 0x20) >> 6) as u8;
-            a = b;
-            c = d;
+    if a0 == 8 && b0 == 8 {
+        for (drow, line) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(h) {
+            drow[..w].copy_from_slice(&line[..w]);
+        }
+    } else if a0 == 8 {
+        for (drow, (line0, line1)) in dst.chunks_mut(dstride).zip(src.chunks(sstride).zip(src1.chunks(sstride))).take(h) {
+            for (pix, (&a, &b)) in drow.iter_mut().take(w).zip(line0.iter().zip(line1.iter())) {
+                *pix = ((u16::from(a) * b0 + u16::from(b) * b1 + 4) >> 3) as u8;
+            }
+        }
+    } else if b0 == 8 {
+        for (drow, line) in dst.chunks_mut(dstride).zip(src.chunks(sstride)).take(h) {
+            let mut a = line[0];
+            for (pix, &b) in drow.iter_mut().take(w).zip(line.iter().skip(1)) {
+                *pix = ((u16::from(a) * a0 + u16::from(b) * a1 + 4) >> 3) as u8;
+                a = b;
+            }
+        }
+    } else {
+        for (drow, (line0, line1)) in dst.chunks_mut(dstride).zip(src.chunks(sstride).zip(src1.chunks(sstride))).take(h) {
+            let mut a = line0[0];
+            let mut c = line1[0];
+            for (pix, (&b, &d)) in drow.iter_mut().take(w).zip(line0[1..].iter().zip(line1[1..].iter())) {
+                *pix = ((u16::from(a) * a0 * b0 + u16::from(b) * a1 * b0 + u16::from(c) * a0 * b1 + u16::from(d) * a1 * b1 + 0x20) >> 6) as u8;
+                a = b;
+                c = d;
+            }
         }
     }
 }
