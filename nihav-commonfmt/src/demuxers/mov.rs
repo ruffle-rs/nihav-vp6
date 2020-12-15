@@ -1240,8 +1240,37 @@ impl Track {
                         self.samples_left = csamp - self.cur_sample;
                         self.cur_chunk += 1;
                     }
-                } else {
+                } else if self.chunk_offsets.len() == self.chunk_sizes.len() {
                     self.cur_chunk = self.cur_sample;
+                } else {
+                    let mut csamp = 0;
+                    self.cur_chunk = 0;
+                    let mut cmap = self.sample_map.iter();
+                    let mut cur_samps = 0;
+                    let (mut next_idx, mut next_samples) = cmap.next().unwrap();
+                    loop {
+                        if self.cur_chunk + 1 == next_idx as usize {
+                            self.samples_left = cur_samps;
+                            cur_samps = next_samples as usize;
+                            if let Some((new_idx, new_samples)) = cmap.next() {
+                                next_idx = *new_idx;
+                                next_samples = *new_samples;
+                            }
+                        }
+                        csamp += cur_samps;
+                        if csamp > self.cur_sample {
+                            if self.cur_chunk >= self.chunk_offsets.len() {
+                                return Err(DemuxerError::SeekError);
+                            }
+                            self.last_offset = self.chunk_offsets[self.cur_chunk];
+                            break;
+                        }
+                        self.cur_chunk += 1;
+                    }
+                    self.cur_sample = csamp - cur_samps;
+                    self.samples_left = cur_samps;
+                    self.last_offset = self.chunk_offsets[self.cur_chunk];
+                    self.cur_chunk += 1;
                 }
             } else {
                 self.cur_chunk = self.cur_sample;
@@ -1325,11 +1354,33 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
     fn seek(&mut self, time: NATimePoint, seek_index: &SeekIndex) -> DemuxerResult<()> {
         let ret = seek_index.find_pos(time);
         if ret.is_none() {
+            if let NATimePoint::Milliseconds(_) = time {
+                let mut aonly = true;
+                for track in self.tracks.iter() {
+                    if track.stream_type != StreamType::Audio || !track.raw_audio {
+                        aonly = false;
+                        break;
+                    }
+                }
+                if aonly {
+                    for track in self.tracks.iter_mut() {
+                        track.seek(0, time)?;
+                    }
+                    return Ok(());
+                }
+            }
             return Err(DemuxerError::SeekError);
         }
         let seek_info = ret.unwrap();
+        let tbn = self.tracks[seek_info.str_id as usize].tb_num;
+        let tbd = self.tracks[seek_info.str_id as usize].tb_den;
         for track in self.tracks.iter_mut() {
-            track.seek(seek_info.pts, time)?;
+            let cur_pts = if track.track_id == seek_info.str_id {
+                    seek_info.pts
+                } else {
+                    seek_info.pts * u64::from(tbn) * u64::from(track.tb_den) / (u64::from(tbd) * u64::from(track.tb_num))
+                };
+            track.seek(cur_pts, time)?;
         }
         Ok(())
     }
