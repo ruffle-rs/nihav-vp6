@@ -143,13 +143,13 @@ impl<'a> CABAC<'a> {
                 val_mps
             };
         self.states[idx] = if bit == val_mps {
-                TRANS_IDX_MPS[state_idx]
+                TRANS_IDX_MPS[state_idx] + (if val_mps { 0x80 } else { 0 })
             } else {
                 if state_idx == 0 {
                     val_mps = !val_mps;
                 }
-                TRANS_IDX_LPS[state_idx]
-            } + (if val_mps { 0x80 } else { 0 });
+                TRANS_IDX_LPS[state_idx] + (if val_mps { 0x80 } else { 0 })
+            };
         self.renorm();
         bit
     }
@@ -188,7 +188,7 @@ impl<'a> CABAC<'a> {
             }
             self.cod_range  <<= shift;
             self.cod_offset <<= shift;
-            self.cod_offset  |= u16::from(self.bitbuf >> (16 - shift));
+            self.cod_offset  |= self.bitbuf >> (16 - shift);
             self.bitbuf <<= shift;
             self.bits -= shift;
         }

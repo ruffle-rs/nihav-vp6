@@ -15,6 +15,10 @@ mod types;
 pub use types::*;
 mod pic_ref;
 pub use pic_ref::*;
+#[allow(clippy::identity_op)]
+#[allow(clippy::erasing_op)]
+#[allow(clippy::many_single_char_names)]
+#[allow(clippy::range_plus_one)]
 mod dsp;
 use dsp::*;
 mod cabac;
@@ -653,6 +657,7 @@ println!("PAFF?");
             }
         }
     }
+    #[allow(clippy::cyclomatic_complexity)]
     fn handle_macroblock(&mut self, mb_info: &mut CurrentMBInfo) {
         let pps = &self.pps[self.cur_pps];
 

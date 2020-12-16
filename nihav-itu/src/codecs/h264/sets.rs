@@ -50,6 +50,7 @@ pub fn is_high_profile(profile: u8) -> bool {
     }
 }
 
+#[allow(clippy::cyclomatic_complexity)]
 pub fn parse_sps(src: &[u8]) -> DecoderResult<SeqParameterSet> {
     let mut br = BitReader::new(src, BitReaderMode::BE);
     let mut sps: SeqParameterSet = unsafe { std::mem::zeroed() };

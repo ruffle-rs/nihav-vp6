@@ -46,12 +46,12 @@ pub fn chroma_dc_transform(blk: &mut [i16; 4], qp: u8) {
     blk[2] = t1 + t3;
     blk[3] = t1 - t3;
     if qp < 6 {
-        let mul = i16::from(LEVEL_SCALE[0][qp as usize]);
+        let mul = LEVEL_SCALE[0][qp as usize];
         for el in blk.iter_mut() {
             *el = el.wrapping_mul(mul) >> 1;
         }
     } else {
-        let mul = i16::from(LEVEL_SCALE[0][(qp % 6) as usize]);
+        let mul = LEVEL_SCALE[0][(qp % 6) as usize];
         let shift = qp / 6 - 1;
         for el in blk.iter_mut() {
             *el = el.wrapping_mul(mul) << shift;
@@ -113,14 +113,14 @@ macro_rules! transform {
 
 pub fn idct_luma_dc(blk: &mut [i16; 16], qp: u8) {
     if qp < 12 {
-        let mul = i16::from(LEVEL_SCALE[0][(qp % 6) as usize]);
+        let mul = LEVEL_SCALE[0][(qp % 6) as usize];
         let shift = 2 - qp / 6;
         let bias = 1 << shift >> 1;
         for el in blk.iter_mut() {
             *el = el.wrapping_mul(mul).wrapping_add(bias) >> shift;
         }
     } else {
-        let mul = i16::from(LEVEL_SCALE[0][(qp % 6) as usize]);
+        let mul = LEVEL_SCALE[0][(qp % 6) as usize];
         let shift = qp / 6 - 2;
         for el in blk.iter_mut() {
             *el = el.wrapping_mul(mul) << shift;

@@ -124,6 +124,7 @@ pub fn parse_slice_header_minimal(br: &mut BitReader) -> DecoderResult<(usize, S
     Ok((first_mb_in_slice, slice_type))
 }
 
+#[allow(clippy::cyclomatic_complexity)]
 pub fn parse_slice_header(br: &mut BitReader, sps_arr: &[SeqParameterSet], pps_arr: &[PicParameterSet], is_idr: bool, nal_ref_idc: u8) -> DecoderResult<SliceHeader> {
     let mut hdr: SliceHeader = unsafe { std::mem::zeroed() };
 

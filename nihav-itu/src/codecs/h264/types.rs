@@ -645,6 +645,7 @@ impl SliceState {
         }
         ctx
     }
+    #[allow(clippy::if_same_then_else)]
     pub fn predict(&mut self, xpos: usize, ypos: usize, bw: usize, bh: usize, ref_l: usize, diff_mv: MV, ref_idx: PicRef) {
         let midx = self.get_cur_blk4_idx(0) + xpos / 4 + ypos / 4 * self.blk4.stride;
         let ridx = self.get_cur_blk8_idx(0) + xpos / 8 + ypos / 8 * self.blk8.stride;
@@ -747,15 +748,9 @@ impl SliceState {
         }
     }
     pub fn predict_direct_sub(&mut self, frame_refs: &FrameRefs, temporal_mv: bool, cur_id: u16, blk4: usize) {
-        if temporal_mv {
-            let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, temporal_mv, cur_id, blk4);
-            self.get_cur_blk4(blk4).mv = [mv0, mv1];
-            self.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx = [ref0, ref1];
-        } else {
-            let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, temporal_mv, cur_id, blk4);
-            self.get_cur_blk4(blk4).mv = [mv0, mv1];
-            self.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx = [ref0, ref1];
-        }
+        let (mv0, ref0, mv1, ref1) = self.get_direct_mv(frame_refs, temporal_mv, cur_id, blk4);
+        self.get_cur_blk4(blk4).mv = [mv0, mv1];
+        self.get_cur_blk8(blk4_to_blk8(blk4)).ref_idx = [ref0, ref1];
     }
     pub fn get_direct_mv(&self, frame_refs: &FrameRefs, temporal_mv: bool, cur_id: u16, blk4: usize) -> (MV, PicRef, MV, PicRef) {
         let (mbi, r1_poc, r1_long) = frame_refs.get_colocated_info(self.mb_x, self.mb_y);

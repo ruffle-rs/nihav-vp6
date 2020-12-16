@@ -4,6 +4,7 @@ macro_rules! validate {
     ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DecoderError::InvalidData); } };
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(feature="decoder_h264")]
 mod h264;
 

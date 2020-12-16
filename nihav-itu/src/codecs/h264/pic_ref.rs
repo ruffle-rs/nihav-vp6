@@ -215,6 +215,7 @@ impl FrameRefs {
         self.ref_pics.truncate(0);
         self.long_term.truncate(0);
     }
+    #[allow(clippy::cyclomatic_complexity)]
     pub fn select_refs(&mut self, sps: &SeqParameterSet, slice_hdr: &SliceHeader, cur_id: u32) {
         self.ref_list0.truncate(0);
         self.ref_list1.truncate(0);
@@ -408,7 +409,7 @@ impl FrameRefs {
     }
 }
 
-fn form_ref_list(ref_list: &mut Vec<Option<PictureInfo>>, ref_pics: &Vec<PictureInfo>, long_term: &Vec<Option<PictureInfo>>, reord_info: &ReorderingInfo, cur_id: u16, pic_num_mask: u16) {
+fn form_ref_list(ref_list: &mut Vec<Option<PictureInfo>>, ref_pics: &[PictureInfo], long_term: &[Option<PictureInfo>], reord_info: &ReorderingInfo, cur_id: u16, pic_num_mask: u16) {
     let mut ref_pic_id = cur_id;
     for (&op, &num) in reord_info.reordering_of_pic_nums_idc.iter().zip(reord_info.abs_diff_or_num.iter()).take(reord_info.num_ops) {
         if op < 2 {
