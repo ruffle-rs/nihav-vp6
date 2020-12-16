@@ -325,12 +325,16 @@ impl ICSInfo {
         self.window_sequence                            = br.read(2)? as u8;
         match self.prev_window_sequence {
             ONLY_LONG_SEQUENCE | LONG_STOP_SEQUENCE => {
-                    validate!((self.window_sequence == ONLY_LONG_SEQUENCE) ||
-                              (self.window_sequence == LONG_START_SEQUENCE));
+                    if (self.window_sequence != ONLY_LONG_SEQUENCE) &&
+                       (self.window_sequence != LONG_START_SEQUENCE) {
+                        println!("incorrect previous window");
+                    }
                 },
             LONG_START_SEQUENCE | EIGHT_SHORT_SEQUENCE => {
-                    validate!((self.window_sequence == EIGHT_SHORT_SEQUENCE) ||
-                              (self.window_sequence == LONG_STOP_SEQUENCE));
+                    if (self.window_sequence != EIGHT_SHORT_SEQUENCE) &&
+                       (self.window_sequence != LONG_STOP_SEQUENCE) {
+                        println!("incorrect previous window");
+                    }
                 },
             _ => {},
         };
