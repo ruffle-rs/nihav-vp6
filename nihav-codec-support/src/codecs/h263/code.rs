@@ -221,6 +221,119 @@ pub fn h263_idct(blk: &mut [i16; 64]) {
     for i in 0..8 { idct_col(blk, i); }
 }
 
+struct IDCTAnnexW {}
+
+impl IDCTAnnexW {
+    const CPO8: i32     = 0x539f;
+    const SPO8: i32     = 0x4546;
+    const CPO16: i32    = 0x7d8a;
+    const SPO16: i32    = 0x18f9;
+    const C3PO16: i32   = 0x6a6e;
+    const S3PO16: i32   = 0x471d;
+    const OOR2: i32     = 0x5a82;
+
+    fn rotate(a: i32, b: i32, c: i32, s: i32, cs: i8, ss: i8) -> (i32, i32) {
+        let (t00, t10) = if cs > 0 {
+                ((a * c) >>  cs, (b * c) >>  cs)
+            } else {
+                ((a * c) << -cs, (b * c) << -cs)
+            };
+        let (t01, t11) = if ss > 0 {
+                ((a * s) >>  ss, (b * s) >>  ss)
+            } else {
+                ((a * s) << -ss, (b * s) << -ss)
+            };
+        ((t01 - t10 + 0x7FFF) >> 16, (t00 + t11 + 0x7FFF) >> 16)
+    }
+
+    fn bfly(a: i32, b: i32) -> (i32, i32) { (a + b, a - b) }
+
+    fn idct_row(dst: &mut [i32; 64], src: &[i16; 64]) {
+        for (drow, srow) in dst.chunks_mut(8).zip(src.chunks(8)) {
+            let s0 = i32::from(srow[0]) << 4;
+            let s1 = i32::from(srow[1]) << 4;
+            let s2 = i32::from(srow[2]) << 4;
+            let s3 = i32::from(srow[3]) << 4;
+            let s4 = i32::from(srow[4]) << 4;
+            let s5 = i32::from(srow[5]) << 4;
+            let s6 = i32::from(srow[6]) << 4;
+            let s7 = i32::from(srow[7]) << 4;
+
+            let (s2, s6) = Self::rotate(s2, s6, Self::CPO8,   Self::SPO8,   -2, -1);
+            let (s1, s7) = Self::rotate(s1, s7, Self::CPO16,  Self::SPO16,  -1, -1);
+            let (s3, s5) = Self::rotate(s3, s5, Self::C3PO16, Self::S3PO16, -1, -1);
+            let (s0, s4) = Self::bfly(s0, s4);
+
+            let (s3, s1) = Self::bfly(s1, s3);
+            let (s5, s7) = Self::bfly(s7, s5);
+            let (s0, s6) = Self::bfly(s0, s6);
+            let (s4, s2) = Self::bfly(s4, s2);
+
+            let (s3, s7) = Self::bfly(s7, s3);
+            let s1 = (s1 * Self::OOR2 * 4).saturating_add(0x7FFF) >> 16;
+            let s5 = (s5 * Self::OOR2 * 4).saturating_add(0x7FFF) >> 16;
+
+            drow[1] = s4 + s3;
+            drow[6] = s4 - s3;
+            drow[2] = s2 + s7;
+            drow[5] = s2 - s7;
+            drow[0] = s0 + s5;
+            drow[7] = s0 - s5;
+            drow[3] = s6 + s1;
+            drow[4] = s6 - s1;
+        }
+    }
+
+    #[allow(clippy::erasing_op)]
+    #[allow(clippy::identity_op)]
+    fn idct_col(dst: &mut [i16; 64], src: &[i32; 64]) {
+        for i in 0..8 {
+            let s0 = src[i + 8 * 0];
+            let s1 = src[i + 8 * 1];
+            let s2 = src[i + 8 * 2];
+            let s3 = src[i + 8 * 3];
+            let s4 = src[i + 8 * 4];
+            let s5 = src[i + 8 * 5];
+            let s6 = src[i + 8 * 6];
+            let s7 = src[i + 8 * 7];
+
+            let (s2, s6) = Self::rotate(s2, s6, Self::CPO8,   Self::SPO8,   -1, 0);
+            let (s1, s7) = Self::rotate(s1, s7, Self::CPO16,  Self::SPO16,   0, 0);
+            let (s3, s5) = Self::rotate(s3, s5, Self::C3PO16, Self::S3PO16,  0, 0);
+            let (a, b) = Self::bfly(s0, s4);
+            let (s0, s4) = if s4 >= 0 {
+                    (a >> 1, b >> 1)
+                } else {
+                    ((a + 1) >> 1, (b + 1) >> 1)
+                };
+
+            let (s3, s1) = Self::bfly(s1, s3);
+            let (s5, s7) = Self::bfly(s7, s5);
+            let (s0, s6) = Self::bfly(s0, s6);
+            let (s4, s2) = Self::bfly(s4, s2);
+
+            let (s3, s7) = Self::bfly(s7, s3);
+            let s1 = (s1 * Self::OOR2 * 4).saturating_add(0x7FFF) >> 16;
+            let s5 = (s5 * Self::OOR2 * 4).saturating_add(0x7FFF) >> 16;
+
+            dst[i + 8 * 1] = ((s4 + s3) >> 6) as i16;
+            dst[i + 8 * 6] = ((s4 - s3) >> 6) as i16;
+            dst[i + 8 * 2] = ((s2 + s7) >> 6) as i16;
+            dst[i + 8 * 5] = ((s2 - s7) >> 6) as i16;
+            dst[i + 8 * 0] = ((s0 + s5) >> 6) as i16;
+            dst[i + 8 * 7] = ((s0 - s5) >> 6) as i16;
+            dst[i + 8 * 3] = ((s6 + s1) >> 6) as i16;
+            dst[i + 8 * 4] = ((s6 - s1) >> 6) as i16;
+        }
+    }
+}
+#[allow(dead_code)]
+pub fn h263_annex_w_idct(blk: &mut [i16; 64]) {
+    let mut tmp = [0i32; 64];
+    IDCTAnnexW::idct_row(&mut tmp, blk);
+    IDCTAnnexW::idct_col(blk, &tmp);
+}
+
 fn h263_interp00(dst: &mut [u8], dstride: usize, src: &[u8], sstride: usize, bw: usize, bh: usize)
 {
     let mut didx = 0;
