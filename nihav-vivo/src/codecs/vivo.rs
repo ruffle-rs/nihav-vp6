@@ -4,8 +4,9 @@ use nihav_core::formats;
 use nihav_core::frame::*;
 use nihav_core::codecs::*;
 use nihav_codec_support::codecs::{MV, ZIGZAG};
+use nihav_codec_support::codecs::blockdsp;
 use nihav_codec_support::codecs::h263::*;
-use nihav_codec_support::codecs::h263::code::H263BlockDSP;
+use nihav_codec_support::codecs::h263::code::*;
 use nihav_codec_support::codecs::h263::decoder::*;
 use nihav_codec_support::codecs::h263::data::*;
 
@@ -19,11 +20,243 @@ struct Tables {
     mv_cb:          Codebook<u8>,
 }
 
+struct VivoBlockDSP {}
+
+impl VivoBlockDSP { fn new() -> Self { Self {} } }
+
+#[allow(clippy::erasing_op)]
+#[allow(clippy::identity_op)]
+fn deblock_hor(buf: &mut [u8], off: usize, stride: usize, clip_tab: &[i16; 64]) {
+    for x in 0..8 {
+        let p1 = i16::from(buf[off - 2 * stride + x]);
+        let p0 = i16::from(buf[off - 1 * stride + x]);
+        let q0 = i16::from(buf[off + 0 * stride + x]);
+        let q1 = i16::from(buf[off + 1 * stride + x]);
+        let diff = (3 * (p1 - q1) + 8 * (q0 - p0)) >> 4;
+        if (diff != 0) && (diff > -32) && (diff < 32) {
+            let delta = clip_tab[(diff + 32) as usize];
+            buf[off - 1 * stride + x] = (p0 + delta).max(0).min(255) as u8;
+            buf[off + 0 * stride + x] = (q0 - delta).max(0).min(255) as u8;
+        }
+    }
+}
+
+#[allow(clippy::identity_op)]
+fn deblock_ver(buf: &mut [u8], off: usize, stride: usize, clip_tab: &[i16; 64]) {
+    for y in 0..8 {
+        let p1 = i16::from(buf[off - 2 + y * stride]);
+        let p0 = i16::from(buf[off - 1 + y * stride]);
+        let q0 = i16::from(buf[off + 0 + y * stride]);
+        let q1 = i16::from(buf[off + 1 + y * stride]);
+        let diff = (3 * (p1 - q1) + 8 * (q0 - p0)) >> 4;
+        if (diff != 0) && (diff > -32) && (diff < 32) {
+            let delta = clip_tab[(diff + 32) as usize];
+            buf[off - 1 + y * stride] = (p0 + delta).max(0).min(255) as u8;
+            buf[off     + y * stride] = (q0 - delta).max(0).min(255) as u8;
+        }
+    }
+}
+
+fn gen_clip_tab(clip_tab: &mut [i16; 64], q: u8) {
+    let q = i16::from(q);
+    *clip_tab = [0; 64];
+    let lim = (q + 2) >> 1;
+    for i in 0..lim {
+        clip_tab[(32 - i) as usize] = -i;
+        clip_tab[(32 + i) as usize] =  i;
+    }
+    for i in lim..q {
+        let val = q - i; 
+        clip_tab[(32 - i) as usize] = -val;
+        clip_tab[(32 + i) as usize] =  val;
+    }
+}
+
+impl BlockDSP for VivoBlockDSP {
+    fn idct(&self, blk: &mut [i16; 64]) {
+        h263_annex_w_idct(blk);
+    }
+    fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV) {
+        let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+        let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
+
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        blockdsp::copy_block(&mut dst, src.clone(), 0, xpos, ypos, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, H263_INTERP_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 1, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 2, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_FUNCS);
+    }
+    fn copy_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        for i in 0..4 {
+            let xadd = (i & 1) * 8;
+            let yadd = (i & 2) * 4;
+            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+        }
+
+        let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
+        let cmx = (sum_mv.x >> 3) + H263_CHROMA_ROUND[(sum_mv.x & 0xF) as usize];
+        let cmy = (sum_mv.y >> 3) + H263_CHROMA_ROUND[(sum_mv.y & 0xF) as usize];
+        let mode = ((cmx & 1) + (cmy & 1) * 2) as usize;
+        for plane in 1..3 {
+            blockdsp::copy_block(&mut dst, src.clone(), plane, xpos >> 1, ypos >> 1, cmx >> 1, cmy >> 1, 8, 8, 0, 1, mode, H263_INTERP_FUNCS);
+        }
+    }
+    fn avg_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV) {
+        let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
+        let cmode = (if (mv.x & 3) != 0 { 1 } else { 0 }) + (if (mv.y & 3) != 0 { 2 } else { 0 });
+
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        blockdsp::copy_block(&mut dst, src.clone(), 0, xpos, ypos, mv.x >> 1, mv.y >> 1, 16, 16, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 1, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_AVG_FUNCS);
+        blockdsp::copy_block(&mut dst, src.clone(), 2, xpos >> 1, ypos >> 1, mv.x >> 2, mv.y >> 2, 8, 8, 0, 1, cmode, H263_INTERP_AVG_FUNCS);
+    }
+    fn avg_blocks8x8(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mvs: &[MV; 4]) {
+        let mut dst = NASimpleVideoFrame::from_video_buf(dst).unwrap();
+
+        for i in 0..4 {
+            let xadd = (i & 1) * 8;
+            let yadd = (i & 2) * 4;
+            let mode = ((mvs[i].x & 1) + (mvs[i].y & 1) * 2) as usize;
+
+            blockdsp::copy_block(&mut dst, src.clone(), 0, xpos + xadd, ypos + yadd, mvs[i].x >> 1, mvs[i].y >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        }
+
+        let sum_mv = mvs[0] + mvs[1] + mvs[2] + mvs[3];
+        let cmx = (sum_mv.x >> 3) + H263_CHROMA_ROUND[(sum_mv.x & 0xF) as usize];
+        let cmy = (sum_mv.y >> 3) + H263_CHROMA_ROUND[(sum_mv.y & 0xF) as usize];
+        let mode = ((cmx & 1) + (cmy & 1) * 2) as usize;
+        for plane in 1..3 {
+            blockdsp::copy_block(&mut dst, src.clone(), plane, xpos >> 1, ypos >> 1, cmx >> 1, cmy >> 1, 8, 8, 0, 1, mode, H263_INTERP_AVG_FUNCS);
+        }
+    }
+    fn filter_row(&self, buf: &mut NAVideoBuffer<u8>, mb_y: usize, mb_w: usize, cbpi: &CBPInfo) {
+        let ystride = buf.get_stride(0);
+        let ustride = buf.get_stride(1);
+        let vstride = buf.get_stride(2);
+        let yoff = buf.get_offset(0) + mb_y * 16 * ystride;
+        let uoff = buf.get_offset(1) + mb_y * 8 * ustride;
+        let voff = buf.get_offset(2) + mb_y * 8 * vstride;
+        let buf = buf.get_data_mut().unwrap();
+
+        let mut clip_tab = [0i16; 64];
+        let mut last_q = 0;
+        let mut off = yoff;
+        for mb_x in 0..mb_w {
+            let coff = off;
+            let coded0 = cbpi.is_coded(mb_x, 0);
+            let coded1 = cbpi.is_coded(mb_x, 1);
+            let q = cbpi.get_q(mb_w + mb_x);
+            if q != last_q {
+                gen_clip_tab(&mut clip_tab, q);
+                last_q = q;
+            }
+            if mb_y != 0 {
+                if coded0 && cbpi.is_coded_top(mb_x, 0) {
+                    deblock_hor(buf, ystride, coff, &clip_tab);
+                }
+                if coded1 && cbpi.is_coded_top(mb_x, 1) {
+                    deblock_hor(buf, ystride, coff + 8, &clip_tab);
+                }
+            }
+            let coff = off + 8 * ystride;
+            if cbpi.is_coded(mb_x, 2) && coded0 {
+                deblock_hor(buf, ystride, coff, &clip_tab);
+            }
+            if cbpi.is_coded(mb_x, 3) && coded1 {
+                deblock_hor(buf, ystride, coff + 8, &clip_tab);
+            }
+            off += 16;
+        }
+        let mut leftt = false;
+        let mut leftc = false;
+        let mut off = yoff;
+        for mb_x in 0..mb_w {
+            let ctop0 = cbpi.is_coded_top(mb_x, 0);
+            let ctop1 = cbpi.is_coded_top(mb_x, 0);
+            let ccur0 = cbpi.is_coded(mb_x, 0);
+            let ccur1 = cbpi.is_coded(mb_x, 1);
+            let q = cbpi.get_q(mb_w + mb_x);
+            if q != last_q {
+                gen_clip_tab(&mut clip_tab, q);
+                last_q = q;
+            }
+            if mb_y != 0 {
+                let coff = off - 8 * ystride;
+                let qtop = cbpi.get_q(mb_x);
+                if qtop != last_q {
+                    gen_clip_tab(&mut clip_tab, qtop);
+                    last_q = qtop;
+                }
+                if leftt && ctop0 {
+                    deblock_ver(buf, ystride, coff, &clip_tab);
+                }
+                if ctop0 && ctop1 {
+                    deblock_ver(buf, ystride, coff + 8, &clip_tab);
+                }
+            }
+            if leftc && ccur0 {
+                deblock_ver(buf, ystride, off, &clip_tab);
+            }
+            if ccur0 && ccur1 {
+                deblock_ver(buf, ystride, off + 8, &clip_tab);
+            }
+            leftt = ctop1;
+            leftc = ccur1;
+            off += 16;
+        }
+        if mb_y != 0 {
+            for mb_x in 0..mb_w {
+                let ctu = cbpi.is_coded_top(mb_x, 4);
+                let ccu = cbpi.is_coded(mb_x, 4);
+                let ctv = cbpi.is_coded_top(mb_x, 5);
+                let ccv = cbpi.is_coded(mb_x, 5);
+                let q = cbpi.get_q(mb_w + mb_x);
+                if q != last_q {
+                    gen_clip_tab(&mut clip_tab, q);
+                    last_q = q;
+                }
+                if ctu && ccu {
+                    deblock_hor(buf, ustride, uoff + mb_x * 8, &clip_tab);
+                }
+                if ctv && ccv {
+                    deblock_hor(buf, vstride, voff + mb_x * 8, &clip_tab);
+                }
+            }
+            let mut leftu = false;
+            let mut leftv = false;
+            let offu = uoff - 8 * ustride;
+            let offv = voff - 8 * vstride;
+            for mb_x in 0..mb_w {
+                let ctu = cbpi.is_coded_top(mb_x, 4);
+                let ctv = cbpi.is_coded_top(mb_x, 5);
+                let qt = cbpi.get_q(mb_x);
+                if qt != last_q {
+                    gen_clip_tab(&mut clip_tab, qt);
+                    last_q = qt;
+                }
+                if leftu && ctu {
+                    deblock_ver(buf, ustride, offu + mb_x * 8, &clip_tab);
+                }
+                if leftv && ctv {
+                    deblock_ver(buf, vstride, offv + mb_x * 8, &clip_tab);
+                }
+                leftu = ctu;
+                leftv = ctv;
+            }
+        }
+    }
+}
+
 struct VivoDecoder {
     info:       NACodecInfoRef,
     dec:        H263BaseDecoder,
     tables:     Tables,
-    bdsp:       H263BlockDSP,
+    bdsp:       VivoBlockDSP,
     lastframe:  Option<NABufferType>,
     lastpts:    Option<u64>,
     width:      usize,
@@ -62,7 +295,7 @@ impl<'a> VivoBR<'a> {
         }
     }
 
-    fn decode_block(&mut self, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], plane_no: usize, acpred: ACPredMode) -> DecoderResult<()> {
+    fn decode_block(&mut self, quant: u8, intra: bool, coded: bool, blk: &mut [i16; 64], _plane_no: usize, acpred: ACPredMode) -> DecoderResult<()> {
         let br = &mut self.br;
         let mut idx = 0;
         if !self.aic && intra {
@@ -79,7 +312,7 @@ impl<'a> VivoBR<'a> {
                 };
 
         let rl_cb = if self.aic && intra { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
-        let q = if plane_no == 0 { i16::from(quant * 2) } else { i16::from(H263_CHROMA_QUANT[quant as usize] * 2) };
+        let q = i16::from(quant * 2);
         let q_add = if q == 0 || self.aic { 0i16 } else { (((q >> 1) - 1) | 1) as i16 };
         while idx < 64 {
             let code = br.read_cb(rl_cb)?;
@@ -91,10 +324,12 @@ impl<'a> VivoBR<'a> {
                 level = code.get_level();
                 last  = code.is_last();
                 if br.read_bool()? { level = -level; }
-                if level >= 0 {
-                    level = (level * q) + q_add;
-                } else {
-                    level = (level * q) - q_add;
+                if !intra || idx != 0 {
+                    if level >= 0 {
+                        level = (level * q) + q_add;
+                    } else {
+                        level = (level * q) - q_add;
+                    }
                 }
             } else {
                 last  = br.read_bool()?;
@@ -105,13 +340,15 @@ impl<'a> VivoBR<'a> {
                     let top = br.read_s(6)? as i16;
                     level = (top << 5) | low;
                 }
-                if level >= 0 {
-                    level = (level * q) + q_add;
-                } else {
-                    level = (level * q) - q_add;
+                if !intra || idx != 0 {
+                    if level >= 0 {
+                        level = (level * q) + q_add;
+                    } else {
+                        level = (level * q) - q_add;
+                    }
+                    if level < -2048 { level = -2048; }
+                    if level >  2047 { level =  2047; }
                 }
-                if level < -2048 { level = -2048; }
-                if level >  2047 { level =  2047; }
             }
             idx += run;
             validate!(idx < 64);
@@ -399,9 +636,9 @@ impl VivoDecoder {
 
         VivoDecoder{
             info:           NACodecInfo::new_dummy(),
-            dec:            H263BaseDecoder::new(true),
+            dec:            H263BaseDecoder::new_with_opts(H263DEC_OPT_SLICE_RESET | H263DEC_OPT_USES_GOB | H263DEC_OPT_PRED_QUANT),
             tables,
-            bdsp:           H263BlockDSP::new(),
+            bdsp:           VivoBlockDSP::new(),
             lastframe:      None,
             lastpts:        None,
             width:          0,
