@@ -7,8 +7,10 @@ extern crate nihav_indeo;
 extern crate nihav_itu;
 extern crate nihav_llaudio;
 extern crate nihav_ms;
+extern crate nihav_qt;
 extern crate nihav_rad;
 extern crate nihav_realmedia;
+extern crate nihav_vivo;
 
 use nihav_core::codecs::RegisteredDecoders;
 use nihav_core::codecs::RegisteredEncoders;
@@ -43,6 +45,9 @@ use nihav_rad::rad_register_all_demuxers;
 use nihav_realmedia::realmedia_register_all_decoders;
 use nihav_realmedia::realmedia_register_all_demuxers;
 
+use nihav_vivo::vivo_register_all_decoders;
+use nihav_vivo::vivo_register_all_demuxers;
+
 /// Registers all known decoders.
 pub fn nihav_register_all_decoders(rd: &mut RegisteredDecoders) {
     generic_register_all_decoders(rd);
@@ -55,6 +60,7 @@ pub fn nihav_register_all_decoders(rd: &mut RegisteredDecoders) {
     qt_register_all_decoders(rd);
     rad_register_all_decoders(rd);
     realmedia_register_all_decoders(rd);
+    vivo_register_all_decoders(rd);
 }
 
 /// Registers all known demuxers.
@@ -64,6 +70,7 @@ pub fn nihav_register_all_demuxers(rd: &mut RegisteredDemuxers) {
     llaudio_register_all_demuxers(rd);
     rad_register_all_demuxers(rd);
     realmedia_register_all_demuxers(rd);
+    vivo_register_all_demuxers(rd);
 }
 
 /// Registers all known encoders.
