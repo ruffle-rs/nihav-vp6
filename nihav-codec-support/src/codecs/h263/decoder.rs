@@ -119,11 +119,13 @@ struct PredCoeffs {
 }
 
 const ZERO_PRED_COEFFS: PredCoeffs = PredCoeffs { hor: [[1024, 0, 0, 0, 0, 0, 0, 0]; 6], ver: [[1024, 0, 0, 0, 0, 0, 0, 0]; 6] };
+const ZERO_PRED_COEFFS2: PredCoeffs = PredCoeffs { hor: [[0x7FFF, 0, 0, 0, 0, 0, 0, 0]; 6], ver: [[0x7FFF, 0, 0, 0, 0, 0, 0, 0]; 6] };
 
 pub const H263DEC_OPT_USES_GOB: u32     = 0x0001;
 pub const H263DEC_OPT_SLICE_RESET: u32  = 0x0002;
 pub const H263DEC_OPT_HAS_B_FRAMES: u32 = 0x0004;
 pub const H263DEC_OPT_HAS_OBMC: u32     = 0x0008;
+pub const H263DEC_OPT_PRED_QUANT: u32   = 0x0010;
 
 pub struct H263BaseDecoder {
     w:          usize,
@@ -147,6 +149,7 @@ pub struct H263BaseDecoder {
     blk:        [[i16; 64]; 6],
     obmc_buf:   NAVideoBufferRef<u8>,
     obmc_blk:   Vec<(Type, BMB)>,
+    pred_quant: bool,
 }
 
 #[inline]
@@ -170,6 +173,7 @@ impl H263BaseDecoder {
         let slice_reset         = (options & H263DEC_OPT_SLICE_RESET) != 0;
         let may_have_b_frames   = (options & H263DEC_OPT_HAS_B_FRAMES) != 0;
         let has_obmc            = (options & H263DEC_OPT_HAS_OBMC) != 0;
+        let pred_quant          = (options & H263DEC_OPT_PRED_QUANT) != 0;
 
         let vbuf = alloc_video_buffer(NAVideoInfo::new(64, 64, false, YUV420_FORMAT), 4).unwrap();
         let obmc_buf = vbuf.get_vbuf().unwrap();
@@ -183,6 +187,7 @@ impl H263BaseDecoder {
             pred_coeffs: Vec::new(),
             is_gob, slice_reset,
             may_have_b_frames, has_obmc,
+            pred_quant,
             mv_data: Vec::new(),
             blk: [[0; 64]; 6],
             obmc_buf,
@@ -277,6 +282,97 @@ impl H263BaseDecoder {
                 };
                 for t in 0..8 { self.pred_coeffs[mb_pos].hor[i][t] = self.blk[i][t * 8]; }
                 for t in 0..8 { self.pred_coeffs[mb_pos].ver[i][t] = self.blk[i][t]; }
+            }
+            bdsp.idct(&mut self.blk[i]);
+        }
+        Ok(())
+    }
+    fn decode_intra_mb_pred_quant(&mut self, bd: &mut dyn BlockDecoder, bdsp: &dyn BlockDSP, mb_pos: usize, binfo: &BlockInfo, sstate: &SliceState, apply_acpred: bool) -> DecoderResult<()> {
+        for i in 0..6 {
+            bd.decode_block_intra(&binfo, &sstate, binfo.get_q(), i, (binfo.cbp & (1 << (5 - i))) != 0, &mut self.blk[i])?;
+            let q = if binfo.get_q() < 8 {
+                    8
+                } else {
+                    i16::from(binfo.get_q() * 2)
+                };
+            let quant_gray = 1024 / q;
+            if apply_acpred && (binfo.acpred != ACPredMode::None) {
+                let has_b = (i == 1) || (i == 3) || !sstate.first_mb;
+                let has_a = (i == 2) || (i == 3) || !sstate.first_line;
+                let (b_mb, b_blk) = if has_b {
+                        if (i == 1) || (i == 3) {
+                            (mb_pos, i - 1)
+                        } else if i < 4 {
+                            (mb_pos - 1, i + 1)
+                        } else {
+                            (mb_pos - 1, i)
+                        }
+                    } else { (0, 0) };
+                let (a_mb, a_blk) = if has_a {
+                        if (i == 2) || (i == 3) {
+                            (mb_pos, i - 2)
+                        } else if i < 4 {
+                            (mb_pos - self.mb_w, i + 2)
+                        } else {
+                            (mb_pos - self.mb_w, i)
+                        }
+                    } else { (0, 0) };
+                let dc_a = if has_a && self.pred_coeffs[a_mb].ver[a_blk][0] != 0x7FFF {
+                        self.pred_coeffs[a_mb].ver[a_blk][0]
+                    } else {
+                        quant_gray
+                    };
+                let dc_b = if has_b && self.pred_coeffs[b_mb].hor[b_blk][0] != 0x7FFF {
+                        self.pred_coeffs[b_mb].hor[b_blk][0]
+                    } else {
+                        quant_gray
+                    };
+                let dc = match binfo.acpred {
+                    ACPredMode::DC   => {
+                                if has_a && has_b {
+                                    (dc_a + dc_b + 1) >> 1
+                                } else if has_a {
+                                    dc_a
+                                } else if has_b {
+                                    dc_b
+                                } else {
+                                    quant_gray
+                                }
+                            },
+                    ACPredMode::Hor  => {
+                            if has_b {
+                                for k in 1..8 {
+                                    self.blk[i][k * 8] += self.pred_coeffs[b_mb].hor[b_blk][k];
+                                }
+                                for k in 1..8 {
+                                    self.blk[i][k * 8] = clip_ac(self.blk[i][k * 8]);
+                                }
+                                dc_b
+                            } else {
+                                quant_gray
+                            }
+                        },
+                    ACPredMode::Ver  => {
+                            if has_a {
+                                for k in 1..8 {
+                                    self.blk[i][k] += self.pred_coeffs[a_mb].ver[a_blk][k];
+                                }
+                                for k in 1..8 {
+                                    self.blk[i][k] = clip_ac(self.blk[i][k]);
+                                }
+                                dc_a
+                            } else {
+                                quant_gray
+                            }
+                        },
+                    ACPredMode::None => { 0 },
+                };
+                self.blk[i][0] += dc;
+                for t in 0..8 { self.pred_coeffs[mb_pos].hor[i][t] = self.blk[i][t * 8]; }
+                for t in 0..8 { self.pred_coeffs[mb_pos].ver[i][t] = self.blk[i][t]; }
+            }
+            if apply_acpred {
+                self.blk[i][0] *= q;
             }
             bdsp.idct(&mut self.blk[i]);
         }
@@ -471,7 +567,11 @@ impl H263BaseDecoder {
         let apply_acpred = /*(pinfo.mode == Type::I) && */pinfo.plusinfo.is_some() && pinfo.plusinfo.unwrap().aic;
         if apply_acpred {
             self.pred_coeffs.truncate(0);
-            self.pred_coeffs.resize(self.mb_w * self.mb_h, ZERO_PRED_COEFFS);
+            if !self.pred_quant {
+                self.pred_coeffs.resize(self.mb_w * self.mb_h, ZERO_PRED_COEFFS);
+            } else {
+                self.pred_coeffs.resize(self.mb_w * self.mb_h, ZERO_PRED_COEFFS2);
+            }
         }
         sstate.quant = slice.quant;
         let mut obmc_start = 0;
@@ -507,7 +607,11 @@ impl H263BaseDecoder {
                     if save_b_data {
                         self.mv_data.push(BlockMVInfo::Intra);
                     }
-                    self.decode_intra_mb(bd, bdsp, mb_pos, &binfo, &sstate, apply_acpred)?;
+                    if !self.pred_quant {
+                        self.decode_intra_mb(bd, bdsp, mb_pos, &binfo, &sstate, apply_acpred)?;
+                    } else {
+                        self.decode_intra_mb_pred_quant(bd, bdsp, mb_pos, &binfo, &sstate, apply_acpred)?;
+                    }
                     blockdsp::put_blocks(&mut buf, mb_x, mb_y, &self.blk);
                     mvi.set_zero_mv(mb_x);
                     if is_b {
