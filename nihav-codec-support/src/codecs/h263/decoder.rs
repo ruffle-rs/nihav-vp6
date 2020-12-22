@@ -295,6 +295,7 @@ impl H263BaseDecoder {
                 } else {
                     i16::from(binfo.get_q() * 2)
                 };
+            let qadd = (q + 1) >> 1;
             let quant_gray = 1024 / q;
             if apply_acpred && (binfo.acpred != ACPredMode::None) {
                 let has_b = (i == 1) || (i == 3) || !sstate.first_mb;
@@ -372,7 +373,19 @@ impl H263BaseDecoder {
                 for t in 0..8 { self.pred_coeffs[mb_pos].ver[i][t] = self.blk[i][t]; }
             }
             if apply_acpred {
-                self.blk[i][0] *= q;
+                let start = if binfo.get_q() < 8 {
+                        self.blk[i][0] <<= 3;
+                        1
+                    } else {
+                        0
+                    };
+                for el in self.blk[i].iter_mut().skip(start) {
+                    if *el > 0 {
+                        *el = *el * q + qadd;
+                    } else if *el < 0 {
+                        *el = *el * q - qadd;
+                    }
+                }
             }
             bdsp.idct(&mut self.blk[i]);
         }
