@@ -20,13 +20,42 @@ struct Tables {
     mv_cb:          Codebook<u8>,
 }
 
-struct VivoBlockDSP {}
+struct VivoBlockDSP {
+    dct_tab:        [[f64; 64]; 64],
+}
 
-impl VivoBlockDSP { fn new() -> Self { Self {} } }
+fn gen_coef(i: usize, j: usize) -> f64 {
+    if i == 0 {
+        1.0 / 8.0f64.sqrt()
+    } else {
+        (((j as f64) + 0.5) * (i as f64) * std::f64::consts::PI / 8.0).cos() * 0.5
+    }
+}
+
+impl VivoBlockDSP {
+    fn new() -> Self {
+        let mut dct_tab = [[0.0; 64]; 64];
+        for i in 0..8 {
+            for j in 0..8 {
+                for k in 0..8 {
+                    for l in 0..8 {
+                        let c0 = gen_coef(i, k);
+                        let c1 = gen_coef(j, l);
+                        let c = c0 * c1 * 64.0;
+                        dct_tab[i * 8 + j][k * 8 + l] = c;
+                    }
+                }
+            }
+        }
+        Self {
+            dct_tab
+        }
+    }
+}
 
 #[allow(clippy::erasing_op)]
 #[allow(clippy::identity_op)]
-fn deblock_hor(buf: &mut [u8], off: usize, stride: usize, clip_tab: &[i16; 64]) {
+fn deblock_hor(buf: &mut [u8], stride: usize, off: usize, clip_tab: &[i16; 64]) {
     for x in 0..8 {
         let p1 = i16::from(buf[off - 2 * stride + x]);
         let p0 = i16::from(buf[off - 1 * stride + x]);
@@ -42,7 +71,7 @@ fn deblock_hor(buf: &mut [u8], off: usize, stride: usize, clip_tab: &[i16; 64]) 
 }
 
 #[allow(clippy::identity_op)]
-fn deblock_ver(buf: &mut [u8], off: usize, stride: usize, clip_tab: &[i16; 64]) {
+fn deblock_ver(buf: &mut [u8], stride: usize, off: usize, clip_tab: &[i16; 64]) {
     for y in 0..8 {
         let p1 = i16::from(buf[off - 2 + y * stride]);
         let p0 = i16::from(buf[off - 1 + y * stride]);
@@ -74,7 +103,18 @@ fn gen_clip_tab(clip_tab: &mut [i16; 64], q: u8) {
 
 impl BlockDSP for VivoBlockDSP {
     fn idct(&self, blk: &mut [i16; 64]) {
-        h263_annex_w_idct(blk);
+        let mut tmp = [0i32; 64];
+        for (i, &el) in blk.iter().enumerate() {
+            if el != 0 {
+                let cmat = self.dct_tab[i];
+                for (dst, &src) in tmp.iter_mut().zip(cmat.iter()) {
+                    *dst += (src * (el as f64)) as i32;
+                }
+            }
+        }
+        for (dst, &src) in blk.iter_mut().zip(tmp.iter()) {
+            *dst = ((src + 0x20) >> 6) as i16;
+        }
     }
     fn copy_blocks(&self, dst: &mut NAVideoBuffer<u8>, src: NAVideoBufferRef<u8>, xpos: usize, ypos: usize, mv: MV) {
         let mode = ((mv.x & 1) + (mv.y & 1) * 2) as usize;
@@ -147,106 +187,63 @@ impl BlockDSP for VivoBlockDSP {
         let mut last_q = 0;
         let mut off = yoff;
         for mb_x in 0..mb_w {
-            let coff = off;
-            let coded0 = cbpi.is_coded(mb_x, 0);
-            let coded1 = cbpi.is_coded(mb_x, 1);
             let q = cbpi.get_q(mb_w + mb_x);
             if q != last_q {
                 gen_clip_tab(&mut clip_tab, q);
                 last_q = q;
             }
             if mb_y != 0 {
-                if coded0 && cbpi.is_coded_top(mb_x, 0) {
-                    deblock_hor(buf, ystride, coff, &clip_tab);
-                }
-                if coded1 && cbpi.is_coded_top(mb_x, 1) {
-                    deblock_hor(buf, ystride, coff + 8, &clip_tab);
-                }
+                deblock_hor(buf, ystride, off, &clip_tab);
+                deblock_hor(buf, ystride, off + 8, &clip_tab);
             }
-            let coff = off + 8 * ystride;
-            if cbpi.is_coded(mb_x, 2) && coded0 {
-                deblock_hor(buf, ystride, coff, &clip_tab);
-            }
-            if cbpi.is_coded(mb_x, 3) && coded1 {
-                deblock_hor(buf, ystride, coff + 8, &clip_tab);
-            }
+            deblock_hor(buf, ystride, off + 8 * ystride, &clip_tab);
+            deblock_hor(buf, ystride, off + 8 * ystride + 8, &clip_tab);
             off += 16;
         }
-        let mut leftt = false;
-        let mut leftc = false;
         let mut off = yoff;
         for mb_x in 0..mb_w {
-            let ctop0 = cbpi.is_coded_top(mb_x, 0);
-            let ctop1 = cbpi.is_coded_top(mb_x, 0);
-            let ccur0 = cbpi.is_coded(mb_x, 0);
-            let ccur1 = cbpi.is_coded(mb_x, 1);
             let q = cbpi.get_q(mb_w + mb_x);
             if q != last_q {
                 gen_clip_tab(&mut clip_tab, q);
                 last_q = q;
             }
             if mb_y != 0 {
-                let coff = off - 8 * ystride;
                 let qtop = cbpi.get_q(mb_x);
                 if qtop != last_q {
                     gen_clip_tab(&mut clip_tab, qtop);
                     last_q = qtop;
                 }
-                if leftt && ctop0 {
-                    deblock_ver(buf, ystride, coff, &clip_tab);
+                if mb_x != 0 {
+                    deblock_ver(buf, ystride, off - 8 * ystride, &clip_tab);
                 }
-                if ctop0 && ctop1 {
-                    deblock_ver(buf, ystride, coff + 8, &clip_tab);
-                }
+                deblock_ver(buf, ystride, off - 8 * ystride + 8, &clip_tab);
             }
-            if leftc && ccur0 {
+            if mb_x != 0 {
                 deblock_ver(buf, ystride, off, &clip_tab);
-            }
-            if ccur0 && ccur1 {
                 deblock_ver(buf, ystride, off + 8, &clip_tab);
             }
-            leftt = ctop1;
-            leftc = ccur1;
             off += 16;
         }
         if mb_y != 0 {
             for mb_x in 0..mb_w {
-                let ctu = cbpi.is_coded_top(mb_x, 4);
-                let ccu = cbpi.is_coded(mb_x, 4);
-                let ctv = cbpi.is_coded_top(mb_x, 5);
-                let ccv = cbpi.is_coded(mb_x, 5);
                 let q = cbpi.get_q(mb_w + mb_x);
                 if q != last_q {
                     gen_clip_tab(&mut clip_tab, q);
                     last_q = q;
                 }
-                if ctu && ccu {
-                    deblock_hor(buf, ustride, uoff + mb_x * 8, &clip_tab);
-                }
-                if ctv && ccv {
-                    deblock_hor(buf, vstride, voff + mb_x * 8, &clip_tab);
-                }
+                deblock_hor(buf, ustride, uoff + mb_x * 8, &clip_tab);
+                deblock_hor(buf, vstride, voff + mb_x * 8, &clip_tab);
             }
-            let mut leftu = false;
-            let mut leftv = false;
             let offu = uoff - 8 * ustride;
             let offv = voff - 8 * vstride;
-            for mb_x in 0..mb_w {
-                let ctu = cbpi.is_coded_top(mb_x, 4);
-                let ctv = cbpi.is_coded_top(mb_x, 5);
+            for mb_x in 1..mb_w {
                 let qt = cbpi.get_q(mb_x);
                 if qt != last_q {
                     gen_clip_tab(&mut clip_tab, qt);
                     last_q = qt;
                 }
-                if leftu && ctu {
-                    deblock_ver(buf, ustride, offu + mb_x * 8, &clip_tab);
-                }
-                if leftv && ctv {
-                    deblock_ver(buf, vstride, offv + mb_x * 8, &clip_tab);
-                }
-                leftu = ctu;
-                leftv = ctv;
+                deblock_ver(buf, ustride, offu + mb_x * 8, &clip_tab);
+                deblock_ver(buf, vstride, offv + mb_x * 8, &clip_tab);
             }
         }
     }
@@ -312,8 +309,8 @@ impl<'a> VivoBR<'a> {
                 };
 
         let rl_cb = if self.aic && intra { &self.tables.aic_rl_cb } else { &self.tables.rl_cb };
-        let q = i16::from(quant * 2);
-        let q_add = if q == 0 || self.aic { 0i16 } else { (((q >> 1) - 1) | 1) as i16 };
+        let q = i16::from(quant) * 2;
+        let q_add = q >> 1;
         while idx < 64 {
             let code = br.read_cb(rl_cb)?;
             let run;
@@ -324,7 +321,7 @@ impl<'a> VivoBR<'a> {
                 level = code.get_level();
                 last  = code.is_last();
                 if br.read_bool()? { level = -level; }
-                if !intra || idx != 0 {
+                if !intra || !self.aic {
                     if level >= 0 {
                         level = (level * q) + q_add;
                     } else {
@@ -340,7 +337,7 @@ impl<'a> VivoBR<'a> {
                     let top = br.read_s(6)? as i16;
                     level = (top << 5) | low;
                 }
-                if !intra || idx != 0 {
+                if !intra || !self.aic {
                     if level >= 0 {
                         level = (level * q) + q_add;
                     } else {
@@ -431,11 +428,12 @@ impl<'a> BlockDecoder for VivoBR<'a> {
             sfmt = br.read(3)?;
             validate!(sfmt != 0b000 && sfmt != 0b110);
             aic = br.read_bool()?;
-            br.read(1)?; // umv mode
             deblock = br.read_bool()?;
-            br.read(3)?; // unknown flags
-            pbplus = br.read_bool()?;
             br.read(4)?; // unknown flags
+            pbplus = br.read_bool()?;
+            br.read(1)?; // unknown flag
+            let _interlaced = br.read_bool()?;
+            br.read(2)?; // unknown flags
         } else {
             aic = false;
             deblock = false;
