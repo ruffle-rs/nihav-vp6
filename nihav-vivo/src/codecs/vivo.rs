@@ -736,9 +736,25 @@ mod test {
         let mut dec_reg = RegisteredDecoders::new();
         vivo_register_all_decoders(&mut dec_reg);
 
-test_file_decoding("vivo", "assets/Misc/gr_al.viv", Some(16), true, false, Some("viv1"), &dmx_reg, &dec_reg);
-//        test_decoding("vivo", "vivo1", "assets/Misc/gr_al.viv", Some(16),
-//                      &dmx_reg, &dec_reg, ExpectedTestResult::GenerateMD5Frames));
+        test_decoding("vivo", "vivo1", "assets/Misc/gr_al.viv", Some(16),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x59ea0837, 0xdf9b5ca3, 0x73cd45c3, 0xaaf2fbf1],
+                            [0x5d21c5a0, 0xfb335c4f, 0xe30945e9, 0xec65d54f],
+                            [0x46916c45, 0x406f1019, 0xba0105e0, 0xfccd0aab],
+                            [0x11006812, 0xb8e8c959, 0x5f69950b, 0x3578db5e],
+                            [0xd0b84c1e, 0xad327825, 0x4a98dbbe, 0x48edc280],
+                            [0xe1be71a4, 0xc7649922, 0x949496a6, 0xed697d09],
+                            [0x0ed9deea, 0x3e9b9784, 0x4836e38b, 0x363f8108],
+                            [0x358f2581, 0x95e6b290, 0x35ffde28, 0x003fa23e],
+                            [0x482385bd, 0x43bb7cee, 0xf1900758, 0x3b5f1255],
+                            [0x91d7549f, 0x96976ef4, 0xb2920f71, 0x71c7a9a6],
+                            [0x95736d4f, 0x56748245, 0x5733bd5d, 0x20eacf6d],
+                            [0xb5045185, 0x55dbe063, 0xb1c96f24, 0xe5d78296],
+                            [0xa88cadf4, 0xedc4a0aa, 0xbb359ed8, 0x1ea28916],
+                            [0x4d9f9491, 0x13d29319, 0x57aef355, 0x7e0c9e0b],
+                            [0xc3b52284, 0xabb74a4b, 0xf03c9503, 0x834d149e],
+                            [0x35fc95d0, 0x0f583ef0, 0xb176f055, 0xb587839a],
+                            [0xd5e3b443, 0x3b11b285, 0x78ec3098, 0xe2109aaa]]));
     }
     #[test]
     fn test_vivo2() {
@@ -747,9 +763,64 @@ test_file_decoding("vivo", "assets/Misc/gr_al.viv", Some(16), true, false, Some(
         let mut dec_reg = RegisteredDecoders::new();
         vivo_register_all_decoders(&mut dec_reg);
 
-test_file_decoding("vivo", "assets/Misc/02-KimagureOrangeRoad.viv", Some(50), true, false, Some("viv2"), &dmx_reg, &dec_reg);
-panic!("end");
-//        test_decoding("vivo", "vivo2", "assets/Misc/greetings.viv", Some(16),
-//                      &dmx_reg, &dec_reg, ExpectedTestResult::GenerateMD5Frames));
+        test_decoding("vivo", "vivo2", "assets/Misc/02-KimagureOrangeRoad.viv", Some(56),
+                      &dmx_reg, &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0x73f2afc2, 0x1cc43762, 0xbcfa886d, 0x7e607dd1],
+                            [0x45652ef5, 0x7c03046c, 0xcef60a62, 0x4a1e8f24],
+                            [0x09f6557e, 0x852cf108, 0x13dbb6ff, 0xaa8667e9],
+                            [0x3668d658, 0xfdc37a56, 0x267cb690, 0xa33924ee],
+                            [0x0ad13447, 0x26315ca3, 0xfbf43f79, 0xc3951941],
+                            [0x8c870462, 0x9135c664, 0x586accfa, 0xfe6d9113],
+                            [0x26b08477, 0xcdef5073, 0x86899b3c, 0x0d911f1d],
+                            [0x7db88b9c, 0x780729bb, 0xe3195f66, 0xb4f2e7e7],
+                            [0x9008ed4e, 0x29b05b6c, 0x3f8a2c23, 0x6d396334],
+                            [0xa255e91b, 0x324b764b, 0x265a08ea, 0x0a5a6ae7],
+                            [0xf2110e23, 0x8fa53178, 0x675c32cb, 0x63ba9297],
+                            [0xbe0bb384, 0xde08646e, 0x45d3530c, 0xd5cdf571],
+                            [0xfa19949a, 0xb9e12931, 0xcaa98f06, 0xa284718a],
+                            [0x9b1472e5, 0x2d18472c, 0xd5419a58, 0xff16d619],
+                            [0xeecd4532, 0xa6301dcc, 0x6eed2b15, 0xa456cae0],
+                            [0xb58b2bb8, 0x1c07bd9a, 0x1913e1c3, 0xa1f4fdc2],
+                            [0x51b6bef2, 0xd155d675, 0xaba07c15, 0xcf0a673e],
+                            [0x3c607ce6, 0x3a203449, 0xdda5b7a0, 0x9119b738],
+                            [0x7e7bae10, 0x4beb488e, 0x33db98bb, 0x8b49311e],
+                            [0xfff04316, 0xe29afa50, 0xa6f0c921, 0x5b0d29e2],
+                            [0xe640595a, 0x98bb55a4, 0x50c0a1e5, 0xe4970206],
+                            [0x63873ec7, 0x03a5fd08, 0xe3154f25, 0xb4ed64c2],
+                            [0xfa792148, 0x7efebf2c, 0x88d91825, 0x9dce368d],
+                            [0x5ed17368, 0x0e056059, 0x2c872282, 0xe5a98237],
+                            [0xd7ed6bd6, 0x01414003, 0x5187d790, 0x0af5b029],
+                            [0x2991a9c6, 0x8e2dda24, 0xfbf79bbb, 0xbcbfc672],
+                            [0xf2d23c64, 0xeb7e6094, 0x70a54901, 0x6d9d0204],
+                            [0x54997451, 0xb4edb3c0, 0x5a873e8f, 0xe89d7aa6],
+                            [0x94325a5f, 0xe0feb4b3, 0x2b1860bc, 0xc6b6a1a4],
+                            [0x8fd428de, 0x17f14f9f, 0x94c8d0da, 0xf9feda90],
+                            [0xed90d455, 0x22745327, 0x0ac511f1, 0x2dc2c29e],
+                            [0xc50ac6c1, 0xc9eaf8ec, 0x5d9dc7f3, 0x4e55fd09],
+                            [0x51325c40, 0xa7c01917, 0xdc064cc6, 0x143badc1],
+                            [0x3fc207ee, 0x2c4b0f91, 0x66555499, 0xdf6dc148],
+                            [0xd6e7fa33, 0x68ba6ce9, 0x45cac834, 0x1d51b094],
+                            [0x1ed541a8, 0x8dd0cc41, 0x149024d4, 0x13777a2e],
+                            [0x7fcbd065, 0xb20e068f, 0x9a5e3ed5, 0x6c35dded],
+                            [0x07ea66c1, 0xbfadea3b, 0x07bb6580, 0xf40d7d2f],
+                            [0x2e0fe75e, 0xa03d3011, 0x539c097d, 0x95fb265c],
+                            [0x2f177f09, 0x63b7172a, 0xb0fdd893, 0xcab516cf],
+                            [0x7cc5a956, 0xcd1ecff1, 0xf927038c, 0xa0610b48],
+                            [0xc0518934, 0xf5c38e4b, 0x7fa255cd, 0x9b054c5b],
+                            [0x0551de82, 0x08253d6b, 0x9144ced8, 0xc5adda55],
+                            [0xf45735b5, 0x3f2e2111, 0x54d1ff16, 0xe4866157],
+                            [0x0aad101e, 0xd37001f4, 0xd5734080, 0xfa4cf449],
+                            [0x65318bdd, 0x68809e67, 0x1e27946a, 0x2ca977e5],
+                            [0x119cf864, 0x8834473e, 0x721a253e, 0x4e417f19],
+                            [0x0d887145, 0xa42a05cc, 0x64a4388e, 0xa05de81d],
+                            [0xc184105a, 0x71ac7a8e, 0xaab0dba5, 0x078a331e],
+                            [0x078827ea, 0x27670e40, 0x92be9ebb, 0x0fc1f5a0],
+                            [0x8c82ca58, 0xbae0a643, 0x845afc5b, 0x15052a84],
+                            [0x92065c13, 0x69d3f6b7, 0x7270aab9, 0xb80921fd],
+                            [0xa58536b5, 0x6c46d7e1, 0x5f07f282, 0x350900e9],
+                            [0x13bf3f52, 0x71f8aa99, 0x97e0aaa5, 0xd6c1cff5],
+                            [0xa760cf95, 0xeb33c24c, 0x8dd35c6a, 0x4d81c8b5],
+                            [0x50f68b90, 0x41b1f1a0, 0x9847b3ec, 0x1cab5ccc],
+                            [0xbd71de9e, 0xc097b4ac, 0x003ab1e5, 0x9394b5bd]]));
     }
 }
