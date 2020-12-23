@@ -635,7 +635,7 @@ mod test {
             let l = data[off0];
             let r = data[off1];
             assert_eq!(l, 7445);
-            assert_eq!(r, -19943);
+            assert_eq!(r, -19505);
         } else {
             panic!("wrong buffer type");
         }
