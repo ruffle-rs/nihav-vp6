@@ -360,9 +360,9 @@ fn decode_value_3910(rc: &mut ARangeCoder, rice: &mut RiceParams) -> i32 {
     let base = if k <= 16 {
             rc.decode_bits(k)
         } else if k <= 32 {
-            let low = rc.decode_bits(k);
+            let low = rc.decode_bits(16);
             let high = rc.decode_bits(k - 16);
-            (high << (k - 16)) | low
+            (high << 16) | low
         } else {
             rc.error = true;
             return 0;
