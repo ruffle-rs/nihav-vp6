@@ -307,6 +307,90 @@ fn copyadd_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
     }
 }
 
+fn copy_block_w(dst: &mut WFrame, src: &NAVideoBuffer<u8>,
+                plane: usize, x: usize, y: usize, dx: isize, dy: isize,
+                size: usize, weights: &[[Vec<u8>; 9]])
+{
+    let sx: isize = (x as isize) + dx;
+    let sy: isize = (y as isize) + dy;
+
+    let (w, h)      = src.get_dimensions(plane);
+    let sstride     = src.get_stride(plane);
+    let mut soff    = src.get_offset(plane) + (sx as usize) + (sy as usize) * sstride;
+    let sdta        = src.get_data();
+    let sbuf: &[u8] = sdta.as_slice();
+    let dstride     = dst.stride[plane];
+    let mut doff    = x + y * dstride;
+    let dbuf = &mut dst.data[plane];
+
+    let m1 = if x > 0 { if x + size < w { 0 } else { 2 } } else { 1 };
+    let m0 = if y > 0 { if y + size < h { 0 } else { 2 } } else { 1 };
+    let weight = &weights[size.trailing_zeros() as usize][m0 * 3 + m1];
+    let blk_w = if m1 != 0 { size + 1 } else { size + 2 };
+    let blk_h = if m0 != 0 { size + 1 } else { size + 2 };
+    if m1 != 1 {
+        soff -= 1;
+        doff -= 1;
+    }
+    if m0 != 1 {
+        soff -= sstride;
+        doff -= dstride;
+    }
+
+    let mut cur_w = weight.iter();
+    for _y in 0..blk_h {
+        for x in 0..blk_w {
+            let scale = u32::from(*cur_w.next().unwrap());
+            let src = u32::from(sbuf[soff + x]);
+            dbuf[doff + x] += scale | ((src * scale) << 8);
+        }
+        soff += sstride;
+        doff += dstride;
+    }
+}
+
+fn copyadd_block_w(dst: &mut WFrame, src: &NAVideoBuffer<u8>,
+                   plane: usize, x: usize, y: usize, dx: isize, dy: isize,
+                   size: usize, bias: i16, weights: &[[Vec<u8>; 9]])
+{
+    let sx: isize = (x as isize) + dx;
+    let sy: isize = (y as isize) + dy;
+
+    let (w, h)      = src.get_dimensions(plane);
+    let sstride     = src.get_stride(plane);
+    let mut soff    = src.get_offset(plane) + (sx as usize) + (sy as usize) * sstride;
+    let sdta        = src.get_data();
+    let sbuf: &[u8] = sdta.as_slice();
+    let dstride     = dst.stride[plane];
+    let mut doff    = x + y * dstride;
+    let dbuf = &mut dst.data[plane];
+
+    let m1 = if x > 0 { if x + size < w { 0 } else { 2 } } else { 1 };
+    let m0 = if y > 0 { if y + size < h { 0 } else { 2 } } else { 1 };
+    let weight = &weights[size.trailing_zeros() as usize][m0 * 3 + m1];
+    let blk_w = if m1 != 0 { size + 1 } else { size + 2 };
+    let blk_h = if m0 != 0 { size + 1 } else { size + 2 };
+    if m1 != 1 {
+        soff -= 1;
+        doff -= 1;
+    }
+    if m0 != 1 {
+        soff -= sstride;
+        doff -= dstride;
+    }
+
+    let mut cur_w = weight.iter();
+    for _y in 0..blk_h {
+        for x in 0..blk_w {
+            let scale = u32::from(*cur_w.next().unwrap());
+            let val = (i16::from(sbuf[soff + x]) + bias).max(0).min(255) as u32;
+            dbuf[doff + x] += scale | ((val * scale) << 8);
+        }
+        soff += sstride;
+        doff += dstride;
+    }
+}
+
 fn tile_do_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
                  plane: usize, x: usize, y: usize, dx: i16, dy: i16, size: usize, bias: i16)
 {
@@ -314,6 +398,16 @@ fn tile_do_block(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>,
         copy_block(dst, src, plane, x, y, dx as isize, dy as isize, size);
     } else {
         copyadd_block(dst, src, plane, x, y, dx as isize, dy as isize, size, bias);
+    }
+}
+
+fn tile_do_block_w(dst: &mut WFrame, src: &NAVideoBuffer<u8>,
+                 plane: usize, x: usize, y: usize, dx: i16, dy: i16, size: usize, bias: i16, weights: &[[Vec<u8>; 9]])
+{
+    if bias == 0 {
+        copy_block_w(dst, src, plane, x, y, dx as isize, dy as isize, size, weights);
+    } else {
+        copyadd_block_w(dst, src, plane, x, y, dx as isize, dy as isize, size, bias, weights);
     }
 }
 
@@ -333,6 +427,27 @@ fn restore_tree(dst: &mut NAVideoBuffer<u8>, src: &NAVideoBuffer<u8>, plane: usi
                 restore_tree(dst, src, plane, x + xoff, y + yoff, hsize, subtile, root_mv);
             } else {
                 tile_do_block(dst, src, plane, x + xoff, y + yoff, mv.x, mv.y, hsize, tile.bias);
+            }
+        }
+    }
+}
+
+fn restore_tree_weighted(dst: &mut WFrame, src: &NAVideoBuffer<u8>, plane: usize,
+                x: usize, y: usize, size: usize, tile: &TileInfo, root_mv: MV, weights: &[[Vec<u8>; 9]]) {
+    let mv = root_mv + tile.mv;
+
+    if tile.flags == 0 {
+        tile_do_block_w(dst, src, plane, x, y, mv.x, mv.y, size, tile.bias, weights);
+    } else {
+        let hsize = size >> 1;
+        for i in 0..4 {
+            let xoff = if (i & 2) == 0 { 0 } else { hsize };
+            let yoff = if (i & 1) == 0 { 0 } else { hsize };
+
+            if let Some(ref subtile) = tile.child[i] {
+                restore_tree_weighted(dst, src, plane, x + xoff, y + yoff, hsize, subtile, root_mv, weights);
+            } else {
+                tile_do_block_w(dst, src, plane, x + xoff, y + yoff, mv.x, mv.y, hsize, tile.bias, weights);
             }
         }
     }
@@ -368,6 +483,55 @@ fn extend_edges(buf: &mut NAVideoBuffer<u8>, tile_size: usize) {
     }
 }
 
+#[derive(Default)]
+struct WFrame {
+    data:   [Vec<u32>; 3],
+    stride: [usize; 3],
+}
+
+impl WFrame {
+    fn new() -> Self { Self::default() }
+    fn resize(&mut self, w: usize, h: usize, align: u8) {
+        let mask = (1 << align) - 1;
+        let wa = (w + mask) & !mask;
+        let ha = (h + mask) & !mask;
+        self.data[0].resize(wa * ha, 0);
+        self.stride[0] = wa;
+        self.data[1].resize(wa / 2 * ha / 2, 0);
+        self.stride[1] = wa / 2;
+        self.data[2].resize(wa / 2 * ha / 2, 0);
+        self.stride[2] = wa / 2;
+    }
+    fn clear(&mut self) {
+        for plane in self.data.iter_mut() {
+            for el in plane.iter_mut() {
+                *el = 0;
+            }
+        }
+    }
+    fn output(&self, buf: &mut NAVideoBuffer<u8>) {
+        for plane in 0..3 {
+            let (w, h) = buf.get_dimensions(plane);
+            let dstride = buf.get_stride(plane);
+            let doff = buf.get_offset(plane);
+            let ddta = buf.get_data_mut().unwrap();
+            for (dst, src) in ddta[doff..].chunks_mut(dstride).take(h).zip(self.data[plane].chunks(self.stride[plane])) {
+                for (dst, &src) in dst.iter_mut().take(w).zip(src.iter()) {
+                    let scale = src & 0xFF;
+                    *dst = if scale == 0 {
+                            0
+                        } else if scale == 16 { // common case
+                            (src >> 12) as u8
+                        } else {
+                            let val = src >> 8;
+                            (val / scale) as u8
+                        };
+                }
+            }
+        }
+    }
+}
+
 #[allow(dead_code)]
 struct ClearVideoDecoder {
     info:    NACodecInfoRef,
@@ -379,6 +543,10 @@ struct ClearVideoDecoder {
     ulev:    [LevelCodes; 3],
     vlev:    [LevelCodes; 3],
     tsize:   u8,
+
+    weighted:   bool,
+    weights:    Vec<[Vec<u8>; 9]>,
+    wframe:     WFrame,
 }
 
 fn decode_dct_block(br: &mut BitReader, blk: &mut [i32; 64], ac_quant: i32, has_ac: bool,
@@ -518,6 +686,10 @@ impl ClearVideoDecoder {
                                     Some((CLV_BIASV_2_BITS, CLV_BIASV_2_CODES, CLV_BIASV_2_SYMS)), CLV_BIAS_ESCAPE),
                 ],
             tsize: 0,
+
+            weighted:   false,
+            weights:    Vec::new(),
+            wframe:     WFrame::new(),
         }
     }
 
@@ -585,6 +757,10 @@ impl ClearVideoDecoder {
         let mut mvi = MVInfo::new();
         mvi.reset(mb_w, mb_h, mb_size);
 
+        if self.weighted {
+            self.wframe.clear();
+        }
+
         for t_y in 0..mb_h {
             for t_x in 0..mb_w {
                 if !br.read_bool()? {
@@ -593,7 +769,11 @@ impl ClearVideoDecoder {
                     let size = 1 << self.tsize;
                     let tile = decode_tile_info(br, &self.ylev, 0)?;
                     let mv = mvi.predict(t_x, t_y, tile.mv);
-                    restore_tree(buf, prev, 0, x, y, size, &tile, mv);
+                    if !self.weighted {
+                        restore_tree(buf, prev, 0, x, y, size, &tile, mv);
+                    } else {
+                        restore_tree_weighted(&mut self.wframe, prev, 0, x, y, size, &tile, mv, &self.weights);
+                    }
                     let x = t_x << (self.tsize - 1);
                     let y = t_y << (self.tsize - 1);
                     let size = 1 << (self.tsize - 1);
@@ -601,9 +781,17 @@ impl ClearVideoDecoder {
                     cmv.x /= 2;
                     cmv.y /= 2;
                     let tile = decode_tile_info(br, &self.ulev, 0)?;
-                    restore_tree(buf, prev, 1, x, y, size, &tile, cmv);
+                    if !self.weighted {
+                        restore_tree(buf, prev, 1, x, y, size, &tile, cmv);
+                    } else {
+                        restore_tree_weighted(&mut self.wframe, prev, 1, x, y, size, &tile, cmv, &self.weights);
+                    }
                     let tile = decode_tile_info(br, &self.vlev, 0)?;
-                    restore_tree(buf, prev, 2, x, y, size, &tile, cmv);
+                    if !self.weighted {
+                        restore_tree(buf, prev, 2, x, y, size, &tile, cmv);
+                    } else {
+                        restore_tree_weighted(&mut self.wframe, prev, 2, x, y, size, &tile, cmv, &self.weights);
+                    }
                 } else {
                     let mv = mvi.predict(t_x, t_y, ZERO_MV);
                     for plane in 0..3 {
@@ -612,13 +800,80 @@ impl ClearVideoDecoder {
                         let size = if plane == 0 { 1 << self.tsize } else { 1 << (self.tsize - 1) };
                         let mx = if plane == 0 { mv.x as isize } else { (mv.x >> 1) as isize };
                         let my = if plane == 0 { mv.y as isize } else { (mv.y >> 1) as isize };
-                        copy_block(buf, prev, plane, x, y, mx, my, size);
+                        if !self.weighted {
+                            copy_block(buf, prev, plane, x, y, mx, my, size);
+                        } else {
+                            copy_block_w(&mut self.wframe, prev, plane, x, y, mx, my, size, &self.weights);
+                        }
                     }
                 }
             }
             mvi.update_row();
         }
+        if self.weighted {
+            self.wframe.output(buf);
+        }
         Ok(())
+    }
+}
+
+fn generate_weights(weights: &mut Vec<[Vec<u8>; 9]>, depth: u8) {
+    const WEIGHT2X2: [u8; 9] = [ 1, 2, 1, 2, 4, 2, 1, 2, 1];
+
+    for d in 0..=depth as usize {
+        let size = 1 << d;
+        let hsize = size >> 1;
+        let dsize = (size + 2) * (size + 2);
+        let mut cur_w = [Vec::with_capacity(dsize), Vec::with_capacity(dsize), Vec::with_capacity(dsize), Vec::with_capacity(dsize), Vec::with_capacity(dsize), Vec::with_capacity(dsize), Vec::with_capacity(dsize), Vec::with_capacity(dsize), Vec::with_capacity(dsize)];
+        for m0 in 0..3 {
+            let h = if m0 == 0 { size + 2 } else { size + 1 };
+            for m1 in 0..3 {
+                let w = if m1 == 0 { size + 2 } else { size + 1 };
+                let idx = m0 * 3 + m1;
+                if idx == 0 {
+                    if size == 1 {
+                        cur_w[0].extend_from_slice(&WEIGHT2X2);
+                    } else {
+                        cur_w[0].resize(w * h, 0);
+                        let mut idx0 = 0;
+                        let mut idx1 = (size + 2) * hsize;
+                        let mut ref_iter = weights[d - 1][0].iter();
+                        for _y in 0..(hsize + 2) {
+                            for _x in 0..(hsize + 2) {
+                                let ref_val = ref_iter.next().unwrap();
+                                cur_w[0][idx0]          += ref_val;
+                                cur_w[0][idx0 + hsize]  += ref_val;
+                                cur_w[0][idx1]          += ref_val;
+                                cur_w[0][idx1 + hsize]  += ref_val;
+                                idx0 += 1;
+                                idx1 += 1;
+                            }
+                            idx0 += hsize;
+                            idx1 += hsize;
+                        }
+                    }
+                } else {
+                    cur_w[idx].resize(w * h, 0);
+                    for y0 in 0..(size + 2) {
+                        let y = match m0 {
+                                0 => y0,
+                                1 => y0.saturating_sub(1),
+                                _ => y0.min(h - 1),
+                            };
+                        for x0 in 0..(size + 2) {
+                            let x = match m1 {
+                                    0 => x0,
+                                    1 => x0.saturating_sub(1),
+                                    _ => x0.min(w - 1),
+                                };
+                            let ref_val = cur_w[0][x0 + y0 * (size + 2)];
+                            cur_w[idx][x + y * w] += ref_val;
+                        }
+                    }
+                }
+            }
+        }
+        weights.push(cur_w);
     }
 }
 
@@ -650,6 +905,8 @@ impl NADecoder for ClearVideoDecoder {
                 let tile_size = br.read_u32be()?;
                 self.tsize = tile_size.trailing_zeros() as u8;
             }
+            generate_weights(&mut self.weights, self.tsize);
+            self.wframe.resize(w, h, self.tsize);
             Ok(())
         } else {
             Err(DecoderError::InvalidData)
@@ -672,6 +929,12 @@ impl NADecoder for ClearVideoDecoder {
             frm.set_frame_type(FrameType::Skip);
             return Ok(frm.into_ref());
         }
+
+        if (src[off] & 0xBF) == 5 {
+            // reset reference frame into grayscale
+            unimplemented!();
+        }
+        self.weighted = (src[off] & 0x40) != 0;
 
         let is_intra = (src[off] & 2) == 2;
         let mut br = BitReader::new(&src[(off + 1)..], BitReaderMode::BE);
@@ -748,6 +1011,36 @@ mod test {
                             [0x81a4a122, 0xb2b84bcf, 0xa478bd80, 0x12c78fb6],
                             [0xb5b43c22, 0xd9c457fa, 0xcc5390d8, 0x1201ef22],
                             [0x27a206e9, 0x88085556, 0x1114fb62, 0x77f1ebed]]));
+    }
+    #[test]
+    fn test_clv_ovl() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        generic_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        generic_register_all_decoders(&mut dec_reg);
+        test_decoding("avi", "clearvideo", "assets/Misc/Nick Pope.avi", Some(20), &dmx_reg,
+                     &dec_reg, ExpectedTestResult::MD5Frames(vec![
+                            [0xca265763, 0xd7d40e35, 0x1c27d4fb, 0xbb76b9c6],
+                            [0x42b4728b, 0x8299e532, 0xd9307741, 0xa94003ea],
+                            [0x065f605d, 0x0fcd6be9, 0x7acf00f5, 0xa153298a],
+                            [0x2c1dea59, 0xfca62495, 0x36e87c82, 0xd9e151b5],
+                            [0xa57764f6, 0x0ad30c15, 0x15e65687, 0x1e2b2359],
+                            [0x3d0498ae, 0x3b8a7743, 0x04639817, 0xd7b14313],
+                            [0xf41f3417, 0x8c542118, 0x4c762295, 0xfccc8a28],
+                            [0xdac4a37f, 0x0b42a976, 0xd9b3dc8e, 0xff21062f],
+                            [0x9078fac7, 0x69308953, 0x511942ff, 0x89139f72],
+                            [0xd24c8e85, 0x6c7eda39, 0x07369927, 0x47dc3800],
+                            [0xd5dd7838, 0x572d70d1, 0xae8a6631, 0xce7291b2],
+                            [0x7ce11730, 0x344443c7, 0xa7502185, 0x8940f0c4],
+                            [0x95f93bc1, 0x745b0e69, 0xd69c8208, 0x8bb5bf67],
+                            [0x3b9cf626, 0x33206f48, 0x2314f65b, 0x7833981b],
+                            [0x305578ee, 0x8824d091, 0x17c9510e, 0x2156ef06],
+                            [0xc1efdeaa, 0x79bd6381, 0x5816a81a, 0x902a47d9],
+                            [0xb7724ddb, 0x88dfe176, 0xf1eebfff, 0x16e500db],
+                            [0x86c5972d, 0x9a437142, 0x87189dd7, 0xa92f6bb8],
+                            [0xa60d9732, 0x3a570201, 0x499a5b4c, 0xf234426c],
+                            [0x4f62d7ef, 0x33b3c1cc, 0x6e0fa443, 0x66abe9d0],
+                            [0x7362b65a, 0xc064737b, 0x0e2d199d, 0xead4ca56]]));
     }
 }
 
