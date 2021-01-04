@@ -78,6 +78,8 @@ const ROOT_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"ftyp"), parse: read_ftyp },
     RootChunkHandler { ctype: mktag!(b"mdat"), parse: read_mdat },
     RootChunkHandler { ctype: mktag!(b"moov"), parse: read_moov },
+    RootChunkHandler { ctype: mktag!(b"moof"), parse: read_moof },
+    RootChunkHandler { ctype: mktag!(b"sidx"), parse: read_sidx },
 ];
 
 fn print_cname(ctype: u32, size: u64, off: u64, depth: u8) {
@@ -187,6 +189,10 @@ fn read_mdat(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
     Ok(size)
 }
 
+fn read_sidx(_dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, _size: u64) -> DemuxerResult<u64> {
+    Ok(0)
+}
+
 fn read_moov(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     dmx.read_moov(strmgr, size)?;
     Ok(size)
@@ -198,6 +204,7 @@ const MOOV_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"ctab"), parse: read_ctab },
     RootChunkHandler { ctype: mktag!(b"trak"), parse: read_trak },
     RootChunkHandler { ctype: mktag!(b"meta"), parse: read_meta },
+    RootChunkHandler { ctype: mktag!(b"mvex"), parse: read_mvex },
 ];
 
 fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
@@ -280,6 +287,10 @@ fn read_meta(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
     Ok(size)
 }
 
+fn read_mvex(_dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, _size: u64) -> DemuxerResult<u64> {
+    Ok(0)
+}
+
 fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
     let mut track = Track::new(dmx.cur_track as u32, dmx.tb_den);
     track.print_chunks = dmx.print_chunks;
@@ -287,14 +298,53 @@ fn read_trak(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> Dem
     validate!(track.tkhd_found && track.stsd_found);
     validate!(strmgr.get_stream_by_id(track.track_id).is_none());
     dmx.cur_track += 1;
-    let mut str = None;
-    std::mem::swap(&mut track.stream, &mut str);
-    if let Some(stream) = str {
-        let str_id = strmgr.add_stream(stream).unwrap();
-        track.track_str_id = str_id;
-    }
     dmx.tracks.push(track);
     Ok(size)
+}
+
+fn read_moof(dmx: &mut MOVDemuxer, strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
+    dmx.moof_off = dmx.src.tell() - 8;
+    dmx.read_moof(strmgr, size)?;
+    Ok(size)
+}
+
+const MOOF_CHUNK_HANDLERS: &[RootChunkHandler] = &[
+    RootChunkHandler { ctype: mktag!(b"mfhd"), parse: read_mfhd },
+    RootChunkHandler { ctype: mktag!(b"traf"), parse: read_traf },
+    RootChunkHandler { ctype: mktag!(b"meta"), parse: read_meta },
+];
+
+fn read_mfhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
+    const KNOWN_MFHD_SIZE: u64 = 8;
+    validate!(size >= KNOWN_MFHD_SIZE);
+    let version             = dmx.src.read_byte()?;
+    validate!(version == 0);
+    let flags               = dmx.src.read_u24be()?;
+    validate!(flags == 0);
+    let _seq_no             = dmx.src.read_u32be()?;
+
+    Ok(KNOWN_MFHD_SIZE)
+}
+
+fn read_traf(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
+    let mut buf = [0u8; 16];
+                              dmx.src.peek_buf(&mut buf)?;
+    validate!(&buf[4..8] == b"tfhd");
+    let track_id = read_u32be(&buf[12..16])?;
+    let mut track = None;
+    for trk in dmx.tracks.iter_mut() {
+        if trk.track_id == track_id {
+            track = Some(trk);
+            break;
+        }
+    }
+    if let Some(track) = track {
+        track.moof_off = dmx.moof_off;
+        track.read_traf(&mut dmx.src, size)?;
+        Ok(size)
+    } else {
+        Ok(0)
+    }
 }
 
 const TRAK_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
@@ -710,17 +760,7 @@ fn read_stts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
         let _count          = br.read_u32be()?;
         let tb_num          = br.read_u32be()?;
         validate!(tb_num != 0);
-        track.tb_div = tb_num;
-        if let Some(ref mut stream) = track.stream {
-            let tb_den = stream.tb_den;
-            let (tb_num, tb_den) = reduce_timebase(tb_num * stream.tb_num, tb_den);
-            stream.duration /= u64::from(track.tb_div);
-            stream.tb_num = tb_num;
-            stream.tb_den = tb_den;
-            track.tb_num = tb_num;
-            track.tb_den = tb_den;
-            track.duration /= track.tb_div;
-        }
+        track.rescale(tb_num);
     } else {
         track.time_to_sample.truncate(0);
         track.time_to_sample.reserve(entries);
@@ -836,6 +876,135 @@ fn read_ctts(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
     Ok(size)
 }
 
+const TRAF_CHUNK_HANDLERS: &[TrackChunkHandler] = &[
+    TrackChunkHandler { ctype: mktag!(b"tfhd"), parse: read_tfhd },
+    TrackChunkHandler { ctype: mktag!(b"trun"), parse: read_trun },
+    TrackChunkHandler { ctype: mktag!(b"sbgp"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"sgpd"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"subs"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"saiz"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"saio"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"tfdt"), parse: skip_chunk },
+    TrackChunkHandler { ctype: mktag!(b"meta"), parse: skip_chunk },
+];
+
+fn read_tfhd(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+    validate!(size >= 8);
+    let start = br.tell();
+    let _version            = br.read_byte()?;
+    let flags               = br.read_u24be()?;
+    let _track_id           = br.read_u32be()?;
+    if (flags & 0x000001) != 0 {
+        let base_offset     = br.read_u64be()?;
+        track.moof_off = base_offset;
+    }
+    if (flags & 0x000002) != 0 {
+        let _sample_description_index = br.read_u32be()?;
+    }
+    if (flags & 0x000008) != 0 {
+        let default_sample_duration = br.read_u32be()?;
+        if track.tb_div == 1 {
+            track.rescale(default_sample_duration);
+        }
+    }
+    if (flags & 0x000010) != 0 {
+        let _default_sample_size = br.read_u32be()?;
+    }
+    if (flags & 0x000020) != 0 {
+        let _default_sample_flags = br.read_u32be()?;
+    }
+    if (flags & 0x010000) != 0 {
+    }
+    /*if (flags & 0x020000) != 0 { // base offset is moof start
+    }*/
+    Ok(br.tell() - start)
+}
+
+fn read_trun(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult<u64> {
+    validate!(size >= 8);
+    let version             = br.read_byte()?;
+    let flags               = br.read_u24be()?;
+    let data_off_present        = (flags & 0x000001) != 0;
+    let first_sample_flags      = (flags & 0x000004) != 0;
+    let sample_duration_present = (flags & 0x000100) != 0;
+    let sample_size_present     = (flags & 0x000200) != 0;
+    let sample_flags_present    = (flags & 0x000400) != 0;
+    let sample_ct_off_present   = (flags & 0x000800) != 0;
+
+    let sample_count            = br.read_u32be()? as usize;
+
+    let mut hdr_size = 8;
+    let mut arr_size = 0;
+    if data_off_present {
+        hdr_size += 4;
+    }
+    if first_sample_flags {
+        hdr_size += 4;
+    }
+    if sample_duration_present {
+        arr_size += 4;
+    }
+    if sample_size_present {
+        arr_size += 4;
+    }
+    if sample_flags_present {
+        arr_size += 4;
+    }
+    if sample_ct_off_present {
+        arr_size += 4;
+    }
+    validate!(size == hdr_size + arr_size * (sample_count as u64));
+
+    let mut data_off = if data_off_present {
+            let off             = br.read_u32be()? as i32;
+            let new_off = (track.moof_off as i64) + i64::from(off);
+            validate!(new_off > 0);
+            new_off as u64
+        } else {
+            track.moof_off
+        };
+    if first_sample_flags {
+        let _flags              = br.read_u32be()?;
+    }
+
+    if sample_size_present {
+        track.chunk_sizes.reserve(sample_count);
+        track.chunk_offsets.reserve(sample_count);
+    }
+
+    if sample_ct_off_present {
+        if track.ctts_version != version {
+            track.ctts_version = version;
+        }
+        track.ctts_map.reserve(sample_count);
+    }
+
+    for _ in 0..sample_count {
+        if sample_duration_present {
+            let _duration       = br.read_u32be()?;
+        }
+        if sample_size_present {
+            let ssize           = br.read_u32be()?;
+            track.chunk_sizes.push(ssize);
+            track.chunk_offsets.push(data_off);
+            data_off += u64::from(ssize);
+        }
+        if sample_flags_present {
+            let _flags          = br.read_u32be()?;
+        }
+        if sample_ct_off_present {
+            let samp_offset     = br.read_u32be()?;
+            if version == 0 {
+                track.ctts_map.add(1, samp_offset / track.tb_div);
+            } else {
+                track.ctts_map.add(1, ((samp_offset as i32) / (track.tb_div as i32)) as u32);
+            }
+        }
+    }
+
+    Ok(size)
+}
+
 struct MOVDemuxer<'a> {
     src:            &'a mut ByteReader<'a>,
     depth:          usize,
@@ -846,6 +1015,8 @@ struct MOVDemuxer<'a> {
     tb_den:         u32,
     duration:       u32,
     pal:            Option<Arc<[u8; 1024]>>,
+
+    moof_off:       u64,
 
     print_chunks:   bool,
 }
@@ -886,6 +1057,8 @@ struct Track {
     last_offset:    u64,
     pal:            Option<Arc<[u8; 1024]>>,
     timesearch:     TimeSearcher,
+
+    moof_off:       u64,
 
     print_chunks:   bool,
 }
@@ -943,6 +1116,9 @@ impl<T:Default+Copy> RLESearcher<T> {
     fn new() -> Self { Self::default() }
     fn resize(&mut self, size: usize) {
         self.array.truncate(0);
+        self.array.reserve(size);
+    }
+    fn reserve(&mut self, size: usize) {
         self.array.reserve(size);
     }
     fn add(&mut self, len: u32, val: T) {
@@ -1024,6 +1200,8 @@ impl Track {
             pal:            None,
             timesearch:     TimeSearcher::new(),
 
+            moof_off:       0,
+
             print_chunks:   false,
         }
     }
@@ -1031,6 +1209,20 @@ impl Track {
     read_chunk_list!(track; "mdia", read_mdia, MDIA_CHUNK_HANDLERS);
     read_chunk_list!(track; "minf", read_minf, MINF_CHUNK_HANDLERS);
     read_chunk_list!(track; "stbl", read_stbl, STBL_CHUNK_HANDLERS);
+    read_chunk_list!(track; "traf", read_traf, TRAF_CHUNK_HANDLERS);
+    fn rescale(&mut self, tb_num: u32) {
+        self.tb_div = tb_num;
+        if let Some(ref mut stream) = self.stream {
+            let tb_den = stream.tb_den;
+            let (tb_num, tb_den) = reduce_timebase(tb_num * stream.tb_num, tb_den);
+            stream.duration /= u64::from(self.tb_div);
+            stream.tb_num = tb_num;
+            stream.tb_den = tb_den;
+            self.tb_num = tb_num;
+            self.tb_den = tb_den;
+            self.duration /= self.tb_div;
+        }
+    }
     fn fill_seek_index(&self, seek_index: &mut SeekIndex) {
         if !self.keyframes.is_empty() {
             seek_index.mode = SeekIndexMode::Present;
@@ -1316,6 +1508,14 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
         self.read_root(strmgr)?;
         validate!(self.mdat_pos > 0);
         validate!(!self.tracks.is_empty());
+        for track in self.tracks.iter_mut() {
+            let mut str = None;
+            std::mem::swap(&mut track.stream, &mut str);
+            if let Some(stream) = str {
+                let str_id = strmgr.add_stream(stream).unwrap();
+                track.track_str_id = str_id;
+            }
+        }
         for track in self.tracks.iter() {
             track.fill_seek_index(seek_index);
         }
@@ -1439,6 +1639,8 @@ impl<'a> MOVDemuxer<'a> {
             duration:       0,
             pal:            None,
 
+            moof_off:       0,
+
             print_chunks:   false,
         }
     }
@@ -1448,6 +1650,9 @@ impl<'a> MOVDemuxer<'a> {
             let ret = read_chunk_header(&mut self.src);
             if ret.is_err() { break; }
             let (ctype, size) = ret.unwrap();
+            if self.print_chunks {
+                print_cname(ctype, size, self.src.tell(), 0);
+            }
             if IGNORED_CHUNKS.contains(&ctype) {
                 self.src.skip64(size)?;
                 continue;
@@ -1467,6 +1672,7 @@ impl<'a> MOVDemuxer<'a> {
         Ok(())
     }
     read_chunk_list!(root; "moov", read_moov, MOOV_CHUNK_HANDLERS);
+    read_chunk_list!(root; "moof", read_moof, MOOF_CHUNK_HANDLERS);
 }
 
 pub struct MOVDemuxerCreator { }
@@ -1769,6 +1975,27 @@ mod test {
     #[test]
     fn test_mov_demux() {
         let mut file = File::open("assets/Indeo/cubes.mov").unwrap();
+        let mut fr = FileReader::new_read(&mut file);
+        let mut br = ByteReader::new(&mut fr);
+        let mut dmx = MOVDemuxer::new(&mut br);
+        let mut sm = StreamManager::new();
+        let mut si = SeekIndex::new();
+        dmx.open(&mut sm, &mut si).unwrap();
+
+        loop {
+            let pktres = dmx.get_frame(&mut sm);
+            if let Err(e) = pktres {
+                if e == DemuxerError::EOF { break; }
+                panic!("error");
+            }
+            let pkt = pktres.unwrap();
+            println!("Got {}", pkt);
+        }
+    }
+
+    #[test]
+    fn test_dash_demux() {
+        let mut file = File::open("assets/ITU/dash.m4a").unwrap();
         let mut fr = FileReader::new_read(&mut file);
         let mut br = ByteReader::new(&mut fr);
         let mut dmx = MOVDemuxer::new(&mut br);
