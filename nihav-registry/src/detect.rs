@@ -221,6 +221,16 @@ const DETECTORS: &[DetectConditions] = &[
                                                                 &CC::Str(b"ftyp")) }],
     },
     DetectConditions {
+        demux_name: "fcmp",
+        extensions: ".cmp",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"FCMP")}],
+    },
+    DetectConditions {
+        demux_name: "fst",
+        extensions: ".fst",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Str(b"2TSF")}],
+    },
+    DetectConditions {
         demux_name: "gdv",
         extensions: ".gdv",
         conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U32LE(0x29111994))}],

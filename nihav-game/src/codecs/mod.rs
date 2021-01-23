@@ -8,6 +8,8 @@ macro_rules! validate {
 pub mod bmv;
 #[cfg(feature="decoder_bmv3")]
 pub mod bmv3;
+#[cfg(any(feature="decoder_fstvid",feature="decoder_fstaud"))]
+pub mod futurevision;
 #[cfg(feature="decoder_gdvvid")]
 pub mod gremlinvideo;
 #[cfg(feature="decoder_lhst500f22")]
@@ -36,6 +38,10 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "bmv3-audio", get_decoder: bmv3::get_decoder_audio },
 #[cfg(feature="decoder_bmv3")]
     DecoderInfo { name: "bmv3-video", get_decoder: bmv3::get_decoder_video },
+#[cfg(feature="decoder_fstaud")]
+    DecoderInfo { name: "fst-audio", get_decoder: futurevision::get_decoder_audio },
+#[cfg(feature="decoder_fstvid")]
+    DecoderInfo { name: "fst-video", get_decoder: futurevision::get_decoder_video },
 #[cfg(feature="decoder_vmd")]
     DecoderInfo { name: "vmd-audio", get_decoder: vmd::get_decoder_audio },
 #[cfg(feature="decoder_vmd")]

@@ -227,6 +227,8 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(audio;    "bmv-audio",     "BMV audio"),
     desc!(video;    "bmv3-video",    "DW Noir BMV video"),
     desc!(audio;    "bmv3-audio",    "DW Noir BMV audio"),
+    desc!(video;    "fst-video",     "FutureVision video"),
+    desc!(audio;    "fst-audio",     "FutureVision audio"),
     desc!(video;    "midivid",       "MidiVid"),
     desc!(video;    "midivid3",      "MidiVid 3"),
     desc!(video-ll; "midivid-ll",    "MidiVid Lossless"),
