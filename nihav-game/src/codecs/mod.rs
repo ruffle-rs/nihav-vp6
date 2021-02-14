@@ -12,6 +12,8 @@ pub mod bmv3;
 pub mod futurevision;
 #[cfg(feature="decoder_gdvvid")]
 pub mod gremlinvideo;
+#[cfg(feature="decoder_imax")]
+pub mod imax;
 #[cfg(feature="decoder_lhst500f22")]
 pub mod lhst500f22;
 #[cfg(feature="decoder_midivid")]
@@ -42,6 +44,8 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "fst-audio", get_decoder: futurevision::get_decoder_audio },
 #[cfg(feature="decoder_fstvid")]
     DecoderInfo { name: "fst-video", get_decoder: futurevision::get_decoder_video },
+#[cfg(feature="decoder_imax")]
+    DecoderInfo { name: "fable-imax", get_decoder: imax::get_decoder },
 #[cfg(feature="decoder_vmd")]
     DecoderInfo { name: "vmd-audio", get_decoder: vmd::get_decoder_audio },
 #[cfg(feature="decoder_vmd")]

@@ -236,6 +236,12 @@ const DETECTORS: &[DetectConditions] = &[
         conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U32LE(0x29111994))}],
     },
     DetectConditions {
+        demux_name: "fable-imax",
+        extensions: ".imx",
+        conditions: &[CheckItem{offs:  0, cond: &CC::Str(b"IMAX") },
+                      CheckItem{offs: 10, cond: &CC::Eq(Arg::U16LE(0x102)) }],
+    },
+    DetectConditions {
         demux_name: "realaudio",
         extensions: ".ra,.ram",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b".ra\xFD")}],
