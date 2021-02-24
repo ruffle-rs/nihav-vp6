@@ -8,8 +8,10 @@ struct GremlinVideoDecoder {
     info:       NACodecInfoRef,
     pal:        [u8; 768],
     frame:      Vec<u8>,
+    frame16:    Vec<u16>,
     scale_v:    bool,
     scale_h:    bool,
+    is_16bit:   bool,
 }
 
 struct Bits8 {
@@ -60,8 +62,9 @@ impl Bits32 {
 impl GremlinVideoDecoder {
     fn new() -> Self {
         GremlinVideoDecoder {
-            info: NACodecInfoRef::default(), pal: [0; 768], frame: Vec::new(),
-            scale_v: false, scale_h: false
+            info: NACodecInfoRef::default(), pal: [0; 768],
+            frame: Vec::new(), frame16: Vec::new(),
+            scale_v: false, scale_h: false, is_16bit: false,
         }
     }
 
@@ -77,6 +80,22 @@ impl GremlinVideoDecoder {
             if idx + (offset as usize) + len > self.frame.len() { return Err(DecoderError::InvalidData); }
             let start = idx + (offset as usize);
             for i in 0..len { self.frame[idx + i] = self.frame[start + i]; }
+        }
+        Ok(())
+    }
+
+    fn lz_copy16(&mut self, idx: usize, offset: isize, len: usize) -> DecoderResult<()> {
+        if idx + len > self.frame16.len() { return Err(DecoderError::InvalidData); }
+        if offset == -1 {
+            let c = self.frame16[idx - 1];
+            for i in 0..len { self.frame16[idx + i] = c; }
+        } else if offset < 0 {
+            let start = idx - (-offset as usize);
+            for i in 0..len { self.frame16[idx + i] = self.frame16[start + i]; }
+        } else {
+            if idx + (offset as usize) + len > self.frame16.len() { return Err(DecoderError::InvalidData); }
+            let start = idx + (offset as usize);
+            for i in 0..len { self.frame16[idx + i] = self.frame16[start + i]; }
         }
         Ok(())
     }
@@ -133,6 +152,58 @@ impl GremlinVideoDecoder {
         self.scale_h = scale_h;
     }
 
+    fn rescale16(&mut self, w: usize, h: usize, scale_v: bool, scale_h: bool) {
+        if (self.scale_v == scale_v) && (self.scale_h == scale_h) { return; }
+
+        if self.scale_h && self.scale_v {
+            for j in 0..h {
+                let y = h - j - 1;
+                for i in 0..w {
+                    let x = w - i - 1;
+                    self.frame16[PREAMBLE_SIZE + x + y * w] = self.frame16[PREAMBLE_SIZE + x/2 + (y/2) * (w/2)];
+                }
+            }
+        } else if self.scale_h {
+            for j in 0..h {
+                let y = h - j - 1;
+                for x in 0..w {
+                    self.frame16[PREAMBLE_SIZE + x + y * w] = self.frame16[PREAMBLE_SIZE + x + (y/2) * w];
+                }
+            }
+        } else if self.scale_v {
+            for j in 0..h {
+                let y = h - j - 1;
+                for i in 0..w {
+                    let x = w - i - 1;
+                    self.frame16[PREAMBLE_SIZE + x + y * w] = self.frame16[PREAMBLE_SIZE + x/2 + y * (w/2)];
+                }
+            }
+        }
+
+        if scale_h && scale_v {
+            for y in 0..h/2 {
+                for x in 0..w/2 {
+                    self.frame16[PREAMBLE_SIZE + x + y * (w/2)] = self.frame16[PREAMBLE_SIZE + x*2 + y*2 * w];
+                }
+            }
+        } else if scale_h {
+            for y in 0..h/2 {
+                for x in 0..w {
+                    self.frame16[PREAMBLE_SIZE + x + y * w] = self.frame16[PREAMBLE_SIZE + x + y*2 * w];
+                }
+            }
+        } else if scale_v {
+            for y in 0..h {
+                for x in 0..w/2 {
+                    self.frame16[PREAMBLE_SIZE + x + y * w] = self.frame16[PREAMBLE_SIZE + x*2 + y * w];
+                }
+            }
+        }
+
+        self.scale_v = scale_v;
+        self.scale_h = scale_h;
+    }
+
     fn output_frame(&mut self, bufinfo: &mut NABufferType, w: usize, h: usize) {
         let bufo = bufinfo.get_vbuf();
         let mut buf = bufo.unwrap();
@@ -165,6 +236,41 @@ impl GremlinVideoDecoder {
         }
     }
 
+    fn output_frame16(&mut self, bufinfo: &mut NABufferType, w: usize, h: usize) {
+        let bufo = bufinfo.get_vbuf16();
+        let mut buf = bufo.unwrap();
+        let stride = buf.get_stride(0);
+        let data = buf.get_data_mut().unwrap();
+        let dst = data.as_mut_slice();
+
+        if !self.scale_v && !self.scale_h {
+            for (dline, sline) in dst.chunks_mut(stride).zip(self.frame16[PREAMBLE_SIZE..].chunks(w)).take(h) {
+                dline[..w].copy_from_slice(sline);
+            }
+        } else if !self.scale_h {
+            for (dline, sline) in dst.chunks_mut(stride).zip(self.frame16[PREAMBLE_SIZE..].chunks(w / 2)).take(h) {
+                for (dst, &src) in dline.chunks_mut(2).zip(sline.iter()) {
+                    dst[0] = src;
+                    dst[1] = src;
+                }
+            }
+        } else if !self.scale_v {
+            for (dline, sline) in dst.chunks_mut(stride * 2).zip(self.frame16[PREAMBLE_SIZE..].chunks(w)).take(h) {
+                dline[..w].copy_from_slice(sline);
+                dline[stride..][..w].copy_from_slice(sline);
+            }
+        } else {
+            for (dline, sline) in dst.chunks_mut(stride).zip(self.frame16[PREAMBLE_SIZE..].chunks(w / 2)).take(h) {
+                for x in 0..w/2 {
+                    dline[x * 2]              = sline[x];
+                    dline[x * 2 + 1]          = sline[x];
+                    dline[x * 2     + stride] = sline[x];
+                    dline[x * 2 + 1 + stride] = sline[x];
+                }
+            }
+        }
+    }
+
     fn decode_method2(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
         let mut bits = Bits8::new();
 
@@ -190,6 +296,48 @@ impl GremlinVideoDecoder {
                 validate!(len <= size);
                 size -= len;
                 self.lz_copy(idx, off, len)?;
+                idx += len;
+            } else if tag == 2 {
+                let len = (br.read_byte()? as usize) + 2;
+                validate!(len <= size);
+                size -= len;
+                idx += len;
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn decode_method2_16bit(&mut self, br: &mut ByteReader) -> DecoderResult<()> {
+        let mut bits = Bits8::new();
+
+        if self.frame16[8] != 64 {
+            for (i, dst) in self.frame16[..PREAMBLE_SIZE].chunks_mut(4).enumerate() {
+                let val = (i as u16) << 5;
+                for el in dst.iter_mut() {
+                    *el = val;
+                }
+            }
+        }
+
+        let mut size = self.info.get_properties().get_video_info().unwrap().get_width() *
+                        self.info.get_properties().get_video_info().unwrap().get_height();
+        let mut idx = PREAMBLE_SIZE;
+        while size > 0 {
+            let tag = bits.read_2bits(br)?;
+            if tag == 0 {
+                self.frame16[idx] = br.read_u16le()?;
+                size -= 1;
+                idx  += 1;
+            } else if tag == 1 {
+                let b = br.read_byte()?;
+                let len = ((b & 0xF) as usize) + 3;
+                let bot = (b >> 4) as isize;
+                let off = ((br.read_byte()? as isize) << 4) + bot - 4096;
+                validate!(len <= size);
+                size -= len;
+                self.lz_copy16(idx, off, len)?;
                 idx += len;
             } else if tag == 2 {
                 let len = (br.read_byte()? as usize) + 2;
@@ -371,31 +519,43 @@ impl GremlinVideoDecoder {
     }
 }
 
+const RGB555_FORMAT: NAPixelFormaton = NAPixelFormaton { model: ColorModel::RGB(RGBSubmodel::RGB), components: 3,
+                                        comp_info: [
+                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift: 10, comp_offs: 0, next_elem: 2 }),
+                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  5, comp_offs: 1, next_elem: 2 }),
+                                            Some(NAPixelChromaton{ h_ss: 0, v_ss: 0, packed: true, depth: 5, shift:  0, comp_offs: 2, next_elem: 2 }),
+                                            None, None],
+                                        elem_size: 2, be: false, alpha: false, palette: false };
+
 impl NADecoder for GremlinVideoDecoder {
     fn init(&mut self, _supp: &mut NADecoderSupport, info: NACodecInfoRef) -> DecoderResult<()> {
         if let NACodecTypeInfo::Video(vinfo) = info.get_properties() {
             let w = vinfo.get_width();
             let h = vinfo.get_height();
-            if !vinfo.get_format().is_paletted() { return Err(DecoderError::NotImplemented); }
-            let fmt = PAL8_FORMAT;
+            self.is_16bit = !vinfo.get_format().is_paletted();
+            let fmt = if !self.is_16bit { PAL8_FORMAT } else { RGB555_FORMAT };
             let myinfo = NACodecTypeInfo::Video(NAVideoInfo::new(w, h, false, fmt));
             self.info = NACodecInfo::new_ref(info.get_name(), myinfo, info.get_extradata()).into_ref();
 
-            self.frame.resize(PREAMBLE_SIZE + w * h, 0);
-            for i in 0..2 {
-                for j in 0..256 {
-                    for k in 0..8 {
-                        self.frame[i * 2048 + j * 8 + k] = j as u8;
+            if !self.is_16bit {
+                self.frame.resize(PREAMBLE_SIZE + w * h, 0);
+                for i in 0..2 {
+                    for j in 0..256 {
+                        for k in 0..8 {
+                            self.frame[i * 2048 + j * 8 + k] = j as u8;
+                        }
                     }
                 }
-            }
-            let edata = info.get_extradata().unwrap();
-            validate!(edata.len() == 768);
-            for c in 0..256 {
-                for i in 0..3 {
-                    let cc = edata[c * 3 + i];
-                    self.pal[c * 3 + i] = (cc << 2) | (cc >> 4);
+                let edata = info.get_extradata().unwrap();
+                validate!(edata.len() == 768);
+                for c in 0..256 {
+                    for i in 0..3 {
+                        let cc = edata[c * 3 + i];
+                        self.pal[c * 3 + i] = (cc << 2) | (cc >> 4);
+                    }
                 }
+            } else {
+                self.frame16.resize(PREAMBLE_SIZE + w * h, 0);
             }
             Ok(())
         } else {
@@ -415,9 +575,17 @@ impl NADecoder for GremlinVideoDecoder {
         let scale_v = (flags & 0x10) != 0;
         let scale_h = (flags & 0x20) != 0;
 
-        self.rescale(w, h, scale_v, scale_h);
+        if !self.is_16bit {
+            self.rescale(w, h, scale_v, scale_h);
+        } else {
+            self.rescale16(w, h, scale_v, scale_h);
+        }
 
+        if self.is_16bit && (cmethod != 2) && (cmethod != 3) {
+            return Err(DecoderError::NotImplemented);
+        }
         if (cmethod == 0) || (cmethod == 1) {
+            validate!(!self.is_16bit);
             for c in 0..256 {
                 for i in 0..3 {
                     let b = br.read_byte()?;
@@ -437,7 +605,11 @@ impl NADecoder for GremlinVideoDecoder {
             frm.set_frame_type(FrameType::Skip);
             return Ok(frm.into_ref())
         } else if cmethod == 2 {
-            self.decode_method2(&mut br)?;
+            if !self.is_16bit {
+                self.decode_method2(&mut br)?;
+            } else {
+                self.decode_method2_16bit(&mut br)?;
+            }
         } else if cmethod == 5 {
             self.decode_method5(&mut br, (flags >> 8) as usize)?;
         } else if cmethod == 6 {
@@ -450,7 +622,11 @@ impl NADecoder for GremlinVideoDecoder {
 
         let mut bufinfo = alloc_video_buffer(self.info.get_properties().get_video_info().unwrap(), 0)?;
 
-        self.output_frame(&mut bufinfo, w, h);
+        if !self.is_16bit {
+            self.output_frame(&mut bufinfo, w, h);
+        } else {
+            self.output_frame16(&mut bufinfo, w, h);
+        }
 
         let mut frm = NAFrame::new_from_pkt(pkt, self.info.clone(), bufinfo);
         frm.set_keyframe(is_intra);
@@ -588,6 +764,16 @@ mod test {
 
         test_decoding("gdv", "gdv-video", "assets/Game/intro1.gdv", Some(10), &dmx_reg, &dec_reg,
                       ExpectedTestResult::MD5([0x7ea302bf, 0xc3e210cf, 0x6e341376, 0x9e976056]));
+    }
+    #[test]
+    fn test_gdv_video16() {
+        let mut dmx_reg = RegisteredDemuxers::new();
+        game_register_all_demuxers(&mut dmx_reg);
+        let mut dec_reg = RegisteredDecoders::new();
+        game_register_all_decoders(&mut dec_reg);
+
+        test_decoding("gdv", "gdv-video", "assets/Game/SHELI_S.GDV", Some(10), &dmx_reg, &dec_reg,
+                      ExpectedTestResult::MD5([0x9acfdefd, 0x12687f8c, 0x9ef1cd56, 0x019240bb]));
     }
     #[test]
     fn test_gdv_audio() {
