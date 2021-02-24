@@ -78,7 +78,7 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
                 edata.resize(768, 0);
                 src.read_buf(edata.as_mut_slice())?;
             }
-            let vhdr = NAVideoInfo::new(width as usize, height as usize, false, PAL8_FORMAT);
+            let vhdr = NAVideoInfo::new(width as usize, height as usize, false, if depth < 2 { PAL8_FORMAT } else { RGB565_FORMAT });
             let vci = NACodecTypeInfo::Video(vhdr);
             let vinfo = NACodecInfo::new("gdv-video", vci, if edata.is_empty() { None } else { Some(edata) });
             self.v_id = strmgr.add_stream(NAStream::new(StreamType::Video, 0, vinfo, 1, u32::from(fps), u64::from(frames)));
