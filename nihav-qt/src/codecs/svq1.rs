@@ -258,7 +258,7 @@ impl SVQ1Decoder {
                 if fill != 0 {
                     for line in dst[off..].chunks_mut(dstride).take(h) {
                         for el in line.iter_mut().take(w) {
-                            *el = (i16::from(*el) + fill).max(0).min(255) as u8;
+                            *el = el.wrapping_add(fill as u8);
                         }
                     }
                 }
@@ -274,7 +274,7 @@ impl SVQ1Decoder {
                             };
                         for (line, src) in dst[off..].chunks_mut(dstride).zip(src.chunks(w)) {
                             for x in 0..w {
-                                line[x] = (i16::from(line[x]) + i16::from(src[x])).max(0).min(255) as u8;
+                                line[x] = line[x].wrapping_add(src[x] as u8);
                             }
                         }
                     }
@@ -511,8 +511,8 @@ mod test {
                             [0xa04e865b, 0xdbd65920, 0x4703d7dd, 0x962707a1],
                             [0xe89c98bc, 0x356791bb, 0xfb6f7302, 0x2250ef05],
                             [0x282ef2a7, 0x235541b4, 0x55055d99, 0x1a8d0b29],
-                            [0x56328694, 0x27157f78, 0x4bc6ddda, 0x03dcde68],
-                            [0x5a694576, 0xd2434aea, 0x6859d48c, 0x275e02c9]]));
+                            [0x79c60bab, 0xe5a11a50, 0x5f9e800b, 0x12bce70d],
+                            [0xe9a08fb7, 0x3b482a8b, 0x50e1560e, 0xd6d70287]]));
     }
 }
 
