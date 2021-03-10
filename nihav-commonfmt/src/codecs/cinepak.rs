@@ -15,8 +15,8 @@ enum DecodeMode {
 struct CinepakDecoder {
     info:   NACodecInfoRef,
     frmmgr: HAMShuffler<u8>,
-    cb_v1:  [[u8; 6]; 256],
-    cb_v4:  [[u8; 6]; 256],
+    cb_v1:  Vec<[[u8; 6]; 256]>,
+    cb_v4:  Vec<[[u8; 6]; 256]>,
     mode:   DecodeMode,
 }
 
@@ -59,8 +59,8 @@ impl CinepakDecoder {
         CinepakDecoder {
             info:   NACodecInfo::new_dummy(),
             frmmgr: HAMShuffler::new(),
-            cb_v1:  [[0; 6]; 256],
-            cb_v4:  [[0; 6]; 256],
+            cb_v1:  Vec::with_capacity(1),
+            cb_v4:  Vec::with_capacity(1),
             mode:   DecodeMode::Unknown,
         }
     }
@@ -105,7 +105,7 @@ impl CinepakDecoder {
         validate!(br.tell() == end);
         Ok(())
     }
-    fn decode_strip(&mut self, src: &[u8], is_intra: bool, is_intra_strip: bool, xoff: usize, yoff: usize, xend: usize, yend: usize, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
+    fn decode_strip(&mut self, src: &[u8], sno: usize, is_intra: bool, is_intra_strip: bool, xoff: usize, yoff: usize, xend: usize, yend: usize, frm: &mut NASimpleVideoFrame<u8>) -> DecoderResult<()> {
         let mut mr = MemoryReader::new_read(src);
         let mut br = ByteReader::new(&mut mr);
         let mut idx_pos = 0;
@@ -119,14 +119,14 @@ impl CinepakDecoder {
             let size                    = br.read_u24be()? as usize;
             validate!(size >= 4 && (size - 4 <= (br.left() as usize)));
             match id {
-                0x20 => Self::read_cb    (&mut br, size, &mut self.cb_v4, true)?,
-                0x21 => Self::read_cb_upd(&mut br, size, &mut self.cb_v4, true)?,
-                0x22 => Self::read_cb    (&mut br, size, &mut self.cb_v1, true)?,
-                0x23 => Self::read_cb_upd(&mut br, size, &mut self.cb_v1, true)?,
-                0x24 => Self::read_cb    (&mut br, size, &mut self.cb_v4, false)?,
-                0x25 => Self::read_cb_upd(&mut br, size, &mut self.cb_v4, false)?,
-                0x26 => Self::read_cb    (&mut br, size, &mut self.cb_v1, false)?,
-                0x27 => Self::read_cb_upd(&mut br, size, &mut self.cb_v1, false)?,
+                0x20 => Self::read_cb    (&mut br, size, &mut self.cb_v4[sno], true)?,
+                0x21 => Self::read_cb_upd(&mut br, size, &mut self.cb_v4[sno], true)?,
+                0x22 => Self::read_cb    (&mut br, size, &mut self.cb_v1[sno], true)?,
+                0x23 => Self::read_cb_upd(&mut br, size, &mut self.cb_v1[sno], true)?,
+                0x24 => Self::read_cb    (&mut br, size, &mut self.cb_v4[sno], false)?,
+                0x25 => Self::read_cb_upd(&mut br, size, &mut self.cb_v4[sno], false)?,
+                0x26 => Self::read_cb    (&mut br, size, &mut self.cb_v1[sno], false)?,
+                0x27 => Self::read_cb_upd(&mut br, size, &mut self.cb_v1[sno], false)?,
                 0x30 => { // intra indices
                     validate!(idx_pos == 0);
                     idx_pos = br.tell() as usize;
@@ -182,7 +182,7 @@ impl CinepakDecoder {
                 }
                 if (flags & mask) == 0 {
                     let idx         = br.read_byte()? as usize;
-                    let cb = &self.cb_v1[idx];
+                    let cb = &self.cb_v1[sno][idx];
                     block[ 0] = cb[0]; block[ 1] = cb[0]; block[ 2] = cb[1]; block[ 3] = cb[1];
                     block[ 4] = cb[0]; block[ 5] = cb[0]; block[ 6] = cb[1]; block[ 7] = cb[1];
                     block[ 8] = cb[2]; block[ 9] = cb[2]; block[10] = cb[3]; block[11] = cb[3];
@@ -193,13 +193,13 @@ impl CinepakDecoder {
                     block[22] = cb[5]; block[23] = cb[5];
                 } else {
                     let idx0        = br.read_byte()? as usize;
-                    let cb0 = &self.cb_v4[idx0];
+                    let cb0 = &self.cb_v4[sno][idx0];
                     let idx1        = br.read_byte()? as usize;
-                    let cb1 = &self.cb_v4[idx1];
+                    let cb1 = &self.cb_v4[sno][idx1];
                     let idx2        = br.read_byte()? as usize;
-                    let cb2 = &self.cb_v4[idx2];
+                    let cb2 = &self.cb_v4[sno][idx2];
                     let idx3        = br.read_byte()? as usize;
-                    let cb3 = &self.cb_v4[idx3];
+                    let cb3 = &self.cb_v4[sno][idx3];
                     block[ 0] = cb0[0]; block[ 1] = cb0[1]; block[ 2] = cb1[0]; block[ 3] = cb1[1];
                     block[ 4] = cb0[2]; block[ 5] = cb0[3]; block[ 6] = cb1[2]; block[ 7] = cb1[3];
                     block[ 8] = cb2[0]; block[ 9] = cb2[1]; block[10] = cb3[0]; block[11] = cb3[1];
@@ -290,6 +290,8 @@ impl NADecoder for CinepakDecoder {
                 _ => {},
             };
         }
+        self.cb_v1.resize(nstrips, [[0; 6]; 256]);
+        self.cb_v4.resize(nstrips, [[0; 6]; 256]);
 
         if let Some(ref vinfo) = self.info.get_properties().get_video_info() {
             if vinfo.width != width || vinfo.height != height || self.mode != mode {
@@ -368,7 +370,11 @@ impl NADecoder for CinepakDecoder {
             let start = br.tell() as usize;
             let end = start + size - 12;
             let strip_data = &src[start..end];
-            self.decode_strip(strip_data, is_intra, is_intra_strip, 0, last_y, xend, last_y + yend, &mut frm)?;
+            if is_intra && i > 0 {
+                self.cb_v1[i] = self.cb_v1[i - 1];
+                self.cb_v4[i] = self.cb_v4[i - 1];
+            }
+            self.decode_strip(strip_data, i, is_intra, is_intra_strip, 0, last_y, xend, last_y + yend, &mut frm)?;
                                           br.read_skip(size - 12)?;
             last_y += yend;
         }
