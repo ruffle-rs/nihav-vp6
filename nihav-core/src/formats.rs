@@ -428,8 +428,8 @@ impl ColorModel {
 impl fmt::Display for ColorModel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match *self {
-            ColorModel::RGB(fmt) => format!("RGB({})", fmt).to_string(),
-            ColorModel::YUV(fmt) => format!("YUV({})", fmt).to_string(),
+            ColorModel::RGB(fmt) => format!("RGB({})", fmt),
+            ColorModel::YUV(fmt) => format!("YUV({})", fmt),
             ColorModel::CMYK     => "CMYK".to_string(),
             ColorModel::HSV      => "HSV".to_string(),
             ColorModel::LAB      => "LAB".to_string(),
@@ -710,7 +710,7 @@ impl NAPixelFormaton {
         }
         ssamp
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     /// Returns a short string description of the format if possible.
     pub fn to_short_string(&self) -> Option<String> {
         match self.model {
@@ -1078,6 +1078,7 @@ fn parse_yuv_format(s: &str) -> Result<NAPixelFormaton, FormatParseError> {
 impl FromStr for NAPixelFormaton {
     type Err = FormatParseError;
 
+    #[allow(clippy::single_match)]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "pal8" => return Ok(PAL8_FORMAT),

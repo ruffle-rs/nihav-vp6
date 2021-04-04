@@ -65,6 +65,6 @@ const GAME_CODECS: &[DecoderInfo] = &[
 /// Registers all available codecs provided by this crate.
 pub fn game_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in GAME_CODECS.iter() {
-        rd.add_decoder(decoder.clone());
+        rd.add_decoder(*decoder);
     }
 }

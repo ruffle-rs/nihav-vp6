@@ -325,7 +325,7 @@ impl Indeo3Decoder {
         Ok((self.bbuf >> self.bpos) & 0x3)
     }
 
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn decode_cell_data(&mut self, br: &mut ByteReader, cell: IV3Cell,
                         off: usize, stride: usize, params: CellDecParams, vq_idx: u8) -> DecoderResult<()> {
         let blk_w = cell.w * 4 / params.bw;

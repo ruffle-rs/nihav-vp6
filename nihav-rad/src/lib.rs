@@ -15,6 +15,7 @@ mod codecs;
 pub use crate::codecs::rad_register_all_decoders;
 
 #[cfg(feature="demuxers")]
+#[allow(clippy::comparison_chain)]
 #[allow(clippy::cast_lossless)]
 mod demuxers;
 #[cfg(feature="demuxers")]

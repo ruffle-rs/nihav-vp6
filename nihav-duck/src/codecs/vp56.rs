@@ -751,7 +751,7 @@ impl VP56Decoder {
         }
         Ok(self.last_mbt)
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn decode_mb(&mut self, frm: &mut NASimpleVideoFrame<u8>, bc: &mut BoolCoder, cr: &mut CoeffReader, br: &mut dyn VP56Parser, hdr: &VP56Header, alpha: bool) -> DecoderResult<()> {
         const FOURMV_SUB_TYPE: [VPMBType; 4] = [ VPMBType::InterNoMV, VPMBType::InterMV, VPMBType::InterNearest, VPMBType::InterNear ];
 
@@ -946,7 +946,7 @@ impl VP56Decoder {
             let x = self.fstate.mb_x * 8;
             let y = self.fstate.mb_y * 8;
             br.mc_block(frm, self.mc_buf.clone(), src.clone(), 1, x, y, mv, self.loop_thr);
-            br.mc_block(frm, self.mc_buf.clone(), src.clone(), 2, x, y, mv, self.loop_thr);
+            br.mc_block(frm, self.mc_buf.clone(), src,         2, x, y, mv, self.loop_thr);
         }
     }
     fn do_fourmv(&mut self, br: &dyn VP56Parser, frm: &mut NASimpleVideoFrame<u8>, mvs: &[MV; 4], alpha: bool) {
@@ -965,7 +965,7 @@ impl VP56Decoder {
             let sum = mvs[0] + mvs[1] + mvs[2] + mvs[3];
             let mv = MV { x: sum.x / 4, y: sum.y / 4 };
             br.mc_block(frm, self.mc_buf.clone(), src.clone(), 1, x, y, mv, self.loop_thr);
-            br.mc_block(frm, self.mc_buf.clone(), src.clone(), 2, x, y, mv, self.loop_thr);
+            br.mc_block(frm, self.mc_buf.clone(), src,         2, x, y, mv, self.loop_thr);
         }
     }
     fn predict_dc(&mut self, mb_type: VPMBType, _mb_pos: usize, blk_no: usize, _alpha: bool) {

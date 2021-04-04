@@ -591,7 +591,7 @@ const C_LEFT_COL_MASK:  u32 = 0x5;
 const C_RIGHT_COL_MASK: u32 = 0xA;
 
 impl RV34DSP for RV40DSP {
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn loop_filter(&self, frame: &mut NAVideoBuffer<u8>, _ftype: FrameType, mbinfo: &[RV34MBInfo], mb_w: usize, mb_h: usize, row: usize) {
         // todo proper B-frame filtering?
         let mut offs:   [usize; 3] = [0; 3];

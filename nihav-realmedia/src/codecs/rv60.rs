@@ -728,7 +728,7 @@ println!(" left {} bits", br.left());
 }
         Ok(())
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn decode_cb_tree(&mut self, buf: &mut NASimpleVideoFrame<u8>, hdr: &FrameHeader, br: &mut BitReader, xpos: usize, ypos: usize, log_size: u8) -> DecoderResult<()> {
         if (xpos >= hdr.width) || (ypos >= hdr.height) { return Ok(()); }
 

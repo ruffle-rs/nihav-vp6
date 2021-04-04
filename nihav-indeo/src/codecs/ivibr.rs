@@ -931,8 +931,8 @@ br.skip(skip_part as u32)?;
                 let seq = br.peek(21);
                 if seq == 0xBFFF8 {
                     let res2 = self.decode_single_frame(dec, br);
-                    if res2.is_ok() {
-                        self.bref = Some(res2.unwrap());
+                    if let Ok(res) = res2 {
+                        self.bref = Some(res);
                     }
                 }
                 self.ftype = IVIFrameType::Intra;

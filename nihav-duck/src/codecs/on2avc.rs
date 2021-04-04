@@ -346,7 +346,7 @@ impl AVCDecoder {
         }
         Ok(())
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn synth_channel(&mut self, chno: usize, dst: &mut [f32]) {
         let coeffs = &mut self.coeffs[chno];
         let delay  = &mut self.delay[chno];

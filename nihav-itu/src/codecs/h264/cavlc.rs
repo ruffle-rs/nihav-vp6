@@ -106,7 +106,7 @@ fn read_mvs(br: &mut BitReader, mvs: &mut [MV]) -> DecoderResult<()> {
     Ok(())
 }
 
-#[allow(clippy::cyclomatic_complexity)]
+#[allow(clippy::cognitive_complexity)]
 pub fn decode_mb_pred_cavlc(br: &mut BitReader, slice_hdr: &SliceHeader, mb_type: MBType, sstate: &mut SliceState, mb_info: &mut CurrentMBInfo) -> DecoderResult<()> {
     mb_info.mb_type = mb_type;
     let num_l0 = slice_hdr.num_ref_idx_l0_active;

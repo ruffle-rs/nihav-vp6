@@ -52,6 +52,7 @@ impl NeuQuantQuantiser {
             }
         }
     }
+    #[allow(clippy::float_cmp)]
     fn find_node(&mut self, clr: &[f64; 3]) -> usize {
         for i in 0..SPECIAL_NODES {
             if &self.weights[i] == clr {

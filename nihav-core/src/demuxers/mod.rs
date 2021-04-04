@@ -291,11 +291,11 @@ impl SeekIndex {
     pub fn new() -> Self { Self::default() }
     pub fn add_stream(&mut self, id: u32) -> usize {
         let ret = self.stream_id_to_index(id);
-        if ret.is_none() {
+        if let Some(res) = ret {
+            res
+        } else {
             self.seek_info.push(StreamSeekInfo::new(id));
             self.seek_info.len() - 1
-        } else {
-            ret.unwrap()
         }
     }
     /// Adds a new stream to the index.

@@ -195,7 +195,7 @@ impl ELBG {
         clu1.calc_dist();
         clu0.dist + clu1.dist
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     pub fn quantise(&mut self, src: &[Pixel], dst: &mut [[u8; 3]; 256]) {
         if src.len() < 3 {
             return;

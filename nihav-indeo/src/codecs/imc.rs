@@ -103,7 +103,7 @@ impl BitAlloc {
             self.skip_flag[i]       = false;
         }
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn calculate_bit_allocation(&mut self, ch_data: &mut IMCChannel, bits: usize, fixed_head: bool, adj_idx: usize) -> DecoderResult<()> {
 
         let mut peak = 0.0;
@@ -360,7 +360,7 @@ impl IMCDecoder {
             weights2.copy_from_slice(&IMC_WEIGHTS2);
         }
         unsafe {
-            codes = mem::uninitialized();
+            codes = mem::MaybeUninit::uninit().assume_init();
             for i in 0..4 {
                 for j in 0..4 {
                     let mut cr = IMCCodeReader::new(i, j);

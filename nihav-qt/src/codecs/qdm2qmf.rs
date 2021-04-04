@@ -370,7 +370,7 @@ unimplemented!();
             }
         }
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn read_noise_band(&mut self, br: &mut QdmBitReader, ch: usize, band: usize, samples: &mut [f32; 10], signs: &[bool; 16], jstereo: bool) -> DecoderResult<()> {
         let mut type34_first = true;
         let mut type34_pred = 0.0;

@@ -38,9 +38,9 @@ impl VP30Codes {
         let mut cr = TableCodebookDescReader::new(&VP30_MBTYPE_CODES, &VP30_MBTYPE_BITS, map_mbt);
         let mbtype_cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
         unsafe {
-            dc_cb = mem::uninitialized();
-            ac_i_cb = mem::uninitialized();
-            ac_p_cb = mem::uninitialized();
+            dc_cb = mem::MaybeUninit::uninit().assume_init();
+            ac_i_cb = mem::MaybeUninit::uninit().assume_init();
+            ac_p_cb = mem::MaybeUninit::uninit().assume_init();
             for i in 0..5 {
                 let mut cr = TableCodebookDescReader::new(&VP30_DC_CODES[i], &VP30_DC_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
@@ -73,11 +73,11 @@ impl VP31Codes {
         let mut ac2_cb: [Codebook<u8>; 16];
         let mut ac3_cb: [Codebook<u8>; 16];
         unsafe {
-            dc_cb = mem::uninitialized();
-            ac0_cb = mem::uninitialized();
-            ac1_cb = mem::uninitialized();
-            ac2_cb = mem::uninitialized();
-            ac3_cb = mem::uninitialized();
+            dc_cb = mem::MaybeUninit::uninit().assume_init();
+            ac0_cb = mem::MaybeUninit::uninit().assume_init();
+            ac1_cb = mem::MaybeUninit::uninit().assume_init();
+            ac2_cb = mem::MaybeUninit::uninit().assume_init();
+            ac3_cb = mem::MaybeUninit::uninit().assume_init();
             for i in 0..16 {
                 let mut cr = TableCodebookDescReader::new(&VP31_DC_CODES[i], &VP31_DC_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
@@ -106,11 +106,11 @@ impl VP31Codes {
         let mut ac2_cb: [Codebook<u8>; 16];
         let mut ac3_cb: [Codebook<u8>; 16];
         unsafe {
-            dc_cb = mem::uninitialized();
-            ac0_cb = mem::uninitialized();
-            ac1_cb = mem::uninitialized();
-            ac2_cb = mem::uninitialized();
-            ac3_cb = mem::uninitialized();
+            dc_cb = mem::MaybeUninit::uninit().assume_init();
+            ac0_cb = mem::MaybeUninit::uninit().assume_init();
+            ac1_cb = mem::MaybeUninit::uninit().assume_init();
+            ac2_cb = mem::MaybeUninit::uninit().assume_init();
+            ac3_cb = mem::MaybeUninit::uninit().assume_init();
             for i in 0..16 {
                 let mut cr = TableCodebookDescReader::new(&VP40_DC_CODES[i], &VP40_DC_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
@@ -149,8 +149,8 @@ impl VP40AuxCodes {
         let mut mv_x_cb: [Codebook<i8>; 7];
         let mut mv_y_cb: [Codebook<i8>; 7];
         unsafe {
-            mv_x_cb = mem::uninitialized();
-            mv_y_cb = mem::uninitialized();
+            mv_x_cb = mem::MaybeUninit::uninit().assume_init();
+            mv_y_cb = mem::MaybeUninit::uninit().assume_init();
             for i in 0..7 {
                 let mut cr = TableCodebookDescReader::new(&VP40_MV_X_CODES[i], &VP40_MV_X_BITS[i], map_mv);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
@@ -1553,7 +1553,7 @@ impl VP34Decoder {
             }
         }
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn output_blocks_inter(&mut self, frm: &mut NASimpleVideoFrame<u8>) {
         let mut blk_idx = 0;
         let bstride = self.mb_w * 2;

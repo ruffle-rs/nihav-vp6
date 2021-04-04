@@ -654,7 +654,7 @@ impl WavPackDecoder {
             dstate:     DecorrState::new(),
         }
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn decode_block(&mut self, hdr: &WVHeader, src: &[u8], start_ch: usize, abuf: &mut NABufferType) -> DecoderResult<()> {
         let mut mr = MemoryReader::new_read(src);
         let mut br = ByteReader::new(&mut mr);

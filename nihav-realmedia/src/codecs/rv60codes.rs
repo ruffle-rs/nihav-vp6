@@ -101,8 +101,8 @@ impl RV60Codebooks {
         let mut cbp8_cb:  [[Codebook<u16>; 4];  NUM_INTER_SETS];
         let mut cbp16_cb: [[Codebook<u16>; 12]; NUM_INTER_SETS];
         unsafe {
-            cbp8_cb = mem::uninitialized();
-            cbp16_cb = mem::uninitialized();
+            cbp8_cb = mem::MaybeUninit::uninit().assume_init();
+            cbp16_cb = mem::MaybeUninit::uninit().assume_init();
             for set_no in 0..NUM_INTER_SETS {
                 for i in 0..4 {
                     let mut cbr = RV60CodebookDescReader::new(&RV60_CBP8_TABS[set_no][i], NUM_CBP_ENTRIES, false);
@@ -117,11 +117,11 @@ impl RV60Codebooks {
         let mut intra_coeff_cb: [CoeffCodebooks; NUM_INTRA_SETS];
         let mut inter_coeff_cb: [CoeffCodebooks; NUM_INTER_SETS];
         unsafe {
-            intra_coeff_cb = mem::uninitialized();
+            intra_coeff_cb = mem::MaybeUninit::uninit().assume_init();
             for set_no in 0..NUM_INTRA_SETS {
                 ptr::write(&mut intra_coeff_cb[set_no], CoeffCodebooks::init(set_no, true));
             }
-            inter_coeff_cb = mem::uninitialized();
+            inter_coeff_cb = mem::MaybeUninit::uninit().assume_init();
             for set_no in 0..NUM_INTER_SETS {
                 ptr::write(&mut inter_coeff_cb[set_no], CoeffCodebooks::init(set_no, false));
             }

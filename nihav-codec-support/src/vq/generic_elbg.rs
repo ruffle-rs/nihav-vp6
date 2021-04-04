@@ -148,7 +148,7 @@ impl<T: VQElement+Default, TS: VQElementSum<T>> ELBG<T, TS> {
         clu1.calc_dist();
         clu0.dist + clu1.dist
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     pub fn quantise(&mut self, src: &[T], dst: &mut [T]) -> usize {
         if src.is_empty() || dst.len() != self.clusters.len() {
             return 0;

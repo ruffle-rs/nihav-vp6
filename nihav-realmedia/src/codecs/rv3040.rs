@@ -1095,7 +1095,7 @@ impl RV34Decoder {
         }
     }
 
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     pub fn parse_frame(&mut self, supp: &mut NADecoderSupport, src: &[u8], bd: &mut dyn RV34BitstreamDecoder) -> DecoderResult<(NABufferType, FrameType, u64)> {
         let mut slice_offs: Vec<usize> = Vec::new();
         parse_slice_offsets(src, &mut slice_offs)?;

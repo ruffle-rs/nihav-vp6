@@ -693,7 +693,7 @@ pub fn alloc_data_buffer(size: usize) -> Result<NABufferType, AllocatorError> {
 }
 
 /// Creates a clone of current buffer.
-pub fn copy_buffer(buf: NABufferType) -> NABufferType {
+pub fn copy_buffer(buf: &NABufferType) -> NABufferType {
     buf.clone()
 }
 
@@ -937,6 +937,7 @@ impl NATimeInfo {
     pub fn set_duration(&mut self, dur: Option<u64>) { self.duration = dur; }
 
     /// Converts time in given scale into timestamp in given base.
+    #[allow(clippy::collapsible_if)]
     pub fn time_to_ts(time: u64, base: u64, tb_num: u32, tb_den: u32) -> u64 {
         let tb_num = u64::from(tb_num);
         let tb_den = u64::from(tb_den);
@@ -1300,6 +1301,7 @@ pub struct NAStream {
 pub type NAStreamRef = Arc<NAStream>;
 
 /// Downscales the timebase by its greatest common denominator.
+#[allow(clippy::comparison_chain)]
 pub fn reduce_timebase(tb_num: u32, tb_den: u32) -> (u32, u32) {
     if tb_num == 0 { return (tb_num, tb_den); }
     if (tb_den % tb_num) == 0 { return (1, tb_den / tb_num); }

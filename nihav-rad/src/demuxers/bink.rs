@@ -146,7 +146,7 @@ impl<'a> DemuxCore<'a> for BinkDemuxer<'a> {
         let stream = strres.unwrap();
         let keyframe = (self.frame_pos[self.cur_frame] & 1) != 0;
         let ts = NATimeInfo::new(Some(self.cur_frame as u64), None, None, self.tb_num, self.tb_den);
-        let pkt = self.src.read_packet(stream.clone(), ts, keyframe, payload_size)?;
+        let pkt = self.src.read_packet(stream, ts, keyframe, payload_size)?;
 
         self.cur_frame += 1;
 

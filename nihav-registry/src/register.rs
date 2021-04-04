@@ -155,7 +155,7 @@ pub fn get_codec_description(name: &str) -> Option<&'static CodecDescription> {
     None
 }
 
-static CODEC_REGISTER: &'static [CodecDescription] = &[
+static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(audio-ll; "pcm", "PCM"),
     desc!(audio;    "alaw", "A-law PCM"),
     desc!(audio;    "ulaw", "mu-law PCM"),
@@ -263,7 +263,7 @@ static CODEC_REGISTER: &'static [CodecDescription] = &[
     desc!(video;    "h264",          "ITU H.264", CODEC_CAP_COMPLEX_REORDER | CODEC_CAP_HYBRID),
 ];
 
-static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (&[1, 0, 0, 0], "msrle"),
     (&[2, 0, 0, 0], "msrle"),
 
@@ -302,7 +302,7 @@ static AVI_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"VP70", "vp7"),
 ];
 
-static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
+static WAV_CODEC_REGISTER: &[(u16, &str)] = &[
     (0x0000, "unknown"),
     (0x0001, "pcm"),
     (0x0002, "ms-adpcm"),
@@ -316,7 +316,7 @@ static WAV_CODEC_REGISTER: &'static [(u16, &str)] = &[
     (0x0501, "on2avc-501"),
 ];
 
-static MOV_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+static MOV_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"cvid", "cinepak"),
     (b"jpeg", "jpeg"),
     //(b"raw ", "raw"),
@@ -344,7 +344,7 @@ static MOV_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"avc1", "h264"),
 ];
 
-static MOV_AUDIO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+static MOV_AUDIO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"NONE", "pcm"),
     (b"raw ", "pcm"),
     (b"twos", "pcm"),

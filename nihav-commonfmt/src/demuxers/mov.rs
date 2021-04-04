@@ -1077,7 +1077,7 @@ impl TimeSearcher {
     fn reset(&mut self) {
         *self = Self::default();
     }
-    fn map_time(&mut self, sample: u32, tts: &Vec<(u32, u32)>) -> u64 {
+    fn map_time(&mut self, sample: u32, tts: &[(u32, u32)]) -> u64 {
         if tts.is_empty() {
             u64::from(sample)
         } else if sample >= self.sbase {
@@ -1363,6 +1363,7 @@ impl Track {
             self.bsize
         }
     }
+    #[allow(clippy::collapsible_if)]
     fn seek(&mut self, pts: u64, tpoint: NATimePoint) -> DemuxerResult<()> {
         self.cur_sample = pts as usize;
         self.samples_left = 0;
@@ -1604,6 +1605,7 @@ const DEMUXER_OPTIONS: &[NAOptionDefinition] = &[
 
 impl<'a> NAOptionHandler for MOVDemuxer<'a> {
     fn get_supported_options(&self) -> &[NAOptionDefinition] { DEMUXER_OPTIONS }
+    #[allow(clippy::single_match)]
     fn set_options(&mut self, options: &[NAOption]) {
         for option in options.iter() {
             for opt_def in DEMUXER_OPTIONS.iter() {

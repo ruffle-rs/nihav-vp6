@@ -657,7 +657,7 @@ println!("PAFF?");
             }
         }
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn handle_macroblock(&mut self, mb_info: &mut CurrentMBInfo) {
         let pps = &self.pps[self.cur_pps];
 

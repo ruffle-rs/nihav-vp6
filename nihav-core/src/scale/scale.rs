@@ -7,6 +7,7 @@ impl NNResampler {
     fn new() -> Self { Self{} }
 }
 
+#[allow(clippy::comparison_chain)]
 fn scale_line<T:Copy>(src: &[T], dst: &mut [T], src_w: usize, dst_w: usize) {
     if src_w == dst_w {
         (&mut dst[..dst_w]).copy_from_slice(&src[..dst_w]);

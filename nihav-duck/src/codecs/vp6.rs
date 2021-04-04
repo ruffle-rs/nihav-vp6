@@ -361,7 +361,7 @@ impl VP56Parser for VP6BR {
                 (mv.x >> 3, mv.y >> 3, mv.x & 7, mv.y & 7, mv.x / 8, mv.y / 8)
             };
         let tmp_blk = mc_buf.get_data_mut().unwrap();
-        get_block(tmp_blk, 16, src.clone(), plane, x, y, sx, sy);
+        get_block(tmp_blk, 16, src, plane, x, y, sx, sy);
         if (msx & 7) != 0 {
             let foff = (8 - (sx & 7)) as usize;
             let off = 2 + foff;

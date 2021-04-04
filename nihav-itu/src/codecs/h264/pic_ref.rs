@@ -215,7 +215,7 @@ impl FrameRefs {
         self.ref_pics.truncate(0);
         self.long_term.truncate(0);
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     pub fn select_refs(&mut self, sps: &SeqParameterSet, slice_hdr: &SliceHeader, cur_id: u32) {
         self.ref_list0.truncate(0);
         self.ref_list1.truncate(0);

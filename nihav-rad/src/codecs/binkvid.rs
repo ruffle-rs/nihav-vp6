@@ -387,7 +387,7 @@ impl Default for BinkTrees {
     fn default() -> Self {
         let mut cb: [Codebook<u8>; 16];
         unsafe {
-            cb = std::mem::uninitialized();
+            cb = std::mem::MaybeUninit::uninit().assume_init();
             for i in 0..16 {
                 let mut cr = TableCodebookDescReader::new(&BINK_TREE_CODES[i], &BINK_TREE_BITS[i], map_u8);
                 std::ptr::write(&mut cb[i], Codebook::new(&mut cr, CodebookMode::LSB).unwrap());

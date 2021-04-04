@@ -1185,8 +1185,8 @@ fn read_string_size(src: &mut ByteReader, size: usize) -> DemuxerResult<String> 
         vec.push(c);
     }
     let str = String::from_utf8(vec);
-    if str.is_ok() {
-        Ok(str.unwrap())
+    if let Ok(res) = str {
+        Ok(res)
     } else {
         Ok(String::new())
     }
@@ -1653,7 +1653,7 @@ impl<'a> RealIVRDemuxer<'a> {
     }
 }
 
-static RM_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+static RM_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"RV10", "realvideo1"),
     (b"RV20", "realvideo2"),
     (b"RVTR", "realvideo2"),
@@ -1663,7 +1663,7 @@ static RM_VIDEO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
     (b"CLV1", "clearvideo_rm"),
 ];
 
-static RM_AUDIO_CODEC_REGISTER: &'static [(&[u8;4], &str)] = &[
+static RM_AUDIO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
     (b"lpcJ", "ra14.4"),
     (b"28_8", "ra28.8"),
     (b"cook", "cook"),

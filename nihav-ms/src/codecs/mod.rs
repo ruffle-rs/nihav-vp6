@@ -30,7 +30,7 @@ const MS_CODECS: &[DecoderInfo] = &[
 /// Registers all available codecs provided by this crate.
 pub fn ms_register_all_decoders(rd: &mut RegisteredDecoders) {
     for decoder in MS_CODECS.iter() {
-        rd.add_decoder(decoder.clone());
+        rd.add_decoder(*decoder);
     }
 }
 
@@ -47,6 +47,6 @@ const MS_ENCODERS: &[EncoderInfo] = &[
 /// Registers all available encoders provided by this crate.
 pub fn ms_register_all_encoders(re: &mut RegisteredEncoders) {
     for encoder in MS_ENCODERS.iter() {
-        re.add_encoder(encoder.clone());
+        re.add_encoder(*encoder);
     }
 }

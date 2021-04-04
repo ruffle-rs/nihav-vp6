@@ -1010,12 +1010,12 @@ impl VP7Decoder {
 
             if pitch_smode == 0 {
                 mc_block8x8(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe.clone(), 1, &mut mc_buf);
-                mc_block8x8(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe.clone(), 2, &mut mc_buf);
+                mc_block8x8(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y, refframe,         2, &mut mc_buf);
             } else {
                 mc_block_special(dst, uoff, ustride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y,
                                  refframe.clone(), 1, &mut mc_buf, 8, pitch_smode);
                 mc_block_special(dst, voff, vstride, mb_x * 8, mb_y * 8, chroma_mv.x, chroma_mv.y,
-                                 refframe.clone(), 2, &mut mc_buf, 8, pitch_smode);
+                                 refframe,         2, &mut mc_buf, 8, pitch_smode);
             }
         } else {
             for y in 0..2 {
@@ -1137,7 +1137,7 @@ impl NADecoder for VP7Decoder {
             Err(DecoderError::InvalidData)
         }
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn decode(&mut self, supp: &mut NADecoderSupport, pkt: &NAPacket) -> DecoderResult<NAFrameRef> {
         let src = pkt.get_buffer();
 

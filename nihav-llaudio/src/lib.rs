@@ -1,6 +1,7 @@
 extern crate nihav_core;
 extern crate nihav_codec_support;
 
+#[allow(clippy::comparison_chain)]
 #[allow(clippy::unreadable_literal)]
 #[allow(clippy::verbose_bit_mask)]
 mod codecs;

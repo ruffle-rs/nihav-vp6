@@ -58,7 +58,7 @@ macro_rules! filter_row {
         });
 }
 
-#[allow(clippy::cyclomatic_complexity)]
+#[allow(clippy::cognitive_complexity)]
 fn luma_mc(dst: &mut [u8], mut didx: usize, dstride: usize, src: &[u8], mut sidx: usize, sstride: usize, w: usize, h: usize, cx: usize, cy: usize) {
     if (cx == 0) && (cy == 0) {
         for _ in 0..h {
@@ -784,7 +784,7 @@ impl IntraPredContext {
             sum += diff;
         }
     }
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     pub fn pred_angle(&self, dst: &mut [u8], mut doff: usize, dstride: usize, size: usize, angle: usize, filter: bool) {
         let mut filtered1: [u8; 96] = [0; 96];
         let mut filtered2: [u8; 96] = [0; 96];

@@ -258,7 +258,7 @@ fn decode_mv(cabac: &mut CABAC, ctx0: usize, ctx1: usize) -> MV {
     MV{ x, y }
 }
 
-#[allow(clippy::cyclomatic_complexity)]
+#[allow(clippy::cognitive_complexity)]
 pub fn decode_mb_pred_cabac(cabac: &mut CABAC, slice_hdr: &SliceHeader, mb_type: MBType, sstate: &mut SliceState, mb_info: &mut CurrentMBInfo) {
     mb_info.mb_type = mb_type;
     let num_l0 = slice_hdr.num_ref_idx_l0_active;

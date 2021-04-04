@@ -359,6 +359,7 @@ impl Inflate {
     ///!
     ///! [`DecompressError::ShortData`]: ../enum.DecompressError.html#variant.ShortData
     ///! [`DecompressError::OutputFull`]: ../enum.DecompressError.html#variant.OutputFull
+    #[allow(clippy::comparison_chain)]
     pub fn decompress_data(&mut self, src: &[u8], dst: &mut [u8], continue_block: bool) -> DecompressResult<usize> {
         if src.is_empty() || dst.is_empty() {
             return Err(DecompressError::InvalidArgument);

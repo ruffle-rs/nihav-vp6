@@ -434,7 +434,7 @@ fn mc_part(dframe: &mut NASimpleVideoFrame<u8>, src: NAVideoBufferRef<u8>, ebuf:
 
     copy_block(dframe, src.clone(), ebuf, 0, xoff,     yoff,     mx,  my,  bw * 4, bh * 4, 0, post, mode, ifuncs);
     copy_block(dframe, src.clone(), ebuf, 1, xoff / 2, yoff / 2, cmx, cmy, bw * 2, bh * 2, 0, post, mode, ifuncs);
-    copy_block(dframe, src.clone(), ebuf, 2, xoff / 2, yoff / 2, cmx, cmy, bw * 2, bh * 2, 0, post, mode, ifuncs);
+    copy_block(dframe, src,         ebuf, 2, xoff / 2, yoff / 2, cmx, cmy, bw * 2, bh * 2, 0, post, mode, ifuncs);
 }
 
 impl SVQ3Decoder {
@@ -813,7 +813,7 @@ println!("slice offset {}", _offset);
         if let (Some(bwd_ref), true, true) = (self.ipbs.get_b_bwdref(), has_fwd, has_bwd) {
             let mut aframe = NASimpleVideoFrame::from_video_buf(&mut self.avg_buf).unwrap();
             let amv = MV { x: bmv.x + (self.mb_x as i16) * 16 * 6, y: bmv.y + (self.mb_y as i16) * 16 * 6 };
-            mc_part(&mut aframe, bwd_ref.clone(), &mut self.ebuf, 0, 0, 4, 4, amv, bmode, ifuncs);
+            mc_part(&mut aframe, bwd_ref, &mut self.ebuf, 0, 0, 4, 4, amv, bmode, ifuncs);
 
             let dstride = dframe.stride[0];
             let dst = &mut dframe.data[dframe.offset[0] + self.mb_x * 16 + self.mb_y * 16 * dstride..];

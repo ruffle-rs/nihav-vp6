@@ -1027,7 +1027,7 @@ impl Bink2Decoder {
         Self::default()
     }
 
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn decode_frame_new(&mut self, br: &mut BitReader, buf: &mut NAVideoBuffer<u8>, is_intra: bool) -> DecoderResult<()> {
         let (stride_y, stride_u, stride_v, stride_a) = (buf.get_stride(0), buf.get_stride(1), buf.get_stride(2), buf.get_stride(3));
         let (mut off_y, mut off_u, mut off_v, mut off_a) = (buf.get_offset(0), buf.get_offset(1), buf.get_offset(2), buf.get_offset(3));

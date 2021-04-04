@@ -2,6 +2,7 @@ extern crate nihav_core;
 extern crate nihav_codec_support;
 
 #[allow(clippy::collapsible_if)]
+#[allow(clippy::comparison_chain)]
 #[allow(clippy::needless_range_loop)]
 #[allow(clippy::useless_let_if_seq)]
 mod codecs;
