@@ -4,7 +4,7 @@ NihAV is a research multimedia framework with some demonstration tools.
 
 ## Getting Started
 
-The project should build just fine with Rust 1.33 or later.
+The project should build just fine with Rust 1.46 or later.
 
 ## Contributing
 
