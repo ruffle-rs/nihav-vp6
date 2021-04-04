@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```no_run
-//! use nihav_core::detect::detect_format;
+//! use nihav_registry::detect::detect_format;
 //! use std::fs::File;
 //! use nihav_core::io::byteio::*;
 //!
@@ -118,29 +118,39 @@ impl Arg {
         }
     }
     fn eq(&self, src: &mut ByteReader) -> bool {
-        let val = self.read_val(src);
-        if val.is_none() { false }
-        else { val.unwrap() == self.val() }
+        if let Some(rval) = self.read_val(src) {
+            rval == self.val()
+        } else {
+            false
+        }
     }
     fn ge(&self, src: &mut ByteReader) -> bool {
-        let val = self.read_val(src);
-        if val.is_none() { false }
-        else { val.unwrap() >= self.val() }
+        if let Some(rval) = self.read_val(src) {
+            rval >= self.val()
+        } else {
+            false
+        }
     }
     fn gt(&self, src: &mut ByteReader) -> bool {
-        let val = self.read_val(src);
-        if val.is_none() { false }
-        else { val.unwrap() > self.val() }
+        if let Some(rval) = self.read_val(src) {
+            rval > self.val()
+        } else {
+            false
+        }
     }
     fn le(&self, src: &mut ByteReader) -> bool {
-        let val = self.read_val(src);
-        if val.is_none() { false }
-        else { val.unwrap() <= self.val() }
+        if let Some(rval) = self.read_val(src) {
+            rval <= self.val()
+        } else {
+            false
+        }
     }
     fn lt(&self, src: &mut ByteReader) -> bool {
-        let val = self.read_val(src);
-        if val.is_none() { false }
-        else { val.unwrap() < self.val() }
+        if let Some(rval) = self.read_val(src) {
+            rval < self.val()
+        } else {
+            false
+        }
     }
 }
 
@@ -395,7 +405,7 @@ pub fn detect_format_by_name(name: &str) -> Option<&'static str> {
 mod test {
     use super::*;
     use std::fs::File;
-    use crate::io::byteio::*;
+    use nihav_core::io::byteio::*;
 
     #[test]
     fn test_avi_detect() {
