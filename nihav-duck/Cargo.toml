@@ -17,7 +17,9 @@ nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, feature
 [features]
 default = ["all_decoders"]
 
-all_decoders = ["decoder_truemotion1", "decoder_truemotionrt", "decoder_dk3_adpcm", "decoder_dk4_adpcm", "decoder_truemotion2", "decoder_truemotion2x", "decoder_vp3", "decoder_vp4", "decoder_vp5", "decoder_vp6", "decoder_on2avc", "decoder_vp7"]
+all_decoders = ["all_video_decoders", "all_audio_decoders"]
+all_video_decoders = ["decoder_truemotion1", "decoder_truemotionrt", "decoder_truemotion2", "decoder_truemotion2x", "decoder_vp3", "decoder_vp4", "decoder_vp5", "decoder_vp6", "decoder_vp7"]
+all_audio_decoders = ["decoder_dk3_adpcm", "decoder_dk4_adpcm", "decoder_on2avc"]
 decoders = []
 
 decoder_truemotion1 = ["decoders"]
