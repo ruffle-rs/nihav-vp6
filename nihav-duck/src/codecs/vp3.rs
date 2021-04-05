@@ -32,26 +32,29 @@ fn map_mbt(idx: usize) -> VPMBType {
 
 impl VP30Codes {
     fn new() -> Self {
-        let mut dc_cb:   [Codebook<u8>; 5];
-        let mut ac_i_cb: [Codebook<u8>; 5];
-        let mut ac_p_cb: [Codebook<u8>; 5];
+        let dc_cb;
+        let ac_i_cb;
+        let ac_p_cb;
         let mut cr = TableCodebookDescReader::new(&VP30_MBTYPE_CODES, &VP30_MBTYPE_BITS, map_mbt);
         let mbtype_cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
         unsafe {
-            dc_cb = mem::MaybeUninit::uninit().assume_init();
-            ac_i_cb = mem::MaybeUninit::uninit().assume_init();
-            ac_p_cb = mem::MaybeUninit::uninit().assume_init();
+            let mut udc_cb: mem::MaybeUninit::<[Codebook<u8>; 5]> = mem::MaybeUninit::uninit();
+            let mut uac_i_cb: mem::MaybeUninit::<[Codebook<u8>; 5]> = mem::MaybeUninit::uninit();
+            let mut uac_p_cb: mem::MaybeUninit::<[Codebook<u8>; 5]> = mem::MaybeUninit::uninit();
             for i in 0..5 {
                 let mut cr = TableCodebookDescReader::new(&VP30_DC_CODES[i], &VP30_DC_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut dc_cb[i], cb);
+                ptr::write(&mut (*udc_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP30_AC_INTRA_CODES[i], &VP30_AC_INTRA_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac_i_cb[i], cb);
+                ptr::write(&mut (*uac_i_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP30_AC_INTER_CODES[i], &VP30_AC_INTER_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac_p_cb[i], cb);
+                ptr::write(&mut (*uac_p_cb.as_mut_ptr())[i], cb);
             }
+            dc_cb   = udc_cb.assume_init();
+            ac_i_cb = uac_i_cb.assume_init();
+            ac_p_cb = uac_p_cb.assume_init();
         }
         Self { dc_cb, ac_i_cb, ac_p_cb, mbtype_cb }
     }
@@ -67,68 +70,78 @@ struct VP31Codes {
 
 impl VP31Codes {
     fn new() -> Self {
-        let mut dc_cb: [Codebook<u8>; 16];
-        let mut ac0_cb: [Codebook<u8>; 16];
-        let mut ac1_cb: [Codebook<u8>; 16];
-        let mut ac2_cb: [Codebook<u8>; 16];
-        let mut ac3_cb: [Codebook<u8>; 16];
+        let dc_cb;
+        let ac0_cb;
+        let ac1_cb;
+        let ac2_cb;
+        let ac3_cb;
         unsafe {
-            dc_cb = mem::MaybeUninit::uninit().assume_init();
-            ac0_cb = mem::MaybeUninit::uninit().assume_init();
-            ac1_cb = mem::MaybeUninit::uninit().assume_init();
-            ac2_cb = mem::MaybeUninit::uninit().assume_init();
-            ac3_cb = mem::MaybeUninit::uninit().assume_init();
+            let mut udc_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
+            let mut uac0_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
+            let mut uac1_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
+            let mut uac2_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
+            let mut uac3_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
             for i in 0..16 {
                 let mut cr = TableCodebookDescReader::new(&VP31_DC_CODES[i], &VP31_DC_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut dc_cb[i], cb);
+                ptr::write(&mut (*udc_cb.as_mut_ptr())[i], cb);
 
                 let mut cr = TableCodebookDescReader::new(&VP31_AC_CAT0_CODES[i], &VP31_AC_CAT0_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac0_cb[i], cb);
+                ptr::write(&mut (*uac0_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP31_AC_CAT1_CODES[i], &VP31_AC_CAT1_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac1_cb[i], cb);
+                ptr::write(&mut (*uac1_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP31_AC_CAT2_CODES[i], &VP31_AC_CAT2_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac2_cb[i], cb);
+                ptr::write(&mut (*uac2_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP31_AC_CAT3_CODES[i], &VP31_AC_CAT3_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac3_cb[i], cb);
+                ptr::write(&mut (*uac3_cb.as_mut_ptr())[i], cb);
             }
+            dc_cb = udc_cb.assume_init();
+            ac0_cb = uac0_cb.assume_init();
+            ac1_cb = uac1_cb.assume_init();
+            ac2_cb = uac2_cb.assume_init();
+            ac3_cb = uac3_cb.assume_init();
         }
         Self { dc_cb, ac0_cb, ac1_cb, ac2_cb, ac3_cb }
     }
     fn new_vp4() -> VP31Codes {
-        let mut dc_cb: [Codebook<u8>; 16];
-        let mut ac0_cb: [Codebook<u8>; 16];
-        let mut ac1_cb: [Codebook<u8>; 16];
-        let mut ac2_cb: [Codebook<u8>; 16];
-        let mut ac3_cb: [Codebook<u8>; 16];
+        let dc_cb;
+        let ac0_cb;
+        let ac1_cb;
+        let ac2_cb;
+        let ac3_cb;
         unsafe {
-            dc_cb = mem::MaybeUninit::uninit().assume_init();
-            ac0_cb = mem::MaybeUninit::uninit().assume_init();
-            ac1_cb = mem::MaybeUninit::uninit().assume_init();
-            ac2_cb = mem::MaybeUninit::uninit().assume_init();
-            ac3_cb = mem::MaybeUninit::uninit().assume_init();
+            let mut udc_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
+            let mut uac0_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
+            let mut uac1_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
+            let mut uac2_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
+            let mut uac3_cb: mem::MaybeUninit::<[Codebook<u8>; 16]> = mem::MaybeUninit::uninit();
             for i in 0..16 {
                 let mut cr = TableCodebookDescReader::new(&VP40_DC_CODES[i], &VP40_DC_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut dc_cb[i], cb);
+                ptr::write(&mut (*udc_cb.as_mut_ptr())[i], cb);
 
                 let mut cr = TableCodebookDescReader::new(&VP40_AC_CAT0_CODES[i], &VP40_AC_CAT0_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac0_cb[i], cb);
+                ptr::write(&mut (*uac0_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP40_AC_CAT1_CODES[i], &VP40_AC_CAT1_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac1_cb[i], cb);
+                ptr::write(&mut (*uac1_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP40_AC_CAT2_CODES[i], &VP40_AC_CAT2_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac2_cb[i], cb);
+                ptr::write(&mut (*uac2_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP40_AC_CAT3_CODES[i], &VP40_AC_CAT3_BITS[i], map_idx);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut ac3_cb[i], cb);
+                ptr::write(&mut (*uac3_cb.as_mut_ptr())[i], cb);
             }
+            dc_cb = udc_cb.assume_init();
+            ac0_cb = uac0_cb.assume_init();
+            ac1_cb = uac1_cb.assume_init();
+            ac2_cb = uac2_cb.assume_init();
+            ac3_cb = uac3_cb.assume_init();
         }
         VP31Codes { dc_cb, ac0_cb, ac1_cb, ac2_cb, ac3_cb }
     }
@@ -146,19 +159,21 @@ fn map_mv(idx: usize) -> i8 {
 
 impl VP40AuxCodes {
     fn new() -> Self {
-        let mut mv_x_cb: [Codebook<i8>; 7];
-        let mut mv_y_cb: [Codebook<i8>; 7];
+        let mv_x_cb;
+        let mv_y_cb;
         unsafe {
-            mv_x_cb = mem::MaybeUninit::uninit().assume_init();
-            mv_y_cb = mem::MaybeUninit::uninit().assume_init();
+            let mut umv_x_cb: mem::MaybeUninit::<[Codebook<i8>; 7]> = mem::MaybeUninit::uninit();
+            let mut umv_y_cb: mem::MaybeUninit::<[Codebook<i8>; 7]> = mem::MaybeUninit::uninit();
             for i in 0..7 {
                 let mut cr = TableCodebookDescReader::new(&VP40_MV_X_CODES[i], &VP40_MV_X_BITS[i], map_mv);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut mv_x_cb[i], cb);
+                ptr::write(&mut (*umv_x_cb.as_mut_ptr())[i], cb);
                 let mut cr = TableCodebookDescReader::new(&VP40_MV_Y_CODES[i], &VP40_MV_Y_BITS[i], map_mv);
                 let cb = Codebook::new(&mut cr, CodebookMode::MSB).unwrap();
-                ptr::write(&mut mv_y_cb[i], cb);
+                ptr::write(&mut (*umv_y_cb.as_mut_ptr())[i], cb);
             }
+            mv_x_cb = umv_x_cb.assume_init();
+            mv_y_cb = umv_y_cb.assume_init();
         }
         let mut cr0 = TableCodebookDescReader::new(&VP40_MBPAT_CODES[0], &VP40_MBPAT_BITS[0], map_idx);
         let mut cr1 = TableCodebookDescReader::new(&VP40_MBPAT_CODES[1], &VP40_MBPAT_BITS[1], map_idx);

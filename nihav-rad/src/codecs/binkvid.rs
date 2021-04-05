@@ -385,14 +385,14 @@ fn map_u8(idx: usize) -> u8 { idx as u8 }
 
 impl Default for BinkTrees {
     fn default() -> Self {
-        let mut cb: [Codebook<u8>; 16];
-        unsafe {
-            cb = std::mem::MaybeUninit::uninit().assume_init();
-            for i in 0..16 {
-                let mut cr = TableCodebookDescReader::new(&BINK_TREE_CODES[i], &BINK_TREE_BITS[i], map_u8);
-                std::ptr::write(&mut cb[i], Codebook::new(&mut cr, CodebookMode::LSB).unwrap());
-            }
-        }
+        let cb = unsafe {
+                let mut ucb: std::mem::MaybeUninit::<[Codebook<u8>; 16]> = std::mem::MaybeUninit::uninit();
+                for i in 0..16 {
+                    let mut cr = TableCodebookDescReader::new(&BINK_TREE_CODES[i], &BINK_TREE_BITS[i], map_u8);
+                    std::ptr::write(&mut (*ucb.as_mut_ptr())[i], Codebook::new(&mut cr, CodebookMode::LSB).unwrap());
+                }
+                ucb.assume_init()
+            };
         Self { cb }
     }
 }

@@ -348,7 +348,6 @@ fn calc_maxcoef(coef: f32) -> (f32, f32) {
 
 impl IMCDecoder {
     fn new(is_imc: bool) -> Self {
-        let mut codes: [[Codebook<u8>; 4]; 4];
         let mut cycle1: [usize; BANDS] = [0; BANDS];
         let mut cycle2: [usize; BANDS] = [0; BANDS];
         let mut weights1: [f32; BANDS-1] = [0.0; BANDS-1];
@@ -359,15 +358,16 @@ impl IMCDecoder {
             weights1.copy_from_slice(&IMC_WEIGHTS1);
             weights2.copy_from_slice(&IMC_WEIGHTS2);
         }
-        unsafe {
-            codes = mem::MaybeUninit::uninit().assume_init();
-            for i in 0..4 {
-                for j in 0..4 {
-                    let mut cr = IMCCodeReader::new(i, j);
-                    ptr::write(&mut codes[i][j], Codebook::new(&mut cr, CodebookMode::MSB).unwrap());
+        let codes = unsafe {
+                let mut ucodes: mem::MaybeUninit::<[[Codebook<u8>; 4]; 4]> = mem::MaybeUninit::uninit();
+                for i in 0..4 {
+                    for j in 0..4 {
+                        let mut cr = IMCCodeReader::new(i, j);
+                        ptr::write(&mut (*ucodes.as_mut_ptr())[i][j], Codebook::new(&mut cr, CodebookMode::MSB).unwrap());
+                    }
                 }
-            }
-        }
+                ucodes.assume_init()
+            };
         IMCDecoder {
             is_imc,
             chmap:      NAChannelMap::new(),

@@ -98,33 +98,37 @@ pub struct RV60Codebooks {
 
 impl RV60Codebooks {
     pub fn init() -> Self {
-        let mut cbp8_cb:  [[Codebook<u16>; 4];  NUM_INTER_SETS];
-        let mut cbp16_cb: [[Codebook<u16>; 12]; NUM_INTER_SETS];
+        let cbp8_cb;
+        let cbp16_cb;
         unsafe {
-            cbp8_cb = mem::MaybeUninit::uninit().assume_init();
-            cbp16_cb = mem::MaybeUninit::uninit().assume_init();
+            let mut ucbp8_cb:  mem::MaybeUninit::<[[Codebook<u16>; 4];  NUM_INTER_SETS]> = mem::MaybeUninit::uninit();
+            let mut ucbp16_cb: mem::MaybeUninit::<[[Codebook<u16>; 12]; NUM_INTER_SETS]> = mem::MaybeUninit::uninit();
             for set_no in 0..NUM_INTER_SETS {
                 for i in 0..4 {
                     let mut cbr = RV60CodebookDescReader::new(&RV60_CBP8_TABS[set_no][i], NUM_CBP_ENTRIES, false);
-                    ptr::write(&mut cbp8_cb[set_no][i], Codebook::new(&mut cbr, CodebookMode::MSB).unwrap());
+                    ptr::write(&mut (*ucbp8_cb.as_mut_ptr())[set_no][i], Codebook::new(&mut cbr, CodebookMode::MSB).unwrap());
                 }
                 for i in 0..12 {
                     let mut cbr = RV60CodebookDescReader::new(&RV60_CBP16_TABS[set_no][i], NUM_CBP_ENTRIES, false);
-                    ptr::write(&mut cbp16_cb[set_no][i], Codebook::new(&mut cbr, CodebookMode::MSB).unwrap());
+                    ptr::write(&mut (*ucbp16_cb.as_mut_ptr())[set_no][i], Codebook::new(&mut cbr, CodebookMode::MSB).unwrap());
                 }
             }
+            cbp8_cb  = ucbp8_cb.assume_init();
+            cbp16_cb = ucbp16_cb.assume_init();
         }
-        let mut intra_coeff_cb: [CoeffCodebooks; NUM_INTRA_SETS];
-        let mut inter_coeff_cb: [CoeffCodebooks; NUM_INTER_SETS];
+        let intra_coeff_cb;
+        let inter_coeff_cb;
         unsafe {
-            intra_coeff_cb = mem::MaybeUninit::uninit().assume_init();
+            let mut uintra_coeff_cb: mem::MaybeUninit::<[CoeffCodebooks; NUM_INTRA_SETS]> = mem::MaybeUninit::uninit();
             for set_no in 0..NUM_INTRA_SETS {
-                ptr::write(&mut intra_coeff_cb[set_no], CoeffCodebooks::init(set_no, true));
+                ptr::write(&mut (*uintra_coeff_cb.as_mut_ptr())[set_no], CoeffCodebooks::init(set_no, true));
             }
-            inter_coeff_cb = mem::MaybeUninit::uninit().assume_init();
+            let mut uinter_coeff_cb: mem::MaybeUninit::<[CoeffCodebooks; NUM_INTER_SETS]> = mem::MaybeUninit::uninit();
             for set_no in 0..NUM_INTER_SETS {
-                ptr::write(&mut inter_coeff_cb[set_no], CoeffCodebooks::init(set_no, false));
+                ptr::write(&mut (*uinter_coeff_cb.as_mut_ptr())[set_no], CoeffCodebooks::init(set_no, false));
             }
+            intra_coeff_cb = uintra_coeff_cb.assume_init();
+            inter_coeff_cb = uinter_coeff_cb.assume_init();
         }
         Self { cbp8_cb, cbp16_cb, intra_coeff_cb, inter_coeff_cb }
     }

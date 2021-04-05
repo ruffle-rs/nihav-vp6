@@ -556,14 +556,14 @@ impl Codebooks {
     fn new() -> Self {
         let mut coderead = TableCodebookDescReader::new(AAC_SCF_CODEBOOK_CODES, AAC_SCF_CODEBOOK_BITS, scale_map);
         let scale_cb = Codebook::new(&mut coderead, CodebookMode::MSB).unwrap();
-        let mut spec_cb: [Codebook<u16>; 11];
-        unsafe {
-            spec_cb = mem::MaybeUninit::uninit().assume_init();
-            for i in 0..AAC_SPEC_CODES.len() {
-                let mut coderead = TableCodebookDescReader::new(AAC_SPEC_CODES[i], AAC_SPEC_BITS[i], cb_map);
-                ptr::write(&mut spec_cb[i], Codebook::new(&mut coderead, CodebookMode::MSB).unwrap());
-            }
-        }
+        let spec_cb = unsafe {
+                let mut uspec_cb: mem::MaybeUninit::<[Codebook<u16>; 11]> = mem::MaybeUninit::uninit();
+                for i in 0..AAC_SPEC_CODES.len() {
+                    let mut coderead = TableCodebookDescReader::new(AAC_SPEC_CODES[i], AAC_SPEC_BITS[i], cb_map);
+                    ptr::write(&mut (*uspec_cb.as_mut_ptr())[i], Codebook::new(&mut coderead, CodebookMode::MSB).unwrap());
+                }
+                uspec_cb.assume_init()
+            };
         Self { scale_cb, spec_cb }
     }
 }
