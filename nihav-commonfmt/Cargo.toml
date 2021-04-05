@@ -15,7 +15,7 @@ path = "../nihav-codec-support"
 features = ["h263", "mdct", "fft", "dsp_window", "vq"]
 
 [dev-dependencies]
-nihav_realmedia = { path = "../nihav-realmedia" }
+nihav_realmedia = { path = "../nihav-realmedia", default-features=false, features = ["all_demuxers"] }
 
 [features]
 default = ["all_decoders", "all_demuxers", "all_encoders", "all_muxers"]

@@ -12,7 +12,7 @@ path = "../nihav-codec-support"
 features = ["fft", "dsp_window", "blockdsp"]
 
 [dev-dependencies]
-nihav_commonfmt = { path = "../nihav-commonfmt" }
+nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
 
 [features]
 default = ["all_decoders"]
