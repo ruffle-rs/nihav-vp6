@@ -582,6 +582,7 @@ impl NADecoder for CookDecoder {
                             let pair_chmap = self.pairs[i].read_hdr_v2(&mut br)?;
                             self.pairs[i].start_ch = start_ch;
                             validate!((chmap & pair_chmap) == 0);
+                            chmap |= pair_chmap;
                             start_ch += self.pairs[i].mode.get_channels();
                         }
                         self.channels = start_ch;
