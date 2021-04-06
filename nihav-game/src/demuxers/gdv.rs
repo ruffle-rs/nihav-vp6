@@ -91,7 +91,7 @@ impl<'a> DemuxCore<'a> for GremlinVideoDemuxer<'a> {
             let ahdr = NAAudioInfo::new(u32::from(rate), channels as u8, if depth == 16 { SND_S16_FORMAT } else { SND_U8_FORMAT }, 2);
             let ainfo = NACodecInfo::new(if packed != 0 { "gdv-audio" } else { "pcm" },
                                          NACodecTypeInfo::Audio(ahdr), None);
-            self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, u32::from(rate), 0));
+            self.a_id = strmgr.add_stream(NAStream::new(StreamType::Audio, 1, ainfo, 1, u32::from(fps), 0));
 
             self.asize = (((rate / fps) * channels * (depth / 8)) >> packed) as usize;
             self.apacked = (aflags & 8) != 0;
