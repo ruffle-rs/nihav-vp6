@@ -120,7 +120,10 @@ impl<'a> DemuxCore<'a> for AVIDemuxer<'a> {
                 continue;
             }
             let (tb_num, tb_den) = stream.get_timebase();
-            let ts = NATimeInfo::new(Some(self.cur_frame[stream_no as usize]), None, None, tb_num, tb_den);
+            let mut ts = NATimeInfo::new(Some(self.cur_frame[stream_no as usize]), None, None, tb_num, tb_den);
+            if stream.get_media_type() == StreamType::Audio && tb_num == 1 && stream.get_info().get_name() == "pcm" {
+                ts.pts = None;
+            }
             let mut pkt = self.src.read_packet(stream, ts, is_keyframe, size)?;
             for pe in self.pal.iter_mut() {
                 if pe.stream_no == (stream_no as usize) {
