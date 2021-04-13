@@ -78,9 +78,31 @@ impl<'a> FLACDemuxer<'a> {
                 self.cur_samples = blkno * u64::from(self.blk_samples);
                 (u64::from(self.blk_samples), blkno)
             } else {
-                validate!((buf[1] & 1) != 0);
-                let blksamps = u64::from(read_utf8(&buf[4..])?);
-                (blksamps, self.cur_samples)
+                let mut idx = 5;
+                while idx < buf.len() && (buf[idx] & 0x80) != 0 {
+                    idx += 1;
+                }
+
+                let bsz_id = buf[2] >> 4;
+                let blksamps = match bsz_id {
+                        0 => return Err(DemuxerError::InvalidData),
+                        1 => 192,
+                        2..=5 => 576 << (bsz_id - 2),
+                        6 => {
+                            validate!(idx + 1 <= buf.len());
+                            u64::from(buf[idx]) + 1
+                        },
+                        7 => {
+                            validate!(idx + 2 <= buf.len());
+                            u64::from(buf[idx]) * 256 + u64::from(buf[idx + 1]) + 1
+                        },
+                        _ => 256 << (bsz_id - 8),
+                    };
+                let pts = u64::from(read_utf8(&buf[4..])?);
+              
+                validate!(idx < buf.len());
+                
+                (blksamps, pts)
             };
 
         let spos = if self.blk_samples != 0 { pts * u64::from(self.blk_samples) } else { pts };
