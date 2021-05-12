@@ -131,7 +131,7 @@ impl<'a> CABAC<'a> {
     }
     pub fn decode_bit(&mut self, idx: usize) -> bool {
         let mut val_mps = (self.states[idx] & 0x80) != 0;
-        let state_idx = (self.states[idx] & 0x7F) as usize;
+        let state_idx = (self.states[idx] & 0x3F) as usize;
         let range_idx = ((self.cod_range >> 6) & 3) as usize;
         let range_lps = u16::from(RANGE_TBL_LPS[range_idx + state_idx * 4]);
         self.cod_range -= range_lps;
