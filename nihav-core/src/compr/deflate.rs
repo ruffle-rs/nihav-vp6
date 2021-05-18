@@ -721,7 +721,7 @@ impl Inflate {
     ///! Decompresses input data into output returning the uncompressed data length.
     pub fn uncompress(src: &[u8], dst: &mut [u8]) -> DecompressResult<usize> {
         let mut inflate = Self::new();
-        let off = if src.len() > 2 && src[0] == 0x78 && src[1] == 0x9C { 2 } else { 0 };
+        let off = if src.len() > 2 && src[0] == 0x78 && (src[1] != 0 && ((src[1] - 1) % 31) == 0) { 2 } else { 0 };
         inflate.decompress_data(&src[off..], dst, false)
     }
 }
