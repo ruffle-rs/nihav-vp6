@@ -1,7 +1,8 @@
 //! Deflate format (RFC 1951) support.
 //!
-//! This module provides functionality for decompressing raw deflated streams via [`Inflate`] and gzip files (RFC 1952) via [`gzip_decode`].
+//! This module provides functionality for decompressing raw deflated streams via [`Inflate`] and gzip files (RFC 1952) via [`gzip_decode`] and compressing raw or zlib streams via [`Deflate`].
 //!
+//! [`Deflate`]: ./struct.Deflate.html
 //! [`Inflate`]: ./struct.Inflate.html
 //! [`gzip_decode`]: ./fn.gzip_decode.html
 //!
@@ -52,6 +53,21 @@
 //!     }
 //! }
 //! # Ok(())
+//! # }
+//! ```
+//!
+//! Compressing input buffer into zlib stream:
+//! ```
+//! use nihav_core::compr::deflate::{Deflate, DeflateMode, DeflateWriter};
+//!
+//! # fn compress(input: &[u8]) {
+//! let output = Vec::with_capacity(input.len() * 65540 / 65535 + 6);
+//! let mut writer = DeflateWriter::new(output);
+//! let mut compr = Deflate::new(DeflateMode::Fast);
+//! compr.write_zlib_header(&mut writer);
+//! compr.compress(input, &mut writer);
+//! compr.compress_end(&mut writer);
+//! let output = writer.end();
 //! # }
 //! ```
 
@@ -907,6 +923,921 @@ pub fn gzip_decode(br: &mut ByteReader, skip_crc: bool) -> DecompressResult<Vec<
     Ok(output)
 }
 
+#[derive(Clone,Copy,Default)]
+struct Token {
+    sym:        u16,
+    distsym:    u8,
+    len:        u16,
+    dist:       u16,
+}
+
+const TOKEN_EOB: Token = Token { sym: 256, distsym: 0, len: 0, dist: 0 };
+
+impl Token {
+    fn from_literal(sym: u8) -> Self {
+        Self {
+            sym:        u16::from(sym),
+            distsym:    0,
+            dist:       0,
+            len:        0,
+        }
+    }
+    fn from_match(dist: u16, len: u16) -> Self {
+        let sym = match len {
+              3..= 10 => 257 +  len -   3,
+             11..= 18 => 265 + (len -  11) /  2,
+             19..= 34 => 269 + (len -  19) /  4,
+             35..= 66 => 273 + (len -  35) /  8,
+             67..=130 => 277 + (len -  67) / 16,
+            131..=257 => 281 + (len - 131) / 32,
+                    _ => 285,
+        };
+        let distsym = if dist <= 4 {
+                (dist - 1) as u8
+            } else {
+                let bits = 16 - (dist - 1).leading_zeros();
+                (bits as u8) * 2 - 2 + if ((dist - 1) & (1 << (bits - 2))) != 0 { 1 } else { 0 }
+            };
+        Self {
+            sym, distsym, len, dist
+        }
+    }
+}
+
+fn add_codes(lens: &[u8], stats: &mut [u32], toks: &mut Vec<(u8, u8)>) {
+    let mut last = 42;
+    let mut lcount = 0;
+
+    for &len in lens.iter() {
+        if len == last {
+            lcount += 1;
+        } else {
+            if last == 0 {
+                while lcount > 10 {
+                    let run = lcount.min(138);
+                    stats[18] += 1;
+                    toks.push((18, run - 11));
+                    lcount -= run;
+                }
+                if lcount >= 3 {
+                    stats[17] += 1;
+                    toks.push((17, lcount - 3));
+                    lcount = 0;
+                }
+                for _ in 0..lcount {
+                    stats[0] += 1;
+                    toks.push((0, 0));
+                }
+            } else {
+                while lcount >= 3 {
+                    let run = lcount.min(6);
+                    stats[16] += 1;
+                    toks.push((16, run - 3));
+                    lcount -= run;
+                }
+                for _ in 0..lcount {
+                    stats[last as usize] += 1;
+                    toks.push((last, 0));
+                }
+            }
+            stats[len as usize] += 1;
+            toks.push((len, 0));
+            last = len;
+            lcount = 0;
+        }
+    }
+    if lcount > 0 {
+        if last == 0 {
+            while lcount > 10 {
+                let run = lcount.min(138);
+                stats[18] += 1;
+                toks.push((18, run - 11));
+                lcount -= run;
+            }
+            if lcount >= 3 {
+                stats[17] += 1;
+                toks.push((17, lcount - 3));
+                lcount = 0;
+            }
+            for _ in 0..lcount {
+                stats[0] += 1;
+                toks.push((0, 0));
+            }
+        } else {
+            while lcount >= 3 {
+                let run = lcount.min(6);
+                stats[16] += 1;
+                toks.push((16, run - 3));
+                lcount -= run;
+            }
+            for _ in 0..lcount {
+                stats[last as usize] += 1;
+                toks.push((last, 0));
+            }
+        }
+    }
+}
+
+///! Deflate stream writer.
+pub struct DeflateWriter {
+    dst:    Vec<u8>,
+    bits:   u8,
+    bbuf:   u32,
+}
+
+impl DeflateWriter {
+    ///! Creates a new instance of `DeflateWriter` for a provided output.
+    pub fn new(dst: Vec<u8>) -> Self {
+        Self {
+            dst,
+            bits:   0,
+            bbuf:   0,
+        }
+    }
+    fn align(&mut self) {
+        if (self.bits & 7) != 0 {
+            self.bits += 8 - (self.bits & 7);
+        }
+    }
+    fn flush(&mut self) {
+        while self.bits >= 8 {
+            self.dst.push(self.bbuf as u8);
+            self.bbuf >>= 8;
+            self.bits -= 8;
+        }
+    }
+    fn write(&mut self, val: u16, len: u8) {
+        self.flush();
+        self.bbuf |= u32::from(val) << self.bits;
+        self.bits += len;
+    }
+    ///! Finishes writing the stream and returns the output vector.
+    pub fn end(mut self) -> Vec<u8> {
+        self.flush();
+        if self.bits > 0 {
+            self.dst.push(self.bbuf as u8);
+        }
+        self.dst
+    }
+
+    fn write_codes(&mut self, codes: &CodeHuff, dists: &DistHuff) {
+        let mut stats = [0u32; 19];
+        let mut toks = Vec::with_capacity(NUM_LITERALS + NUM_DISTS);
+        let mut cw = [0u16; 19];
+        let mut cl = [0u8; 19];
+        let mut nc = 0;
+
+        add_codes(&codes.lens[..codes.num_codes], &mut stats, &mut toks);
+        add_codes(&dists.lens[..dists.num_codes], &mut stats, &mut toks);
+
+        gen_tree(&mut cw, &mut cl, &mut nc, &mut stats, 7);
+
+        nc = cw.len();
+        for &idx in LEN_RECODE.iter().rev() {
+            if cl[idx] == 0 {
+                nc -= 1;
+            } else {
+                break;
+            }
+        }
+        if nc < 4 {
+            nc = 4;
+        }
+        self.write((nc - 4) as u16, 4);
+        for &idx in LEN_RECODE.iter().take(nc) {
+            self.write(u16::from(cl[idx]), 3);
+        }
+        for &(sym, add) in toks.iter() {
+            self.write(cw[sym as usize], cl[sym as usize]);
+            match sym {
+                16 => self.write(u16::from(add), 2),
+                17 => self.write(u16::from(add), 3),
+                18 => self.write(u16::from(add), 7),
+                _  => {},
+            };
+        }
+    }
+    fn write_tokens(&mut self, src: &[Token], codes: &CodeHuff, dists: &DistHuff) {
+        for &tok in src.iter() {
+            self.write(codes.codes[tok.sym as usize], codes.lens[tok.sym as usize]);
+            if tok.sym > 256 {
+                self.write_len_bits(tok.len);
+                self.write(dists.codes[tok.distsym as usize], dists.lens[tok.distsym as usize]);
+                self.write_dist_bits(tok.dist);
+            }
+        }
+    }
+    fn write_len_bits(&mut self, len: u16) {
+        let llen = len - 3;
+        if llen >= 8 && llen < 255 {
+            let bits = (16 - llen.leading_zeros() - 3) as u8;
+            self.write(llen & ((1 << bits) - 1), bits);
+        }
+    }
+    fn write_dist_bits(&mut self, dist: u16) {
+        let ddist = dist - 1;
+        if dist >= 4 {
+            let bits = (16 - ddist.leading_zeros() - 2) as u8;
+            self.write(ddist & ((1 << bits) - 1), bits);
+        }
+    }
+}
+
+struct CodeHuff {
+    is_fixed:   bool,
+    stats:      [u32; NUM_LITERALS],
+    codes:      [u16; NUM_LITERALS],
+    lens:       [u8;  NUM_LITERALS],
+    num_codes:  usize,
+}
+
+impl CodeHuff {
+    fn new(is_fixed: bool) -> Self {
+        Self {
+            is_fixed,
+            stats:      [0; NUM_LITERALS],
+            codes:      [0; NUM_LITERALS],
+            lens:       [0; NUM_LITERALS],
+            num_codes:  NUM_LITERALS,
+        }
+    }
+    fn make_codes(&mut self, src: &[Token]) {
+        if self.is_fixed {
+            for i in 0..=143 {
+                self.codes[i] = reverse_bits((i + 0x30) as u32, 8) as u16;
+                self.lens[i]  = 8;
+            }
+            for i in 144..=255 {
+                self.codes[i] = reverse_bits((i + 0x100) as u32, 9) as u16;
+                self.lens[i]  = 9;
+            }
+            for i in 256..=279 {
+                self.codes[i] = reverse_bits((i & 0x1F) as u32, 7) as u16;
+                self.lens[i]  = 7;
+            }
+            for i in 280..NUM_LITERALS {
+                self.codes[i] = reverse_bits((i - 280 + 0xC0) as u32, 8) as u16;
+                self.lens[i]  = 8;
+            }
+        } else {
+            for &tok in src.iter() {
+                self.stats[tok.sym as usize] += 1;
+            }
+            gen_tree(&mut self.codes, &mut self.lens, &mut self.num_codes, &mut self.stats, 15);
+            if self.num_codes < 257 {
+                self.num_codes = 257;
+            }
+        }
+    }
+}
+
+struct DistHuff {
+    is_fixed:   bool,
+    stats:      [u32; NUM_DISTS],
+    codes:      [u16; NUM_DISTS],
+    lens:       [u8;  NUM_DISTS],
+    num_codes:  usize,
+}
+
+impl DistHuff {
+    fn new(is_fixed: bool) -> Self {
+        Self {
+            is_fixed,
+            stats:      [0; NUM_DISTS],
+            codes:      [0; NUM_DISTS],
+            lens:       [0; NUM_DISTS],
+            num_codes:  NUM_DISTS,
+        }
+    }
+    fn make_codes(&mut self, src: &[Token]) {
+        if self.is_fixed {
+            for i in 0..NUM_DISTS {
+                self.codes[i] = reverse_bits(i as u32, 5) as u16;
+                self.lens[i]  = 5;
+            }
+        } else {
+            for &tok in src.iter() {
+                if tok.sym > 256 {
+                    self.stats[tok.distsym as usize] += 1;
+                }
+            }
+            gen_tree(&mut self.codes, &mut self.lens, &mut self.num_codes, &mut self.stats, 15);
+            if self.num_codes < 1 {
+                self.num_codes = 1;
+            }
+        }
+    }
+}
+
+#[derive(Clone,Copy,Default)]
+struct Node {
+    sym:    u16,
+    w:      u16,
+    idx0:   u16,
+    idx1:   u16,
+}
+
+const NODE_SYM: u16 = 65500;
+
+struct Tree {
+    nodes:  [Node; NUM_LITERALS * 2],
+    nnodes: usize,
+}
+
+impl Tree {
+    fn new() -> Self {
+        Self {
+            nodes:  [Node::default(); NUM_LITERALS * 2],
+            nnodes: 0,
+        }
+    }
+    fn insert(&mut self, val: Node) {
+        let mut idx = self.nnodes;
+        for (i, nn) in self.nodes[..self.nnodes].iter().enumerate() {
+            if nn.w > val.w {
+                idx = i;
+                break;
+            }
+        }
+        if idx < self.nnodes {
+            for i in (idx..self.nnodes).rev() {
+                self.nodes[i + 1] = self.nodes[i];
+            }
+        }
+        self.nodes[idx] = val;
+        self.nnodes += 1;
+    }
+    fn trim(&mut self) {
+        let mut start = self.nnodes;
+        for (i, n) in self.nodes[..self.nnodes].iter().enumerate() {
+            if n.w != 0 {
+                start = i;
+                break;
+            }
+        }
+        if start != 0 {
+            for i in 0..self.nnodes - start {
+                self.nodes[i] = self.nodes[i + start];
+            }
+            self.nnodes -= start;
+        }
+    }
+    fn build(&mut self) {
+        if self.nnodes == 1 {
+            self.nodes[0].w = 1;
+            return;
+        }
+        let mut start = 0;
+        while start + 1 < self.nnodes {
+            let nn1 = self.nodes[start];
+            let nn2 = self.nodes[start + 1];
+            let n = Node {
+                sym:    NODE_SYM,
+                w:      nn1.w + nn2.w,
+                idx0:   start as u16,
+                idx1:   (start + 1) as u16,
+            };
+            self.nodes[start].w = 0;
+            self.nodes[start + 1].w = 0;
+            start += 2;
+            self.insert(n);
+        }
+        if self.nnodes > 1 {
+            self.assign_len(self.nnodes - 1, 0);
+        }
+    }
+    fn assign_len(&mut self, idx: usize, len: u16) {
+        if self.nodes[idx].sym == NODE_SYM {
+            self.assign_len(self.nodes[idx].idx0 as usize, len + 1);
+            self.assign_len(self.nodes[idx].idx1 as usize, len + 1);
+        } else {
+            self.nodes[idx].w = len;
+        }
+    }
+}
+
+fn gen_tree(codes: &mut [u16], lens: &mut [u8], num_codes: &mut usize, stats: &mut [u32], max_bits: u8) {
+    let mut tot_w = 0;
+    for &w in stats.iter() {
+        tot_w += w;
+    }
+    if tot_w == 0 {
+        codes[0] = 0;
+        lens[0] = 0;
+        *num_codes = 0;
+        return;
+    }
+    while tot_w > (1 << max_bits) {
+        for w in stats.iter_mut() {
+            *w = (*w + 1) >> 1;
+        }
+        tot_w = 0;
+        for &w in stats.iter() {
+            tot_w += w;
+        }
+    }
+    let mut tree = Tree::new();
+    for (sym, &w) in stats.iter().enumerate() {
+        tree.insert(Node{ sym: sym as u16, w: w as u16, idx0: 64000, idx1: 64000 });
+    }
+    tree.trim();
+    tree.build();
+
+    for n in tree.nodes[..tree.nnodes].iter() {
+        if n.sym != NODE_SYM {
+            lens[n.sym as usize] = n.w as u8;
+        }
+    }
+    lengths_to_codes16(lens, codes);
+    let mut sz = codes.len();
+    for &len in lens.iter().rev() {
+        if len != 0 {
+            break;
+        }
+        sz -= 1;
+    }
+    *num_codes = sz;
+}
+
+fn lengths_to_codes16(lens: &[u8], codes: &mut [u16]) {
+    let mut bits = [0u32; 32];
+    let mut pfx  = [0u32; 33];
+    for len in lens.iter() {
+        let len = *len as usize;
+        bits[len] += 1;
+    }
+    bits[0] = 0;
+    let mut code = 0;
+    for i in 0..bits.len() {
+        code = (code + bits[i]) << 1;
+        pfx[i + 1] = code;
+    }
+
+    for (len, codes) in lens.iter().zip(codes.iter_mut()) {
+        let len = *len as usize;
+        if len != 0 {
+            let bits = len as u8;
+            *codes = reverse_bits(pfx[len], bits) as u16;
+            pfx[len] += 1;
+        } else {
+            *codes = 0;
+        }
+    }
+}
+
+trait LZParse {
+    fn parse(&mut self, src: &[u8], dst: &mut Vec<Token>);
+}
+
+struct NoParser {}
+impl LZParse for NoParser {
+    fn parse(&mut self, src: &[u8], dst: &mut Vec<Token>) {
+        dst.reserve(src.len());
+        for &b in src.iter() {
+            dst.push(Token::from_literal(b));
+        }
+        dst.push(TOKEN_EOB);
+    }
+}
+
+fn check_match(src1: &[u8], src2: &[u8]) -> u16 {
+    let mut len = 0;
+    for (&a, &b) in src1.iter().zip(src2.iter()) {
+        if a != b {
+            break;
+        }
+        len += 1;
+    }
+    len
+}
+
+const HASH_SIZE: usize = 4096;
+const MAX_MATCH_LEN: usize = 258;
+const WINDOW_SIZE: usize = 32768 - MAX_MATCH_LEN;
+const NONEXT: usize = WINDOW_SIZE * 2;
+
+struct MatchFinder<'a> {
+    src:        &'a [u8],
+    pos:        usize,
+    hstart:     [usize; HASH_SIZE],
+    hend:       [usize; HASH_SIZE],
+    hnext:      [usize; WINDOW_SIZE * 3],
+}
+
+impl<'a> MatchFinder<'a> {
+    fn new(src: &'a [u8]) -> Self {
+        let mut obj = Self {
+            src,
+            pos:        0,
+            hstart:     [0; HASH_SIZE],
+            hend:       [0; HASH_SIZE],
+            hnext:      [0; WINDOW_SIZE * 3],
+        };
+        obj.build_hash();
+        obj
+    }
+    fn hash(src: &[u8]) -> usize {
+        let _ = src[2];
+        (((u16::from(src[0]) << 10) ^ (u16::from(src[1]) << 5) ^ u16::from(src[2])) & ((HASH_SIZE as u16) - 1)) as usize
+    }
+    fn build_hash(&mut self) {
+        for el in self.hstart.iter_mut() { *el = NONEXT; }
+        for el in self.hend.iter_mut()   { *el = NONEXT; }
+        for el in self.hnext.iter_mut()  { *el = NONEXT; }
+        if self.pos + 3 >= self.src.len() {
+            return;
+        }
+        let end = (self.src.len() - 3).min(self.pos + NONEXT);
+        for i in (self.pos .. end).rev() {
+            let key = Self::hash(&self.src[i..]);
+            if self.hstart[key] == NONEXT {
+                self.hstart[key] = i;
+                self.hend[key] = i;
+                self.hnext[key] = NONEXT;
+            } else {
+                self.hnext[self.hend[key]] = i;
+                self.hend[key] = i;
+            }
+        }
+    }
+    fn find_match(&mut self) -> (u16, u16) {
+        if self.pos == 0 || self.pos + 3 > self.src.len() {
+            return (0, 0);
+        }
+        let key = Self::hash(&self.src[self.pos..]) as usize;
+
+        let mut best_pos = 0;
+        let mut best_len = 0;
+        let mut idx = self.hstart[key];
+        while idx != NONEXT && idx + WINDOW_SIZE > self.pos {
+            if idx < self.pos {
+                let cur_len = check_match(&self.src[self.pos..], &self.src[idx..]);
+                if cur_len > best_len {
+                    best_len = cur_len;
+                    best_pos = self.pos - idx;
+                    if best_len >= (MAX_MATCH_LEN as u16) {
+                        return (best_pos as u16, MAX_MATCH_LEN as u16);
+                    }
+                }
+            }
+            idx = self.hnext[idx];
+        }
+        (best_pos as u16, best_len)
+    }
+    fn find_all_matches(&mut self, dists: &mut [u16; MAX_MATCH_LEN + 1]) {
+        if self.pos == 0 || self.pos + 3 > self.src.len() {
+            return;
+        }
+        let key = Self::hash(&self.src[self.pos..]) as usize;
+        let mut idx = self.hstart[key];
+        while idx != NONEXT && idx + WINDOW_SIZE > self.pos {
+            if idx < self.pos {
+                let cur_len = (check_match(&self.src[self.pos..], &self.src[idx..]) as usize).min(MAX_MATCH_LEN);
+                if cur_len > 0 && dists[cur_len] == 0 {
+                    dists[cur_len] = (self.pos - idx) as u16;
+                }
+            }
+            idx = self.hnext[idx];
+        }
+    }
+    fn advance(&mut self, num: usize) {
+        self.pos += num;
+
+        if self.pos >= NONEXT {
+            let (_, tail) = self.src.split_at(self.pos - WINDOW_SIZE);
+            self.src = tail;
+            self.pos = WINDOW_SIZE;
+            self.build_hash();
+        } else {
+            for (start, end) in self.hstart.iter_mut().zip(self.hend.iter_mut()) {
+                let mut idx = *start;
+                while idx != NONEXT && idx + WINDOW_SIZE < self.pos {
+                    idx = self.hnext[idx];
+                    *start = idx;
+                }
+                if idx == NONEXT {
+                    *end = NONEXT;
+                }
+            }
+        }
+    }
+    fn get_sym(&self) -> u8 { self.src[self.pos] }
+    fn is_end(&self) -> bool { self.pos >= self.src.len() }
+}
+
+struct GreedyParser {}
+impl LZParse for GreedyParser {
+    fn parse(&mut self, src: &[u8], dst: &mut Vec<Token>) {
+        dst.reserve(src.len());
+
+        let mut matcher = MatchFinder::new(src);
+        while !matcher.is_end() {
+            let (best_pos, best_len) = matcher.find_match();
+
+            if best_len >= 3 {
+                dst.push(Token::from_match(best_pos, best_len));
+                matcher.advance(best_len as usize);
+            } else {
+                dst.push(Token::from_literal(matcher.get_sym()));
+                matcher.advance(1);
+            }
+        }
+        dst.push(TOKEN_EOB);
+    }
+}
+
+struct LazyParser {}
+impl LZParse for LazyParser {
+    fn parse(&mut self, src: &[u8], dst: &mut Vec<Token>) {
+        dst.reserve(src.len());
+
+        let mut matcher = MatchFinder::new(src);
+        while !matcher.is_end() {
+            let (best_pos, best_len) = matcher.find_match();
+            if best_len >= 3 {
+                let last_sym = matcher.get_sym();
+                matcher.advance(1);
+                if !matcher.is_end() {
+                    let (best_pos1, best_len1) = matcher.find_match();
+                    if best_len1 > best_len + 1 {
+                        dst.push(Token::from_literal(last_sym));
+                        dst.push(Token::from_match(best_pos1, best_len1));
+                        matcher.advance(best_len1 as usize);
+                        continue;
+                    }
+                }
+                dst.push(Token::from_match(best_pos, best_len));
+                matcher.advance((best_len - 1) as usize);
+            } else {
+                dst.push(Token::from_literal(matcher.get_sym()));
+                matcher.advance(1);
+            }
+        }
+        dst.push(TOKEN_EOB);
+    }
+}
+
+#[derive(Clone,Copy)]
+struct TNode {
+    price:      u32,
+    dist:       u16,
+    link:       usize,
+}
+
+impl Default for TNode {
+    fn default() -> Self {
+        Self {
+            price:  std::u32::MAX,
+            dist:   0,
+            link:   0,
+        }
+    }
+}
+
+struct OptimalParser {
+    trellis:    Vec<TNode>,
+}
+impl OptimalParser {
+    fn new() -> Self { Self::default() }
+    fn sym_price(_sym: u8) -> u32 { 9 }
+    fn match_price(dist: u16, _len: u16) -> u32 {
+        if dist <= 4 {
+            9 + 5
+        } else {
+            let bits = 16 - (dist - 1).leading_zeros();
+            9 + 3 + bits
+        }
+    }
+}
+impl Default for OptimalParser {
+    fn default() -> Self {
+        Self {
+            trellis: Vec::with_capacity(WINDOW_SIZE),
+        }
+    }
+}
+impl LZParse for OptimalParser {
+    fn parse(&mut self, src: &[u8], dst: &mut Vec<Token>) {
+        if src.is_empty() {
+            dst.push(TOKEN_EOB);
+            return;
+        }
+        dst.reserve(src.len());
+
+        self.trellis.truncate(0);
+        self.trellis.reserve(src.len() + 1);
+        for _ in 0..=src.len() {
+            self.trellis.push(TNode::default());
+        }
+        self.trellis[0].price = 0;
+
+        let mut matcher = MatchFinder::new(src);
+        for i in 0..self.trellis.len() - 1 {
+            let mut dists = [0; MAX_MATCH_LEN + 1];
+            matcher.find_all_matches(&mut dists);
+
+            let sym = matcher.get_sym();
+            let lprice = Self::sym_price(sym) + self.trellis[i].price;
+            if self.trellis[i + 1].price > lprice {
+                self.trellis[i + 1].price = lprice;
+                self.trellis[i + 1].link = i;
+            }
+            for (len, &dist) in dists.iter().enumerate() {
+                if dist != 0 {
+                    let mprice = Self::match_price(dist, len as u16) + self.trellis[i].price;
+                    if self.trellis[i + len].price > mprice {
+                        self.trellis[i + len].price = mprice;
+                        self.trellis[i + len].link = i;
+                        self.trellis[i].dist = dist;
+                    }
+                }
+            }
+
+            matcher.advance(1);
+        }
+        let mut idx = self.trellis.len() - 1;
+        let mut nidx = self.trellis[idx].link;
+        while idx > 0 {
+            let oidx = idx;
+            idx = nidx;
+            nidx = self.trellis[idx].link;
+            self.trellis[idx].link = oidx;
+        }
+
+        let mut idx = 0;
+        while idx < self.trellis.len() - 1 {
+            let len = self.trellis[idx].link - idx;
+            if len == 1 {
+                dst.push(Token::from_literal(src[idx]));
+            } else {
+                dst.push(Token::from_match(self.trellis[idx].dist, len as u16));
+            }
+            idx = self.trellis[idx].link;
+        }
+
+        dst.push(TOKEN_EOB);
+    }
+}
+
+///! Deflate compression mode.
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub enum DeflateMode {
+    ///! No compression.
+    NoCompr,
+    ///! Fast compression.
+    Fast,
+    ///! Still fast but better compression.
+    Better,
+    ///! Slow but the best compression.
+    Best,
+}
+
+#[derive(Clone,Copy,Debug,PartialEq)]
+enum Mode {
+    Copy,
+    Fixed,
+    Dynamic,
+}
+
+const MAX_BLOCK_SIZE: usize = 65535;
+
+///! Deflate stream compressor.
+pub struct Deflate {
+    mode:       Mode,
+    tokens:     Vec<Token>,
+    srcbuf:     [u8; MAX_BLOCK_SIZE],
+    ssize:      usize,
+    sum1:       u32,
+    sum2:       u32,
+    zlib_mode:  bool,
+    parser:     Box<dyn LZParse>,
+}
+
+impl Deflate {
+    ///! Creates a new instance of `Deflate`.
+    pub fn new(mode: DeflateMode) -> Self {
+        let (mode, parser) = match mode {
+            DeflateMode::NoCompr => (Mode::Copy,    Box::new(NoParser{}) as Box<dyn LZParse>),
+            DeflateMode::Fast    => (Mode::Fixed,   Box::new(GreedyParser{}) as Box<dyn LZParse>),
+            DeflateMode::Better  => (Mode::Dynamic, Box::new(LazyParser{}) as Box<dyn LZParse>),
+            DeflateMode::Best    => (Mode::Dynamic, Box::new(OptimalParser::new()) as Box<dyn LZParse>),
+        };
+        Self {
+            mode, parser,
+            tokens:     Vec::with_capacity(MAX_BLOCK_SIZE),
+            srcbuf:     [0; MAX_BLOCK_SIZE],
+            ssize:      0,
+            sum1:       1,
+            sum2:       0,
+            zlib_mode:  false,
+        }
+    }
+    ///! Writes zlib stream header.
+    pub fn write_zlib_header(&mut self, wr: &mut DeflateWriter) {
+        wr.write(8, 4);
+        wr.write(7, 4);
+        let level = match self.mode {
+            Mode::Copy      => 0x01,
+            Mode::Fixed     => 0x5E,
+            Mode::Dynamic   => 0x9C,
+            // 0xDA for the strongest one
+            };
+        wr.write(level, 8);
+        self.zlib_mode = true;
+    }
+    fn write_zlib_footer(&self, wr: &mut DeflateWriter) {
+        wr.align();
+        wr.write((self.sum2 >> 8)   as u16, 8);
+        wr.write((self.sum2 & 0xFF) as u16, 8);
+        wr.write((self.sum1 >> 8)   as u16, 8);
+        wr.write((self.sum1 & 0xFF) as u16, 8);
+    }
+    ///! Queues data for compression.
+    ///!
+    ///! The data might be not actually compressed until [`compress_end`] is called.
+    ///!
+    ///! [`compress_end`]: ./struct.Deflate.html#method.compress_end
+    pub fn compress(&mut self, src: &[u8], wr: &mut DeflateWriter) {
+        let mut src = src;
+        while !src.is_empty() {
+            let clen = src.len().min(MAX_BLOCK_SIZE - self.ssize);
+            let (head, tail) = src.split_at(clen);
+            src = tail;
+            self.srcbuf[self.ssize..][..clen].copy_from_slice(head);
+            self.ssize += clen;
+            if self.ssize == MAX_BLOCK_SIZE {
+                self.do_block(wr, false);
+            }
+        }
+    }
+    ///! Tells the encoder to finish data compression.
+    ///!
+    ///! Complete data will be output after this call.
+    pub fn compress_end(&mut self, wr: &mut DeflateWriter) {
+        if self.ssize > 0 {
+            self.do_block(wr, true);
+        } else {
+            wr.write(1, 1);
+            wr.write(1, 2);
+            wr.write(0, 7); //static EOF sym
+        }
+        if self.zlib_mode {
+            self.write_zlib_footer(wr);
+        }
+    }
+    fn do_block(&mut self, wr: &mut DeflateWriter, final_block: bool) {
+        const CRC_BASE: u32 = 65521;
+        for &b in self.srcbuf[..self.ssize].iter() {
+            self.sum1 += u32::from(b);
+            if self.sum1 >= CRC_BASE {
+                self.sum1 -= CRC_BASE;
+            }
+            self.sum2 += self.sum1;
+            if self.sum2 >= CRC_BASE {
+                self.sum2 -= CRC_BASE;
+            }
+        }
+        match self.mode {
+            Mode::Copy => {
+                wr.write(final_block as u16, 1);
+                wr.write(0, 2);
+                wr.align();
+                wr.write(self.ssize as u16, 16);
+                wr.write(!self.ssize as u16, 16);
+                for &b in self.srcbuf[..self.ssize].iter() {
+                    wr.write(u16::from(b), 8);
+                }
+            },
+            Mode::Fixed => {
+                wr.write(final_block as u16, 1);
+                wr.write(1, 2);
+                self.tokens.truncate(0);
+                self.parser.parse(&self.srcbuf[..self.ssize], &mut self.tokens);
+                let mut codes = CodeHuff::new(true);
+                codes.make_codes(&self.tokens);
+                let mut dists = DistHuff::new(true);
+                dists.make_codes(&self.tokens);
+                wr.write_tokens(&self.tokens, &codes, &dists);
+            },
+            Mode::Dynamic => {
+                wr.write(final_block as u16, 1);
+                wr.write(2, 2);
+                self.tokens.truncate(0);
+                self.parser.parse(&self.srcbuf[..self.ssize], &mut self.tokens);
+                let mut codes = CodeHuff::new(false);
+                codes.make_codes(&self.tokens);
+                let mut dists = DistHuff::new(false);
+                dists.make_codes(&self.tokens);
+                wr.write((codes.num_codes - 257) as u16, 5);
+                wr.write((dists.num_codes - 1) as u16, 5);
+                wr.write_codes(&codes, &dists);
+                wr.write_tokens(&self.tokens, &codes, &dists);
+            },
+        }
+        self.ssize = 0;
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -998,5 +1929,70 @@ mod test {
         let _dst_buf = gzip_decode(&mut br, false).unwrap();
 
 //        println!("{}", String::from_utf8_lossy(_dst_buf.as_slice()));
+    }
+    #[test]
+    fn test_deflate_crc() {
+        let output = Vec::with_capacity(20);
+        let mut writer = DeflateWriter::new(output);
+        let mut compr = Deflate::new(DeflateMode::NoCompr);
+        compr.write_zlib_header(&mut writer);
+        compr.compress(b"Hello, world!", &mut writer);
+        compr.compress_end(&mut writer);
+        let output = writer.end();
+        assert_eq!(output.as_slice(), b"\x78\x01\x01\x0D\x00\xF2\xFFHello, world!\x20\x5E\x04\x8A");
+    }
+    fn deflate_test(mode: DeflateMode) {
+        const SRC: &[u8] =
+b"The first day of Christmas,
+My true love sent to me
+A partridge in a pear tree.
+
+The second day of Christmas,
+My true love sent to me
+Two turtle doves, and
+A partridge in a pear tree.
+
+The third day of Christmas,
+My true love sent to me
+Three French hens,
+Two turtle doves, and
+A partridge in a pear tree.
+
+The fourth day of Christmas,
+My true love sent to me
+Four colly birds,
+Three French hens,
+Two turtle doves, and
+A partridge in a pear tree.
+
+The fifth day of Christmas,
+My true love sent to me
+Five gold rings,
+Four colly birds,
+Three French hens,
+Two turtle doves, and
+A partridge in a pear tree.";
+        let output = Vec::with_capacity(SRC.len() + 16);
+        let mut writer = DeflateWriter::new(output);
+        let mut compr = Deflate::new(mode);
+        compr.write_zlib_header(&mut writer);
+        compr.compress(SRC, &mut writer);
+        compr.compress_end(&mut writer);
+        let output = writer.end();
+        let mut uncompr = vec![0u8; SRC.len()];
+        Inflate::uncompress(&output, &mut uncompr).unwrap();
+        assert_eq!(SRC, uncompr.as_slice());
+    }
+    #[test]
+    fn test_deflate_fast() {
+        deflate_test(DeflateMode::Fast);
+    }
+    #[test]
+    fn test_deflate_better() {
+        deflate_test(DeflateMode::Better);
+    }
+    #[test]
+    fn test_deflate_best() {
+        deflate_test(DeflateMode::Best);
     }
 }
