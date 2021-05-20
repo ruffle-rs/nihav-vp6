@@ -426,7 +426,7 @@ impl Inflate {
                 },
                 InflateState::StaticBlockInvLen(len) => {
                     let inv_len = read_bits!(self, csrc, 16);
-                    if len != !inv_len {
+                    if (len ^ inv_len) != 0xFFFF {
                         self.state = InflateState::End;
                         return Err(DecompressError::InvalidHeader);
                     }
