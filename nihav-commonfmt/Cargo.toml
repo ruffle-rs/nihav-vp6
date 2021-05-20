@@ -33,9 +33,10 @@ muxer_wav = ["muxers"]
 
 all_decoders = ["all_video_decoders", "all_audio_decoders"]
 
-all_video_decoders = ["decoder_cinepak", "decoder_clearvideo"]
+all_video_decoders = ["decoder_cinepak", "decoder_clearvideo", "decoder_zmbv"]
 decoder_cinepak = ["decoders"]
 decoder_clearvideo = ["decoders"]
+decoder_zmbv = ["decoders"]
 
 all_audio_decoders = ["decoder_pcm", "decoder_ts102366", "decoder_sipro", "decoder_atrac3", "decoder_aac"]
 decoder_pcm = ["decoders"]

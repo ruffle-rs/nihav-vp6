@@ -8,6 +8,8 @@ macro_rules! validate {
 mod cinepak;
 #[cfg(feature="decoder_clearvideo")]
 mod clearvideo;
+#[cfg(feature="decoder_zmbv")]
+mod zmbv;
 
 #[cfg(feature="decoder_aac")]
 #[allow(clippy::manual_memcpy)]
@@ -34,6 +36,8 @@ const DECODERS: &[DecoderInfo] = &[
     DecoderInfo { name: "clearvideo", get_decoder: clearvideo::get_decoder },
 #[cfg(feature="decoder_clearvideo")]
     DecoderInfo { name: "clearvideo_rm", get_decoder: clearvideo::get_decoder_rm },
+#[cfg(feature="decoder_zmbv")]
+    DecoderInfo { name: "zmbv", get_decoder: zmbv::get_decoder },
 
 #[cfg(feature="decoder_pcm")]
     DecoderInfo { name: "pcm", get_decoder: pcm::get_decoder },

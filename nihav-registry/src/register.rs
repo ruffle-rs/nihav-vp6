@@ -187,6 +187,8 @@ static CODEC_REGISTER: &[CodecDescription] = &[
 
     desc!(video;    "cinepak",    "Cinepak"),
 
+    desc!(video-llp; "zmbv",      "Zip Motion Blocks Video"),
+
     desc!(video;    "msvideo1",      "MS Video 1"),
     desc!(video;    "msrle",         "MS RLE"),
     desc!(audio;    "ms-adpcm",      "MS ADPCM"),
@@ -281,6 +283,7 @@ static AVI_VIDEO_CODEC_REGISTER: &[(&[u8;4], &str)] = &[
 
     (b"UCOD", "clearvideo"),
     (b"cvid", "cinepak"),
+    (b"ZMBV", "zmbv"),
 
     (b"MVDV", "midivid"),
     (b"MV30", "midivid3"),
