@@ -174,7 +174,7 @@ impl<'a> CurrentSource<'a> {
     fn align(&mut self) {
         let b = self.br.bits & 7;
         if b != 0 {
-            self.skip_cache(8 - (b as u8));
+            self.skip_cache(b);
         }
     }
     fn left(&self) -> isize {
