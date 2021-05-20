@@ -375,8 +375,15 @@ impl Inflate {
     ///!
     ///! [`DecompressError::ShortData`]: ../enum.DecompressError.html#variant.ShortData
     ///! [`DecompressError::OutputFull`]: ../enum.DecompressError.html#variant.OutputFull
-    #[allow(clippy::comparison_chain)]
     pub fn decompress_data(&mut self, src: &[u8], dst: &mut [u8], continue_block: bool) -> DecompressResult<usize> {
+        self.decompress_data_internal(src, dst, continue_block, false)
+    }
+    ///! Tries to decompress whole input chunk to the output buffer.
+    pub fn decompress_block(&mut self, src: &[u8], dst: &mut [u8]) -> DecompressResult<usize> {
+        self.decompress_data_internal(src, dst, false, true)
+    }
+    #[allow(clippy::comparison_chain)]
+    fn decompress_data_internal(&mut self, src: &[u8], dst: &mut [u8], continue_block: bool, do_one_block: bool) -> DecompressResult<usize> {
         if src.is_empty() || dst.is_empty() {
             return Err(DecompressError::InvalidArgument);
         }
@@ -386,6 +393,9 @@ impl Inflate {
                 self.output_idx = 0;
                 CurrentSource::reinit(src, self.br)
             };
+        if do_one_block {
+            self.output_idx = 0;
+        }
         // check for zlib stream header
         if let (&InflateState::Start, true) = (&self.state, src.len() > 2) {
             let cm    = src[0] & 0xF;
@@ -399,6 +409,9 @@ impl Inflate {
             match self.state {
                 InflateState::Start | InflateState::BlockStart => {
                     if csrc.left() == 0 {
+                        if do_one_block {
+                            return Ok(self.output_idx);
+                        }
                         self.br = csrc.br;
                         return Err(DecompressError::ShortData);
                     }
@@ -743,6 +756,14 @@ impl Inflate {
             }
         }
     }
+    ///! Resets decoder state.
+    pub fn reset(&mut self) {
+        self.bpos = 0;
+        self.output_idx = 0;
+        self.full_pos = 0;
+        self.state = InflateState::Start;
+    }
+
     ///! Decompresses input data into output returning the uncompressed data length.
     pub fn uncompress(src: &[u8], dst: &mut [u8]) -> DecompressResult<usize> {
         let mut inflate = Self::new();
