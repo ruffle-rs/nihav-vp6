@@ -386,6 +386,15 @@ impl Inflate {
                 self.output_idx = 0;
                 CurrentSource::reinit(src, self.br)
             };
+        // check for zlib stream header
+        if let (&InflateState::Start, true) = (&self.state, src.len() > 2) {
+            let cm    = src[0] & 0xF;
+            let cinfo = src[0] >> 4;
+            let hdr   = (u16::from(src[0]) << 8) | u16::from(src[1]);
+            if cm == 8 && cinfo <= 7 && (hdr % 31) == 0 {
+                csrc.skip(16).unwrap();
+            }
+        }
         'main: loop {
             match self.state {
                 InflateState::Start | InflateState::BlockStart => {
@@ -737,8 +746,7 @@ impl Inflate {
     ///! Decompresses input data into output returning the uncompressed data length.
     pub fn uncompress(src: &[u8], dst: &mut [u8]) -> DecompressResult<usize> {
         let mut inflate = Self::new();
-        let off = if src.len() > 2 && src[0] == 0x78 && (src[1] != 0 && ((src[1] - 1) % 31) == 0) { 2 } else { 0 };
-        inflate.decompress_data(&src[off..], dst, false)
+        inflate.decompress_data(src, dst, false)
     }
 }
 
