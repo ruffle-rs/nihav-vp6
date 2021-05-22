@@ -47,8 +47,9 @@ decoder_aac = ["decoders"]
 
 all_encoders = ["all_video_encoders", "all_audio_encoders"]
 
-all_video_encoders = ["encoder_cinepak"]
+all_video_encoders = ["encoder_cinepak", "encoder_zmbv"]
 encoder_cinepak = ["encoders"]
+encoder_zmbv = ["encoders"]
 
 all_audio_encoders = ["encoder_pcm"]
 encoder_pcm = ["encoders"]
