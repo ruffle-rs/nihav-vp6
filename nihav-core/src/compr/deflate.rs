@@ -71,6 +71,7 @@
 //! # }
 //! ```
 
+use crate::options::NAOptionDefinitionType;
 use crate::io::byteio::*;
 use crate::io::bitreader::*;
 use crate::io::codebook::*;
@@ -1719,6 +1720,48 @@ pub enum DeflateMode {
     Better,
     ///! Slow but the best compression.
     Best,
+}
+
+impl Default for DeflateMode {
+    fn default() -> Self { DeflateMode::Better }
+}
+
+pub const DEFLATE_MODE_DESCRIPTION: &str = "Deflate compression level.";
+///! Deflate option for no compression.
+pub const DEFLATE_MODE_NONE: &str = "none";
+///! Deflate option for fast compression.
+pub const DEFLATE_MODE_FAST: &str = "fast";
+///! Deflate option for better compression.
+pub const DEFLATE_MODE_BETTER: &str = "better";
+///! Deflate option for best compression.
+pub const DEFLATE_MODE_BEST: &str = "best";
+
+///! All possible option values for deflate compression.
+pub const DEFLATE_OPTION_VALUES: NAOptionDefinitionType = NAOptionDefinitionType::String(Some(&[DEFLATE_MODE_NONE, DEFLATE_MODE_FAST, DEFLATE_MODE_BETTER, DEFLATE_MODE_BEST]));
+
+impl std::str::FromStr for DeflateMode {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            DEFLATE_MODE_NONE   => Ok(DeflateMode::NoCompr),
+            DEFLATE_MODE_FAST   => Ok(DeflateMode::Fast),
+            DEFLATE_MODE_BETTER => Ok(DeflateMode::Better),
+            DEFLATE_MODE_BEST   => Ok(DeflateMode::Best),
+            _ => Err(()),
+        }
+    }
+}
+
+impl ToString for DeflateMode {
+    fn to_string(&self) -> String {
+        match *self {
+            DeflateMode::NoCompr    => DEFLATE_MODE_NONE.to_string(),
+            DeflateMode::Fast       => DEFLATE_MODE_FAST.to_string(),
+            DeflateMode::Better     => DEFLATE_MODE_BETTER.to_string(),
+            DeflateMode::Best       => DEFLATE_MODE_BEST.to_string(),
+        }
+    }
 }
 
 #[derive(Clone,Copy,Debug,PartialEq)]

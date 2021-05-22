@@ -8,6 +8,8 @@
 use std::sync::Arc;
 use std::fmt;
 
+pub use crate::compr::deflate::{DEFLATE_MODE_DESCRIPTION, DEFLATE_OPTION_VALUES, DEFLATE_MODE_NONE, DEFLATE_MODE_FAST, DEFLATE_MODE_BETTER, DEFLATE_MODE_BEST};
+
 /// Common name for keyframe interval option.
 pub const KEYFRAME_OPTION: &str = "key_int";
 /// Common description for keyframe interval option.
