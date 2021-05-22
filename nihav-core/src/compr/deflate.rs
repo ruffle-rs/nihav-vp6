@@ -1739,17 +1739,17 @@ pub struct Deflate {
     sum1:       u32,
     sum2:       u32,
     zlib_mode:  bool,
-    parser:     Box<dyn LZParse>,
+    parser:     Box<dyn LZParse + Send>,
 }
 
 impl Deflate {
     ///! Creates a new instance of `Deflate`.
     pub fn new(mode: DeflateMode) -> Self {
         let (mode, parser) = match mode {
-            DeflateMode::NoCompr => (Mode::Copy,    Box::new(NoParser{}) as Box<dyn LZParse>),
-            DeflateMode::Fast    => (Mode::Fixed,   Box::new(GreedyParser{}) as Box<dyn LZParse>),
-            DeflateMode::Better  => (Mode::Dynamic, Box::new(LazyParser{}) as Box<dyn LZParse>),
-            DeflateMode::Best    => (Mode::Dynamic, Box::new(OptimalParser::new()) as Box<dyn LZParse>),
+            DeflateMode::NoCompr => (Mode::Copy,    Box::new(NoParser{}) as Box<dyn LZParse + Send>),
+            DeflateMode::Fast    => (Mode::Fixed,   Box::new(GreedyParser{}) as Box<dyn LZParse + Send>),
+            DeflateMode::Better  => (Mode::Dynamic, Box::new(LazyParser{}) as Box<dyn LZParse + Send>),
+            DeflateMode::Best    => (Mode::Dynamic, Box::new(OptimalParser::new()) as Box<dyn LZParse + Send>),
         };
         Self {
             mode, parser,
