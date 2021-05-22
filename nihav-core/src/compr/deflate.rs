@@ -1857,6 +1857,20 @@ impl Deflate {
             self.write_zlib_footer(wr);
         }
     }
+    ///! Tells the encoder to compress the data it received and flush it.
+    pub fn compress_flush(&mut self, wr: &mut DeflateWriter) {
+        if self.ssize > 0 {
+            self.do_block(wr, false);
+        }
+        if (wr.bits & 7) != 0 {
+            // write zero-length copy block for byte-alignment
+            wr.write(0, 1);
+            wr.write(0, 2);
+            wr.align();
+            wr.write(0, 16);
+            wr.write(0xFFFF, 16);
+        }
+    }
     fn do_block(&mut self, wr: &mut DeflateWriter, final_block: bool) {
         const CRC_BASE: u32 = 65521;
         for &b in self.srcbuf[..self.ssize].iter() {
