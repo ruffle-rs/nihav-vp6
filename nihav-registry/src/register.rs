@@ -232,6 +232,7 @@ static CODEC_REGISTER: &[CodecDescription] = &[
     desc!(video;    "fable-imax",    "Fable IMAX video"),
     desc!(video;    "fst-video",     "FutureVision video"),
     desc!(audio;    "fst-audio",     "FutureVision audio"),
+    desc!(video;    "legend-q-video", "Legend Entertainment Q video"),
     desc!(video;    "midivid",       "MidiVid"),
     desc!(video;    "midivid3",      "MidiVid 3"),
     desc!(video-ll; "midivid-ll",    "MidiVid Lossless"),

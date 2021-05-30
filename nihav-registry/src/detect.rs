@@ -252,6 +252,12 @@ const DETECTORS: &[DetectConditions] = &[
                       CheckItem{offs: 10, cond: &CC::Eq(Arg::U16LE(0x102)) }],
     },
     DetectConditions {
+        demux_name: "legend-q",
+        extensions: ".q",
+        conditions: &[CheckItem{offs: 0, cond: &CC::Eq(Arg::U16LE(0x6839))},
+                      CheckItem{offs: 2, cond: &CC::In(Arg::Byte(3), Arg::Byte(5))}],
+    },
+    DetectConditions {
         demux_name: "realaudio",
         extensions: ".ra,.ram",
         conditions: &[CheckItem{offs: 0, cond: &CC::Str(b".ra\xFD")}],

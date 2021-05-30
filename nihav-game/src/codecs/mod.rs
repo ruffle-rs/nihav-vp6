@@ -20,6 +20,8 @@ pub mod lhst500f22;
 pub mod midivid;
 #[cfg(feature="decoder_midivid3")]
 pub mod midivid3;
+#[cfg(feature="decoder_q")]
+pub mod q;
 #[cfg(feature="decoder_vmd")]
 pub mod vmd;
 #[cfg(feature="decoder_vx")]
@@ -46,6 +48,8 @@ const GAME_CODECS: &[DecoderInfo] = &[
     DecoderInfo { name: "fst-video", get_decoder: futurevision::get_decoder_video },
 #[cfg(feature="decoder_imax")]
     DecoderInfo { name: "fable-imax", get_decoder: imax::get_decoder },
+#[cfg(feature="decoder_q")]
+    DecoderInfo { name: "legend-q-video", get_decoder: q::get_decoder },
 #[cfg(feature="decoder_vmd")]
     DecoderInfo { name: "vmd-audio", get_decoder: vmd::get_decoder_audio },
 #[cfg(feature="decoder_vmd")]
