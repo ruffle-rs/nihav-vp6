@@ -169,7 +169,7 @@ impl NADecoder for APEDecoder {
             if self.is_stereo {
                 self.right.resize(nblocks, 0);
             }
-            if (fflags & 3) == 0 {
+            if (!self.is_stereo && (fflags & 1) == 0) || (self.is_stereo && (fflags & 3) != 3) {
                 if !self.is_stereo || (fflags & 4) != 0 {
                     (self.decode_mono)(&mut coder, &mut self.left)?;
                     self.fmode.filter_mono(&mut self.left);
