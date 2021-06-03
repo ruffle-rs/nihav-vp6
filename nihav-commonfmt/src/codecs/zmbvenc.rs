@@ -35,6 +35,7 @@ struct ZMBVEncoder {
     width:      usize,
     height:     usize,
     range:      usize,
+    sent_pal:   bool,
 }
 
 fn buf_type_to_bpp(buf: &NABufferType) -> u8 {
@@ -134,6 +135,7 @@ impl ZMBVEncoder {
             width:      0,
             height:     0,
             range:      128,
+            sent_pal:   false,
         }
     }
     fn encode_intra(&mut self, bw: &mut ByteWriter, buf: NABufferType) -> EncoderResult<()> {
@@ -258,6 +260,8 @@ impl ZMBVEncoder {
                 self.pal = npal;
 
                 bw.write_byte(2)?;
+
+                self.sent_pal = false;
             } else {
                 bw.write_byte(0)?;
             }
@@ -429,6 +433,21 @@ impl NAEncoder for ZMBVEncoder {
                 false
             };
         self.pkt = Some(NAPacket::new(self.stream.clone().unwrap(), frm.ts, is_intra, dbuf));
+        if self.bpp == 8 && !self.sent_pal {
+            if let NABufferType::Video(ref buf) = frm.get_buffer() {
+                let paloff = buf.get_offset(1);
+                let data = buf.get_data();
+                let mut pal = [0; 1024];
+                let srcpal = &data[paloff..][..768];
+                for (dclr, sclr) in pal.chunks_exact_mut(4).zip(srcpal.chunks_exact(3)) {
+                    dclr[..3].copy_from_slice(sclr);
+                }
+                if let Some(ref mut pkt) = &mut self.pkt {
+                    pkt.side_data.push(NASideData::Palette(true, Arc::new(pal)));
+                }
+            }
+            self.sent_pal = true;
+        }
         self.frmcount += 1;
         if self.frmcount == self.key_int {
             self.frmcount = 0;
