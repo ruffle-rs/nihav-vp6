@@ -95,7 +95,7 @@ fn gen_clip_tab(clip_tab: &mut [i16; 64], q: u8) {
         clip_tab[(32 + i) as usize] =  i;
     }
     for i in lim..q {
-        let val = q - i; 
+        let val = q - i;
         clip_tab[(32 - i) as usize] = -val;
         clip_tab[(32 + i) as usize] =  val;
     }

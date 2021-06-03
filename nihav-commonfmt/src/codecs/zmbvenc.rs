@@ -365,7 +365,7 @@ impl ZMBVEncoder {
 
             bw.write_buf(&self.zbuf)?;
         }
-        
+
         Ok(())
     }
 }
@@ -404,7 +404,7 @@ impl NAEncoder for ZMBVEncoder {
             NACodecTypeInfo::Video(vinfo) => {
                 self.width  = vinfo.width;
                 self.height = vinfo.height;
-                        
+
                 let out_info = NAVideoInfo::new(vinfo.width, vinfo.height, false, vinfo.format);
                 let info = NACodecInfo::new("zmbv", NACodecTypeInfo::Video(out_info), None);
                 let mut stream = NAStream::new(StreamType::Video, stream_id, info, encinfo.tb_num, encinfo.tb_den, 0);

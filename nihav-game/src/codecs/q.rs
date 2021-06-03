@@ -157,7 +157,7 @@ impl QVideoDecoder {
                     },
                     0xFC => {
                         const MV_PART: [i8; 16] = [ 0, 4, 8, 12, 16, 20, 24, 28, -32, -4, -8, -12, -16, -20, -24, -28 ];
-                        
+
                         let idx         = br.read_byte()? as usize;
                         let x = MV_PART[(idx & 0xF) as usize] as isize;
                         let y = MV_PART[(idx >>  4) as usize] as isize;

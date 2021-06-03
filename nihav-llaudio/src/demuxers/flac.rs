@@ -99,9 +99,9 @@ impl<'a> FLACDemuxer<'a> {
                         _ => 256 << (bsz_id - 8),
                     };
                 let pts = u64::from(read_utf8(&buf[4..])?);
-              
+
                 validate!(idx < buf.len());
-                
+
                 (blksamps, pts)
             };
 
