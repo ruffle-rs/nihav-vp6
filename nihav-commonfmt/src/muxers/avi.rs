@@ -25,6 +25,7 @@ struct AVIMuxer<'a> {
     video_id:       u32,
     data_pos:       u64,
     stream_info:    Vec<AVIStream>,
+    pal_pos:        Vec<u32>,
 }
 
 impl<'a> AVIMuxer<'a> {
@@ -36,6 +37,7 @@ impl<'a> AVIMuxer<'a> {
             video_id:       0,
             data_pos:       0,
             stream_info:    Vec::with_capacity(2),
+            pal_pos:        Vec::with_capacity(2),
         }
     }
 }
@@ -107,7 +109,9 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
         self.bw.write_u32le(0)?; // reserved
         self.bw.write_u32le(0)?; // reserved
 
-        for str in strmgr.iter() {
+        self.pal_pos.truncate(0);
+        self.pal_pos.resize(strmgr.get_num_streams(), 0);
+        for (strno, str) in strmgr.iter().enumerate() {
             let strl_pos = self.bw.tell() + 8;
             self.bw.write_buf(b"LIST\0\0\0\0strlstrh")?;
             self.bw.write_u32le(56)?; // strh size
@@ -183,10 +187,12 @@ impl<'a> MuxCore<'a> for AVIMuxer<'a> {
                     self.bw.write_u32le(0)?; // x dpi
                     self.bw.write_u32le(0)?; // y dpi
                     if vinfo.format.palette {
-//                        unimplemented!();
-                        self.bw.write_u32le(0)?; // total colors
+                        self.bw.write_u32le(256)?; // total colors
                         self.bw.write_u32le(0)?; // important colors
-println!("pal?");
+                        self.pal_pos[strno] = self.bw.tell() as u32;
+                        for _ in 0..256 {
+                            self.bw.write_u32le(0)?;
+                        }
                     } else {
                         self.bw.write_u32le(0)?; // total colors
                         self.bw.write_u32le(0)?; // important colors
@@ -244,9 +250,40 @@ println!("pal?");
 
         let chunk_len = pkt.get_buffer().len() as u32;
 
+        if self.pal_pos[str_num] != 0 {
+            for sdata in pkt.side_data.iter() {
+                if let NASideData::Palette(_, ref pal) = sdata {
+                    let cur_pos = self.bw.tell();
+                    self.bw.seek(SeekFrom::Start(u64::from(self.pal_pos[str_num])))?;
+                    self.bw.write_buf(pal.as_ref())?;
+                    self.bw.seek(SeekFrom::Start(cur_pos))?;
+                    self.pal_pos[str_num] = 0;
+                    break;
+                }
+            }
+        } else {
+            for sdata in pkt.side_data.iter() {
+                if let NASideData::Palette(true, ref pal) = sdata {
+                    //todo search for changed region
+                    let start_clr = 0usize;
+                    let end_clr = 256usize;
+                    if start_clr < end_clr {
+                        let chunk_len = ((end_clr - start_clr) as u32) * 4 + 4;
+                        self.bw.write_byte(b'0' + ((str_num / 10) as u8))?;
+                        self.bw.write_byte(b'0' + ((str_num % 10) as u8))?;
+                        self.bw.write_buf(b"pc")?;
+                        self.bw.write_u32le(chunk_len)?;
+                        self.bw.write_byte(start_clr as u8)?;
+                        self.bw.write_byte((end_clr - start_clr) as u8)?;
+                        self.bw.write_u16le(0)?; //flags
+                        self.bw.write_buf(&pal[start_clr * 4..end_clr * 4])?;
+                    }
+                }
+            }
+        }
+
         self.stream_info[str_num].nframes += 1;
         self.stream_info[str_num].max_size = self.stream_info[str_num].max_size.max(chunk_len);
-// todo palchange
         self.index.push(IdxEntry {
                 stream: str_num as u32,
                 stype:  str.get_media_type(),
