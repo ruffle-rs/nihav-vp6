@@ -205,6 +205,7 @@ const MOOV_CHUNK_HANDLERS: &[RootChunkHandler] = &[
     RootChunkHandler { ctype: mktag!(b"trak"), parse: read_trak },
     RootChunkHandler { ctype: mktag!(b"meta"), parse: read_meta },
     RootChunkHandler { ctype: mktag!(b"mvex"), parse: read_mvex },
+    RootChunkHandler { ctype: mktag!(b"iods"), parse: skip_chunk_mov },
 ];
 
 fn read_mvhd(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> DemuxerResult<u64> {
@@ -288,6 +289,10 @@ fn read_meta(dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, size: u64) -> De
 }
 
 fn read_mvex(_dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, _size: u64) -> DemuxerResult<u64> {
+    Ok(0)
+}
+
+fn skip_chunk_mov(_dmx: &mut MOVDemuxer, _strmgr: &mut StreamManager, _size: u64) -> DemuxerResult<u64> {
     Ok(0)
 }
 
