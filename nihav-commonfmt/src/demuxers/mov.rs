@@ -1058,6 +1058,7 @@ struct Track {
     stream:         Option<NAStream>,
     cur_chunk:      usize,
     cur_sample:     usize,
+    cur_ts:         Option<u64>,
     samples_left:   usize,
     last_offset:    u64,
     pal:            Option<Arc<[u8; 1024]>>,
@@ -1200,6 +1201,7 @@ impl Track {
             depth:          0,
             cur_chunk:      0,
             cur_sample:     0,
+            cur_ts:         None,
             samples_left:   0,
             last_offset:    0,
             pal:            None,
@@ -1372,6 +1374,7 @@ impl Track {
     fn seek(&mut self, pts: u64, tpoint: NATimePoint) -> DemuxerResult<()> {
         self.cur_sample = pts as usize;
         self.samples_left = 0;
+        self.cur_ts = None;
         if self.stream_type == StreamType::Audio {
             if let NATimePoint::Milliseconds(ms) = tpoint {
                 let exp_pts = NATimeInfo::time_to_ts(ms, 1000, self.tb_num, self.tb_den);
@@ -1509,6 +1512,25 @@ impl Track {
     }
 }
 
+fn process_packet(src: &mut ByteReader, strmgr: &StreamManager, track: &mut Track, pts: NATimeInfo, offset: u64, size: usize, first: bool) -> DemuxerResult<NAPacket> {
+    if let Some(cpts) = pts.get_pts() {
+        let ts = NATimeInfo::ts_to_time(cpts, 1000, pts.tb_num, pts.tb_den);
+        track.cur_ts = Some(ts);
+    } else {
+        track.cur_ts = None;
+    }
+    let str = strmgr.get_stream(track.track_str_id);
+    if str.is_none() { return Err(DemuxerError::InvalidData); }
+    let stream = str.unwrap();
+    src.seek(SeekFrom::Start(offset))?;
+    let mut pkt = src.read_packet(stream, pts, false, size)?;
+    if let Some(ref pal) = track.pal {
+        let side_data = NASideData::Palette(first, pal.clone());
+        pkt.add_side_data(side_data);
+    }
+    Ok(pkt)
+}
+
 impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
     fn open(&mut self, strmgr: &mut StreamManager, seek_index: &mut SeekIndex) -> DemuxerResult<()> {
         self.read_root(strmgr)?;
@@ -1534,6 +1556,30 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
         if self.tracks.is_empty() {
             return Err(DemuxerError::EOF);
         }
+        let mut has_all_time = true;
+        let mut min_ts = std::u64::MAX;
+        for trk in self.tracks.iter() {
+            if let Some(ts) = trk.cur_ts {
+                min_ts = min_ts.min(ts);
+            } else {
+                has_all_time = false;
+                break;
+            }
+        }
+        if has_all_time {
+            for (trk_no, track) in self.tracks.iter_mut().enumerate() {
+                if let Some(ts) = track.cur_ts {
+                    if ts == min_ts {
+                        let first = track.cur_sample == 0;
+                        if let Some((pts, offset, size)) = track.get_next_chunk() {
+                            self.cur_track = trk_no + 1;
+                            return process_packet(&mut self.src, strmgr, track, pts, offset, size, first);
+                        }
+                    }
+                }
+            }
+        }
+
         for _ in 0..self.tracks.len() {
             if self.cur_track >= self.tracks.len() {
                 self.cur_track = 0;
@@ -1542,16 +1588,7 @@ impl<'a> DemuxCore<'a> for MOVDemuxer<'a> {
             self.cur_track += 1;
             let first = track.cur_sample == 0;
             if let Some((pts, offset, size)) = track.get_next_chunk() {
-                let str = strmgr.get_stream(track.track_str_id);
-                if str.is_none() { return Err(DemuxerError::InvalidData); }
-                let stream = str.unwrap();
-                self.src.seek(SeekFrom::Start(offset))?;
-                let mut pkt = self.src.read_packet(stream, pts, false, size)?;
-                if let Some(ref pal) = track.pal {
-                    let side_data = NASideData::Palette(first, pal.clone());
-                    pkt.add_side_data(side_data);
-                }
-                return Ok(pkt);
+                return process_packet(&mut self.src, strmgr, track, pts, offset, size, first);
             }
         }
         Err(DemuxerError::EOF)
