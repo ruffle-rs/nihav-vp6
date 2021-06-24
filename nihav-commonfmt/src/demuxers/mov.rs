@@ -984,6 +984,9 @@ fn read_trun(track: &mut Track, br: &mut ByteReader, size: u64) -> DemuxerResult
         track.ctts_map.reserve(sample_count);
     }
 
+    if track.chunk_offsets.len() < (std::u32::MAX as usize) {
+        track.keyframes.push((track.chunk_offsets.len() + 1) as u32);
+    }
     for _ in 0..sample_count {
         if sample_duration_present {
             let _duration       = br.read_u32be()?;
