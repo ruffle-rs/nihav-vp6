@@ -50,7 +50,8 @@ impl VQElement for Pixel16 {
         for i in 0..31 {
             offs[i + 1] = offs[i] + counts[i];
         }
-        let mut dst = vec![Pixel16(0); arr.len()];
+        let mut dst = [Pixel16(0); 16];
+        assert!(dst.len() >= arr.len());
         for pix in arr.iter() {
             let (r, g, b) = pix.unpack();
             let idx = match component {
@@ -61,7 +62,8 @@ impl VQElement for Pixel16 {
             dst[offs[idx]] = *pix;
             offs[idx] += 1;
         }
-        arr.copy_from_slice(dst.as_slice());
+        let len = arr.len();
+        arr.copy_from_slice(&dst[..len]);
     }
     fn max_dist_component(min: &Self, max: &Self) -> usize {
         let (r0, g0, b0) = max.unpack();
