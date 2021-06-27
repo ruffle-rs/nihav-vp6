@@ -6,12 +6,14 @@ use nihav_codec_support::vq::*;
 struct Pixel16(u16);
 
 impl Pixel16 {
-    fn unpack(self) -> (u8, u8, u8) {
-        (((self.0 >> 10) & 0x1F) as u8, ((self.0 >> 5) & 0x1F) as u8, (self.0 & 0x1F) as u8)
+    fn unpack(self) -> (u16, u16, u16) {
+        ((self.0 >> 10) & 0x1F, (self.0 >> 5) & 0x1F, self.0 & 0x1F)
     }
-    fn pack(r: u8, g: u8, b: u8) -> Self {
-        Pixel16{ 0: (u16::from(r) << 10) | (u16::from(g) << 5) | u16::from(b) }
+    fn pack(r: u16, g: u16, b: u16) -> Self {
+        Pixel16{ 0: (r << 10) | (g << 5) | b }
     }
+    fn invalid() -> Self { Self(0x8000) }
+    fn is_invalid(self) -> bool { self == Self::invalid() }
 }
 impl VQElement for Pixel16 {
     fn dist(&self, rval: Self) -> u32 {
@@ -82,26 +84,27 @@ impl VQElement for Pixel16 {
 }
 
 struct Pixel16Sum {
-    rsum: u64,
-    gsum: u64,
-    bsum: u64,
-    count: u64,
+    rsum: u16,
+    gsum: u16,
+    bsum: u16,
+    count: u16,
 }
 
 impl VQElementSum<Pixel16> for Pixel16Sum {
     fn zero() -> Self { Pixel16Sum { rsum: 0, gsum: 0, bsum: 0, count: 0 } }
     fn add(&mut self, rval: Pixel16, count: u64) {
         let (r, g, b) = rval.unpack();
-        self.rsum += u64::from(r) * count;
-        self.gsum += u64::from(g) * count;
-        self.bsum += u64::from(b) * count;
+        let count = count as u16;
+        self.rsum += r * count;
+        self.gsum += g * count;
+        self.bsum += b * count;
         self.count += count;
     }
     fn get_centroid(&self) -> Pixel16 {
         if self.count != 0 {
-            let r = ((self.rsum + self.count / 2) / self.count) as u8;
-            let g = ((self.gsum + self.count / 2) / self.count) as u8;
-            let b = ((self.bsum + self.count / 2) / self.count) as u8;
+            let r = (self.rsum + self.count / 2) / self.count;
+            let g = (self.gsum + self.count / 2) / self.count;
+            let b = (self.bsum + self.count / 2) / self.count;
             Pixel16::pack(r, g, b)
         } else {
             Pixel16(0x0000)
@@ -122,20 +125,42 @@ struct BlockState {
 }
 
 impl BlockState {
+    fn calc_clrs(buf: &[Pixel16; 16]) -> Option<(Pixel16, Pixel16)> {
+        let     clr0 = buf[0];
+        let mut clr1 = Pixel16::invalid();
+        for &pix in buf[1..].iter() {
+            if pix != clr0 && pix != clr1 {
+                if clr1.is_invalid() {
+                    clr1 = pix;
+                } else {
+                    return None;
+                }
+            }
+        }
+        Some((clr0, clr1))
+    }
     fn calc_stats(&mut self, buf: &[Pixel16; 16]) {
-        let num_cw = quantise_median_cut::<Pixel16, Pixel16Sum>(buf, &mut self.clr2);
-        if num_cw == 1 {
-            self.fill_val = Pixel16 { 0: buf[0].0 & !0x400 };
-        } else {
+        let mut filled = false;
+        let mut two_clr = false;
+        if let Some((clr0, clr1)) = Self::calc_clrs(buf) {
+            self.clr2[0] = clr0;
+            self.clr2[1] = if !clr1.is_invalid() { clr1 } else { clr0 };
+            if clr0 == clr1 {
+                self.fill_val = Pixel16 { 0: buf[0].0 & !0x400 };
+                filled = true;
+            }
+            two_clr = true;
+        }
+        self.fill_dist = 0;
+        if !filled {
             let mut avg = Pixel16Sum::zero();
             for pix in buf.iter() {
                 avg.add(*pix, 1);
             }
             self.fill_val = Pixel16 { 0: avg.get_centroid().0 & !0x400 };
-        }
-        self.fill_dist = 0;
-        for pix in buf.iter() {
-            self.fill_dist += pix.dist(self.fill_val);
+            for pix in buf.iter() {
+                self.fill_dist += pix.dist(self.fill_val);
+            }
         }
         if self.fill_dist == 0 {
             self.clr2_dist = std::u32::MAX;
@@ -144,7 +169,21 @@ impl BlockState {
         }
 
         self.clr2_flags = 0u16;
-        if num_cw == 2 {
+        if two_clr {
+            let mut mask = 1;
+            self.clr2_dist = 0;
+            for &pix in buf.iter() {
+                if pix == self.clr2[0] {
+                    self.clr2_flags |= mask;
+                } else {
+                }
+                mask <<= 1;
+            }
+            if (self.clr2_flags & 0x8000) != 0 {
+                self.clr2_flags = !self.clr2_flags;
+                self.clr2.swap(0, 1);
+            }
+        } else if quantise_median_cut::<Pixel16, Pixel16Sum>(buf, &mut self.clr2) == 2 {
             let mut mask = 1;
             self.clr2_dist = 0;
             for pix in buf.iter() {
@@ -573,6 +612,6 @@ mod test {
             };
         //test_encoding_to_file(&dec_config, &enc_config, enc_params);
         test_encoding_md5(&dec_config, &enc_config, enc_params,
-                          &[0x0fc27a11, 0x04337f5d, 0xb8037362, 0xc4f69d8b]);
+                          &[0x4339421d, 0x6393f1b6, 0x653d6cd2, 0x3a184382]);
     }
 }
