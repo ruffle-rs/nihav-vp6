@@ -24,6 +24,7 @@ pub const IMA_STEP_TABLE: [i32; 89] = [
 ///! Maximum step value for IMA ADPCM.
 pub const IMA_MAX_STEP: u8 = 88;
 
+#[derive(Clone,Copy,Debug)]
 ///! Decoder for IMA ADPCM.
 pub struct IMAState {
     ///! Current sample value.
