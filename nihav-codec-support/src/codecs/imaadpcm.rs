@@ -56,6 +56,13 @@ impl IMAState {
         self.step = istep.max(0).min(IMA_MAX_STEP as isize) as usize;
         self.predictor as i16
     }
+    ///! Computes an encoded nibble from an input sample.
+    pub fn compress_sample(&self, sample: i16) -> u8 {
+        let diff = i32::from(sample) - self.predictor;
+        let sign = if diff >= 0 { 0 } else { 8 };
+        let nib = (diff.abs() * 4 / IMA_STEP_TABLE[self.step]).min(7) as u8;
+        nib | sign
+    }
 }
 
 impl Default for IMAState {
