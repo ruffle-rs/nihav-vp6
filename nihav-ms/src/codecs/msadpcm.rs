@@ -465,6 +465,6 @@ mod test {
                 flags:   0,
             };
         test_encoding_md5(&dec_config, &enc_config, enc_params, &[],
-                          &[0xe1591a1e, 0x816d0239, 0x4cc42291, 0x4e6b69cb]);
+                          &[0x82259f45, 0xba7b984a, 0xc03c94e5, 0x00b4312b]);
     }
 }
