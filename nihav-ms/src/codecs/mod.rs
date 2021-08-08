@@ -13,6 +13,9 @@ pub mod msvideo1;
 #[cfg(feature="decoder_ima_adpcm_ms")]
 pub mod imaadpcm;
 
+#[cfg(feature="encoder_ima_adpcm_ms")]
+pub mod imaadpcmenc;
+
 #[cfg(any(feature="decoder_ms_adpcm", feature="encoder_ms_adpcm"))]
 pub mod msadpcm;
 
@@ -42,6 +45,8 @@ const MS_ENCODERS: &[EncoderInfo] = &[
     EncoderInfo { name: "msvideo1", get_encoder: msvideo1enc::get_encoder },
 #[cfg(feature="encoder_ms_adpcm")]
     EncoderInfo { name: "ms-adpcm", get_encoder: msadpcm::get_encoder },
+#[cfg(feature="encoder_ima_adpcm_ms")]
+    EncoderInfo { name: "ima-adpcm-ms", get_encoder: imaadpcmenc::get_encoder },
 ];
 
 /// Registers all available encoders provided by this crate.
