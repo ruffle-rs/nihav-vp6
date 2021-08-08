@@ -588,10 +588,12 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        let enc_options = &[];
+        let enc_options = &[
+                NAOption { name: "range", value: NAValue::Int(16) },
+            ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0x50df10e2, 0x606f3268, 0xdd4bc2ff, 0x844e7d87]);
+                          &[0x4bcdb816, 0x57d5d1b6, 0xc9412438, 0x9416c407]);
     }
 
     #[test]
@@ -633,10 +635,12 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        let enc_options = &[];
+        let enc_options = &[
+                NAOption { name: "range", value: NAValue::Int(16) },
+            ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0x0b4cb528, 0x66c91f6c, 0x1c2187a5, 0x2723a08d]);
+                          &[0x1cff4116, 0x5926d91b, 0x60aac53f, 0x8a22bc7b]);
     }
 
     #[test]
@@ -678,10 +682,12 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        let enc_options = &[];
+        let enc_options = &[
+                NAOption { name: "range", value: NAValue::Int(16) },
+            ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0x1a522743, 0x6c320a6e, 0xd08539e1, 0x03fc17ea]);
+                          &[0xb48aa633, 0x673539fe, 0xa312d45a, 0x76eee134]);
     }
 
     #[test]
@@ -723,9 +729,11 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        let enc_options = &[];
+        let enc_options = &[
+                NAOption { name: "range", value: NAValue::Int(16) },
+            ];
         //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
         test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
-                          &[0x3880e045, 0xe6c88dc7, 0x21066058, 0xc789f1e9]);
+                          &[0x0836152c, 0xfcd7e1fc, 0xf1e2f619, 0x874d3dbc]);
     }
 }
