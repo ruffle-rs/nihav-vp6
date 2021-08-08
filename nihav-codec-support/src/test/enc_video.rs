@@ -210,7 +210,7 @@ pub fn test_remuxing_md5(dec_config: &DecoderTestParams, muxer: &str, mux_reg: &
 }
 
 /// Tests an encoder by decoding a stream from input file, feeding it to the encoder and muxing the result into output file.
-pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters) {
+pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters, enc_options: &[NAOption]) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
     let mut fr = FileReader::new_read(&mut file);
@@ -256,6 +256,7 @@ pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &Encode
 
     let encfunc = enc_config.enc_reg.find_encoder(enc_config.enc_name).unwrap();
     let mut encoder = (encfunc)();
+    encoder.set_options(enc_options);
     let out_str = encoder.init(0, enc_params).unwrap();
     out_sm.add_stream(NAStream::clone(&out_str));
 
@@ -318,7 +319,7 @@ pub fn test_encoding_to_file(dec_config: &DecoderTestParams, enc_config: &Encode
 }
 
 /// Tests an encoder by decoding a stream from input file, feeding it to the encoder and calculating the hash of codec information and packet data.
-pub fn test_encoding_md5(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters, ref_hash: &[u32; 4]) {
+pub fn test_encoding_md5(dec_config: &DecoderTestParams, enc_config: &EncoderTestParams, mut enc_params: EncodeParameters, enc_options: &[NAOption], ref_hash: &[u32; 4]) {
     let dmx_f = dec_config.dmx_reg.find_demuxer(dec_config.demuxer).unwrap();
     let mut file = File::open(dec_config.in_name).unwrap();
     let mut fr = FileReader::new_read(&mut file);
@@ -363,6 +364,7 @@ pub fn test_encoding_md5(dec_config: &DecoderTestParams, enc_config: &EncoderTes
 
     let encfunc = enc_config.enc_reg.find_encoder(enc_config.enc_name).unwrap();
     let mut encoder = (encfunc)();
+    encoder.set_options(enc_options);
     let out_str = encoder.init(0, enc_params).unwrap();
 
     let mut md5 = MD5::new();

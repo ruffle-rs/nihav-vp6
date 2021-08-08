@@ -588,8 +588,9 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        //test_encoding_to_file(&dec_config, &enc_config, enc_params);
-        test_encoding_md5(&dec_config, &enc_config, enc_params,
+        let enc_options = &[];
+        //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
+        test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
                           &[0x50df10e2, 0x606f3268, 0xdd4bc2ff, 0x844e7d87]);
     }
 
@@ -632,8 +633,9 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        //test_encoding_to_file(&dec_config, &enc_config, enc_params);
-        test_encoding_md5(&dec_config, &enc_config, enc_params,
+        let enc_options = &[];
+        //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
+        test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
                           &[0x0b4cb528, 0x66c91f6c, 0x1c2187a5, 0x2723a08d]);
     }
 
@@ -676,8 +678,9 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        //test_encoding_to_file(&dec_config, &enc_config, enc_params);
-        test_encoding_md5(&dec_config, &enc_config, enc_params,
+        let enc_options = &[];
+        //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
+        test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
                           &[0x1a522743, 0x6c320a6e, 0xd08539e1, 0x03fc17ea]);
     }
 
@@ -720,8 +723,9 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        //test_encoding_to_file(&dec_config, &enc_config, enc_params);
-        test_encoding_md5(&dec_config, &enc_config, enc_params,
+        let enc_options = &[];
+        //test_encoding_to_file(&dec_config, &enc_config, enc_params, enc_options);
+        test_encoding_md5(&dec_config, &enc_config, enc_params, enc_options,
                           &[0x3880e045, 0xe6c88dc7, 0x21066058, 0xc789f1e9]);
     }
 }

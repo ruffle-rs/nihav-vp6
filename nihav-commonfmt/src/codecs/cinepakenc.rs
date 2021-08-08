@@ -1128,8 +1128,8 @@ mod test {
                 tb_den:  0,
                 flags:   0,
             };
-        //test_encoding_to_file(&dec_config, &enc_config, enc_params);
-        test_encoding_md5(&dec_config, &enc_config, enc_params,
+        //test_encoding_to_file(&dec_config, &enc_config, enc_params, &[]);
+        test_encoding_md5(&dec_config, &enc_config, enc_params, &[],
                           &[0xd73cb3c7, 0x30d59f90, 0x1d6e0e28, 0x5b72cc0c]);
     }
 }
