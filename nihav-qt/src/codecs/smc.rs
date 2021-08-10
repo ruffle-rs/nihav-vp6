@@ -119,7 +119,8 @@ impl NADecoder for SmcDecoder {
                     llblock = lblock;
                 },
                 2 => {
-                    for i in 0..len {
+                    validate!(blockpos + len * 2 <= nblocks);
+                    for i in 0..len*2 {
                         if (i & 1) == 0 {
                             Self::put_block(&mut frm.data[doff + x..], stride, &llblock);
                         } else {
@@ -131,6 +132,7 @@ impl NADecoder for SmcDecoder {
                             doff += stride * 4;
                         }
                     }
+                    blockpos += len;
                 },
                 3 => {
                     let clr             = br.read_byte()?;
