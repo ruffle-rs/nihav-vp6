@@ -62,8 +62,7 @@ impl NADecoder for SmcDecoder {
         let mut mr = MemoryReader::new_read(src.as_slice());
         let mut br = ByteReader::new(&mut mr);
 
-        let id                          = br.read_byte()?;
-        validate!(id == 0x80);
+        let _flags                      = br.read_byte()?;
         let length                      = br.read_u24be()? as usize;
         validate!(length == src.len());
 
