@@ -33,6 +33,8 @@ mod vp56;
 #[allow(clippy::needless_range_loop)]
 mod vp5;
 #[cfg(feature="decoder_vp6")]
+mod vp6data;
+#[cfg(feature="decoder_vp6")]
 #[allow(clippy::needless_range_loop)]
 mod vp6;
 #[cfg(feature="decoder_vp7")]
