@@ -51,6 +51,7 @@ impl VP56Parser for VP6BR {
         if hdr.multistream || (hdr.profile == VP6_SIMPLE_PROFILE) {
             hdr.offset                          = br.read(16)? as u16;
             validate!(hdr.offset > if hdr.is_intra { 6 } else { 2 });
+            hdr.multistream = true;
         }
         let bytes = br.tell() >> 3;
         std::mem::drop(br);
