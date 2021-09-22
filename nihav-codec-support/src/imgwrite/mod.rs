@@ -84,13 +84,16 @@ pub fn write_pgmyuv(name: &str, frm: NAFrameRef) -> std::io::Result<()> {
     }
     if has_alpha {
         let ls = buf.get_stride(3);
-        let mut idx = buf.get_offset(3);
-        let mut idx2 = idx + w;
-        for _ in 0..h {
-            let line = &dta[idx..idx2];
-            ofile.write_all(line)?;
-            idx  += ls;
-            idx2 += ls;
+        if !is_flipped {
+            let alines = dta[buf.get_offset(3)..].chunks(ls).take(h);
+            for line in alines {
+                ofile.write_all(&line[..w])?;
+            }
+        } else {
+            let alines = dta[buf.get_offset(3)..].chunks(ls).take(h).rev();
+            for line in alines {
+                ofile.write_all(&line[..w])?;
+            }
         }
     }
     Ok(())
