@@ -352,6 +352,7 @@ pub struct VP56Decoder {
     mb_w:       usize,
     mb_h:       usize,
     models:     VP56Models,
+    amodels:    VP56Models,
     coeffs:     [[i16; 64]; 6],
     last_mbt:   VPMBType,
 
@@ -434,6 +435,7 @@ impl VP56Decoder {
             mb_w:       0,
             mb_h:       0,
             models:     VP56Models::new(),
+            amodels:    VP56Models::new(),
             coeffs:     [[0; 64]; 6],
             last_mbt:   VPMBType::InterNoMV,
 
@@ -518,14 +520,38 @@ impl VP56Decoder {
             }
         }
 
+        let psrc = &src[if self.has_alpha { 3 } else { 0 }..aoffset];
+        self.decode_planes(br, &mut dframe, &mut bc, &hdr, psrc, false)?;
+
+        if self.has_alpha {
+            let asrc = &src[aoffset + 3..];
+            let mut bc = BoolCoder::new(asrc)?;
+            let ahdr = br.parse_header(&mut bc)?;
+            validate!(ahdr.mb_w == hdr.mb_w && ahdr.mb_h == hdr.mb_h);
+            std::mem::swap(&mut self.models, &mut self.amodels);
+            let ret = self.decode_planes(br, &mut dframe, &mut bc, &ahdr, asrc, true);
+            std::mem::swap(&mut self.models, &mut self.amodels);
+            if let Err(err) = ret {
+                return Err(err);
+            }
+        }
+
+        if hdr.is_golden {
+            self.shuf.add_golden_frame(buf.clone());
+        }
+        self.shuf.add_frame(buf.clone());
+
+        Ok((NABufferType::Video(buf), if hdr.is_intra { FrameType::I } else { FrameType::P }))
+    }
+    fn decode_planes(&mut self, br: &mut dyn VP56Parser, dframe: &mut NASimpleVideoFrame<u8>, bc: &mut BoolCoder, hdr: &VP56Header, src: &[u8], alpha: bool) -> DecoderResult<()> {
         let mut cr;
         if hdr.multistream {
-            let off = (if self.has_alpha { 3 } else { 0 }) + (hdr.offset as usize);
+            let off = hdr.offset as usize;
             if !hdr.use_huffman {
                 let bc2 = BoolCoder::new(&src[off..])?;
                 cr = CoeffReader::Bool(bc2);
             } else {
-                let br = BitReader::new(&src[off..aoffset], BitReaderMode::BE);
+                let br = BitReader::new(&src[off..], BitReaderMode::BE);
                 cr = CoeffReader::Huff(br);
             }
         } else {
@@ -536,10 +562,10 @@ impl VP56Decoder {
             br.reset_models(&mut self.models);
             self.reset_mbtype_models();
         } else {
-            self.decode_mode_prob_models(&mut bc)?;
-            br.decode_mv_models(&mut bc, &mut self.models.mv_models)?;
+            self.decode_mode_prob_models(bc)?;
+            br.decode_mv_models(bc, &mut self.models.mv_models)?;
         }
-        br.decode_coeff_models(&mut bc, &mut self.models, hdr.is_intra)?;
+        br.decode_coeff_models(bc, &mut self.models, hdr.is_intra)?;
         if hdr.use_huffman {
             for i in 0..2 {
                 self.models.vp6huff.dc_token_tree[i].build_codes(&self.models.coeff_models[i].dc_value_probs);
@@ -583,25 +609,12 @@ impl VP56Decoder {
             self.fstate.last_idx = [24; 4];
             for mb_x in 0..self.mb_w {
                 self.fstate.mb_x = mb_x;
-                self.decode_mb(&mut dframe, &mut bc, &mut cr, br, &hdr, false)?;
+                self.decode_mb(dframe, bc, &mut cr, br, &hdr, alpha)?;
                 self.dc_pred.next_mb();
             }
             self.dc_pred.update_row();
         }
-
-        if self.has_alpha {
-            let asrc = &src[aoffset + 3..];
-            let mut bc = BoolCoder::new(asrc)?;
-            let ahdr = br.parse_header(&mut bc)?;
-            validate!(ahdr.mb_w == hdr.mb_w && ahdr.mb_h == hdr.mb_h);
-        }
-
-        if hdr.is_golden {
-            self.shuf.add_golden_frame(buf.clone());
-        }
-        self.shuf.add_frame(buf.clone());
-
-        Ok((NABufferType::Video(buf), if hdr.is_intra { FrameType::I } else { FrameType::P }))
+        Ok(())
     }
     fn reset_mbtype_models(&mut self) {
         const DEFAULT_XMITTED_PROBS: [[u8; 20]; 3] = [
@@ -891,25 +904,24 @@ impl VP56Decoder {
                 }
             }
         }
-        if !alpha {
-            for blk_no in 4..6 {
-                self.fstate.plane = blk_no - 3;
-                self.fstate.ctx_idx = blk_no - 2;
-                self.fstate.top_ctx = self.top_ctx[self.fstate.plane][mb_x];
-                match cr {
-                    CoeffReader::None              => {
-                        br.decode_block(bc, &mut self.coeffs[blk_no], &self.models.coeff_models[1], &self.models.vp6models, &mut self.fstate)?;
-                    },
-                    CoeffReader::Bool(ref mut bcc) => {
-                        br.decode_block(bcc, &mut self.coeffs[blk_no], &self.models.coeff_models[1], &self.models.vp6models, &mut self.fstate)?;
-                    },
-                    CoeffReader::Huff(ref mut brc) => {
-                        br.decode_block_huff(brc, &mut self.coeffs[blk_no], &self.models.vp6models, &self.models.vp6huff, &mut self.fstate)?;
-                    },
-                };
-                self.top_ctx[self.fstate.plane][mb_x] = self.fstate.top_ctx;
-                self.predict_dc(mb_type, mb_pos, blk_no, alpha);
-
+        for blk_no in 4..6 {
+            self.fstate.plane = blk_no - 3;
+            self.fstate.ctx_idx = blk_no - 2;
+            self.fstate.top_ctx = self.top_ctx[self.fstate.plane][mb_x];
+            match cr {
+                CoeffReader::None              => {
+                    br.decode_block(bc, &mut self.coeffs[blk_no], &self.models.coeff_models[1], &self.models.vp6models, &mut self.fstate)?;
+                },
+                CoeffReader::Bool(ref mut bcc) => {
+                    br.decode_block(bcc, &mut self.coeffs[blk_no], &self.models.coeff_models[1], &self.models.vp6models, &mut self.fstate)?;
+                },
+                CoeffReader::Huff(ref mut brc) => {
+                    br.decode_block_huff(brc, &mut self.coeffs[blk_no], &self.models.vp6models, &self.models.vp6huff, &mut self.fstate)?;
+                },
+            };
+            self.top_ctx[self.fstate.plane][mb_x] = self.fstate.top_ctx;
+            self.predict_dc(mb_type, mb_pos, blk_no, alpha);
+            if !alpha {
                 let has_ac = self.fstate.last_idx[self.fstate.ctx_idx] > 0;
                 if mb_type.is_intra() {
                     if has_ac {
