@@ -1,7 +1,4 @@
 //! Various compression formats support.
-#[cfg(feature="deflate")]
-pub mod deflate;
-
 use crate::io::byteio::ByteIOError;
 use crate::io::bitreader::BitReaderError;
 use crate::io::codebook::CodebookError;
