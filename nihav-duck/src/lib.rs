@@ -8,8 +8,3 @@ extern crate nihav_codec_support;
 #[allow(clippy::unreadable_literal)]
 #[allow(clippy::verbose_bit_mask)]
 mod codecs;
-
-pub use crate::codecs::duck_register_all_decoders;
-
-#[cfg(test)]
-extern crate nihav_commonfmt;
