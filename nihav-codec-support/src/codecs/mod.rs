@@ -297,12 +297,6 @@ impl fmt::Display for MV {
 #[cfg(any(feature="blockdsp"))]
 pub mod blockdsp;
 
-#[cfg(feature="h263")]
-#[allow(clippy::collapsible_if)]
-#[allow(clippy::manual_memcpy)]
-#[allow(clippy::needless_range_loop)]
-pub mod h263;
-
 /// The common 8x8 zigzag scan.
 pub const ZIGZAG: [usize; 64] = [
      0,  1,  8, 16,  9,  2,  3, 10,
