@@ -1,17 +1,11 @@
-# NihAV
+# The VP6 Decoder from the NihAV Project
+
+This is a tiny sliver of NihAV stripped out: just the VP5/VP6 decoder, and a couple related bits and pieces to make it work.
 
 NihAV is a research multimedia framework with some demonstration tools.
 
-## Getting Started
-
-The project should build just fine with Rust 1.46 or later.
-
-## Contributing
-
-You're not supposed to. Even I hardly do that so why should you?
-
 ## License
 
-NihAV is licensed under GNU Affero Public License - see [COPYING] for details.
+This portion of [NihAV](https://nihav.org) is kindly relicensed by the author to be used by the [Ruffle](https://ruffle.rs) project under the MIT License - see [COPYING](COPYING) for details.
 
-Parts of the project can be relicensed to other free licenses like LGPLv2 on request.
+As also noted on: https://codecs.multimedia.cx/nihav-relicensed-code/
