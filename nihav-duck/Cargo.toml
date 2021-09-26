@@ -9,28 +9,3 @@ path = "../nihav-core"
 
 [dependencies.nihav_codec_support]
 path = "../nihav-codec-support"
-features = ["fft", "dsp_window", "blockdsp"]
-
-[dev-dependencies]
-nihav_commonfmt = { path = "../nihav-commonfmt", default-features=false, features = ["all_demuxers"] }
-
-[features]
-default = ["all_decoders"]
-
-all_decoders = ["all_video_decoders", "all_audio_decoders"]
-all_video_decoders = ["decoder_truemotion1", "decoder_truemotionrt", "decoder_truemotion2", "decoder_truemotion2x", "decoder_vp3", "decoder_vp4", "decoder_vp5", "decoder_vp6", "decoder_vp7"]
-all_audio_decoders = ["decoder_dk3_adpcm", "decoder_dk4_adpcm", "decoder_on2avc"]
-decoders = []
-
-decoder_truemotion1 = ["decoders"]
-decoder_truemotionrt = ["decoders"]
-decoder_truemotion2 = ["decoders"]
-decoder_truemotion2x = ["decoders"]
-decoder_vp3 = ["decoders"]
-decoder_vp4 = ["decoders"]
-decoder_vp5 = ["decoders"]
-decoder_vp6 = ["decoders"]
-decoder_vp7 = ["decoders"]
-decoder_dk3_adpcm = ["decoders"]
-decoder_dk4_adpcm = ["decoders"]
-decoder_on2avc = ["decoders"]

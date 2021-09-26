@@ -93,7 +93,6 @@ impl fmt::Display for MV {
     }
 }
 
-#[cfg(any(feature="blockdsp"))]
 pub mod blockdsp;
 
 /// The common 8x8 zigzag scan.
