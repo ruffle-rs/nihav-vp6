@@ -7,41 +7,6 @@ pub use crate::formats::*;
 pub use crate::refs::*;
 use std::str::FromStr;
 
-/// Audio stream information.
-#[allow(dead_code)]
-#[derive(Clone,Copy,PartialEq)]
-pub struct NAAudioInfo {
-    /// Sample rate.
-    pub sample_rate: u32,
-    /// Number of channels.
-    pub channels:    u8,
-    /// Audio sample format.
-    pub format:      NASoniton,
-    /// Length of one audio block in samples.
-    pub block_len:   usize,
-}
-
-impl NAAudioInfo {
-    /// Constructs a new `NAAudioInfo` instance.
-    pub fn new(sr: u32, ch: u8, fmt: NASoniton, bl: usize) -> Self {
-        NAAudioInfo { sample_rate: sr, channels: ch, format: fmt, block_len: bl }
-    }
-    /// Returns audio sample rate.
-    pub fn get_sample_rate(&self) -> u32 { self.sample_rate }
-    /// Returns the number of channels.
-    pub fn get_channels(&self) -> u8 { self.channels }
-    /// Returns sample format.
-    pub fn get_format(&self) -> NASoniton { self.format }
-    /// Returns one audio block duration in samples.
-    pub fn get_block_len(&self) -> usize { self.block_len }
-}
-
-impl fmt::Display for NAAudioInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} Hz, {} ch", self.sample_rate, self.channels)
-    }
-}
-
 /// Video stream information.
 #[allow(dead_code)]
 #[derive(Clone,Copy,PartialEq)]
@@ -89,8 +54,6 @@ impl fmt::Display for NAVideoInfo {
 pub enum NACodecTypeInfo {
     /// No codec present.
     None,
-    /// Audio codec information.
-    Audio(NAAudioInfo),
     /// Video codec information.
     Video(NAVideoInfo),
 }
@@ -103,24 +66,10 @@ impl NACodecTypeInfo {
             _ => None,
         }
     }
-    /// Returns audio stream information.
-    pub fn get_audio_info(&self) -> Option<NAAudioInfo> {
-        match *self {
-            NACodecTypeInfo::Audio(ainfo) => Some(ainfo),
-            _ => None,
-        }
-    }
     /// Reports whether the current stream is video stream.
     pub fn is_video(&self) -> bool {
         match *self {
             NACodecTypeInfo::Video(_) => true,
-            _ => false,
-        }
-    }
-    /// Reports whether the current stream is audio stream.
-    pub fn is_audio(&self) -> bool {
-        match *self {
-            NACodecTypeInfo::Audio(_) => true,
             _ => false,
         }
     }
@@ -130,7 +79,6 @@ impl fmt::Display for NACodecTypeInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let ret = match *self {
             NACodecTypeInfo::None       => "".to_string(),
-            NACodecTypeInfo::Audio(fmt) => format!("{}", fmt),
             NACodecTypeInfo::Video(fmt) => format!("{}", fmt),
         };
         write!(f, "{}", ret)
@@ -206,78 +154,6 @@ impl<T: Clone> NAVideoBuffer<T> {
 /// A specialised type for reference-counted `NAVideoBuffer`.
 pub type NAVideoBufferRef<T> = NABufferRef<NAVideoBuffer<T>>;
 
-/// Decoded audio frame.
-///
-/// NihAV frames are stored in native type (8/16/32-bit elements) inside a single buffer.
-/// In case of planar audio samples for each channel are stored sequentially and can be accessed in the buffer starting at corresponding channel offset.
-#[derive(Clone)]
-pub struct NAAudioBuffer<T> {
-    info:   NAAudioInfo,
-    data:   NABufferRef<Vec<T>>,
-    offs:   Vec<usize>,
-    stride: usize,
-    step:   usize,
-    chmap:  NAChannelMap,
-    len:    usize,
-}
-
-impl<T: Clone> NAAudioBuffer<T> {
-    /// Returns the start position of requested channel data.
-    pub fn get_offset(&self, idx: usize) -> usize {
-        if idx >= self.offs.len() { 0 }
-        else { self.offs[idx] }
-    }
-    /// Returns the distance between the start of one channel and the next one.
-    pub fn get_stride(&self) -> usize { self.stride }
-    /// Returns the distance between the samples in one channel.
-    pub fn get_step(&self) -> usize { self.step }
-    /// Returns audio format information.
-    pub fn get_info(&self) -> NAAudioInfo { self.info }
-    /// Returns channel map.
-    pub fn get_chmap(&self) -> &NAChannelMap { &self.chmap }
-    /// Returns an immutable reference to the data.
-    pub fn get_data(&self) -> &Vec<T> { self.data.as_ref() }
-    /// Returns reference to the data.
-    pub fn get_data_ref(&self) -> NABufferRef<Vec<T>> { self.data.clone() }
-    /// Returns a mutable reference to the data.
-    pub fn get_data_mut(&mut self) -> Option<&mut Vec<T>> { self.data.as_mut() }
-    /// Clones current `NAAudioBuffer` into a new one.
-    pub fn copy_buffer(&mut self) -> Self {
-        let mut data: Vec<T> = Vec::with_capacity(self.data.len());
-        data.clone_from(self.data.as_ref());
-        let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
-        offs.clone_from(&self.offs);
-        NAAudioBuffer { info: self.info, data: NABufferRef::new(data), offs, chmap: self.get_chmap().clone(), len: self.len, stride: self.stride, step: self.step }
-    }
-    /// Return the length of frame in samples.
-    pub fn get_length(&self) -> usize { self.len }
-    /// Truncates buffer length if possible.
-    ///
-    /// In case when new length is larger than old length nothing is done.
-    pub fn truncate(&mut self, new_len: usize) {
-        self.len = self.len.min(new_len);
-    }
-
-    fn print_contents(&self, datatype: &str) {
-        println!("Audio buffer with {} data, stride {}, step {}", datatype, self.stride, self.step);
-        println!(" format {}", self.info);
-        println!(" channel map {}", self.chmap);
-        print!(" offsets:");
-        for off in self.offs.iter() {
-            print!(" {}", *off);
-        }
-        println!();
-    }
-}
-
-impl NAAudioBuffer<u8> {
-    /// Constructs a new `NAAudioBuffer` instance.
-    pub fn new_from_buf(info: NAAudioInfo, data: NABufferRef<Vec<u8>>, chmap: NAChannelMap) -> Self {
-        let len = data.len();
-        NAAudioBuffer { info, data, chmap, offs: Vec::new(), len, stride: 0, step: 0 }
-    }
-}
-
 /// A list of possible decoded frame types.
 #[derive(Clone)]
 pub enum NABufferType {
@@ -289,16 +165,6 @@ pub enum NABufferType {
     Video32    (NAVideoBufferRef<u32>),
     /// Packed video buffer.
     VideoPacked(NAVideoBufferRef<u8>),
-    /// Audio buffer with 8-bit unsigned integer audio.
-    AudioU8    (NAAudioBuffer<u8>),
-    /// Audio buffer with 16-bit signed integer audio.
-    AudioI16   (NAAudioBuffer<i16>),
-    /// Audio buffer with 32-bit signed integer audio.
-    AudioI32   (NAAudioBuffer<i32>),
-    /// Audio buffer with 32-bit floating point audio.
-    AudioF32   (NAAudioBuffer<f32>),
-    /// Packed audio buffer.
-    AudioPacked(NAAudioBuffer<u8>),
     /// Buffer with generic data (e.g. subtitles).
     Data       (NABufferRef<Vec<u8>>),
     /// No data present.
@@ -313,11 +179,6 @@ impl NABufferType {
             NABufferType::Video16(ref vb)     => vb.get_offset(idx),
             NABufferType::Video32(ref vb)     => vb.get_offset(idx),
             NABufferType::VideoPacked(ref vb) => vb.get_offset(idx),
-            NABufferType::AudioU8(ref ab)     => ab.get_offset(idx),
-            NABufferType::AudioI16(ref ab)    => ab.get_offset(idx),
-            NABufferType::AudioI32(ref ab)    => ab.get_offset(idx),
-            NABufferType::AudioF32(ref ab)    => ab.get_offset(idx),
-            NABufferType::AudioPacked(ref ab) => ab.get_offset(idx),
             _ => 0,
         }
     }
@@ -353,90 +214,6 @@ impl NABufferType {
             _ => None,
         }
     }
-    /// Returns information for audio frames.
-    pub fn get_audio_info(&self) -> Option<NAAudioInfo> {
-        match *self {
-            NABufferType::AudioU8(ref ab)     => Some(ab.get_info()),
-            NABufferType::AudioI16(ref ab)    => Some(ab.get_info()),
-            NABufferType::AudioI32(ref ab)    => Some(ab.get_info()),
-            NABufferType::AudioF32(ref ab)    => Some(ab.get_info()),
-            NABufferType::AudioPacked(ref ab) => Some(ab.get_info()),
-            _ => None,
-        }
-    }
-    /// Returns audio channel map.
-    pub fn get_chmap(&self) -> Option<&NAChannelMap> {
-        match *self {
-            NABufferType::AudioU8(ref ab)     => Some(ab.get_chmap()),
-            NABufferType::AudioI16(ref ab)    => Some(ab.get_chmap()),
-            NABufferType::AudioI32(ref ab)    => Some(ab.get_chmap()),
-            NABufferType::AudioF32(ref ab)    => Some(ab.get_chmap()),
-            NABufferType::AudioPacked(ref ab) => Some(ab.get_chmap()),
-            _ => None,
-        }
-    }
-    /// Returns audio frame duration in samples.
-    pub fn get_audio_length(&self) -> usize {
-        match *self {
-            NABufferType::AudioU8(ref ab)     => ab.get_length(),
-            NABufferType::AudioI16(ref ab)    => ab.get_length(),
-            NABufferType::AudioI32(ref ab)    => ab.get_length(),
-            NABufferType::AudioF32(ref ab)    => ab.get_length(),
-            NABufferType::AudioPacked(ref ab) => ab.get_length(),
-            _ => 0,
-        }
-    }
-    /// Returns the distance between starts of two channels.
-    pub fn get_audio_stride(&self) -> usize {
-        match *self {
-            NABufferType::AudioU8(ref ab)     => ab.get_stride(),
-            NABufferType::AudioI16(ref ab)    => ab.get_stride(),
-            NABufferType::AudioI32(ref ab)    => ab.get_stride(),
-            NABufferType::AudioF32(ref ab)    => ab.get_stride(),
-            NABufferType::AudioPacked(ref ab) => ab.get_stride(),
-            _ => 0,
-        }
-    }
-    /// Returns the distance between two samples in one channel.
-    pub fn get_audio_step(&self) -> usize {
-        match *self {
-            NABufferType::AudioU8(ref ab)     => ab.get_step(),
-            NABufferType::AudioI16(ref ab)    => ab.get_step(),
-            NABufferType::AudioI32(ref ab)    => ab.get_step(),
-            NABufferType::AudioF32(ref ab)    => ab.get_step(),
-            NABufferType::AudioPacked(ref ab) => ab.get_step(),
-            _ => 0,
-        }
-    }
-    /// Returns reference to 8-bit (or packed) audio buffer.
-    pub fn get_abuf_u8(&self) -> Option<NAAudioBuffer<u8>> {
-        match *self {
-            NABufferType::AudioU8(ref ab) => Some(ab.clone()),
-            NABufferType::AudioPacked(ref ab) => Some(ab.clone()),
-            _ => None,
-        }
-    }
-    /// Returns reference to 16-bit audio buffer.
-    pub fn get_abuf_i16(&self) -> Option<NAAudioBuffer<i16>> {
-        match *self {
-            NABufferType::AudioI16(ref ab) => Some(ab.clone()),
-            _ => None,
-        }
-    }
-    /// Returns reference to 32-bit integer audio buffer.
-    pub fn get_abuf_i32(&self) -> Option<NAAudioBuffer<i32>> {
-        match *self {
-            NABufferType::AudioI32(ref ab) => Some(ab.clone()),
-            _ => None,
-        }
-    }
-    /// Returns reference to 32-bit floating point audio buffer.
-    pub fn get_abuf_f32(&self) -> Option<NAAudioBuffer<f32>> {
-        match *self {
-            NABufferType::AudioF32(ref ab) => Some(ab.clone()),
-            _ => None,
-        }
-    }
     /// Prints internal buffer layout.
     pub fn print_buffer_metadata(&self) {
         match *self {
@@ -444,11 +221,6 @@ impl NABufferType {
             NABufferType::Video16(ref buf)      => buf.print_contents("16-bit"),
             NABufferType::Video32(ref buf)      => buf.print_contents("32-bit"),
             NABufferType::VideoPacked(ref buf)  => buf.print_contents("packed"),
-            NABufferType::AudioU8(ref buf)      => buf.print_contents("8-bit unsigned integer"),
-            NABufferType::AudioI16(ref buf)     => buf.print_contents("16-bit integer"),
-            NABufferType::AudioI32(ref buf)     => buf.print_contents("32-bit integer"),
-            NABufferType::AudioF32(ref buf)     => buf.print_contents("32-bit float"),
-            NABufferType::AudioPacked(ref buf)  => buf.print_contents("packed"),
             NABufferType::Data(ref buf) => { println!("Data buffer, len = {}", buf.len()); },
             NABufferType::None          => { println!("No buffer"); },
         };
@@ -627,64 +399,6 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
     }
 }
 
-/// Constructs a new audio buffer for the requested format and length.
-#[allow(clippy::collapsible_if)]
-pub fn alloc_audio_buffer(ainfo: NAAudioInfo, nsamples: usize, chmap: NAChannelMap) -> Result<NABufferType, AllocatorError> {
-    let mut offs: Vec<usize> = Vec::new();
-    if ainfo.format.is_planar() || ((ainfo.format.get_bits() % 8) == 0) {
-        let len = nsamples.checked_mul(ainfo.channels as usize);
-        if len == None { return Err(AllocatorError::TooLargeDimensions); }
-        let length = len.unwrap();
-        let stride;
-        let step;
-        if ainfo.format.is_planar() {
-            stride = nsamples;
-            step   = 1;
-            for i in 0..ainfo.channels {
-                offs.push((i as usize) * stride);
-            }
-        } else {
-            stride = 1;
-            step   = ainfo.channels as usize;
-            for i in 0..ainfo.channels {
-                offs.push(i as usize);
-            }
-        }
-        if ainfo.format.is_float() {
-            if ainfo.format.get_bits() == 32 {
-                let data: Vec<f32> = vec![0.0; length];
-                let buf: NAAudioBuffer<f32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
-                Ok(NABufferType::AudioF32(buf))
-            } else {
-                Err(AllocatorError::TooLargeDimensions)
-            }
-        } else {
-            if ainfo.format.get_bits() == 8 && !ainfo.format.is_signed() {
-                let data: Vec<u8> = vec![0; length];
-                let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
-                Ok(NABufferType::AudioU8(buf))
-            } else if ainfo.format.get_bits() == 16 && ainfo.format.is_signed() {
-                let data: Vec<i16> = vec![0; length];
-                let buf: NAAudioBuffer<i16> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
-                Ok(NABufferType::AudioI16(buf))
-            } else if ainfo.format.get_bits() == 32 && ainfo.format.is_signed() {
-                let data: Vec<i32> = vec![0; length];
-                let buf: NAAudioBuffer<i32> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride, step };
-                Ok(NABufferType::AudioI32(buf))
-            } else {
-                Err(AllocatorError::TooLargeDimensions)
-            }
-        }
-    } else {
-        let len = nsamples.checked_mul(ainfo.channels as usize);
-        if len == None { return Err(AllocatorError::TooLargeDimensions); }
-        let length = ainfo.format.get_audio_size(len.unwrap() as u64);
-        let data: Vec<u8> = vec![0; length];
-        let buf: NAAudioBuffer<u8> = NAAudioBuffer { data: NABufferRef::new(data), info: ainfo, offs, chmap, len: nsamples, stride: 0, step: 0 };
-        Ok(NABufferType::AudioPacked(buf))
-    }
-}
-
 /// Constructs a new buffer for generic data.
 pub fn alloc_data_buffer(size: usize) -> Result<NABufferType, AllocatorError> {
     let data: Vec<u8> = vec![0; size];
@@ -836,11 +550,6 @@ impl NACodecInfo {
     /// Reports whether it is a video codec.
     pub fn is_video(&self) -> bool {
         if let NACodecTypeInfo::Video(_) = self.properties { return true; }
-        false
-    }
-    /// Reports whether it is an audio codec.
-    pub fn is_audio(&self) -> bool {
-        if let NACodecTypeInfo::Audio(_) = self.properties { return true; }
         false
     }
     /// Constructs a new empty reference-counted instance of `NACodecInfo`.
