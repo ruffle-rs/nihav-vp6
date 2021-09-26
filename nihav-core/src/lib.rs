@@ -12,6 +12,4 @@ pub mod formats;
 pub mod frame;
 #[allow(clippy::too_many_arguments)]
 pub mod io;
-pub mod options;
 pub mod refs;
-pub mod reorder;
