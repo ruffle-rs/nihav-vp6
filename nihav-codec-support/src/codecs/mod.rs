@@ -309,4 +309,3 @@ pub const ZIGZAG: [usize; 64] = [
     53, 60, 61, 54, 47, 55, 62, 63
 ];
 
-pub mod imaadpcm;
