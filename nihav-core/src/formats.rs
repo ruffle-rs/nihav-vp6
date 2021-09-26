@@ -3,7 +3,6 @@
 //! NihAV does not have a fixed list of supported formats but rather accepts format definitions both for audio and video.
 //! In result exotic formats like YUV410+alpha plane that is used by Indeo 4 are supported without any additional case handing.
 //! Some common format definitions are provided as constants for convenience.
-use std::str::FromStr;
 use std::string::*;
 use std::fmt;
 

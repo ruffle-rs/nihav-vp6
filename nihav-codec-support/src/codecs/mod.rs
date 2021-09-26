@@ -3,7 +3,6 @@ use std::fmt;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 pub use nihav_core::frame::*;
-use std::mem;
 
 /// Motion vector data type.
 ///

@@ -5,7 +5,6 @@ use std::fmt;
 pub use std::sync::Arc;
 pub use crate::formats::*;
 pub use crate::refs::*;
-use std::str::FromStr;
 
 /// Video stream information.
 #[allow(dead_code)]
