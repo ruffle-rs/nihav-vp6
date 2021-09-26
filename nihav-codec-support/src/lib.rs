@@ -13,6 +13,5 @@ pub mod codecs;
 #[allow(clippy::unreadable_literal)]
 pub mod dsp;
 
-pub mod data;
 
 extern crate nihav_core;
