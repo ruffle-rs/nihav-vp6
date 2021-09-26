@@ -3,11 +3,11 @@ use nihav_core::io::bitreader::*;
 use nihav_codec_support::codecs::{MV, ZIGZAG};
 use nihav_codec_support::codecs::blockdsp::edge_emu;
 use super::vpcommon::*;
-use super::vp56::*;
+pub use super::vp56::*;
 use super::vp6data::*;
 
 #[derive(Default)]
-struct VP6BR {
+pub struct VP6BR {
     vpversion:      u8,
     profile:        u8,
     interlaced:     bool,
@@ -21,7 +21,7 @@ struct VP6BR {
 }
 
 impl VP6BR {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 }
@@ -589,11 +589,4 @@ fn mc_bicubic(dst: &mut [u8], dstride: usize, src: &[u8], mut soff: usize, sstri
             soff += 16;
         }
     }
-}
-
-struct VP6Decoder {
-    dec:        VP56Decoder,
-    info:       NACodecInfoRef,
-    br:         VP6BR,
-    has_alpha:  bool,
 }

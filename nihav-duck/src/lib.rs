@@ -7,4 +7,4 @@ extern crate nihav_codec_support;
 #[allow(clippy::identity_op)]
 #[allow(clippy::unreadable_literal)]
 #[allow(clippy::verbose_bit_mask)]
-mod codecs;
+pub mod codecs;
