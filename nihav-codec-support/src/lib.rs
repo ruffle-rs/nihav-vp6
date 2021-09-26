@@ -5,13 +5,4 @@
 #[allow(clippy::unreadable_literal)]
 pub mod codecs;
 
-#[cfg(feature="dsp")]
-#[allow(clippy::excessive_precision)]
-#[allow(clippy::identity_op)]
-#[allow(clippy::manual_memcpy)]
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::unreadable_literal)]
-pub mod dsp;
-
-
 extern crate nihav_core;
