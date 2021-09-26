@@ -1,8 +1,6 @@
 //! Decoder interface definitions.
 pub use crate::frame::*;
-use crate::io::byteio::ByteIOError;
 use crate::io::bitreader::BitReaderError;
-use crate::io::codebook::CodebookError;
 pub use std::str::FromStr;
 
 /// A list specifying general decoding errors.
@@ -32,10 +30,6 @@ pub enum DecoderError {
 /// A specialised `Result` type for decoding operations.
 pub type DecoderResult<T> = Result<T, DecoderError>;
 
-impl From<ByteIOError> for DecoderError {
-    fn from(_: ByteIOError) -> Self { DecoderError::ShortData }
-}
-
 impl From<BitReaderError> for DecoderError {
     fn from(e: BitReaderError) -> Self {
         match e {
@@ -43,10 +37,6 @@ impl From<BitReaderError> for DecoderError {
             _ => DecoderError::InvalidData,
         }
     }
-}
-
-impl From<CodebookError> for DecoderError {
-    fn from(_: CodebookError) -> Self { DecoderError::InvalidData }
 }
 
 impl From<AllocatorError> for DecoderError {
