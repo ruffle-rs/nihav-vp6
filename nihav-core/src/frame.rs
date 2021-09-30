@@ -97,6 +97,10 @@ pub struct NAVideoBuffer<T> {
 }
 
 impl<T: Clone> NAVideoBuffer<T> {
+    /// Constructs video buffer from the provided components.
+    pub fn from_raw_parts(info: NAVideoInfo, data: NABufferRef<Vec<T>>, offs: Vec<usize>, strides: Vec<usize>) -> Self {
+        Self { info, data, offs, strides }
+    }
     /// Returns the component offset (0 for all unavailable offsets).
     pub fn get_offset(&self, idx: usize) -> usize {
         if idx >= self.offs.len() { 0 }
