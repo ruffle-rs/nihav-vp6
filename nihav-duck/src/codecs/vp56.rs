@@ -461,7 +461,7 @@ impl VP56Decoder {
         self.top_ctx = [vec![0; self.mb_w * 2], vec![0; self.mb_w], vec![0; self.mb_w], vec![0; self.mb_w * 2]];
     }
     pub fn init(&mut self, supp: &mut NADecoderSupport, vinfo: NAVideoInfo) -> DecoderResult<()> {
-        supp.pool_u8.set_dec_bufs(3);
+        supp.pool_u8.set_dec_bufs(3 + if vinfo.get_format().has_alpha() { 1 } else { 0 });
         supp.pool_u8.prealloc_video(NAVideoInfo::new(vinfo.get_width(), vinfo.get_height(), false, vinfo.get_format()), 4)?;
         self.set_dimensions(vinfo.get_width(), vinfo.get_height());
         self.dc_pred.resize(self.mb_w);
@@ -534,9 +534,33 @@ impl VP56Decoder {
             if let Err(err) = ret {
                 return Err(err);
             }
+            match (hdr.is_golden, ahdr.is_golden) {
+                (true, true) => { self.shuf.add_golden_frame(buf.clone()); },
+                (true, false) => {
+                    let cur_golden = self.shuf.get_golden().unwrap();
+                    let off    = cur_golden.get_offset(3);
+                    let stride = cur_golden.get_stride(3);
+                    let mut new_golden = supp.pool_u8.get_copy(&buf).unwrap();
+                    let dst = new_golden.get_data_mut().unwrap();
+                    let src = cur_golden.get_data();
+                    dst[off..][..stride * self.mb_h * 16].copy_from_slice(&src[off..][..stride * self.mb_h * 16]);
+                    self.shuf.add_golden_frame(new_golden);
+                },
+                (false, true) => {
+                    let cur_golden = self.shuf.get_golden().unwrap();
+                    let off    = cur_golden.get_offset(3);
+                    let stride = cur_golden.get_stride(3);
+                    let mut new_golden = supp.pool_u8.get_copy(&cur_golden).unwrap();
+                    let dst = new_golden.get_data_mut().unwrap();
+                    let src = buf.get_data();
+                    dst[off..][..stride * self.mb_h * 16].copy_from_slice(&src[off..][..stride * self.mb_h * 16]);
+                    self.shuf.add_golden_frame(new_golden);
+                },
+                _ => {},
+            };
         }
 
-        if hdr.is_golden {
+        if hdr.is_golden && !self.has_alpha {
             self.shuf.add_golden_frame(buf.clone());
         }
         self.shuf.add_frame(buf.clone());
