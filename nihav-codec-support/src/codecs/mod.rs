@@ -1,6 +1,6 @@
 //! Decoder support functions and definitions.
 use std::fmt;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Sub, SubAssign, Neg};
 
 pub use nihav_core::frame::*;
 
@@ -84,6 +84,13 @@ impl Sub for MV {
 
 impl SubAssign for MV {
     fn sub_assign(&mut self, other: MV) { self.x -= other.x; self.y -= other.y; }
+}
+
+impl Neg for MV {
+    type Output = MV;
+    fn neg(self) -> Self::Output {
+        MV { x: -self.x, y: -self.y }
+    }
 }
 
 impl fmt::Display for MV {
