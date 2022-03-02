@@ -115,7 +115,7 @@ impl<T: Clone> NAVideoBuffer<T> {
     /// Returns the number of components in picture format.
     pub fn get_num_components(&self) -> usize { self.offs.len() }
     /// Creates a copy of current `NAVideoBuffer`.
-    pub fn copy_buffer(&mut self) -> Self {
+    pub fn copy_buffer(&self) -> Self {
         let mut data: Vec<T> = Vec::with_capacity(self.data.len());
         data.clone_from(self.data.as_ref());
         let mut offs: Vec<usize> = Vec::with_capacity(self.offs.len());
