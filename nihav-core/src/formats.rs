@@ -71,17 +71,11 @@ impl ColorModel {
     }
     /// Reports whether the current colour model is RGB.
     pub fn is_rgb(self) -> bool {
-        match self {
-            ColorModel::RGB(_) => true,
-            _ => false,
-        }
+        matches!(self, ColorModel::RGB(_))
     }
     /// Reports whether the current colour model is YUV.
     pub fn is_yuv(self) -> bool {
-        match self {
-            ColorModel::YUV(_) => true,
-            _ => false,
-        }
+        matches!(self, ColorModel::YUV(_))
     }
     /// Returns short name for the current colour mode.
     pub fn get_short_name(self) -> &'static str {
