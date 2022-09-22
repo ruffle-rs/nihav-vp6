@@ -67,10 +67,7 @@ impl NACodecTypeInfo {
     }
     /// Reports whether the current stream is video stream.
     pub fn is_video(&self) -> bool {
-        match *self {
-            NACodecTypeInfo::Video(_) => true,
-            _ => false,
-        }
+        matches!(*self, NACodecTypeInfo::Video(_))
     }
 }
 
@@ -320,10 +317,7 @@ pub fn alloc_video_buffer(vinfo: NAVideoInfo, align: u8) -> Result<NABufferType,
         }
         max_depth = max(max_depth, chr.get_depth());
     }
-    let unfit_elem_size = match fmt.get_elem_size() {
-            2 | 4 => false,
-            _ => true,
-        };
+    let unfit_elem_size = !matches!(fmt.get_elem_size(), 2 | 4);
 
 //todo semi-packed like NV12
     if fmt.is_paletted() {
@@ -529,11 +523,7 @@ pub type NACodecInfoRef = Arc<NACodecInfo>;
 impl NACodecInfo {
     /// Constructs a new instance of `NACodecInfo`.
     pub fn new(name: &'static str, p: NACodecTypeInfo, edata: Option<Vec<u8>>) -> Self {
-        let extradata = match edata {
-            None => None,
-            Some(vec) => Some(Arc::new(vec)),
-        };
-        NACodecInfo { name, properties: p, extradata }
+        NACodecInfo { name, properties: p, extradata: edata.map(Arc::new) }
     }
     /// Constructs a new reference-counted instance of `NACodecInfo`.
     pub fn new_ref(name: &'static str, p: NACodecTypeInfo, edata: Option<Arc<Vec<u8>>>) -> Self {

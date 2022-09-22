@@ -633,7 +633,7 @@ impl VP56Decoder {
             self.fstate.last_idx = [24; 4];
             for mb_x in 0..self.mb_w {
                 self.fstate.mb_x = mb_x;
-                self.decode_mb(dframe, bc, &mut cr, br, &hdr, alpha)?;
+                self.decode_mb(dframe, bc, &mut cr, br, hdr, alpha)?;
                 self.dc_pred.next_mb();
             }
             self.dc_pred.update_row();
