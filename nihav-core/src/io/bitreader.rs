@@ -305,8 +305,11 @@ impl<'a> BitReader<'a> {
         self.reset_cache();
         self.pos += ((skip_bits / 32) * 4) as usize;
         skip_bits &= 0x1F;
-        self.refill()?;
         if skip_bits > 0 {
+            self.refill()?;
+            if u32::from(self.bits) < skip_bits {
+                return Err(BitstreamEnd);
+            }
             self.skip_cache(skip_bits as u8);
         }
         Ok(())
