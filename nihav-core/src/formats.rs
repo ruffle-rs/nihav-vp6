@@ -497,13 +497,13 @@ impl fmt::Display for NAPixelFormaton {
         let end = if self.be { "BE" } else { "LE" };
         let palstr = if self.palette { "palette " } else { "" };
         let astr = if self.alpha { "alpha " } else { "" };
-        let mut str = format!("Formaton for {} ({}{}elem {} size {}): ", self.model, palstr, astr,end, self.elem_size);
+        let mut string = format!("Formaton for {} ({}{}elem {} size {}): ", self.model, palstr, astr,end, self.elem_size);
         for i in 0..self.comp_info.len() {
             if let Some(chr) = self.comp_info[i] {
-                str = format!("{} {}", str, chr);
+                string = format!("{} {}", string, chr);
             }
         }
-        write!(f, "[{}]", str)
+        write!(f, "[{}]", string)
     }
 }
 
