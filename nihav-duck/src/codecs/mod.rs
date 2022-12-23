@@ -1,6 +1,11 @@
 
+#[cfg(debug_assertions)]
 macro_rules! validate {
     ($a:expr) => { if !$a { println!("check failed at {}:{}", file!(), line!()); return Err(DecoderError::InvalidData); } };
+}
+#[cfg(not(debug_assertions))]
+macro_rules! validate {
+    ($a:expr) => { if !$a { return Err(DecoderError::InvalidData); } };
 }
 
 #[macro_use]
