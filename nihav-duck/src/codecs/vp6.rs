@@ -62,8 +62,9 @@ impl VP56Parser for VP6BR {
             hdr.mb_w                            = bc.read_bits(8) as u8;
             hdr.disp_h                          = bc.read_bits(8) as u8;
             hdr.disp_w                          = bc.read_bits(8) as u8;
-            validate!((hdr.mb_h > 0) && (hdr.mb_w > 0) && (hdr.disp_w > 0) && (hdr.disp_h > 0));
-            validate!((hdr.disp_w <= hdr.mb_w) && (hdr.disp_h <= hdr.mb_h));
+            validate!((hdr.mb_h > 0) && (hdr.mb_w > 0));
+            //validate!((hdr.disp_w > 0) && (hdr.disp_h > 0));
+            //validate!((hdr.disp_w <= hdr.mb_w) && (hdr.disp_h <= hdr.mb_h));
             hdr.scale                           = bc.read_bits(2) as u8;
         } else {
             hdr.is_golden                       = bc.read_bool();
