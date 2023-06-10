@@ -450,6 +450,22 @@ impl<T:Copy> NAVideoBufferPool<T> {
     pub fn reset(&mut self) {
         self.pool.clear();
     }
+    /// Returns the number of frames currently in use.
+    pub fn get_num_used(&self) -> usize {
+        self.pool.iter().filter(|el| el.get_num_refs() != 1).count()
+    }
+    /// Adds a manually allocated frame to the pool.
+    pub fn add_frame(&mut self, buf: NAVideoBufferRef<T>) {
+        self.pool.push(buf);
+    }
+    /// Returns current video format (if available).
+    pub fn get_info(&self) -> Option<NAVideoInfo> {
+        if !self.pool.is_empty() {
+            Some(self.pool[0].get_info())
+        } else {
+            None
+        }
+    }
 }
 
 impl NAVideoBufferPool<u8> {
