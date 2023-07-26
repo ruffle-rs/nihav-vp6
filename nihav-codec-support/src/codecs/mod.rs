@@ -26,6 +26,7 @@ pub struct MV {
 
 #[allow(clippy::many_single_char_names)]
 #[allow(clippy::collapsible_if)]
+#[allow(clippy::collapsible_else_if)]
 impl MV {
     /// Creates a new motion vector instance.
     pub fn new(x: i16, y: i16) -> Self { MV{ x, y } }

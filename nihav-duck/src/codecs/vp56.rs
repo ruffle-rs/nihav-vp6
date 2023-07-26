@@ -531,9 +531,7 @@ impl VP56Decoder {
             std::mem::swap(&mut self.models, &mut self.amodels);
             let ret = self.decode_planes(br, &mut dframe, &mut bc, &ahdr, asrc, true);
             std::mem::swap(&mut self.models, &mut self.amodels);
-            if let Err(err) = ret {
-                return Err(err);
-            }
+            ret?;
             match (hdr.is_golden, ahdr.is_golden) {
                 (true, true) => { self.shuf.add_golden_frame(buf.clone()); },
                 (true, false) => {
@@ -699,16 +697,16 @@ impl VP56Decoder {
                 let sum = u32::from(prob_xmitted[mode * 2]) + u32::from(prob_xmitted[mode * 2 + 1]);
                 mdl.probs[9] = 255 - rescale_mb_mode_prob(u32::from(prob_xmitted[mode * 2 + 1]), sum);
 
-                let inter_mv0_weight = (cnt[0] as u32) + (cnt[2] as u32);
-                let inter_mv1_weight = (cnt[3] as u32) + (cnt[4] as u32);
-                let gold_mv0_weight = (cnt[5] as u32) + (cnt[6] as u32);
-                let gold_mv1_weight = (cnt[8] as u32) + (cnt[9] as u32);
-                let mix_weight = (cnt[1] as u32) + (cnt[7] as u32);
+                let inter_mv0_weight = cnt[0] + cnt[2];
+                let inter_mv1_weight = cnt[3] + cnt[4];
+                let gold_mv0_weight = cnt[5] + cnt[6];
+                let gold_mv1_weight = cnt[8] + cnt[9];
+                let mix_weight = cnt[1] + cnt[7];
                 mdl.probs[0] = 1 + rescale_mb_mode_prob(inter_mv0_weight + inter_mv1_weight, total);
                 mdl.probs[1] = 1 + rescale_mb_mode_prob(inter_mv0_weight, inter_mv0_weight + inter_mv1_weight);
                 mdl.probs[2] = 1 + rescale_mb_mode_prob(mix_weight, mix_weight + gold_mv0_weight + gold_mv1_weight);
-                mdl.probs[3] = 1 + rescale_mb_mode_prob(cnt[0] as u32, inter_mv0_weight);
-                mdl.probs[4] = 1 + rescale_mb_mode_prob(cnt[3] as u32, inter_mv1_weight);
+                mdl.probs[3] = 1 + rescale_mb_mode_prob(cnt[0], inter_mv0_weight);
+                mdl.probs[4] = 1 + rescale_mb_mode_prob(cnt[3], inter_mv1_weight);
                 mdl.probs[5] = 1 + rescale_mb_mode_prob(cnt[1], mix_weight);
                 mdl.probs[6] = 1 + rescale_mb_mode_prob(gold_mv0_weight, gold_mv0_weight + gold_mv1_weight);
                 mdl.probs[7] = 1 + rescale_mb_mode_prob(cnt[5], gold_mv0_weight);

@@ -337,41 +337,33 @@ impl NAPixelFormaton {
     /// Reports whether the format is not packed.
     pub fn is_unpacked(&self) -> bool {
         if self.palette { return false; }
-        for chr in self.comp_info.iter() {
-            if let Some(ref chromaton) = chr {
-                if chromaton.is_packed() { return false; }
-            }
+        for chromaton in self.comp_info.iter().flatten() {
+            if chromaton.is_packed() { return false; }
         }
         true
     }
     /// Returns the maximum component bit depth.
     pub fn get_max_depth(&self) -> u8 {
         let mut mdepth = 0;
-        for chr in self.comp_info.iter() {
-            if let Some(ref chromaton) = chr {
-                mdepth = mdepth.max(chromaton.depth);
-            }
+        for chromaton in self.comp_info.iter().flatten() {
+            mdepth = mdepth.max(chromaton.depth);
         }
         mdepth
     }
     /// Returns the total amount of bits needed for components.
     pub fn get_total_depth(&self) -> u8 {
         let mut depth = 0;
-        for chr in self.comp_info.iter() {
-            if let Some(ref chromaton) = chr {
-                depth += chromaton.depth;
-            }
+        for chromaton in self.comp_info.iter().flatten() {
+            depth += chromaton.depth;
         }
         depth
     }
     /// Returns the maximum component subsampling.
     pub fn get_max_subsampling(&self) -> u8 {
         let mut ssamp = 0;
-        for chr in self.comp_info.iter() {
-            if let Some(ref chromaton) = chr {
-                let (ss_v, ss_h) = chromaton.get_subsampling();
-                ssamp = ssamp.max(ss_v).max(ss_h);
-            }
+        for chromaton in self.comp_info.iter().flatten() {
+            let (ss_v, ss_h) = chromaton.get_subsampling();
+            ssamp = ssamp.max(ss_v).max(ss_h);
         }
         ssamp
     }
@@ -393,12 +385,10 @@ impl NAPixelFormaton {
                 let mut start_off = 0;
                 let mut start_shift = 0;
                 let mut use_shift = true;
-                for comp in self.comp_info.iter() {
-                    if let Some(comp) = comp {
-                        start_off = start_off.min(comp.comp_offs);
-                        start_shift = start_shift.min(comp.shift);
-                        if comp.comp_offs != 0 { use_shift = false; }
-                    }
+                for comp in self.comp_info.iter().flatten() {
+                    start_off = start_off.min(comp.comp_offs);
+                    start_shift = start_shift.min(comp.shift);
+                    if comp.comp_offs != 0 { use_shift = false; }
                 }
                 for component in 0..(self.components as usize) {
                     for (comp, cname) in self.comp_info.iter().zip(b"rgba".iter()) {
