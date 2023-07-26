@@ -227,7 +227,7 @@ impl<'a> BitReader<'a> {
         if nbits == 0 { return Ok(0) }
         if nbits > 32 { return Err(TooManyBitsRequested) }
         if self.bits < nbits {
-            if let Err(err) = self.refill() { return Err(err) }
+            self.refill()?;
             if self.bits < nbits { return Err(BitstreamEnd) }
         }
         let res = self.read_cache(nbits);
@@ -243,7 +243,7 @@ impl<'a> BitReader<'a> {
     pub fn read_s(&mut self, nbits: u8) -> BitReaderResult<i32> {
         if nbits == 0 || nbits > 32 { return Err(TooManyBitsRequested) }
         if self.bits < nbits {
-            if let Err(err) = self.refill() { return Err(err) }
+            self.refill()?;
             if self.bits < nbits { return Err(BitstreamEnd) }
         }
         let res = self.read_cache_s(nbits);
@@ -255,7 +255,7 @@ impl<'a> BitReader<'a> {
     #[inline(always)]
     pub fn read_bool(&mut self) -> BitReaderResult<bool> {
         if self.bits < 1 {
-            if let Err(err) = self.refill() { return Err(err) }
+            self.refill()?;
             if self.bits < 1 { return Err(BitstreamEnd) }
         }
         let res = self.read_cache(1);

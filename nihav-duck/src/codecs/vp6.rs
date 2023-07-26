@@ -54,7 +54,6 @@ impl VP56Parser for VP6BR {
             hdr.multistream = true;
         }
         let bytes = br.tell() >> 3;
-        std::mem::drop(br);
         bc.skip_bytes(bytes);
         self.loop_mode = 0;
         if hdr.is_intra {

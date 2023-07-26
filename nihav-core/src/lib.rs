@@ -1,4 +1,5 @@
 //! Core functionality of NihAV intended to be used by both crates implementing format support and users.
+#[allow(clippy::upper_case_acronyms)]
 #[allow(clippy::cast_lossless)]
 #[allow(clippy::identity_op)]
 #[allow(clippy::too_many_arguments)]

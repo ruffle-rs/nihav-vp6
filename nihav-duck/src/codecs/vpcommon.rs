@@ -15,9 +15,10 @@ pub const VP_YUVA420_FORMAT: NAPixelFormaton = NAPixelFormaton{
         palette:    false
     };
 
-#[derive(Clone,Copy,Debug,PartialEq)]
+#[derive(Clone,Copy,Debug,PartialEq,Default)]
 #[allow(dead_code)]
 pub enum VPMBType {
+    #[default]
     Intra,
     InterNoMV,
     InterMV,
@@ -49,10 +50,6 @@ impl VPMBType {
     }
 }
 
-impl Default for VPMBType {
-    fn default() -> Self { VPMBType::Intra }
-}
-
 #[derive(Default)]
 pub struct VPShuffler {
     lastframe: Option<NAVideoBufferRef<u8>>,
@@ -69,18 +66,10 @@ impl VPShuffler {
         self.goldframe = Some(buf);
     }
     pub fn get_last(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.lastframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.lastframe.as_ref().cloned()
     }
     pub fn get_golden(&mut self) -> Option<NAVideoBufferRef<u8>> {
-        if let Some(ref frm) = self.goldframe {
-            Some(frm.clone())
-        } else {
-            None
-        }
+        self.goldframe.as_ref().cloned()
     }
     pub fn has_refs(&self) -> bool {
         self.lastframe.is_some()
