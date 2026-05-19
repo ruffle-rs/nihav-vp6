@@ -484,7 +484,7 @@ impl VP56Decoder {
             bc = BoolCoder::new(src)?;
         }
         let hdr = br.parse_header(&mut bc)?;
-        validate!((hdr.offset as usize) < aoffset); //XXX: take alpha 3 byte offset into account?
+        validate!((hdr.offset as usize) < aoffset);
 
         if hdr.mb_w != 0 && (usize::from(hdr.mb_w) != self.mb_w || usize::from(hdr.mb_h) != self.mb_h) {
             self.set_dimensions((hdr.mb_w as usize) * 16, (hdr.mb_h as usize) * 16);
