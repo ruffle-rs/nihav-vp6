@@ -520,7 +520,7 @@ impl VP56Decoder {
             }
         }
 
-        let psrc = &src[if self.has_alpha { 3 } else { 0 }..aoffset];
+        let psrc = &src[if self.has_alpha { 3 } else { 0 }..][..aoffset];
         self.decode_planes(br, &mut dframe, &mut bc, &hdr, psrc, false)?;
 
         if self.has_alpha {
