@@ -997,7 +997,8 @@ impl VP56Decoder {
             let x = self.fstate.mb_x * 8;
             let y = self.fstate.mb_y * 8;
             let sum = mvs[0] + mvs[1] + mvs[2] + mvs[3];
-            let mv = MV { x: sum.x / 4, y: sum.y / 4 };
+            let rs = |a: i16| if a > 0 { (a + 2) >> 2 } else { (a + 1) >> 2 };
+            let mv = MV { x: rs(sum.x), y: rs(sum.y) };
             br.mc_block(frm, self.mc_buf.clone(), src.clone(), 1, x, y, mv, self.loop_thr);
             br.mc_block(frm, self.mc_buf.clone(), src,         2, x, y, mv, self.loop_thr);
         }
