@@ -311,15 +311,17 @@ impl VP56Parser for VP6BR {
             };
         let tmp_blk = mc_buf.get_data_mut().unwrap();
         get_block(tmp_blk, 16, src, plane, x, y, sx, sy);
-        if (msx & 7) != 0 {
-            let foff = (8 - (sx & 7)) as usize;
-            let off = 2 + foff;
-            vp31_loop_filter(tmp_blk, off, 1, 16, 12, loop_str);
-        }
-        if (msy & 7) != 0 {
-            let foff = (8 - (sy & 7)) as usize;
-            let off = (2 + foff) * 16;
-            vp31_loop_filter(tmp_blk, off, 16, 1, 12, loop_str);
+        if self.loop_mode != 0 {
+            if (msx & 7) != 0 {
+                let foff = (8 - (sx & 7)) as usize;
+                let off = 2 + foff;
+                vp31_loop_filter(tmp_blk, off, 1, 16, 12, loop_str);
+            }
+            if (msy & 7) != 0 {
+                let foff = (8 - (sy & 7)) as usize;
+                let off = (2 + foff) * 16;
+                vp31_loop_filter(tmp_blk, off, 16, 1, 12, loop_str);
+            }
         }
         let copy_mode = (mx == 0) && (my == 0);
         let mut bicubic = !copy_mode && is_luma && self.bicubic;
